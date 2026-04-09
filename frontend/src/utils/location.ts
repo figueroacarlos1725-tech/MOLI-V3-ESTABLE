@@ -20,7 +20,11 @@ export async function getCurrentLocation(): Promise<LocationCoords | null> {
   try {
     const hasPermission = await requestLocationPermission();
     if (!hasPermission) {
-      return null;
+      // Return Buenos Aires as default for Latin America
+      return {
+        latitude: -34.6037,
+        longitude: -58.3816,
+      };
     }
 
     const location = await Location.getCurrentPositionAsync({
@@ -33,7 +37,11 @@ export async function getCurrentLocation(): Promise<LocationCoords | null> {
     };
   } catch (error) {
     console.error('Error getting current location:', error);
-    return null;
+    // Fallback to Buenos Aires
+    return {
+      latitude: -34.6037,
+      longitude: -58.3816,
+    };
   }
 }
 

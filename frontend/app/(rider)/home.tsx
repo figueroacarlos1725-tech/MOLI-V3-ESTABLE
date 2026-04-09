@@ -195,7 +195,7 @@ export default function RiderHomeScreen() {
           {currentRide.driver_info && (
             <View style={styles.driverInfo}>
               <View style={styles.driverAvatar}>
-                <Ionicons name="person" size={32} color="#007AFF" />
+                <Ionicons name="person" size={32} color="#6BBF00" />
               </View>
               <View style={styles.driverDetails}>
                 <Text style={styles.driverName}>{currentRide.driver_info.name}</Text>
@@ -321,7 +321,7 @@ export default function RiderHomeScreen() {
               <Ionicons
                 name={type.icon as any}
                 size={28}
-                color={selectedVehicleType === type.id ? '#007AFF' : '#8E8E93'}
+                color={selectedVehicleType === type.id ? '#6BBF00' : '#8E8E93'}
               />
               <Text style={[
                 styles.vehicleTypeName,
@@ -536,9 +536,9 @@ const styles = StyleSheet.create({
     minWidth: 80,
   },
   vehicleTypeCardSelected: {
-    backgroundColor: '#E3F2FD',
+    backgroundColor: '#E8F5E9',
     borderWidth: 2,
-    borderColor: '#007AFF',
+    borderColor: '#6BBF00',
   },
   vehicleTypeName: {
     fontSize: 12,
@@ -547,7 +547,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   vehicleTypeNameSelected: {
-    color: '#007AFF',
+    color: '#6BBF00',
   },
   vehicleTypeMultiplier: {
     fontSize: 10,
