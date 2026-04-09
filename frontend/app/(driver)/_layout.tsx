@@ -8,7 +8,7 @@ export default function DriverLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: '#34C759',
+        tabBarActiveTintColor: '#6BBF00',
         tabBarInactiveTintColor: '#8E8E93',
         tabBarStyle: {
           backgroundColor: '#fff',
@@ -27,7 +27,7 @@ export default function DriverLayout() {
       <Tabs.Screen
         name="home"
         options={{
-          title: 'Home',
+          title: 'Inicio',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="home" size={size} color={color} />
           ),
@@ -36,7 +36,7 @@ export default function DriverLayout() {
       <Tabs.Screen
         name="rides"
         options={{
-          title: 'Requests',
+          title: 'Solicitudes',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="list" size={size} color={color} />
           ),
@@ -45,7 +45,7 @@ export default function DriverLayout() {
       <Tabs.Screen
         name="earnings"
         options={{
-          title: 'Earnings',
+          title: 'Ganancias',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="cash" size={size} color={color} />
           ),
@@ -54,7 +54,7 @@ export default function DriverLayout() {
       <Tabs.Screen
         name="profile"
         options={{
-          title: 'Profile',
+          title: 'Perfil',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="person" size={size} color={color} />
           ),

@@ -55,7 +55,7 @@ export function Button({
     >
       {loading ? (
         <ActivityIndicator
-          color={variant === 'outline' ? '#007AFF' : '#fff'}
+          color={variant === 'outline' ? '#6BBF00' : '#fff'}
           size="small"
         />
       ) : (
@@ -77,15 +77,15 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   primary: {
-    backgroundColor: '#007AFF',
+    backgroundColor: '#6BBF00',
   },
   secondary: {
-    backgroundColor: '#34C759',
+    backgroundColor: '#6BBF00',
   },
   outline: {
     backgroundColor: 'transparent',
     borderWidth: 2,
-    borderColor: '#007AFF',
+    borderColor: '#6BBF00',
   },
   danger: {
     backgroundColor: '#FF3B30',
@@ -115,7 +115,7 @@ const styles = StyleSheet.create({
     color: '#fff',
   },
   outlineText: {
-    color: '#007AFF',
+    color: '#6BBF00',
   },
   dangerText: {
     color: '#fff',

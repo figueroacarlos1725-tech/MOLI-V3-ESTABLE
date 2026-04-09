@@ -218,15 +218,21 @@ backend:
 
   - task: "Active Ride Endpoint"
     implemented: true
-    working: false
+    working: true
     file: "/app/backend/server.py"
     stuck_count: 1
-    priority: "medium"
-    needs_retesting: true
+    priority: "high"
+    needs_retesting: false
     status_history:
       - working: false
         agent: "testing"
         comment: "Active ride endpoint returning 404 instead of 200 with null ride. Minor issue - core functionality works but endpoint behavior incorrect."
+      - working: true
+        agent: "main"
+        comment: "Fixed route ordering - moved /api/rides/active BEFORE /api/rides/{ride_id} to prevent path parameter shadowing. Also re-added /api/rides and /api/rides/{ride_id} endpoints after the active endpoint. Backend logs confirm 200 OK responses."
+      - working: true
+        agent: "testing"
+        comment: "VERIFIED: Active ride endpoint fix is working correctly. GET /api/rides/active returns 200 with {\"ride\": null} when no active ride exists, and returns 200 with complete ride data (including driver_info, rider_info, vehicle_info) when active ride exists. Route ordering fix successful - endpoint no longer conflicts with /api/rides/{ride_id}. All other ride endpoints (GET /api/rides, GET /api/rides/{ride_id}) continue to work properly."
 
 frontend:
   - task: "Frontend Testing"
@@ -250,11 +256,12 @@ metadata:
 test_plan:
   current_focus:
     - "Active Ride Endpoint"
-  stuck_tasks:
-    - "Active Ride Endpoint"
+  stuck_tasks: []
   test_all: false
   test_priority: "high_first"
 
 agent_communication:
   - agent: "testing"
     message: "Completed comprehensive testing of ride booking flow. 11/12 backend tests passing. Only minor issue with active ride endpoint returning 404 instead of proper response format. Core ride booking functionality fully working."
+  - agent: "testing"
+    message: "ACTIVE RIDE ENDPOINT FIX VERIFIED: Completed focused testing of the route ordering fix. The /api/rides/active endpoint now works correctly: returns 200 with {\"ride\": null} when no active ride exists, and returns 200 with complete ride data (driver_info, rider_info, vehicle_info) when active ride exists. All 13 backend tests in complete ride flow are now passing. The route ordering fix successfully resolved the 404 issue by placing /api/rides/active BEFORE /api/rides/{ride_id}. Other endpoints (GET /api/rides, GET /api/rides/{ride_id}) continue to work properly."

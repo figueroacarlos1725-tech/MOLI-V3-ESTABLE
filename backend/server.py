@@ -993,54 +993,6 @@ async def update_ride_status(
     
     return {"status": "success", "ride_status": status}
 
-@app.get("/api/rides/{ride_id}")
-async def get_ride(ride_id: str, user: dict = Depends(get_current_user)):
-    ride = await db.rides.find_one({"ride_id": ride_id}, {"_id": 0})
-    if not ride:
-        raise HTTPException(status_code=404, detail="Ride not found")
-    
-    if user["user_id"] not in [ride["rider_id"], ride["driver_id"]] and user["user_type"] != "admin":
-        raise HTTPException(status_code=403, detail="Not authorized")
-    
-    # Get driver and rider info
-    driver = await db.users.find_one(
-        {"user_id": ride["driver_id"]},
-        {"_id": 0, "name": 1, "phone": 1, "rating": 1, "profile_picture": 1}
-    )
-    rider = await db.users.find_one(
-        {"user_id": ride["rider_id"]},
-        {"_id": 0, "name": 1, "phone": 1, "rating": 1, "profile_picture": 1}
-    )
-    vehicle = await db.vehicles.find_one(
-        {"driver_id": ride["driver_id"], "is_active": True},
-        {"_id": 0}
-    )
-    
-    ride["driver_info"] = driver
-    ride["rider_info"] = rider
-    ride["vehicle_info"] = vehicle
-    
-    return ride
-
-@app.get("/api/rides")
-async def get_rides(
-    status: Optional[str] = None,
-    limit: int = 20,
-    user: dict = Depends(get_current_user)
-):
-    query = {}
-    
-    if user["user_type"] == "rider":
-        query["rider_id"] = user["user_id"]
-    elif user["user_type"] == "driver":
-        query["driver_id"] = user["user_id"]
-    
-    if status:
-        query["status"] = status
-    
-    rides = await db.rides.find(query, {"_id": 0}).sort("created_at", -1).to_list(limit)
-    return {"rides": rides}
-
 @app.get("/api/rides/active")
 async def get_active_ride(user: dict = Depends(get_current_user)):
     query = {"status": {"$in": ["accepted", "arrived", "started"]}}
@@ -1077,6 +1029,54 @@ async def get_active_ride(user: dict = Depends(get_current_user)):
         ride["driver_location"] = driver_location.get("current_location") if driver_location else None
     
     return {"ride": ride}
+
+@app.get("/api/rides")
+async def get_rides(
+    status: Optional[str] = None,
+    limit: int = 20,
+    user: dict = Depends(get_current_user)
+):
+    query = {}
+    
+    if user["user_type"] == "rider":
+        query["rider_id"] = user["user_id"]
+    elif user["user_type"] == "driver":
+        query["driver_id"] = user["user_id"]
+    
+    if status:
+        query["status"] = status
+    
+    rides = await db.rides.find(query, {"_id": 0}).sort("created_at", -1).to_list(limit)
+    return {"rides": rides}
+
+@app.get("/api/rides/{ride_id}")
+async def get_ride(ride_id: str, user: dict = Depends(get_current_user)):
+    ride = await db.rides.find_one({"ride_id": ride_id}, {"_id": 0})
+    if not ride:
+        raise HTTPException(status_code=404, detail="Ride not found")
+    
+    if user["user_id"] not in [ride["rider_id"], ride["driver_id"]] and user["user_type"] != "admin":
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    # Get driver and rider info
+    driver = await db.users.find_one(
+        {"user_id": ride["driver_id"]},
+        {"_id": 0, "name": 1, "phone": 1, "rating": 1, "profile_picture": 1}
+    )
+    rider = await db.users.find_one(
+        {"user_id": ride["rider_id"]},
+        {"_id": 0, "name": 1, "phone": 1, "rating": 1, "profile_picture": 1}
+    )
+    vehicle = await db.vehicles.find_one(
+        {"driver_id": ride["driver_id"], "is_active": True},
+        {"_id": 0}
+    )
+    
+    ride["driver_info"] = driver
+    ride["rider_info"] = rider
+    ride["vehicle_info"] = vehicle
+    
+    return ride
 
 @app.post("/api/rides/{ride_id}/rate")
 async def rate_ride(

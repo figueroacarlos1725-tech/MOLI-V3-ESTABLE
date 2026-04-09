@@ -27,7 +27,7 @@ export default function AdminLayout() {
       <Tabs.Screen
         name="dashboard"
         options={{
-          title: 'Dashboard',
+          title: 'Panel',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="grid" size={size} color={color} />
           ),
@@ -36,7 +36,7 @@ export default function AdminLayout() {
       <Tabs.Screen
         name="users"
         options={{
-          title: 'Users',
+          title: 'Usuarios',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="people" size={size} color={color} />
           ),
@@ -45,7 +45,7 @@ export default function AdminLayout() {
       <Tabs.Screen
         name="settings"
         options={{
-          title: 'Settings',
+          title: 'Ajustes',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="settings" size={size} color={color} />
           ),
@@ -54,7 +54,7 @@ export default function AdminLayout() {
       <Tabs.Screen
         name="support"
         options={{
-          title: 'Support',
+          title: 'Soporte',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="chatbubbles" size={size} color={color} />
           ),

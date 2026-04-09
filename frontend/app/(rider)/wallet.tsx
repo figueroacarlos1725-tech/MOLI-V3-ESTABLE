@@ -15,6 +15,7 @@ import { useAuthStore } from '@/src/stores/authStore';
 import { apiService } from '@/src/services/api';
 import { Button } from '@/src/components/Button';
 import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
 
 interface Transaction {
   transaction_id: string;
@@ -26,7 +27,7 @@ interface Transaction {
 }
 
 export default function RiderWalletScreen() {
-  const { user, updateUser } = useAuthStore();
+  const { user } = useAuthStore();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [showAddFundsModal, setShowAddFundsModal] = useState(false);
   const [addAmount, setAddAmount] = useState('');
@@ -42,14 +43,14 @@ export default function RiderWalletScreen() {
       const response = await apiService.get('/wallet/transactions');
       setTransactions(response.transactions || []);
     } catch (error) {
-      console.error('Error fetching transactions:', error);
+      console.error('Error al cargar transacciones:', error);
     }
   };
 
   const handleAddFunds = async () => {
     const amount = parseFloat(addAmount);
     if (isNaN(amount) || amount <= 0) {
-      Alert.alert('Error', 'Please enter a valid amount');
+      Alert.alert('Error', 'Por favor ingresa un monto válido');
       return;
     }
 
@@ -59,15 +60,14 @@ export default function RiderWalletScreen() {
       
       if (response.status === 'pending_config') {
         Alert.alert(
-          'Payment Gateway Not Configured',
-          'The payment gateway is not yet configured. Please contact admin to set up payment methods.',
+          'Pasarela no configurada',
+          'La pasarela de pago aún no está configurada. Por favor contacta al administrador.',
           [{ text: 'OK' }]
         );
       } else if (response.checkout_url) {
-        // In a real app, open the checkout URL in a browser
         Alert.alert(
-          'Redirect to Payment',
-          'You will be redirected to complete the payment.',
+          'Redirigiendo al pago',
+          'Serás redirigido para completar el pago.',
           [{ text: 'OK' }]
         );
       }
@@ -75,7 +75,7 @@ export default function RiderWalletScreen() {
       setShowAddFundsModal(false);
       setAddAmount('');
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to initiate payment');
+      Alert.alert('Error', error.message || 'No se pudo iniciar el pago');
     } finally {
       setIsLoading(false);
     }
@@ -109,6 +109,21 @@ export default function RiderWalletScreen() {
     }
   };
 
+  const getTransactionLabel = (type: string) => {
+    switch (type) {
+      case 'deposit':
+        return 'Depósito';
+      case 'withdrawal':
+        return 'Retiro';
+      case 'payment':
+        return 'Pago de viaje';
+      case 'refund':
+        return 'Reembolso';
+      default:
+        return type;
+    }
+  };
+
   const renderTransaction = ({ item }: { item: Transaction }) => (
     <View style={styles.transactionCard}>
       <View style={[styles.transactionIcon, { backgroundColor: `${getTransactionColor(item.transaction_type)}20` }]}>
@@ -120,10 +135,10 @@ export default function RiderWalletScreen() {
       </View>
       <View style={styles.transactionDetails}>
         <Text style={styles.transactionType}>
-          {item.transaction_type.charAt(0).toUpperCase() + item.transaction_type.slice(1)}
+          {getTransactionLabel(item.transaction_type)}
         </Text>
         <Text style={styles.transactionDate}>
-          {format(new Date(item.created_at), 'MMM d, yyyy • h:mm a')}
+          {format(new Date(item.created_at), "d 'de' MMM, yyyy \u2022 h:mm a", { locale: es })}
         </Text>
       </View>
       <Text style={[
@@ -139,11 +154,11 @@ export default function RiderWalletScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Wallet</Text>
+        <Text style={styles.title}>Billetera</Text>
       </View>
 
       <View style={styles.balanceCard}>
-        <Text style={styles.balanceLabel}>Available Balance</Text>
+        <Text style={styles.balanceLabel}>Saldo disponible</Text>
         <Text style={styles.balanceAmount}>${user?.wallet_balance?.toFixed(2) || '0.00'}</Text>
         <View style={styles.balanceActions}>
           <TouchableOpacity
@@ -151,13 +166,13 @@ export default function RiderWalletScreen() {
             onPress={() => setShowAddFundsModal(true)}
           >
             <Ionicons name="add-circle" size={20} color="#fff" />
-            <Text style={styles.balanceButtonText}>Add Funds</Text>
+            <Text style={styles.balanceButtonText}>Agregar fondos</Text>
           </TouchableOpacity>
         </View>
       </View>
 
       <View style={styles.transactionsSection}>
-        <Text style={styles.sectionTitle}>Transaction History</Text>
+        <Text style={styles.sectionTitle}>Historial de transacciones</Text>
         <FlatList
           data={transactions}
           renderItem={renderTransaction}
@@ -166,13 +181,13 @@ export default function RiderWalletScreen() {
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
               <Ionicons name="receipt-outline" size={64} color="#E5E5EA" />
-              <Text style={styles.emptyText}>No transactions yet</Text>
+              <Text style={styles.emptyText}>Sin transacciones aún</Text>
             </View>
           }
         />
       </View>
 
-      {/* Add Funds Modal */}
+      {/* Modal de agregar fondos */}
       <Modal
         visible={showAddFundsModal}
         animationType="slide"
@@ -181,13 +196,13 @@ export default function RiderWalletScreen() {
         <View style={styles.modalContainer}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Add Funds</Text>
+              <Text style={styles.modalTitle}>Agregar fondos</Text>
               <TouchableOpacity onPress={() => setShowAddFundsModal(false)}>
                 <Ionicons name="close" size={24} color="#1C1C1E" />
               </TouchableOpacity>
             </View>
 
-            <Text style={styles.inputLabel}>Amount</Text>
+            <Text style={styles.inputLabel}>Monto</Text>
             <View style={styles.amountInput}>
               <Text style={styles.currencySymbol}>$</Text>
               <TextInput
@@ -200,7 +215,7 @@ export default function RiderWalletScreen() {
               />
             </View>
 
-            <Text style={styles.inputLabel}>Payment Method</Text>
+            <Text style={styles.inputLabel}>Método de pago</Text>
             <View style={styles.paymentMethods}>
               <TouchableOpacity
                 style={[
@@ -236,7 +251,7 @@ export default function RiderWalletScreen() {
             </View>
 
             <Button
-              title="Add Funds"
+              title="Agregar fondos"
               onPress={handleAddFunds}
               loading={isLoading}
               disabled={!addAmount}

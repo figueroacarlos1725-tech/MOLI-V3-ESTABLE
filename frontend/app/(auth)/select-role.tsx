@@ -35,8 +35,8 @@ export default function SelectRoleScreen() {
       </TouchableOpacity>
 
       <View style={styles.content}>
-        <Text style={styles.title}>Join as</Text>
-        <Text style={styles.subtitle}>Choose how you want to use TaxiRide</Text>
+        <Text style={styles.title}>Únete como</Text>
+        <Text style={styles.subtitle}>Elige cómo quieres usar TaxiRide</Text>
 
         <View style={styles.optionsContainer}>
           <TouchableOpacity
@@ -60,10 +60,10 @@ export default function SelectRoleScreen() {
               styles.optionTitle,
               selectedRole === 'rider' && styles.optionTitleSelected,
             ]}>
-              Rider
+              Pasajero
             </Text>
             <Text style={styles.optionDescription}>
-              Book rides and travel comfortably
+              Solicita viajes y viaja cómodamente
             </Text>
             {selectedRole === 'rider' && (
               <View style={styles.checkmark}>
@@ -93,10 +93,10 @@ export default function SelectRoleScreen() {
               styles.optionTitle,
               selectedRole === 'driver' && styles.optionTitleSelectedDriver,
             ]}>
-              Driver
+              Conductor
             </Text>
             <Text style={styles.optionDescription}>
-              Earn money by driving passengers
+              Gana dinero llevando pasajeros
             </Text>
             {selectedRole === 'driver' && (
               <View style={styles.checkmark}>
@@ -107,7 +107,7 @@ export default function SelectRoleScreen() {
         </View>
 
         <Button
-          title="Continue"
+          title="Continuar"
           onPress={handleContinue}
           disabled={!selectedRole}
           variant={selectedRole === 'driver' ? 'secondary' : 'primary'}

@@ -1,37 +1,42 @@
 {
   "expo": {
-    "name": "frontend",
-    "slug": "frontend",
+    "name": "Moli",
+    "slug": "moli",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
-    "scheme": "frontend",
+    "icon": "./assets/images/moli-splash.png",
+    "scheme": "moli",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Ubicar conductores cercanos y tu destino",
+        "NSCameraUsageDescription": "Tomar foto de perfil"
+      }
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/adaptive-icon.png",
-        "backgroundColor": "#000"
+        "foregroundImage": "./assets/images/moli-splash.png",
+        "backgroundColor": "#0D0D0D"
       },
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "permissions": ["ACCESS_FINE_LOCATION", "ACCESS_COARSE_LOCATION", "CAMERA"]
     },
     "web": {
       "bundler": "metro",
       "output": "static",
-      "favicon": "./assets/images/favicon.png"
+      "favicon": "./assets/images/moli-splash.png"
     },
     "plugins": [
       "expo-router",
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/splash-icon.png",
-          "imageWidth": 200,
+          "image": "./assets/images/moli-splash.png",
+          "imageWidth": 300,
           "resizeMode": "contain",
-          "backgroundColor": "#000"
+          "backgroundColor": "#0D0D0D"
         }
       ]
     ],

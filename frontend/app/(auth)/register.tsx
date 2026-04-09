@@ -37,14 +37,14 @@ export default function RegisterScreen() {
   const validate = () => {
     const newErrors: Record<string, string> = {};
     
-    if (!formData.name.trim()) newErrors.name = 'Name is required';
-    if (!formData.email.trim()) newErrors.email = 'Email is required';
-    else if (!/\S+@\S+\.\S+/.test(formData.email)) newErrors.email = 'Invalid email format';
-    if (!formData.phone.trim()) newErrors.phone = 'Phone is required';
-    if (!formData.password) newErrors.password = 'Password is required';
-    else if (formData.password.length < 6) newErrors.password = 'Password must be at least 6 characters';
+    if (!formData.name.trim()) newErrors.name = 'El nombre es requerido';
+    if (!formData.email.trim()) newErrors.email = 'El email es requerido';
+    else if (!/\S+@\S+\.\S+/.test(formData.email)) newErrors.email = 'Formato de email inválido';
+    if (!formData.phone.trim()) newErrors.phone = 'El teléfono es requerido';
+    if (!formData.password) newErrors.password = 'La contraseña es requerida';
+    else if (formData.password.length < 6) newErrors.password = 'La contraseña debe tener al menos 6 caracteres';
     if (formData.password !== formData.confirmPassword) {
-      newErrors.confirmPassword = 'Passwords do not match';
+      newErrors.confirmPassword = 'Las contraseñas no coinciden';
     }
     
     setErrors(newErrors);
@@ -65,7 +65,7 @@ export default function RegisterScreen() {
       });
       router.replace('/');
     } catch (error: any) {
-      Alert.alert('Registration Failed', error.message || 'Please try again');
+      Alert.alert('Error de registro', error.message || 'Por favor intenta de nuevo');
     } finally {
       setIsLoading(false);
     }
@@ -110,22 +110,22 @@ export default function RegisterScreen() {
                 styles.roleText,
                 isDriver && styles.roleTextDriver
               ]}>
-                {isDriver ? 'Driver' : 'Rider'}
+                {isDriver ? 'Conductor' : 'Pasajero'}
               </Text>
             </View>
-            <Text style={styles.title}>Create Account</Text>
+            <Text style={styles.title}>Crear cuenta</Text>
             <Text style={styles.subtitle}>
               {isDriver
-                ? 'Join our driver network and start earning'
-                : 'Sign up to book your first ride'
+                ? 'Únete a nuestra red de conductores y comienza a ganar'
+                : 'Regístrate para solicitar tu primer viaje'
               }
             </Text>
           </View>
 
           <View style={styles.formSection}>
             <Input
-              label="Full Name"
-              placeholder="Enter your full name"
+              label="Nombre completo"
+              placeholder="Ingresa tu nombre completo"
               value={formData.name}
               onChangeText={(v) => updateField('name', v)}
               leftIcon="person-outline"
@@ -135,7 +135,7 @@ export default function RegisterScreen() {
 
             <Input
               label="Email"
-              placeholder="Enter your email"
+              placeholder="Ingresa tu email"
               value={formData.email}
               onChangeText={(v) => updateField('email', v)}
               keyboardType="email-address"
@@ -145,8 +145,8 @@ export default function RegisterScreen() {
             />
 
             <Input
-              label="Phone Number"
-              placeholder="Enter your phone number"
+              label="Número de teléfono"
+              placeholder="Ingresa tu número de teléfono"
               value={formData.phone}
               onChangeText={(v) => updateField('phone', v)}
               keyboardType="phone-pad"
@@ -155,8 +155,8 @@ export default function RegisterScreen() {
             />
 
             <Input
-              label="Password"
-              placeholder="Create a password"
+              label="Contraseña"
+              placeholder="Crea una contraseña"
               value={formData.password}
               onChangeText={(v) => updateField('password', v)}
               secureTextEntry
@@ -165,8 +165,8 @@ export default function RegisterScreen() {
             />
 
             <Input
-              label="Confirm Password"
-              placeholder="Confirm your password"
+              label="Confirmar contraseña"
+              placeholder="Confirma tu contraseña"
               value={formData.confirmPassword}
               onChangeText={(v) => updateField('confirmPassword', v)}
               secureTextEntry
@@ -175,7 +175,7 @@ export default function RegisterScreen() {
             />
 
             <Button
-              title="Create Account"
+              title="Crear cuenta"
               onPress={handleRegister}
               loading={isLoading}
               variant={isDriver ? 'secondary' : 'primary'}
@@ -184,13 +184,13 @@ export default function RegisterScreen() {
           </View>
 
           <View style={styles.footerSection}>
-            <Text style={styles.footerText}>Already have an account? </Text>
+            <Text style={styles.footerText}>¿Ya tienes cuenta? </Text>
             <TouchableOpacity onPress={() => router.push('/(auth)/login')}>
               <Text style={[
                 styles.signInText,
                 isDriver && styles.signInTextDriver
               ]}>
-                Sign In
+                Inicia sesión
               </Text>
             </TouchableOpacity>
           </View>

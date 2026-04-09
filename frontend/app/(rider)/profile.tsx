@@ -22,12 +22,12 @@ export default function RiderProfileScreen() {
 
   const handleLogout = () => {
     Alert.alert(
-      'Logout',
-      'Are you sure you want to logout?',
+      'Cerrar sesión',
+      '¿Estás seguro de que quieres cerrar sesión?',
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: 'Cancelar', style: 'cancel' },
         {
-          text: 'Logout',
+          text: 'Cerrar sesión',
           style: 'destructive',
           onPress: async () => {
             await logout();
@@ -41,37 +41,37 @@ export default function RiderProfileScreen() {
   const menuItems = [
     {
       icon: 'person-outline',
-      title: 'Edit Profile',
+      title: 'Editar perfil',
       onPress: () => {},
     },
     {
       icon: 'location-outline',
-      title: 'Saved Places',
+      title: 'Lugares guardados',
       onPress: () => {},
     },
     {
       icon: 'card-outline',
-      title: 'Payment Methods',
+      title: 'Métodos de pago',
       onPress: () => {},
     },
     {
       icon: 'ticket-outline',
-      title: 'Promotions',
+      title: 'Promociones',
       onPress: () => {},
     },
     {
       icon: 'help-circle-outline',
-      title: 'Help & Support',
+      title: 'Ayuda y soporte',
       onPress: () => {},
     },
     {
       icon: 'shield-outline',
-      title: 'Privacy Policy',
+      title: 'Política de privacidad',
       onPress: () => {},
     },
     {
       icon: 'document-text-outline',
-      title: 'Terms of Service',
+      title: 'Términos de servicio',
       onPress: () => {},
     },
   ];
@@ -79,33 +79,27 @@ export default function RiderProfileScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView showsVerticalScrollIndicator={false}>
-        {/* Header */}
+        {/* Encabezado */}
         <View style={styles.header}>
-          <Text style={styles.title}>Profile</Text>
+          <Text style={styles.title}>Perfil</Text>
         </View>
 
-        {/* Profile Card */}
+        {/* Tarjeta de perfil */}
         <View style={styles.profileCard}>
           <View style={styles.avatarContainer}>
-            {user?.profile_picture ? (
-              <View style={styles.avatar}>
-                <Ionicons name="person" size={40} color="#007AFF" />
-              </View>
-            ) : (
-              <View style={styles.avatar}>
-                <Ionicons name="person" size={40} color="#007AFF" />
-              </View>
-            )}
+            <View style={styles.avatar}>
+              <Ionicons name="person" size={40} color="#007AFF" />
+            </View>
             <TouchableOpacity style={styles.editAvatarButton}>
               <Ionicons name="camera" size={16} color="#fff" />
             </TouchableOpacity>
           </View>
-          <Text style={styles.userName}>{user?.name || 'User'}</Text>
+          <Text style={styles.userName}>{user?.name || 'Usuario'}</Text>
           <Text style={styles.userEmail}>{user?.email}</Text>
           <View style={styles.statsContainer}>
             <View style={styles.statItem}>
               <Text style={styles.statValue}>{user?.total_rides || 0}</Text>
-              <Text style={styles.statLabel}>Rides</Text>
+              <Text style={styles.statLabel}>Viajes</Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
@@ -113,24 +107,24 @@ export default function RiderProfileScreen() {
                 <Ionicons name="star" size={16} color="#FFD700" />
                 <Text style={styles.statValue}>{user?.rating?.toFixed(1) || '5.0'}</Text>
               </View>
-              <Text style={styles.statLabel}>Rating</Text>
+              <Text style={styles.statLabel}>Calificación</Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
               <Text style={styles.statValue}>${user?.wallet_balance?.toFixed(0) || 0}</Text>
-              <Text style={styles.statLabel}>Wallet</Text>
+              <Text style={styles.statLabel}>Saldo</Text>
             </View>
           </View>
         </View>
 
-        {/* Settings */}
+        {/* Configuraciones */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Settings</Text>
+          <Text style={styles.sectionTitle}>Configuración</Text>
           <View style={styles.settingsCard}>
             <View style={styles.settingItem}>
               <View style={styles.settingLeft}>
                 <Ionicons name="notifications-outline" size={22} color="#007AFF" />
-                <Text style={styles.settingText}>Push Notifications</Text>
+                <Text style={styles.settingText}>Notificaciones push</Text>
               </View>
               <Switch
                 value={notificationsEnabled}
@@ -143,7 +137,7 @@ export default function RiderProfileScreen() {
             <View style={styles.settingItem}>
               <View style={styles.settingLeft}>
                 <Ionicons name="moon-outline" size={22} color="#007AFF" />
-                <Text style={styles.settingText}>Dark Mode</Text>
+                <Text style={styles.settingText}>Modo oscuro</Text>
               </View>
               <Switch
                 value={darkMode}
@@ -155,9 +149,9 @@ export default function RiderProfileScreen() {
           </View>
         </View>
 
-        {/* Menu Items */}
+        {/* Items del menú */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Account</Text>
+          <Text style={styles.sectionTitle}>Cuenta</Text>
           <View style={styles.menuCard}>
             {menuItems.map((item, index) => (
               <React.Fragment key={item.title}>
@@ -174,17 +168,17 @@ export default function RiderProfileScreen() {
           </View>
         </View>
 
-        {/* Logout Button */}
+        {/* Botón de cerrar sesión */}
         <View style={styles.logoutSection}>
           <Button
-            title="Logout"
+            title="Cerrar sesión"
             onPress={handleLogout}
             variant="danger"
             icon={<Ionicons name="log-out-outline" size={20} color="#fff" />}
           />
         </View>
 
-        {/* Version */}
+        {/* Versión */}
         <Text style={styles.versionText}>TaxiRide v1.0.0</Text>
       </ScrollView>
     </SafeAreaView>

@@ -36,7 +36,7 @@ export default function AdminDashboardScreen() {
       const response = await apiService.get('/admin/dashboard');
       setStats(response.stats);
     } catch (error) {
-      console.error('Error fetching stats:', error);
+      console.error('Error obteniendo estadisticas:', error);
     }
   };
 
@@ -47,59 +47,30 @@ export default function AdminDashboardScreen() {
   };
 
   const statCards = [
-    {
-      title: 'Total Users',
-      value: stats?.total_users || 0,
-      icon: 'people',
-      color: '#007AFF',
-      bgColor: '#E3F2FD',
-    },
-    {
-      title: 'Total Drivers',
-      value: stats?.total_drivers || 0,
-      icon: 'car-sport',
-      color: '#34C759',
-      bgColor: '#E8F5E9',
-    },
-    {
-      title: 'Online Drivers',
-      value: stats?.online_drivers || 0,
-      icon: 'radio-button-on',
-      color: '#FF9500',
-      bgColor: '#FFF3E0',
-    },
-    {
-      title: 'Active Rides',
-      value: stats?.active_rides || 0,
-      icon: 'navigate',
-      color: '#8E44AD',
-      bgColor: '#F3E5F5',
-    },
+    { title: 'Usuarios totales', value: stats?.total_users || 0, icon: 'people', color: '#007AFF', bgColor: '#E3F2FD' },
+    { title: 'Conductores', value: stats?.total_drivers || 0, icon: 'car-sport', color: '#6BBF00', bgColor: '#E8F5E9' },
+    { title: 'En linea', value: stats?.online_drivers || 0, icon: 'radio-button-on', color: '#FF9500', bgColor: '#FFF3E0' },
+    { title: 'Viajes activos', value: stats?.active_rides || 0, icon: 'navigate', color: '#8E44AD', bgColor: '#F3E5F5' },
   ];
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
-      >
+      <ScrollView refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}>
         <View style={styles.header}>
           <View>
-            <Text style={styles.greeting}>Admin Panel</Text>
-            <Text style={styles.subGreeting}>Welcome back, {user?.name}</Text>
+            <Text style={styles.greeting}>Panel de Admin</Text>
+            <Text style={styles.subGreeting}>Bienvenido, {user?.name}</Text>
           </View>
           <TouchableOpacity style={styles.notificationButton}>
             <Ionicons name="notifications-outline" size={24} color="#1C1C1E" />
           </TouchableOpacity>
         </View>
 
-        {/* Revenue Card */}
         <View style={styles.revenueCard}>
           <View style={styles.revenueHeader}>
-            <Text style={styles.revenueLabel}>Today's Revenue</Text>
+            <Text style={styles.revenueLabel}>Ingresos de hoy</Text>
             <Text style={styles.revenueDate}>
-              {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+              {new Date().toLocaleDateString('es-ES', { month: 'short', day: 'numeric' })}
             </Text>
           </View>
           <Text style={styles.revenueAmount}>
@@ -107,21 +78,16 @@ export default function AdminDashboardScreen() {
           </Text>
           <View style={styles.revenueStats}>
             <View style={styles.revenueStat}>
-              <Text style={styles.revenueStatLabel}>Commission</Text>
-              <Text style={styles.revenueStatValue}>
-                ${stats?.today_commission?.toFixed(2) || '0.00'}
-              </Text>
+              <Text style={styles.revenueStatLabel}>Comision</Text>
+              <Text style={styles.revenueStatValue}>${stats?.today_commission?.toFixed(2) || '0.00'}</Text>
             </View>
             <View style={styles.revenueStat}>
-              <Text style={styles.revenueStatLabel}>Rides</Text>
-              <Text style={styles.revenueStatValue}>
-                {stats?.today_rides || 0}
-              </Text>
+              <Text style={styles.revenueStatLabel}>Viajes</Text>
+              <Text style={styles.revenueStatValue}>{stats?.today_rides || 0}</Text>
             </View>
           </View>
         </View>
 
-        {/* Stats Grid */}
         <View style={styles.statsGrid}>
           {statCards.map((stat, index) => (
             <View key={index} style={styles.statCard}>
@@ -134,25 +100,24 @@ export default function AdminDashboardScreen() {
           ))}
         </View>
 
-        {/* Quick Actions */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Quick Actions</Text>
+          <Text style={styles.sectionTitle}>Acciones rapidas</Text>
           <View style={styles.actionsGrid}>
             <TouchableOpacity style={styles.actionCard}>
               <Ionicons name="person-add" size={24} color="#007AFF" />
-              <Text style={styles.actionText}>Add User</Text>
+              <Text style={styles.actionText}>Agregar usuario</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.actionCard}>
-              <Ionicons name="car" size={24} color="#34C759" />
-              <Text style={styles.actionText}>Verify Driver</Text>
+              <Ionicons name="car" size={24} color="#6BBF00" />
+              <Text style={styles.actionText}>Verificar conductor</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.actionCard}>
               <Ionicons name="ticket" size={24} color="#FF9500" />
-              <Text style={styles.actionText}>Add Coupon</Text>
+              <Text style={styles.actionText}>Agregar cupon</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.actionCard}>
               <Ionicons name="bar-chart" size={24} color="#8E44AD" />
-              <Text style={styles.actionText}>Reports</Text>
+              <Text style={styles.actionText}>Reportes</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -162,133 +127,28 @@ export default function AdminDashboardScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F2F2F7',
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    backgroundColor: '#fff',
-  },
-  greeting: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#1C1C1E',
-  },
-  subGreeting: {
-    fontSize: 14,
-    color: '#8E8E93',
-    marginTop: 4,
-  },
-  notificationButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#F2F2F7',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  revenueCard: {
-    backgroundColor: '#8E44AD',
-    margin: 16,
-    borderRadius: 20,
-    padding: 24,
-  },
-  revenueHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  revenueLabel: {
-    fontSize: 14,
-    color: 'rgba(255,255,255,0.8)',
-  },
-  revenueDate: {
-    fontSize: 12,
-    color: 'rgba(255,255,255,0.6)',
-  },
-  revenueAmount: {
-    fontSize: 42,
-    fontWeight: 'bold',
-    color: '#fff',
-    marginTop: 8,
-  },
-  revenueStats: {
-    flexDirection: 'row',
-    marginTop: 24,
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.2)',
-  },
-  revenueStat: {
-    flex: 1,
-  },
-  revenueStatLabel: {
-    fontSize: 12,
-    color: 'rgba(255,255,255,0.6)',
-  },
-  revenueStatValue: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#fff',
-    marginTop: 4,
-  },
-  statsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    padding: 8,
-  },
-  statCard: {
-    width: '50%',
-    padding: 8,
-  },
-  statIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  statValue: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#1C1C1E',
-  },
-  statTitle: {
-    fontSize: 13,
-    color: '#8E8E93',
-    marginTop: 4,
-  },
-  section: {
-    padding: 16,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#1C1C1E',
-    marginBottom: 16,
-  },
-  actionsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-  },
-  actionCard: {
-    width: '48%',
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 20,
-    alignItems: 'center',
-  },
-  actionText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#1C1C1E',
-    marginTop: 12,
-  },
+  container: { flex: 1, backgroundColor: '#F2F2F7' },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 16, backgroundColor: '#fff' },
+  greeting: { fontSize: 28, fontWeight: 'bold', color: '#1C1C1E' },
+  subGreeting: { fontSize: 14, color: '#8E8E93', marginTop: 4 },
+  notificationButton: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#F2F2F7', justifyContent: 'center', alignItems: 'center' },
+  revenueCard: { backgroundColor: '#8E44AD', margin: 16, borderRadius: 20, padding: 24 },
+  revenueHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  revenueLabel: { fontSize: 14, color: 'rgba(255,255,255,0.8)' },
+  revenueDate: { fontSize: 12, color: 'rgba(255,255,255,0.6)' },
+  revenueAmount: { fontSize: 42, fontWeight: 'bold', color: '#fff', marginTop: 8 },
+  revenueStats: { flexDirection: 'row', marginTop: 24, paddingTop: 16, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.2)' },
+  revenueStat: { flex: 1 },
+  revenueStatLabel: { fontSize: 12, color: 'rgba(255,255,255,0.6)' },
+  revenueStatValue: { fontSize: 18, fontWeight: '600', color: '#fff', marginTop: 4 },
+  statsGrid: { flexDirection: 'row', flexWrap: 'wrap', padding: 8 },
+  statCard: { width: '50%', padding: 8 },
+  statIcon: { width: 48, height: 48, borderRadius: 24, justifyContent: 'center', alignItems: 'center', marginBottom: 12 },
+  statValue: { fontSize: 24, fontWeight: 'bold', color: '#1C1C1E' },
+  statTitle: { fontSize: 13, color: '#8E8E93', marginTop: 4 },
+  section: { padding: 16 },
+  sectionTitle: { fontSize: 18, fontWeight: '600', color: '#1C1C1E', marginBottom: 16 },
+  actionsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
+  actionCard: { width: '48%', backgroundColor: '#fff', borderRadius: 16, padding: 20, alignItems: 'center' },
+  actionText: { fontSize: 14, fontWeight: '600', color: '#1C1C1E', marginTop: 12 },
 });

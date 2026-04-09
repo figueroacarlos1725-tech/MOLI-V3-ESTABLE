@@ -26,10 +26,10 @@ export default function LoginScreen() {
 
   const validate = () => {
     const newErrors: { email?: string; password?: string } = {};
-    if (!email) newErrors.email = 'Email is required';
-    else if (!/\S+@\S+\.\S+/.test(email)) newErrors.email = 'Invalid email format';
-    if (!password) newErrors.password = 'Password is required';
-    else if (password.length < 6) newErrors.password = 'Password must be at least 6 characters';
+    if (!email) newErrors.email = 'El email es requerido';
+    else if (!/\S+@\S+\.\S+/.test(email)) newErrors.email = 'Formato de email inválido';
+    if (!password) newErrors.password = 'La contraseña es requerida';
+    else if (password.length < 6) newErrors.password = 'La contraseña debe tener al menos 6 caracteres';
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -42,7 +42,7 @@ export default function LoginScreen() {
       await login(email, password);
       router.replace('/');
     } catch (error: any) {
-      Alert.alert('Login Failed', error.message || 'Invalid credentials');
+      Alert.alert('Error de inicio de sesión', error.message || 'Credenciales inválidas');
     } finally {
       setIsLoading(false);
     }
@@ -66,14 +66,14 @@ export default function LoginScreen() {
           </TouchableOpacity>
 
           <View style={styles.headerSection}>
-            <Text style={styles.title}>Welcome Back</Text>
-            <Text style={styles.subtitle}>Sign in to continue</Text>
+            <Text style={styles.title}>Bienvenido de vuelta</Text>
+            <Text style={styles.subtitle}>Inicia sesión para continuar</Text>
           </View>
 
           <View style={styles.formSection}>
             <Input
               label="Email"
-              placeholder="Enter your email"
+              placeholder="Ingresa tu email"
               value={email}
               onChangeText={setEmail}
               keyboardType="email-address"
@@ -83,8 +83,8 @@ export default function LoginScreen() {
             />
 
             <Input
-              label="Password"
-              placeholder="Enter your password"
+              label="Contraseña"
+              placeholder="Ingresa tu contraseña"
               value={password}
               onChangeText={setPassword}
               secureTextEntry
@@ -93,11 +93,11 @@ export default function LoginScreen() {
             />
 
             <TouchableOpacity style={styles.forgotPassword}>
-              <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
+              <Text style={styles.forgotPasswordText}>¿Olvidaste tu contraseña?</Text>
             </TouchableOpacity>
 
             <Button
-              title="Sign In"
+              title="Iniciar sesión"
               onPress={handleLogin}
               loading={isLoading}
               style={styles.loginButton}
@@ -105,9 +105,9 @@ export default function LoginScreen() {
           </View>
 
           <View style={styles.footerSection}>
-            <Text style={styles.footerText}>Don't have an account? </Text>
+            <Text style={styles.footerText}>¿No tienes cuenta? </Text>
             <TouchableOpacity onPress={() => router.push('/(auth)/select-role')}>
-              <Text style={styles.signUpText}>Sign Up</Text>
+              <Text style={styles.signUpText}>Regístrate</Text>
             </TouchableOpacity>
           </View>
         </ScrollView>

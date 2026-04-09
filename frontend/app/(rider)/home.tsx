@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,13 +6,11 @@ import {
   SafeAreaView,
   TouchableOpacity,
   ScrollView,
-  TextInput,
   Modal,
   Alert,
   ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
 import { MapView } from '@/src/components/MapView';
 import { Button } from '@/src/components/Button';
 import { useAuthStore } from '@/src/stores/authStore';
@@ -21,13 +19,10 @@ import { socketService } from '@/src/services/socket';
 import {
   getCurrentLocation,
   reverseGeocode,
-  formatDistance,
-  formatDuration,
   LocationCoords,
 } from '@/src/utils/location';
 
 export default function RiderHomeScreen() {
-  const router = useRouter();
   const { user } = useAuthStore();
   const {
     currentRequest,
@@ -51,8 +46,8 @@ export default function RiderHomeScreen() {
   const [isSelectingLocation, setIsSelectingLocation] = useState<'pickup' | 'dropoff' | null>(null);
 
   const vehicleTypes = [
-    { id: 'economy', name: 'Economy', icon: 'car-outline', multiplier: '1x' },
-    { id: 'comfort', name: 'Comfort', icon: 'car', multiplier: '1.3x' },
+    { id: 'economy', name: 'Económico', icon: 'car-outline', multiplier: '1x' },
+    { id: 'comfort', name: 'Confort', icon: 'car', multiplier: '1.3x' },
     { id: 'premium', name: 'Premium', icon: 'car-sport', multiplier: '1.8x' },
     { id: 'xl', name: 'XL', icon: 'bus', multiplier: '1.5x' },
   ];
@@ -104,7 +99,7 @@ export default function RiderHomeScreen() {
 
   const handleRequestRide = async () => {
     if (!pickupLocation || !dropoffLocation) {
-      Alert.alert('Error', 'Please select pickup and dropoff locations');
+      Alert.alert('Error', 'Por favor selecciona las ubicaciones de recogida y destino');
       return;
     }
 
@@ -127,7 +122,7 @@ export default function RiderHomeScreen() {
       });
       setShowBidsModal(true);
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to request ride');
+      Alert.alert('Error', error.message || 'No se pudo solicitar el viaje');
     } finally {
       setIsLoading(false);
     }
@@ -137,9 +132,9 @@ export default function RiderHomeScreen() {
     try {
       await acceptBid(bidId);
       setShowBidsModal(false);
-      Alert.alert('Success', 'Driver is on the way!');
+      Alert.alert('¡Excelente!', '¡El conductor está en camino!');
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to accept bid');
+      Alert.alert('Error', error.message || 'No se pudo aceptar la oferta');
     }
   };
 
@@ -149,7 +144,7 @@ export default function RiderHomeScreen() {
       markers.push({
         latitude: pickupLocation.latitude,
         longitude: pickupLocation.longitude,
-        title: 'Pickup',
+        title: 'Recogida',
         type: 'pickup' as const,
       });
     }
@@ -157,7 +152,7 @@ export default function RiderHomeScreen() {
       markers.push({
         latitude: dropoffLocation.latitude,
         longitude: dropoffLocation.longitude,
-        title: 'Dropoff',
+        title: 'Destino',
         type: 'dropoff' as const,
       });
     }
@@ -165,14 +160,14 @@ export default function RiderHomeScreen() {
       markers.push({
         latitude: currentRide.driver_location.latitude,
         longitude: currentRide.driver_location.longitude,
-        title: 'Driver',
+        title: 'Conductor',
         type: 'driver' as const,
       });
     }
     return markers;
   };
 
-  // If there's an active ride, show tracking view
+  // Vista de viaje activo
   if (currentRide && ['accepted', 'arrived', 'started'].includes(currentRide.status)) {
     return (
       <SafeAreaView style={styles.container}>
@@ -191,8 +186,8 @@ export default function RiderHomeScreen() {
           <View style={styles.rideStatusHeader}>
             <View style={[styles.statusBadge, styles[`status_${currentRide.status}`]]}>
               <Text style={styles.statusText}>
-                {currentRide.status === 'accepted' ? 'Driver Coming' :
-                 currentRide.status === 'arrived' ? 'Driver Arrived' : 'On Trip'}
+                {currentRide.status === 'accepted' ? 'Conductor en camino' :
+                 currentRide.status === 'arrived' ? 'Conductor ha llegado' : 'En viaje'}
               </Text>
             </View>
           </View>
@@ -230,7 +225,7 @@ export default function RiderHomeScreen() {
           )}
           
           <View style={styles.fareInfo}>
-            <Text style={styles.fareLabel}>Fare</Text>
+            <Text style={styles.fareLabel}>Tarifa</Text>
             <Text style={styles.fareAmount}>${currentRide.fare?.toFixed(2)}</Text>
           </View>
         </View>
@@ -240,18 +235,18 @@ export default function RiderHomeScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
+      {/* Encabezado */}
       <View style={styles.header}>
         <View>
-          <Text style={styles.greeting}>Hello, {user?.name?.split(' ')[0] || 'Rider'}</Text>
-          <Text style={styles.subGreeting}>Where are you going?</Text>
+          <Text style={styles.greeting}>Hola, {user?.name?.split(' ')[0] || 'Pasajero'}</Text>
+          <Text style={styles.subGreeting}>¿A dónde vamos?</Text>
         </View>
         <TouchableOpacity style={styles.notificationButton}>
           <Ionicons name="notifications-outline" size={24} color="#1C1C1E" />
         </TouchableOpacity>
       </View>
 
-      {/* Map */}
+      {/* Mapa */}
       <View style={styles.mapContainer}>
         <MapView
           initialRegion={userLocation ? {
@@ -266,10 +261,10 @@ export default function RiderHomeScreen() {
         {isSelectingLocation && (
           <View style={styles.selectingOverlay}>
             <Text style={styles.selectingText}>
-              Tap on map to select {isSelectingLocation} location
+              Toca en el mapa para seleccionar {isSelectingLocation === 'pickup' ? 'el punto de recogida' : 'el destino'}
             </Text>
             <Button
-              title="Cancel"
+              title="Cancelar"
               onPress={() => setIsSelectingLocation(null)}
               variant="outline"
               size="small"
@@ -278,9 +273,9 @@ export default function RiderHomeScreen() {
         )}
       </View>
 
-      {/* Booking Panel */}
+      {/* Panel de reserva */}
       <View style={styles.bookingPanel}>
-        {/* Location Inputs */}
+        {/* Inputs de ubicación */}
         <View style={styles.locationInputs}>
           <TouchableOpacity
             style={styles.locationInput}
@@ -288,7 +283,7 @@ export default function RiderHomeScreen() {
           >
             <View style={[styles.locationDot, styles.pickupDot]} />
             <Text style={pickupAddress ? styles.locationText : styles.placeholderText}>
-              {pickupAddress || 'Select pickup location'}
+              {pickupAddress || 'Selecciona punto de recogida'}
             </Text>
             <Ionicons name="locate" size={20} color="#8E8E93" />
           </TouchableOpacity>
@@ -301,13 +296,13 @@ export default function RiderHomeScreen() {
           >
             <View style={[styles.locationDot, styles.dropoffDot]} />
             <Text style={dropoffAddress ? styles.locationText : styles.placeholderText}>
-              {dropoffAddress || 'Where to?'}
+              {dropoffAddress || '¿A dónde vas?'}
             </Text>
             <Ionicons name="search" size={20} color="#8E8E93" />
           </TouchableOpacity>
         </View>
 
-        {/* Vehicle Types */}
+        {/* Tipos de vehículo */}
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -339,9 +334,9 @@ export default function RiderHomeScreen() {
           ))}
         </ScrollView>
 
-        {/* Request Button */}
+        {/* Botón de solicitar */}
         <Button
-          title={currentRequest ? 'Waiting for drivers...' : 'Request Ride'}
+          title={currentRequest ? 'Buscando conductores...' : 'Solicitar viaje'}
           onPress={handleRequestRide}
           disabled={!pickupLocation || !dropoffLocation || isLoading || !!currentRequest}
           loading={isLoading}
@@ -350,7 +345,7 @@ export default function RiderHomeScreen() {
 
         {currentRequest && (
           <Button
-            title="Cancel Request"
+            title="Cancelar solicitud"
             onPress={() => {
               clearRequest();
               setShowBidsModal(false);
@@ -361,16 +356,16 @@ export default function RiderHomeScreen() {
         )}
       </View>
 
-      {/* Bids Modal */}
+      {/* Modal de ofertas */}
       <Modal
-        visible={showBidsModal && bids.length > 0}
+        visible={showBidsModal && (bids.length > 0 || !!currentRequest)}
         animationType="slide"
         transparent={true}
       >
         <View style={styles.modalContainer}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Available Drivers</Text>
+              <Text style={styles.modalTitle}>Conductores disponibles</Text>
               <TouchableOpacity onPress={() => setShowBidsModal(false)}>
                 <Ionicons name="close" size={24} color="#1C1C1E" />
               </TouchableOpacity>
@@ -389,7 +384,7 @@ export default function RiderHomeScreen() {
                         <Ionicons name="star" size={14} color="#FFD700" />
                         <Text style={styles.bidRatingText}>{bid.driver_rating.toFixed(1)}</Text>
                         <Text style={styles.bidArrivalText}>
-                          • {bid.estimated_arrival} min away
+                          • {bid.estimated_arrival} min
                         </Text>
                       </View>
                       {bid.vehicle_info && (
@@ -402,7 +397,7 @@ export default function RiderHomeScreen() {
                   <View style={styles.bidPriceSection}>
                     <Text style={styles.bidPrice}>${bid.fare_amount.toFixed(2)}</Text>
                     <Button
-                      title="Accept"
+                      title="Aceptar"
                       onPress={() => handleAcceptBid(bid.bid_id)}
                       size="small"
                     />
@@ -414,7 +409,7 @@ export default function RiderHomeScreen() {
             {bids.length === 0 && (
               <View style={styles.noBidsContainer}>
                 <ActivityIndicator size="large" color="#007AFF" />
-                <Text style={styles.noBidsText}>Searching for drivers...</Text>
+                <Text style={styles.noBidsText}>Buscando conductores cercanos...</Text>
               </View>
             )}
           </View>
@@ -474,6 +469,7 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 14,
     marginBottom: 12,
+    textAlign: 'center',
   },
   bookingPanel: {
     backgroundColor: '#fff',

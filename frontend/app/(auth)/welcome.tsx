@@ -3,9 +3,9 @@ import {
   View,
   Text,
   StyleSheet,
-  Image,
   TouchableOpacity,
   SafeAreaView,
+  Image,
   Dimensions,
 } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -22,7 +22,6 @@ export default function WelcomeScreen() {
 
   const handleGoogleLogin = async () => {
     try {
-      // REMINDER: DO NOT HARDCODE THE URL, OR ADD ANY FALLBACKS OR REDIRECT URLS, THIS BREAKS THE AUTH
       const redirectUrl = 'https://taxify-clone.preview.emergentagent.com/(auth)/callback';
       const authUrl = `https://auth.emergentagent.com/?redirect=${encodeURIComponent(redirectUrl)}`;
       
@@ -37,7 +36,7 @@ export default function WelcomeScreen() {
         }
       }
     } catch (error) {
-      console.error('Google login error:', error);
+      console.error('Error de login con Google:', error);
     }
   };
 
@@ -45,48 +44,51 @@ export default function WelcomeScreen() {
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
         <View style={styles.heroSection}>
-          <View style={styles.iconContainer}>
-            <Ionicons name="car-sport" size={80} color="#007AFF" />
+          <View style={styles.logoImageContainer}>
+            <Image
+              source={require('../../assets/images/moli-splash.png')}
+              style={styles.logoImage}
+              resizeMode="contain"
+            />
           </View>
-          <Text style={styles.title}>TaxiRide</Text>
           <Text style={styles.subtitle}>
-            Your reliable ride, anytime, anywhere
+            Tu viaje confiable, en cualquier momento y lugar
           </Text>
         </View>
 
         <View style={styles.featuresSection}>
           <View style={styles.featureItem}>
-            <Ionicons name="location" size={24} color="#34C759" />
-            <Text style={styles.featureText}>Real-time tracking</Text>
+            <Ionicons name="location" size={24} color="#6BBF00" />
+            <Text style={styles.featureText}>Seguimiento en tiempo real</Text>
           </View>
           <View style={styles.featureItem}>
-            <Ionicons name="shield-checkmark" size={24} color="#34C759" />
-            <Text style={styles.featureText}>Safe & secure rides</Text>
+            <Ionicons name="shield-checkmark" size={24} color="#6BBF00" />
+            <Text style={styles.featureText}>Viajes seguros y protegidos</Text>
           </View>
           <View style={styles.featureItem}>
-            <Ionicons name="wallet" size={24} color="#34C759" />
-            <Text style={styles.featureText}>Multiple payment options</Text>
+            <Ionicons name="wallet" size={24} color="#6BBF00" />
+            <Text style={styles.featureText}>Multiples opciones de pago</Text>
           </View>
         </View>
 
         <View style={styles.buttonsSection}>
           <Button
-            title="Continue with Google"
+            title="Continuar con Google"
             onPress={handleGoogleLogin}
             variant="outline"
-            icon={<Ionicons name="logo-google" size={20} color="#007AFF" />}
+            icon={<Ionicons name="logo-google" size={20} color="#6BBF00" />}
             style={styles.googleButton}
           />
 
           <Button
-            title="Sign in with Email"
+            title="Iniciar sesion con Email"
             onPress={() => router.push('/(auth)/login')}
             variant="primary"
             style={styles.button}
           />
 
           <Button
-            title="Create Account"
+            title="Crear cuenta"
             onPress={() => router.push('/(auth)/select-role')}
             variant="secondary"
             style={styles.button}
@@ -94,7 +96,7 @@ export default function WelcomeScreen() {
         </View>
 
         <Text style={styles.termsText}>
-          By continuing, you agree to our Terms of Service and Privacy Policy
+          Al continuar, aceptas nuestros Terminos de Servicio y Politica de Privacidad
         </Text>
       </View>
     </SafeAreaView>
@@ -104,7 +106,7 @@ export default function WelcomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: '#0D0D0D',
   },
   content: {
     flex: 1,
@@ -114,30 +116,28 @@ const styles = StyleSheet.create({
   },
   heroSection: {
     alignItems: 'center',
-    marginTop: 40,
+    marginTop: 20,
   },
-  iconContainer: {
-    width: 140,
-    height: 140,
-    borderRadius: 70,
-    backgroundColor: '#F0F8FF',
-    justifyContent: 'center',
+  logoImageContainer: {
+    width: 250,
+    height: 200,
+    marginBottom: 16,
+    overflow: 'hidden',
     alignItems: 'center',
-    marginBottom: 24,
+    justifyContent: 'center',
+    borderRadius: 16,
   },
-  title: {
-    fontSize: 36,
-    fontWeight: 'bold',
-    color: '#1C1C1E',
-    marginBottom: 8,
+  logoImage: {
+    width: 250,
+    height: 200,
   },
   subtitle: {
     fontSize: 16,
-    color: '#8E8E93',
+    color: '#AEAEAE',
     textAlign: 'center',
   },
   featuresSection: {
-    marginVertical: 32,
+    marginVertical: 24,
   },
   featureItem: {
     flexDirection: 'row',
@@ -147,7 +147,7 @@ const styles = StyleSheet.create({
   },
   featureText: {
     fontSize: 16,
-    color: '#1C1C1E',
+    color: '#FFFFFF',
     marginLeft: 16,
   },
   buttonsSection: {
@@ -155,6 +155,7 @@ const styles = StyleSheet.create({
   },
   googleButton: {
     marginBottom: 8,
+    borderColor: '#6BBF00',
   },
   button: {
     width: '100%',

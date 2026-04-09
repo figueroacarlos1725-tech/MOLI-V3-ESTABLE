@@ -11,6 +11,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useRideStore, Ride } from '@/src/stores/rideStore';
 import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
 
 export default function RiderRidesScreen() {
   const { rideHistory, fetchRideHistory } = useRideStore();
@@ -45,18 +46,33 @@ export default function RiderRidesScreen() {
     }
   };
 
+  const getStatusText = (status: string) => {
+    switch (status) {
+      case 'completed':
+        return 'Completado';
+      case 'cancelled':
+        return 'Cancelado';
+      case 'started':
+        return 'En curso';
+      case 'accepted':
+        return 'Aceptado';
+      default:
+        return status;
+    }
+  };
+
   const renderRideItem = ({ item }: { item: Ride }) => (
     <TouchableOpacity style={styles.rideCard}>
       <View style={styles.rideHeader}>
         <View style={styles.rideDate}>
           <Ionicons name="calendar-outline" size={16} color="#8E8E93" />
           <Text style={styles.rideDateText}>
-            {format(new Date(item.created_at), 'MMM d, yyyy • h:mm a')}
+            {format(new Date(item.created_at), "d 'de' MMM, yyyy \u2022 h:mm a", { locale: es })}
           </Text>
         </View>
         <View style={[styles.statusBadge, { backgroundColor: `${getStatusColor(item.status)}20` }]}>
           <Text style={[styles.statusText, { color: getStatusColor(item.status) }]}>
-            {item.status.charAt(0).toUpperCase() + item.status.slice(1)}
+            {getStatusText(item.status)}
           </Text>
         </View>
       </View>
@@ -65,14 +81,14 @@ export default function RiderRidesScreen() {
         <View style={styles.locationRow}>
           <View style={[styles.locationDot, styles.pickupDot]} />
           <Text style={styles.locationText} numberOfLines={1}>
-            {item.pickup_location?.address || 'Pickup location'}
+            {item.pickup_location?.address || 'Punto de recogida'}
           </Text>
         </View>
         <View style={styles.locationLine} />
         <View style={styles.locationRow}>
           <View style={[styles.locationDot, styles.dropoffDot]} />
           <Text style={styles.locationText} numberOfLines={1}>
-            {item.dropoff_location?.address || 'Dropoff location'}
+            {item.dropoff_location?.address || 'Destino'}
           </Text>
         </View>
       </View>
@@ -80,17 +96,23 @@ export default function RiderRidesScreen() {
       <View style={styles.rideFooter}>
         <View style={styles.rideInfo}>
           <Ionicons name="car" size={16} color="#8E8E93" />
-          <Text style={styles.rideInfoText}>{item.vehicle_type || 'Economy'}</Text>
+          <Text style={styles.rideInfoText}>{item.vehicle_type || 'Económico'}</Text>
         </View>
         <Text style={styles.fareText}>${item.fare?.toFixed(2) || '0.00'}</Text>
       </View>
     </TouchableOpacity>
   );
 
+  const filterLabels = {
+    all: 'Todos',
+    completed: 'Completados',
+    cancelled: 'Cancelados',
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>My Rides</Text>
+        <Text style={styles.title}>Mis Viajes</Text>
       </View>
 
       <View style={styles.filterContainer}>
@@ -101,7 +123,7 @@ export default function RiderRidesScreen() {
             onPress={() => setFilter(f)}
           >
             <Text style={[styles.filterText, filter === f && styles.filterTextActive]}>
-              {f.charAt(0).toUpperCase() + f.slice(1)}
+              {filterLabels[f]}
             </Text>
           </TouchableOpacity>
         ))}
@@ -118,8 +140,8 @@ export default function RiderRidesScreen() {
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
             <Ionicons name="car-outline" size={64} color="#E5E5EA" />
-            <Text style={styles.emptyText}>No rides yet</Text>
-            <Text style={styles.emptySubtext}>Your ride history will appear here</Text>
+            <Text style={styles.emptyText}>Aún no tienes viajes</Text>
+            <Text style={styles.emptySubtext}>Tu historial de viajes aparecerá aquí</Text>
           </View>
         }
       />

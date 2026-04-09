@@ -45,14 +45,12 @@ export default function DriverHomeScreen() {
 
   useEffect(() => {
     if (user && isOnline) {
-      // Listen for new ride requests
       const unsubscribe = socketService.on('new_ride_request', (data: any) => {
         if (data.request) {
           setPendingRequests(prev => [data.request, ...prev]);
         }
       });
       
-      // Start location updates
       startLocationUpdates();
       
       return () => {
@@ -82,7 +80,7 @@ export default function DriverHomeScreen() {
         setUserLocation(location);
         socketService.sendLocation(location.latitude, location.longitude);
       }
-    }, 10000); // Update every 10 seconds
+    }, 10000);
   };
 
   const handleToggleOnline = async (value: boolean) => {
@@ -91,14 +89,14 @@ export default function DriverHomeScreen() {
       setIsOnline(value);
       
       if (value) {
-        Alert.alert('You are Online', 'You will now receive ride requests');
+        Alert.alert('En linea', 'Ahora recibiras solicitudes de viaje');
         fetchPendingRequests();
       } else {
-        Alert.alert('You are Offline', 'You will not receive new ride requests');
+        Alert.alert('Fuera de linea', 'No recibiras nuevas solicitudes');
         setPendingRequests([]);
       }
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to update status');
+      Alert.alert('Error', error.message || 'No se pudo actualizar el estado');
     }
   };
 
@@ -109,7 +107,7 @@ export default function DriverHomeScreen() {
       const response = await apiService.get(`/rides/requests/pending?latitude=${userLocation.latitude}&longitude=${userLocation.longitude}`);
       setPendingRequests(response.requests || []);
     } catch (error) {
-      console.error('Error fetching requests:', error);
+      console.error('Error obteniendo solicitudes:', error);
     }
   };
 
@@ -124,7 +122,7 @@ export default function DriverHomeScreen() {
     
     const amount = parseFloat(bidAmount);
     if (isNaN(amount) || amount <= 0) {
-      Alert.alert('Error', 'Please enter a valid bid amount');
+      Alert.alert('Error', 'Por favor ingresa un monto valido');
       return;
     }
     
@@ -133,14 +131,14 @@ export default function DriverHomeScreen() {
       await apiService.post('/rides/bid', {
         request_id: selectedRequest.request_id,
         fare_amount: amount,
-        estimated_arrival: 5 // Estimated arrival time in minutes
+        estimated_arrival: 5
       });
       
-      Alert.alert('Bid Submitted', 'Your bid has been sent to the rider');
+      Alert.alert('Oferta enviada', 'Tu oferta fue enviada al pasajero');
       setShowRequestModal(false);
       setPendingRequests(prev => prev.filter(r => r.request_id !== selectedRequest.request_id));
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to submit bid');
+      Alert.alert('Error', error.message || 'No se pudo enviar la oferta');
     } finally {
       setIsSubmitting(false);
     }
@@ -153,11 +151,11 @@ export default function DriverHomeScreen() {
       await updateRideStatus(currentRide.ride_id, status);
       
       if (status === 'completed') {
-        Alert.alert('Ride Completed', `You earned $${currentRide.driver_earnings?.toFixed(2)}`);
+        Alert.alert('Viaje completado', `Ganaste $${currentRide.driver_earnings?.toFixed(2)}`);
         fetchActiveRide();
       }
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to update ride status');
+      Alert.alert('Error', error.message || 'No se pudo actualizar el estado del viaje');
     }
   };
 
@@ -167,7 +165,7 @@ export default function DriverHomeScreen() {
       markers.push({
         latitude: userLocation.latitude,
         longitude: userLocation.longitude,
-        title: 'Your Location',
+        title: 'Tu ubicacion',
         type: 'driver' as const,
       });
     }
@@ -175,20 +173,20 @@ export default function DriverHomeScreen() {
       markers.push({
         latitude: currentRide.pickup_location.latitude,
         longitude: currentRide.pickup_location.longitude,
-        title: 'Pickup',
+        title: 'Recogida',
         type: 'pickup' as const,
       });
       markers.push({
         latitude: currentRide.dropoff_location.latitude,
         longitude: currentRide.dropoff_location.longitude,
-        title: 'Dropoff',
+        title: 'Destino',
         type: 'dropoff' as const,
       });
     }
     return markers;
   };
 
-  // Active ride view
+  // Vista de viaje activo
   if (currentRide && ['accepted', 'arrived', 'started'].includes(currentRide.status)) {
     return (
       <SafeAreaView style={styles.container}>
@@ -203,15 +201,15 @@ export default function DriverHomeScreen() {
         <View style={styles.activeRidePanel}>
           <View style={styles.rideStatusBadge}>
             <Text style={styles.rideStatusText}>
-              {currentRide.status === 'accepted' ? 'Go to Pickup' :
-               currentRide.status === 'arrived' ? 'Waiting for Rider' : 'On Trip'}
+              {currentRide.status === 'accepted' ? 'Ir a recoger' :
+               currentRide.status === 'arrived' ? 'Esperando al pasajero' : 'En viaje'}
             </Text>
           </View>
           
           {currentRide.rider_info && (
             <View style={styles.riderInfo}>
               <View style={styles.riderAvatar}>
-                <Ionicons name="person" size={24} color="#34C759" />
+                <Ionicons name="person" size={24} color="#6BBF00" />
               </View>
               <View style={styles.riderDetails}>
                 <Text style={styles.riderName}>{currentRide.rider_info.name}</Text>
@@ -222,7 +220,7 @@ export default function DriverHomeScreen() {
               </View>
               <View style={styles.riderActions}>
                 <TouchableOpacity style={styles.actionButton}>
-                  <Ionicons name="call" size={22} color="#34C759" />
+                  <Ionicons name="call" size={22} color="#6BBF00" />
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.actionButton}>
                   <Ionicons name="chatbubble" size={22} color="#007AFF" />
@@ -235,40 +233,40 @@ export default function DriverHomeScreen() {
             <View style={styles.locationRow}>
               <View style={[styles.locationDot, styles.pickupDot]} />
               <Text style={styles.locationText} numberOfLines={1}>
-                {currentRide.pickup_location.address || 'Pickup'}
+                {currentRide.pickup_location.address || 'Recogida'}
               </Text>
             </View>
             <View style={styles.locationRow}>
               <View style={[styles.locationDot, styles.dropoffDot]} />
               <Text style={styles.locationText} numberOfLines={1}>
-                {currentRide.dropoff_location.address || 'Dropoff'}
+                {currentRide.dropoff_location.address || 'Destino'}
               </Text>
             </View>
           </View>
           
           <View style={styles.fareRow}>
-            <Text style={styles.fareLabel}>Fare</Text>
+            <Text style={styles.fareLabel}>Tarifa</Text>
             <Text style={styles.fareAmount}>${currentRide.fare?.toFixed(2)}</Text>
           </View>
           
           <View style={styles.actionButtons}>
             {currentRide.status === 'accepted' && (
               <Button
-                title="I've Arrived"
+                title="He llegado"
                 onPress={() => handleUpdateRideStatus('arrived')}
                 variant="secondary"
               />
             )}
             {currentRide.status === 'arrived' && (
               <Button
-                title="Start Trip"
+                title="Iniciar viaje"
                 onPress={() => handleUpdateRideStatus('started')}
                 variant="secondary"
               />
             )}
             {currentRide.status === 'started' && (
               <Button
-                title="Complete Trip"
+                title="Completar viaje"
                 onPress={() => handleUpdateRideStatus('completed')}
                 variant="secondary"
               />
@@ -281,42 +279,42 @@ export default function DriverHomeScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
+      {/* Encabezado */}
       <View style={styles.header}>
         <View>
-          <Text style={styles.greeting}>Hello, {user?.name?.split(' ')[0] || 'Driver'}</Text>
+          <Text style={styles.greeting}>Hola, {user?.name?.split(' ')[0] || 'Conductor'}</Text>
           <Text style={styles.subGreeting}>
-            {isOnline ? 'Ready to accept rides' : 'Go online to start earning'}
+            {isOnline ? 'Listo para aceptar viajes' : 'Conectate para empezar a ganar'}
           </Text>
         </View>
         <View style={styles.onlineToggle}>
           <Text style={[styles.onlineLabel, isOnline && styles.onlineLabelActive]}>
-            {isOnline ? 'Online' : 'Offline'}
+            {isOnline ? 'En linea' : 'Desconectado'}
           </Text>
           <Switch
             value={isOnline}
             onValueChange={handleToggleOnline}
-            trackColor={{ false: '#E5E5EA', true: '#34C759' }}
+            trackColor={{ false: '#E5E5EA', true: '#6BBF00' }}
             thumbColor="#fff"
           />
         </View>
       </View>
 
-      {/* Map */}
+      {/* Mapa */}
       <View style={styles.mapContainer}>
         <MapView
           initialRegion={userLocation}
-          markers={userLocation ? [{ ...userLocation, title: 'You', type: 'driver' }] : []}
+          markers={userLocation ? [{ ...userLocation, title: 'Tu ubicacion', type: 'driver' }] : []}
         />
       </View>
 
-      {/* Pending Requests */}
+      {/* Solicitudes pendientes */}
       {isOnline && (
         <View style={styles.requestsPanel}>
           <View style={styles.panelHeader}>
-            <Text style={styles.panelTitle}>Nearby Requests</Text>
+            <Text style={styles.panelTitle}>Solicitudes cercanas</Text>
             <TouchableOpacity onPress={fetchPendingRequests}>
-              <Ionicons name="refresh" size={20} color="#007AFF" />
+              <Ionicons name="refresh" size={20} color="#6BBF00" />
             </TouchableOpacity>
           </View>
           
@@ -330,21 +328,21 @@ export default function DriverHomeScreen() {
                 >
                   <View style={styles.requestHeader}>
                     <Text style={styles.requestDistance}>
-                      {request.distance_to_pickup?.toFixed(1) || '?'} km away
+                      {request.distance_to_pickup?.toFixed(1) || '?'} km
                     </Text>
                     <Text style={styles.requestFare}>
                       ${request.estimated_fare.toFixed(2)}
                     </Text>
                   </View>
                   <Text style={styles.requestPickup} numberOfLines={1}>
-                    🟢 {request.pickup_location.address || 'Pickup'}
+                    {request.pickup_location.address || 'Recogida'}
                   </Text>
                   <Text style={styles.requestDropoff} numberOfLines={1}>
-                    🔴 {request.dropoff_location.address || 'Dropoff'}
+                    {request.dropoff_location.address || 'Destino'}
                   </Text>
                   <View style={styles.requestFooter}>
                     <Text style={styles.requestInfo}>
-                      {request.estimated_distance.toFixed(1)} km • {request.estimated_duration} min
+                      {request.estimated_distance.toFixed(1)} km - {request.estimated_duration} min
                     </Text>
                   </View>
                 </TouchableOpacity>
@@ -353,18 +351,18 @@ export default function DriverHomeScreen() {
           ) : (
             <View style={styles.noRequests}>
               <Ionicons name="car-outline" size={40} color="#E5E5EA" />
-              <Text style={styles.noRequestsText}>No requests nearby</Text>
+              <Text style={styles.noRequestsText}>Sin solicitudes cercanas</Text>
             </View>
           )}
         </View>
       )}
 
-      {/* Bid Modal */}
+      {/* Modal de oferta */}
       <Modal visible={showRequestModal} animationType="slide" transparent>
         <View style={styles.modalContainer}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Ride Request</Text>
+              <Text style={styles.modalTitle}>Solicitud de viaje</Text>
               <TouchableOpacity onPress={() => setShowRequestModal(false)}>
                 <Ionicons name="close" size={24} color="#1C1C1E" />
               </TouchableOpacity>
@@ -374,15 +372,15 @@ export default function DriverHomeScreen() {
               <>
                 <View style={styles.requestDetails}>
                   <View style={styles.detailRow}>
-                    <Ionicons name="location" size={20} color="#34C759" />
+                    <Ionicons name="location" size={20} color="#6BBF00" />
                     <Text style={styles.detailText}>
-                      {selectedRequest.pickup_location.address || 'Pickup location'}
+                      {selectedRequest.pickup_location.address || 'Ubicacion de recogida'}
                     </Text>
                   </View>
                   <View style={styles.detailRow}>
                     <Ionicons name="flag" size={20} color="#FF3B30" />
                     <Text style={styles.detailText}>
-                      {selectedRequest.dropoff_location.address || 'Dropoff location'}
+                      {selectedRequest.dropoff_location.address || 'Ubicacion de destino'}
                     </Text>
                   </View>
                   <View style={styles.statsRow}>
@@ -396,35 +394,35 @@ export default function DriverHomeScreen() {
                     </View>
                     <View style={styles.statBox}>
                       <Text style={styles.statValue}>${selectedRequest.estimated_fare.toFixed(0)}</Text>
-                      <Text style={styles.statLabel}>est. fare</Text>
+                      <Text style={styles.statLabel}>tarifa est.</Text>
                     </View>
                   </View>
                 </View>
                 
                 <View style={styles.bidSection}>
-                  <Text style={styles.bidLabel}>Your Bid Amount</Text>
+                  <Text style={styles.bidLabel}>Tu monto de oferta</Text>
                   <View style={styles.bidInput}>
                     <Text style={styles.currencySymbol}>$</Text>
-                    <Text style={styles.bidAmount}>{bidAmount}</Text>
+                    <Text style={styles.bidAmountText}>{bidAmount}</Text>
                   </View>
                   <View style={styles.bidButtons}>
                     <TouchableOpacity
                       style={styles.bidAdjustButton}
                       onPress={() => setBidAmount((parseFloat(bidAmount) - 1).toFixed(2))}
                     >
-                      <Ionicons name="remove" size={20} color="#007AFF" />
+                      <Ionicons name="remove" size={20} color="#6BBF00" />
                     </TouchableOpacity>
                     <TouchableOpacity
                       style={styles.bidAdjustButton}
                       onPress={() => setBidAmount((parseFloat(bidAmount) + 1).toFixed(2))}
                     >
-                      <Ionicons name="add" size={20} color="#007AFF" />
+                      <Ionicons name="add" size={20} color="#6BBF00" />
                     </TouchableOpacity>
                   </View>
                 </View>
                 
                 <Button
-                  title="Submit Bid"
+                  title="Enviar oferta"
                   onPress={handleSubmitBid}
                   loading={isSubmitting}
                   variant="secondary"
@@ -472,7 +470,7 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   onlineLabelActive: {
-    color: '#34C759',
+    color: '#6BBF00',
   },
   mapContainer: {
     flex: 1,
@@ -525,7 +523,7 @@ const styles = StyleSheet.create({
   requestFare: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#34C759',
+    color: '#6BBF00',
   },
   requestPickup: {
     fontSize: 14,
@@ -629,9 +627,9 @@ const styles = StyleSheet.create({
   currencySymbol: {
     fontSize: 28,
     fontWeight: '600',
-    color: '#34C759',
+    color: '#6BBF00',
   },
-  bidAmount: {
+  bidAmountText: {
     fontSize: 42,
     fontWeight: 'bold',
     color: '#1C1C1E',
@@ -673,7 +671,7 @@ const styles = StyleSheet.create({
   rideStatusText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#34C759',
+    color: '#6BBF00',
   },
   riderInfo: {
     flexDirection: 'row',
@@ -737,7 +735,7 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   pickupDot: {
-    backgroundColor: '#34C759',
+    backgroundColor: '#6BBF00',
   },
   dropoffDot: {
     backgroundColor: '#FF3B30',

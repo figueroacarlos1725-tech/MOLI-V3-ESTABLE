@@ -8,7 +8,7 @@ export default function RiderLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: '#007AFF',
+        tabBarActiveTintColor: '#6BBF00',
         tabBarInactiveTintColor: '#8E8E93',
         tabBarStyle: {
           backgroundColor: '#fff',
@@ -27,7 +27,7 @@ export default function RiderLayout() {
       <Tabs.Screen
         name="home"
         options={{
-          title: 'Home',
+          title: 'Inicio',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="home" size={size} color={color} />
           ),
@@ -36,7 +36,7 @@ export default function RiderLayout() {
       <Tabs.Screen
         name="rides"
         options={{
-          title: 'My Rides',
+          title: 'Mis Viajes',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="car" size={size} color={color} />
           ),
@@ -45,7 +45,7 @@ export default function RiderLayout() {
       <Tabs.Screen
         name="wallet"
         options={{
-          title: 'Wallet',
+          title: 'Billetera',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="wallet" size={size} color={color} />
           ),
@@ -54,7 +54,7 @@ export default function RiderLayout() {
       <Tabs.Screen
         name="profile"
         options={{
-          title: 'Profile',
+          title: 'Perfil',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="person" size={size} color={color} />
           ),

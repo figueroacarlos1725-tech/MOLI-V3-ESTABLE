@@ -35,11 +35,30 @@ export default function DriverRidesScreen() {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'completed':
-        return '#34C759';
+        return '#6BBF00';
       case 'cancelled':
         return '#FF3B30';
       default:
         return '#8E8E93';
+    }
+  };
+
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case 'completed': return 'Completado';
+      case 'cancelled': return 'Cancelado';
+      case 'accepted': return 'Aceptado';
+      case 'started': return 'En curso';
+      default: return status;
+    }
+  };
+
+  const getFilterLabel = (f: string) => {
+    switch (f) {
+      case 'all': return 'Todos';
+      case 'completed': return 'Completados';
+      case 'cancelled': return 'Cancelados';
+      default: return f;
     }
   };
 
@@ -49,12 +68,12 @@ export default function DriverRidesScreen() {
         <View style={styles.rideDate}>
           <Ionicons name="calendar-outline" size={16} color="#8E8E93" />
           <Text style={styles.rideDateText}>
-            {format(new Date(item.created_at), 'MMM d, yyyy • h:mm a')}
+            {format(new Date(item.created_at), 'dd MMM yyyy - HH:mm')}
           </Text>
         </View>
         <View style={[styles.statusBadge, { backgroundColor: `${getStatusColor(item.status)}20` }]}>
           <Text style={[styles.statusText, { color: getStatusColor(item.status) }]}>
-            {item.status.charAt(0).toUpperCase() + item.status.slice(1)}
+            {getStatusLabel(item.status)}
           </Text>
         </View>
       </View>
@@ -63,21 +82,21 @@ export default function DriverRidesScreen() {
         <View style={styles.locationRow}>
           <View style={[styles.locationDot, styles.pickupDot]} />
           <Text style={styles.locationText} numberOfLines={1}>
-            {item.pickup_location?.address || 'Pickup location'}
+            {item.pickup_location?.address || 'Punto de recogida'}
           </Text>
         </View>
         <View style={styles.locationLine} />
         <View style={styles.locationRow}>
           <View style={[styles.locationDot, styles.dropoffDot]} />
           <Text style={styles.locationText} numberOfLines={1}>
-            {item.dropoff_location?.address || 'Dropoff location'}
+            {item.dropoff_location?.address || 'Punto de destino'}
           </Text>
         </View>
       </View>
 
       <View style={styles.rideFooter}>
         <View style={styles.rideInfo}>
-          <Text style={styles.earningsLabel}>Earnings</Text>
+          <Text style={styles.earningsLabel}>Ganancias</Text>
         </View>
         <Text style={styles.earningsText}>${item.driver_earnings?.toFixed(2) || item.fare?.toFixed(2) || '0.00'}</Text>
       </View>
@@ -87,7 +106,7 @@ export default function DriverRidesScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Ride History</Text>
+        <Text style={styles.title}>Historial de viajes</Text>
       </View>
 
       <View style={styles.filterContainer}>
@@ -98,7 +117,7 @@ export default function DriverRidesScreen() {
             onPress={() => setFilter(f)}
           >
             <Text style={[styles.filterText, filter === f && styles.filterTextActive]}>
-              {f.charAt(0).toUpperCase() + f.slice(1)}
+              {getFilterLabel(f)}
             </Text>
           </TouchableOpacity>
         ))}
@@ -115,8 +134,8 @@ export default function DriverRidesScreen() {
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
             <Ionicons name="car-outline" size={64} color="#E5E5EA" />
-            <Text style={styles.emptyText}>No rides yet</Text>
-            <Text style={styles.emptySubtext}>Complete rides to see them here</Text>
+            <Text style={styles.emptyText}>Sin viajes aun</Text>
+            <Text style={styles.emptySubtext}>Completa viajes para verlos aqui</Text>
           </View>
         }
       />
@@ -125,142 +144,33 @@ export default function DriverRidesScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F2F2F7',
-  },
-  header: {
-    backgroundColor: '#fff',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E5EA',
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#1C1C1E',
-  },
-  filterContainer: {
-    flexDirection: 'row',
-    padding: 16,
-    gap: 8,
-  },
-  filterButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: '#fff',
-  },
-  filterButtonActive: {
-    backgroundColor: '#34C759',
-  },
-  filterText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#8E8E93',
-  },
-  filterTextActive: {
-    color: '#fff',
-  },
-  listContent: {
-    padding: 16,
-  },
-  rideCard: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 12,
-  },
-  rideHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  rideDate: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  rideDateText: {
-    fontSize: 13,
-    color: '#8E8E93',
-    marginLeft: 6,
-  },
-  statusBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  statusText: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  rideLocations: {
-    marginBottom: 16,
-  },
-  locationRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  locationDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    marginRight: 12,
-  },
-  pickupDot: {
-    backgroundColor: '#34C759',
-  },
-  dropoffDot: {
-    backgroundColor: '#FF3B30',
-  },
-  locationLine: {
-    width: 2,
-    height: 20,
-    backgroundColor: '#E5E5EA',
-    marginLeft: 4,
-    marginVertical: 4,
-  },
-  locationText: {
-    flex: 1,
-    fontSize: 14,
-    color: '#1C1C1E',
-  },
-  rideFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#E5E5EA',
-  },
-  rideInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  earningsLabel: {
-    fontSize: 13,
-    color: '#8E8E93',
-  },
-  earningsText: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#34C759',
-  },
-  emptyContainer: {
-    alignItems: 'center',
-    paddingVertical: 60,
-  },
-  emptyText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#1C1C1E',
-    marginTop: 16,
-  },
-  emptySubtext: {
-    fontSize: 14,
-    color: '#8E8E93',
-    marginTop: 8,
-  },
+  container: { flex: 1, backgroundColor: '#F2F2F7' },
+  header: { backgroundColor: '#fff', paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#E5E5EA' },
+  title: { fontSize: 28, fontWeight: 'bold', color: '#1C1C1E' },
+  filterContainer: { flexDirection: 'row', padding: 16, gap: 8 },
+  filterButton: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: '#fff' },
+  filterButtonActive: { backgroundColor: '#6BBF00' },
+  filterText: { fontSize: 14, fontWeight: '600', color: '#8E8E93' },
+  filterTextActive: { color: '#fff' },
+  listContent: { padding: 16 },
+  rideCard: { backgroundColor: '#fff', borderRadius: 16, padding: 16, marginBottom: 12 },
+  rideHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
+  rideDate: { flexDirection: 'row', alignItems: 'center' },
+  rideDateText: { fontSize: 13, color: '#8E8E93', marginLeft: 6 },
+  statusBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
+  statusText: { fontSize: 12, fontWeight: '600' },
+  rideLocations: { marginBottom: 16 },
+  locationRow: { flexDirection: 'row', alignItems: 'center' },
+  locationDot: { width: 10, height: 10, borderRadius: 5, marginRight: 12 },
+  pickupDot: { backgroundColor: '#6BBF00' },
+  dropoffDot: { backgroundColor: '#FF3B30' },
+  locationLine: { width: 2, height: 20, backgroundColor: '#E5E5EA', marginLeft: 4, marginVertical: 4 },
+  locationText: { flex: 1, fontSize: 14, color: '#1C1C1E' },
+  rideFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: 16, borderTopWidth: 1, borderTopColor: '#E5E5EA' },
+  rideInfo: { flexDirection: 'row', alignItems: 'center' },
+  earningsLabel: { fontSize: 13, color: '#8E8E93' },
+  earningsText: { fontSize: 18, fontWeight: 'bold', color: '#6BBF00' },
+  emptyContainer: { alignItems: 'center', paddingVertical: 60 },
+  emptyText: { fontSize: 18, fontWeight: '600', color: '#1C1C1E', marginTop: 16 },
+  emptySubtext: { fontSize: 14, color: '#8E8E93', marginTop: 8 },
 });

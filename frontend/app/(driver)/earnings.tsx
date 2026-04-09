@@ -32,27 +32,26 @@ export default function DriverEarningsScreen() {
       const response = await apiService.get(`/drivers/earnings?period=${selectedPeriod}`);
       setEarnings(response);
     } catch (error) {
-      console.error('Error fetching earnings:', error);
+      console.error('Error obteniendo ganancias:', error);
     } finally {
       setIsLoading(false);
     }
   };
 
   const periods = [
-    { id: 'today', label: 'Today' },
-    { id: 'week', label: 'Week' },
-    { id: 'month', label: 'Month' },
-    { id: 'all', label: 'All Time' },
+    { id: 'today', label: 'Hoy' },
+    { id: 'week', label: 'Semana' },
+    { id: 'month', label: 'Mes' },
+    { id: 'all', label: 'Total' },
   ];
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Earnings</Text>
+        <Text style={styles.title}>Ganancias</Text>
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false}>
-        {/* Period Selector */}
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -77,77 +76,73 @@ export default function DriverEarningsScreen() {
           ))}
         </ScrollView>
 
-        {/* Main Earnings Card */}
         <View style={styles.earningsCard}>
-          <Text style={styles.earningsLabel}>Total Earnings</Text>
+          <Text style={styles.earningsLabel}>Ganancias totales</Text>
           <Text style={styles.earningsAmount}>
             ${earnings?.total_earnings.toFixed(2) || '0.00'}
           </Text>
           <View style={styles.earningsStats}>
             <View style={styles.statItem}>
               <Text style={styles.statValue}>{earnings?.total_rides || 0}</Text>
-              <Text style={styles.statLabel}>Rides</Text>
+              <Text style={styles.statLabel}>Viajes</Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
               <Text style={styles.statValue}>
                 ${earnings?.average_per_ride.toFixed(2) || '0.00'}
               </Text>
-              <Text style={styles.statLabel}>Avg/Ride</Text>
+              <Text style={styles.statLabel}>Prom/Viaje</Text>
             </View>
           </View>
         </View>
 
-        {/* Quick Stats */}
         <View style={styles.quickStats}>
           <View style={styles.quickStatCard}>
             <View style={[styles.quickStatIcon, { backgroundColor: '#E3F2FD' }]}>
               <Ionicons name="car" size={24} color="#007AFF" />
             </View>
             <Text style={styles.quickStatValue}>{earnings?.total_rides || 0}</Text>
-            <Text style={styles.quickStatLabel}>Completed Rides</Text>
+            <Text style={styles.quickStatLabel}>Viajes completados</Text>
           </View>
 
           <View style={styles.quickStatCard}>
             <View style={[styles.quickStatIcon, { backgroundColor: '#E8F5E9' }]}>
-              <Ionicons name="trending-up" size={24} color="#34C759" />
+              <Ionicons name="trending-up" size={24} color="#6BBF00" />
             </View>
             <Text style={styles.quickStatValue}>
               ${earnings?.average_per_ride.toFixed(2) || '0.00'}
             </Text>
-            <Text style={styles.quickStatLabel}>Average Earning</Text>
+            <Text style={styles.quickStatLabel}>Ganancia promedio</Text>
           </View>
         </View>
 
-        {/* Withdraw Section */}
         <View style={styles.withdrawSection}>
-          <Text style={styles.sectionTitle}>Withdraw Earnings</Text>
+          <Text style={styles.sectionTitle}>Retirar ganancias</Text>
           <View style={styles.withdrawCard}>
             <View style={styles.withdrawInfo}>
-              <Text style={styles.withdrawLabel}>Available Balance</Text>
+              <Text style={styles.withdrawLabel}>Saldo disponible</Text>
               <Text style={styles.withdrawAmount}>
                 ${earnings?.total_earnings.toFixed(2) || '0.00'}
               </Text>
             </View>
             <TouchableOpacity style={styles.withdrawButton}>
-              <Text style={styles.withdrawButtonText}>Withdraw</Text>
+              <Text style={styles.withdrawButtonText}>Retirar</Text>
             </TouchableOpacity>
           </View>
           <Text style={styles.withdrawNote}>
-            Withdrawals are processed within 1-3 business days
+            Los retiros se procesan en 1-3 dias habiles
           </Text>
         </View>
 
-        {/* Payment Methods */}
         <View style={styles.paymentSection}>
-          <Text style={styles.sectionTitle}>Payment Methods</Text>
+          <Text style={styles.sectionTitle}>Metodos de pago</Text>
           <TouchableOpacity style={styles.paymentCard}>
             <View style={styles.paymentIcon}>
               <Ionicons name="card" size={24} color="#007AFF" />
             </View>
             <View style={styles.paymentInfo}>
-              <Text style={styles.paymentTitle}>Bank Account</Text>
-              <Text style={styles.paymentSubtitle}>Add a bank account for withdrawals</Text>
+              <Text style={styles.paymentTitle}>Cuenta bancaria</Text>
+              <Text style={styles.paymentSubtitle}>Agrega una cuenta para retiros</Text>
             </View>
             <Ionicons name="chevron-forward" size={20} color="#C7C7CC" />
           </TouchableOpacity>
@@ -158,191 +153,40 @@ export default function DriverEarningsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F2F2F7',
-  },
-  header: {
-    backgroundColor: '#fff',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E5EA',
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#1C1C1E',
-  },
-  periodSelector: {
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    gap: 8,
-  },
-  periodButton: {
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 20,
-    backgroundColor: '#fff',
-    marginRight: 8,
-  },
-  periodButtonActive: {
-    backgroundColor: '#34C759',
-  },
-  periodButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#8E8E93',
-  },
-  periodButtonTextActive: {
-    color: '#fff',
-  },
-  earningsCard: {
-    backgroundColor: '#34C759',
-    margin: 16,
-    borderRadius: 20,
-    padding: 24,
-  },
-  earningsLabel: {
-    fontSize: 14,
-    color: 'rgba(255,255,255,0.8)',
-  },
-  earningsAmount: {
-    fontSize: 48,
-    fontWeight: 'bold',
-    color: '#fff',
-    marginTop: 8,
-  },
-  earningsStats: {
-    flexDirection: 'row',
-    marginTop: 24,
-    paddingTop: 24,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.2)',
-  },
-  statItem: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  statValue: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#fff',
-  },
-  statLabel: {
-    fontSize: 13,
-    color: 'rgba(255,255,255,0.8)',
-    marginTop: 4,
-  },
-  statDivider: {
-    width: 1,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-  },
-  quickStats: {
-    flexDirection: 'row',
-    paddingHorizontal: 16,
-    gap: 12,
-  },
-  quickStatCard: {
-    flex: 1,
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 16,
-    alignItems: 'center',
-  },
-  quickStatIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  quickStatValue: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#1C1C1E',
-  },
-  quickStatLabel: {
-    fontSize: 12,
-    color: '#8E8E93',
-    marginTop: 4,
-  },
-  withdrawSection: {
-    padding: 16,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#1C1C1E',
-    marginBottom: 12,
-  },
-  withdrawCard: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 20,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
+  container: { flex: 1, backgroundColor: '#F2F2F7' },
+  header: { backgroundColor: '#fff', paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#E5E5EA' },
+  title: { fontSize: 28, fontWeight: 'bold', color: '#1C1C1E' },
+  periodSelector: { paddingHorizontal: 16, paddingVertical: 16, gap: 8 },
+  periodButton: { paddingHorizontal: 20, paddingVertical: 10, borderRadius: 20, backgroundColor: '#fff', marginRight: 8 },
+  periodButtonActive: { backgroundColor: '#6BBF00' },
+  periodButtonText: { fontSize: 14, fontWeight: '600', color: '#8E8E93' },
+  periodButtonTextActive: { color: '#fff' },
+  earningsCard: { backgroundColor: '#6BBF00', margin: 16, borderRadius: 20, padding: 24 },
+  earningsLabel: { fontSize: 14, color: 'rgba(255,255,255,0.8)' },
+  earningsAmount: { fontSize: 48, fontWeight: 'bold', color: '#fff', marginTop: 8 },
+  earningsStats: { flexDirection: 'row', marginTop: 24, paddingTop: 24, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.2)' },
+  statItem: { flex: 1, alignItems: 'center' },
+  statValue: { fontSize: 24, fontWeight: 'bold', color: '#fff' },
+  statLabel: { fontSize: 13, color: 'rgba(255,255,255,0.8)', marginTop: 4 },
+  statDivider: { width: 1, backgroundColor: 'rgba(255,255,255,0.2)' },
+  quickStats: { flexDirection: 'row', paddingHorizontal: 16, gap: 12 },
+  quickStatCard: { flex: 1, backgroundColor: '#fff', borderRadius: 16, padding: 16, alignItems: 'center' },
+  quickStatIcon: { width: 48, height: 48, borderRadius: 24, justifyContent: 'center', alignItems: 'center', marginBottom: 12 },
+  quickStatValue: { fontSize: 20, fontWeight: 'bold', color: '#1C1C1E' },
+  quickStatLabel: { fontSize: 12, color: '#8E8E93', marginTop: 4 },
+  withdrawSection: { padding: 16 },
+  sectionTitle: { fontSize: 18, fontWeight: '600', color: '#1C1C1E', marginBottom: 12 },
+  withdrawCard: { backgroundColor: '#fff', borderRadius: 16, padding: 20, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   withdrawInfo: {},
-  withdrawLabel: {
-    fontSize: 13,
-    color: '#8E8E93',
-  },
-  withdrawAmount: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#1C1C1E',
-    marginTop: 4,
-  },
-  withdrawButton: {
-    backgroundColor: '#34C759',
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 20,
-  },
-  withdrawButtonText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  withdrawNote: {
-    fontSize: 12,
-    color: '#8E8E93',
-    marginTop: 12,
-    textAlign: 'center',
-  },
-  paymentSection: {
-    padding: 16,
-  },
-  paymentCard: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  paymentIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#E3F2FD',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  paymentInfo: {
-    flex: 1,
-    marginLeft: 12,
-  },
-  paymentTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1C1C1E',
-  },
-  paymentSubtitle: {
-    fontSize: 13,
-    color: '#8E8E93',
-    marginTop: 4,
-  },
+  withdrawLabel: { fontSize: 13, color: '#8E8E93' },
+  withdrawAmount: { fontSize: 24, fontWeight: 'bold', color: '#1C1C1E', marginTop: 4 },
+  withdrawButton: { backgroundColor: '#6BBF00', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 20 },
+  withdrawButtonText: { color: '#fff', fontSize: 14, fontWeight: '600' },
+  withdrawNote: { fontSize: 12, color: '#8E8E93', marginTop: 12, textAlign: 'center' },
+  paymentSection: { padding: 16 },
+  paymentCard: { backgroundColor: '#fff', borderRadius: 16, padding: 16, flexDirection: 'row', alignItems: 'center' },
+  paymentIcon: { width: 48, height: 48, borderRadius: 24, backgroundColor: '#E3F2FD', justifyContent: 'center', alignItems: 'center' },
+  paymentInfo: { flex: 1, marginLeft: 12 },
+  paymentTitle: { fontSize: 16, fontWeight: '600', color: '#1C1C1E' },
+  paymentSubtitle: { fontSize: 13, color: '#8E8E93', marginTop: 4 },
 });
