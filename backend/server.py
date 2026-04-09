@@ -911,7 +911,24 @@ async def accept_bid(bid_id: str, user: dict = Depends(get_current_user)):
         bid["driver_id"]
     )
     
-    return {"status": "success", "ride_id": ride_id, "ride": ride_doc}
+    return {"status": "success", "ride_id": ride_id, "ride": {
+        "ride_id": ride_id,
+        "request_id": request["request_id"],
+        "rider_id": request["rider_id"],
+        "driver_id": bid["driver_id"],
+        "pickup_location": request["pickup_location"],
+        "dropoff_location": request["dropoff_location"],
+        "ride_type": request["ride_type"],
+        "vehicle_type": request["vehicle_type"],
+        "status": "accepted",
+        "fare": bid["fare_amount"],
+        "commission": round(commission, 2),
+        "driver_earnings": round(driver_earnings, 2),
+        "payment_method": request["payment_method"],
+        "payment_status": "pending",
+        "accepted_at": now.isoformat(),
+        "created_at": now.isoformat()
+    }}
 
 @app.put("/api/rides/{ride_id}/status")
 async def update_ride_status(
