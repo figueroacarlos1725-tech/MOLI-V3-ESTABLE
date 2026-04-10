@@ -1,5 +1,6 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { View, StyleSheet, ActivityIndicator, Text, Platform } from 'react-native';
+import Constants from 'expo-constants';
 
 interface MarkerProps {
   latitude: number;
@@ -25,169 +26,240 @@ interface MapViewProps {
 const DEFAULT_LAT = -34.6037;
 const DEFAULT_LNG = -58.3816;
 
-function generateLeafletHtml(lat: number, lng: number, markers: MarkerProps[], showRoute: boolean, enableClick: boolean) {
+const MAPBOX_TOKEN = Constants.expoConfig?.extra?.MAPBOX_TOKEN
+  || process.env.EXPO_PUBLIC_MAPBOX_TOKEN
+  || '';
+
+function generateMapboxHtml(
+  lat: number,
+  lng: number,
+  markers: MarkerProps[],
+  showRoute: boolean,
+  enableClick: boolean,
+  token: string
+) {
   return `<!DOCTYPE html>
 <html>
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"><\/script>
+<link href="https://api.mapbox.com/mapbox-gl-js/v3.9.4/mapbox-gl.css" rel="stylesheet"/>
+<script src="https://api.mapbox.com/mapbox-gl-js/v3.9.4/mapbox-gl.js"><\/script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 html,body{width:100%;height:100%;overflow:hidden}
 #map{width:100%;height:100%}
-.cm{font-size:28px;text-align:center;line-height:32px;filter:drop-shadow(1px 1px 2px rgba(0,0,0,0.4))}
-.leaflet-control-attribution{font-size:8px!important}
-.pulse{width:18px;height:18px;border-radius:50%;background:rgba(107,191,0,0.3);border:3px solid #6BBF00;animation:p 2s infinite}
-@keyframes p{0%{box-shadow:0 0 0 0 rgba(107,191,0,0.4)}70%{box-shadow:0 0 0 12px rgba(107,191,0,0)}100%{box-shadow:0 0 0 0 rgba(107,191,0,0)}}
+.marker-user{width:20px;height:20px;border-radius:50%;background:rgba(107,191,0,0.3);border:3px solid #6BBF00;animation:pulse 2s infinite}
+.marker-driver{font-size:28px;text-align:center;line-height:32px;filter:drop-shadow(1px 1px 3px rgba(0,0,0,0.4));cursor:pointer}
+.marker-pickup{width:16px;height:16px;border-radius:50%;background:#6BBF00;border:3px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.3)}
+.marker-dropoff{width:16px;height:16px;border-radius:50%;background:#FF3B30;border:3px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.3)}
+.mapboxgl-ctrl-attrib{font-size:9px!important}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(107,191,0,0.4)}70%{box-shadow:0 0 0 14px rgba(107,191,0,0)}100%{box-shadow:0 0 0 0 rgba(107,191,0,0)}}
+.popup-content{font-family:-apple-system,BlinkMacSystemFont,sans-serif;font-size:13px;padding:4px 8px;font-weight:600}
 </style>
 </head>
 <body>
 <div id="map"></div>
 <script>
-var map=L.map('map',{zoomControl:true}).setView([${lat},${lng}],15);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OSM',maxZoom:19}).addTo(map);
-var mks=[],rl=null;
-function iconFor(t){
-  if(t==='pickup')return L.divIcon({className:'cm',html:'🟢',iconSize:[32,32],iconAnchor:[16,32]});
-  if(t==='dropoff')return L.divIcon({className:'cm',html:'🔴',iconSize:[32,32],iconAnchor:[16,32]});
-  if(t==='driver')return L.divIcon({className:'cm',html:'🚗',iconSize:[32,32],iconAnchor:[16,32]});
-  return L.divIcon({className:'',html:'<div class="pulse"></div>',iconSize:[18,18],iconAnchor:[9,9]});
+mapboxgl.accessToken='${token}';
+var map=new mapboxgl.Map({
+  container:'map',
+  style:'mapbox://styles/mapbox/streets-v12',
+  center:[${lng},${lat}],
+  zoom:14,
+  attributionControl:true
+});
+map.addControl(new mapboxgl.NavigationControl({showCompass:false}),'top-right');
+map.addControl(new mapboxgl.GeolocateControl({
+  positionOptions:{enableHighAccuracy:true},
+  trackUserLocation:true,
+  showUserHeading:true
+}),'top-right');
+
+var currentMarkers=[];
+var routeAdded=false;
+
+function createMarkerEl(type){
+  var el=document.createElement('div');
+  switch(type){
+    case 'pickup':el.className='marker-pickup';break;
+    case 'dropoff':el.className='marker-dropoff';break;
+    case 'driver':el.className='marker-driver';el.innerHTML='🚗';break;
+    default:el.className='marker-user';break;
+  }
+  return el;
 }
-function setMarkers(arr){
-  mks.forEach(function(m){map.removeLayer(m)});mks=[];
-  if(rl){map.removeLayer(rl);rl=null}
-  arr.forEach(function(m){
-    var mk=L.marker([m.latitude,m.longitude],{icon:iconFor(m.type||'user')}).addTo(map);
-    if(m.title)mk.bindPopup(m.title);
-    mks.push(mk);
-  });
-  if(${showRoute?'true':'false'}&&arr.length>=2){
-    var cs=arr.map(function(m){return[m.latitude,m.longitude]});
-    rl=L.polyline(cs,{color:'#6BBF00',weight:5,opacity:0.8,dashArray:'10,10'}).addTo(map);
-    map.fitBounds(cs,{padding:[50,50]});
+
+function clearMarkers(){
+  currentMarkers.forEach(function(m){m.remove()});
+  currentMarkers=[];
+  if(routeAdded&&map.getSource('route')){
+    map.removeLayer('route-line');
+    map.removeSource('route');
+    routeAdded=false;
   }
 }
-var initMarkers=${JSON.stringify(markers)};
-if(initMarkers.length>0)setMarkers(initMarkers);
+
+function setMarkers(arr){
+  clearMarkers();
+  var bounds=new mapboxgl.LngLatBounds();
+  arr.forEach(function(m){
+    var el=createMarkerEl(m.type||'user');
+    var marker=new mapboxgl.Marker({element:el})
+      .setLngLat([m.longitude,m.latitude])
+      .addTo(map);
+    if(m.title){
+      marker.setPopup(new mapboxgl.Popup({offset:25,closeButton:false})
+        .setHTML('<div class="popup-content">'+m.title+'</div>'));
+    }
+    currentMarkers.push(marker);
+    bounds.extend([m.longitude,m.latitude]);
+  });
+
+  if(arr.length>1){
+    map.fitBounds(bounds,{padding:{top:60,bottom:60,left:40,right:40},maxZoom:15});
+  }
+
+  if(${showRoute?'true':'false'}&&arr.length>=2){
+    drawRoute(arr);
+  }
+}
+
+function drawRoute(arr){
+  if(arr.length<2)return;
+  var pickup=arr.find(function(m){return m.type==='pickup'})||arr[0];
+  var dropoff=arr.find(function(m){return m.type==='dropoff'})||arr[arr.length-1];
+  
+  var url='https://api.mapbox.com/directions/v5/mapbox/driving/'+
+    pickup.longitude+','+pickup.latitude+';'+
+    dropoff.longitude+','+dropoff.latitude+
+    '?geometries=geojson&overview=full&access_token=${token}';
+  
+  fetch(url).then(function(r){return r.json()}).then(function(data){
+    if(data.routes&&data.routes.length>0){
+      var route=data.routes[0].geometry;
+      if(map.getSource('route')){
+        map.getSource('route').setData({type:'Feature',geometry:route});
+      }else{
+        map.addSource('route',{type:'geojson',data:{type:'Feature',geometry:route}});
+        map.addLayer({
+          id:'route-line',
+          type:'line',
+          source:'route',
+          layout:{'line-join':'round','line-cap':'round'},
+          paint:{'line-color':'#6BBF00','line-width':5,'line-opacity':0.85}
+        });
+      }
+      routeAdded=true;
+    }
+  }).catch(function(e){
+    console.log('Route error:',e);
+    // Fallback: draw straight line
+    var coords=arr.map(function(m){return[m.longitude,m.latitude]});
+    if(map.getSource('route')){
+      map.getSource('route').setData({type:'Feature',geometry:{type:'LineString',coordinates:coords}});
+    }else{
+      map.addSource('route',{type:'geojson',data:{type:'Feature',geometry:{type:'LineString',coordinates:coords}}});
+      map.addLayer({
+        id:'route-line',type:'line',source:'route',
+        layout:{'line-join':'round','line-cap':'round'},
+        paint:{'line-color':'#6BBF00','line-width':4,'line-dasharray':[2,2]}
+      });
+    }
+    routeAdded=true;
+  });
+}
+
+map.on('load',function(){
+  var initMarkers=${JSON.stringify(markers)};
+  if(initMarkers.length>0)setMarkers(initMarkers);
+});
+
 ${enableClick?`map.on('click',function(e){
-  var msg=JSON.stringify({type:'mapPress',latitude:e.latlng.lat,longitude:e.latlng.lng});
+  var msg=JSON.stringify({type:'mapPress',latitude:e.lngLat.lat,longitude:e.lngLat.lng});
   try{window.ReactNativeWebView&&window.ReactNativeWebView.postMessage(msg)}catch(x){}
   try{window.parent.postMessage(msg,'*')}catch(x){}
 });`:''}
-window.updateMarkers=setMarkers;
-window.panTo=function(a,b,z){map.setView([a,b],z||15)};
+
+window.updateMarkers=function(arr){setMarkers(arr)};
+window.panTo=function(lat,lng,z){map.flyTo({center:[lng,lat],zoom:z||14,duration:1500})};
+window.setStyle=function(s){map.setStyle('mapbox://styles/mapbox/'+s)};
+
 if(navigator.geolocation){
   navigator.geolocation.getCurrentPosition(function(p){
-    map.setView([p.coords.latitude,p.coords.longitude],15);
+    map.flyTo({center:[p.coords.longitude,p.coords.latitude],zoom:14,duration:2000});
     var msg=JSON.stringify({type:'locationDetected',latitude:p.coords.latitude,longitude:p.coords.longitude});
     try{window.ReactNativeWebView&&window.ReactNativeWebView.postMessage(msg)}catch(x){}
     try{window.parent.postMessage(msg,'*')}catch(x){}
   },function(){},{ enableHighAccuracy:false,timeout:8000});
 }
-</script>
+<\/script>
 </body>
 </html>`;
 }
 
 function WebMapView({ initialRegion, markers = [], showRoute = false, onMapPress, style }: MapViewProps) {
-  const containerRef = useRef<View>(null);
   const iframeRef = useRef<any>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const injectedRef = useRef(false);
+  const markersRef = useRef(markers);
+  markersRef.current = markers;
 
   const lat = initialRegion?.latitude || DEFAULT_LAT;
   const lng = initialRegion?.longitude || DEFAULT_LNG;
 
   useEffect(() => {
-    // On web, we create the iframe programmatically using DOM APIs
-    if (Platform.OS !== 'web') return;
+    if (Platform.OS !== 'web' || injectedRef.current) return;
 
-    const container = containerRef.current as any;
-    if (!container) return;
+    const inject = () => {
+      const el = document.querySelector('[data-map-container="true"]');
+      if (!el || injectedRef.current) return;
+      injectedRef.current = true;
 
-    // Get the DOM node
-    const domNode = container._nativeTag || container;
-    let node: HTMLElement | null = null;
+      const iframe = document.createElement('iframe');
+      iframe.style.cssText = 'width:100%;height:100%;border:none;border-radius:12px;position:absolute;top:0;left:0;z-index:0;';
+      iframe.allow = 'geolocation';
 
-    // In React Native Web, View refs expose the DOM element
-    if (domNode instanceof HTMLElement) {
-      node = domNode;
-    } else if (typeof document !== 'undefined') {
-      // Fallback: find by data attribute
-      setTimeout(() => {
-        const el = document.querySelector('[data-map-container="true"]');
-        if (el) createIframe(el as HTMLElement);
-      }, 100);
-      return;
-    }
+      const html = generateMapboxHtml(lat, lng, markersRef.current, showRoute, !!onMapPress, MAPBOX_TOKEN);
+      iframe.srcdoc = html;
+      iframeRef.current = iframe;
+      iframe.onload = () => setIsLoading(false);
 
-    if (node) {
-      createIframe(node);
-    }
-  }, []);
-
-  const createIframe = useCallback((node: HTMLElement) => {
-    // Remove existing iframes
-    const existing = node.querySelector('iframe');
-    if (existing) existing.remove();
-
-    const iframe = document.createElement('iframe');
-    iframe.style.width = '100%';
-    iframe.style.height = '100%';
-    iframe.style.border = 'none';
-    iframe.style.borderRadius = '12px';
-    iframe.style.position = 'absolute';
-    iframe.style.top = '0';
-    iframe.style.left = '0';
-
-    const html = generateLeafletHtml(lat, lng, markers, showRoute, !!onMapPress);
-    iframe.srcdoc = html;
-    iframeRef.current = iframe;
-
-    iframe.onload = () => {
-      setIsLoading(false);
+      (el as HTMLElement).style.position = 'relative';
+      el.appendChild(iframe);
     };
 
-    node.style.position = 'relative';
-    node.appendChild(iframe);
-  }, [lat, lng, markers, showRoute, onMapPress]);
+    // Try multiple times in case DOM isn't ready
+    const t1 = setTimeout(inject, 200);
+    const t2 = setTimeout(inject, 500);
+    const t3 = setTimeout(inject, 1000);
+    return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
+  }, [lat, lng, showRoute, onMapPress]);
 
-  // Listen for messages from iframe
   useEffect(() => {
     if (Platform.OS !== 'web') return;
-
     const handleMessage = (event: MessageEvent) => {
       try {
         const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
         if (data.type === 'mapPress' && onMapPress) {
           onMapPress({ latitude: data.latitude, longitude: data.longitude });
         }
-      } catch (e) {
-        // ignore
-      }
+      } catch (e) {}
     };
-
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
   }, [onMapPress]);
 
-  // Update markers in iframe
   useEffect(() => {
     if (Platform.OS !== 'web' || !iframeRef.current) return;
     try {
       const win = iframeRef.current.contentWindow;
-      if (win && win.updateMarkers) {
-        win.updateMarkers(markers);
-      }
-    } catch (e) {
-      // ignore
-    }
+      if (win && win.updateMarkers) win.updateMarkers(markers);
+    } catch (e) {}
   }, [markers]);
 
   return (
     <View
-      ref={containerRef}
       style={[styles.container, style]}
       {...({ 'data-map-container': 'true' } as any)}
     >
@@ -209,7 +281,7 @@ function NativeMapView({ initialRegion, markers = [], showRoute = false, onMapPr
   const lat = initialRegion?.latitude || DEFAULT_LAT;
   const lng = initialRegion?.longitude || DEFAULT_LNG;
 
-  const mapHtml = generateLeafletHtml(lat, lng, markers, showRoute, !!onMapPress);
+  const mapHtml = generateMapboxHtml(lat, lng, markers, showRoute, !!onMapPress, MAPBOX_TOKEN);
 
   const handleMessage = (event: any) => {
     try {
@@ -245,6 +317,7 @@ function NativeMapView({ initialRegion, markers = [], showRoute = false, onMapPr
         domStorageEnabled={true}
         scrollEnabled={false}
         originWhitelist={['*']}
+        geolocationEnabled={true}
       />
       {isLoading && (
         <View style={styles.loadingContainer}>
@@ -276,7 +349,7 @@ const styles = StyleSheet.create({
   },
   loadingContainer: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#f0f0f0',
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 1,
