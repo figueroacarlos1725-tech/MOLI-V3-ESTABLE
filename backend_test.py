@@ -330,6 +330,149 @@ async def test_dispatcher_intervention(session, results):
     except Exception as e:
         results.add_fail("Dispatcher - Send Message", f"Exception: {e}")
 
+async def test_vehicle_icons_api(session, results):
+    """Test vehicle icons API endpoints"""
+    print("\n🚗 Testing Vehicle Icons API...")
+    
+    # Login admin for authenticated endpoints
+    admin_token = await login_user(session, ADMIN_EMAIL, ADMIN_PASSWORD)
+    if not admin_token:
+        results.add_fail("Vehicle Icons - Admin Login", "Failed to login admin")
+        return
+    
+    admin_headers = {"Authorization": f"Bearer {admin_token}"}
+    
+    # Test 1: GET /api/vehicle-icons (public endpoint)
+    try:
+        async with session.get(f"{BACKEND_URL}/vehicle-icons") as resp:
+            if resp.status == 200:
+                data = await resp.json()
+                icons = data.get("icons", [])
+                
+                # Check if we have the expected default icons
+                expected_types = ["economy", "comfort", "premium", "xl"]
+                found_types = [icon.get("vehicle_type") for icon in icons]
+                
+                if all(vtype in found_types for vtype in expected_types):
+                    results.add_pass("Vehicle Icons - Public GET")
+                    
+                    # Store initial icons for comparison
+                    global initial_icons
+                    initial_icons = {icon["vehicle_type"]: icon for icon in icons}
+                else:
+                    results.add_fail("Vehicle Icons - Public GET", f"Missing expected vehicle types. Found: {found_types}")
+            else:
+                text = await resp.text()
+                results.add_fail("Vehicle Icons - Public GET", f"HTTP {resp.status}: {text}")
+    except Exception as e:
+        results.add_fail("Vehicle Icons - Public GET", f"Exception: {e}")
+    
+    # Test 2: GET /api/admin/vehicle-icons (admin only)
+    try:
+        async with session.get(f"{BACKEND_URL}/admin/vehicle-icons", headers=admin_headers) as resp:
+            if resp.status == 200:
+                data = await resp.json()
+                icons = data.get("icons", [])
+                
+                # Should return same icons as public endpoint
+                if len(icons) >= 4:
+                    results.add_pass("Vehicle Icons - Admin GET")
+                else:
+                    results.add_fail("Vehicle Icons - Admin GET", f"Expected 4+ icons, got {len(icons)}")
+            else:
+                text = await resp.text()
+                results.add_fail("Vehicle Icons - Admin GET", f"HTTP {resp.status}: {text}")
+    except Exception as e:
+        results.add_fail("Vehicle Icons - Admin GET", f"Exception: {e}")
+    
+    # Test 3: PUT /api/admin/vehicle-icons/economy (update to 🚕)
+    try:
+        update_data = {"icon_type": "emoji", "emoji_value": "🚕"}
+        async with session.put(f"{BACKEND_URL}/admin/vehicle-icons/economy", 
+                              json=update_data, headers=admin_headers) as resp:
+            if resp.status == 200:
+                data = await resp.json()
+                if data.get("status") == "success" and data.get("icon", {}).get("emoji_value") == "🚕":
+                    results.add_pass("Vehicle Icons - Update Economy")
+                else:
+                    results.add_fail("Vehicle Icons - Update Economy", f"Unexpected response: {data}")
+            else:
+                text = await resp.text()
+                results.add_fail("Vehicle Icons - Update Economy", f"HTTP {resp.status}: {text}")
+    except Exception as e:
+        results.add_fail("Vehicle Icons - Update Economy", f"Exception: {e}")
+    
+    # Test 4: Verify economy icon updated
+    try:
+        async with session.get(f"{BACKEND_URL}/vehicle-icons") as resp:
+            if resp.status == 200:
+                data = await resp.json()
+                icons = data.get("icons", [])
+                economy_icon = next((icon for icon in icons if icon.get("vehicle_type") == "economy"), None)
+                
+                if economy_icon and economy_icon.get("emoji_value") == "🚕":
+                    results.add_pass("Vehicle Icons - Verify Economy Update")
+                else:
+                    results.add_fail("Vehicle Icons - Verify Economy Update", f"Economy icon not updated correctly: {economy_icon}")
+            else:
+                text = await resp.text()
+                results.add_fail("Vehicle Icons - Verify Economy Update", f"HTTP {resp.status}: {text}")
+    except Exception as e:
+        results.add_fail("Vehicle Icons - Verify Economy Update", f"Exception: {e}")
+    
+    # Test 5: PUT /api/admin/vehicle-icons/premium (update to 🏎️)
+    try:
+        update_data = {"icon_type": "emoji", "emoji_value": "🏎️"}
+        async with session.put(f"{BACKEND_URL}/admin/vehicle-icons/premium", 
+                              json=update_data, headers=admin_headers) as resp:
+            if resp.status == 200:
+                data = await resp.json()
+                if data.get("status") == "success" and data.get("icon", {}).get("emoji_value") == "🏎️":
+                    results.add_pass("Vehicle Icons - Update Premium")
+                else:
+                    results.add_fail("Vehicle Icons - Update Premium", f"Unexpected response: {data}")
+            else:
+                text = await resp.text()
+                results.add_fail("Vehicle Icons - Update Premium", f"HTTP {resp.status}: {text}")
+    except Exception as e:
+        results.add_fail("Vehicle Icons - Update Premium", f"Exception: {e}")
+    
+    # Test 6: PUT /api/admin/vehicle-icons/invalid_type (should return 400)
+    try:
+        update_data = {"icon_type": "emoji", "emoji_value": "🚗"}
+        async with session.put(f"{BACKEND_URL}/admin/vehicle-icons/invalid_type", 
+                              json=update_data, headers=admin_headers) as resp:
+            if resp.status == 400:
+                results.add_pass("Vehicle Icons - Invalid Type Error")
+            else:
+                text = await resp.text()
+                results.add_fail("Vehicle Icons - Invalid Type Error", f"Expected 400, got {resp.status}: {text}")
+    except Exception as e:
+        results.add_fail("Vehicle Icons - Invalid Type Error", f"Exception: {e}")
+    
+    # Test 7: Final verification of all icons
+    try:
+        async with session.get(f"{BACKEND_URL}/vehicle-icons") as resp:
+            if resp.status == 200:
+                data = await resp.json()
+                icons = data.get("icons", [])
+                
+                # Check final state
+                economy_icon = next((icon for icon in icons if icon.get("vehicle_type") == "economy"), None)
+                premium_icon = next((icon for icon in icons if icon.get("vehicle_type") == "premium"), None)
+                
+                if (economy_icon and economy_icon.get("emoji_value") == "🚕" and
+                    premium_icon and premium_icon.get("emoji_value") == "🏎️"):
+                    results.add_pass("Vehicle Icons - Final Verification")
+                else:
+                    results.add_fail("Vehicle Icons - Final Verification", 
+                                   f"Icons not in expected final state. Economy: {economy_icon}, Premium: {premium_icon}")
+            else:
+                text = await resp.text()
+                results.add_fail("Vehicle Icons - Final Verification", f"HTTP {resp.status}: {text}")
+    except Exception as e:
+        results.add_fail("Vehicle Icons - Final Verification", f"Exception: {e}")
+
 async def test_health_check(session, results):
     """Test basic health check"""
     print("\n🏥 Testing Health Check...")
@@ -350,7 +493,7 @@ async def test_health_check(session, results):
 
 async def main():
     """Run all tests"""
-    print("🚀 Starting Moli Taxi App Backend Tests - Chat & AI Support Features")
+    print("🚀 Starting Moli Taxi App Backend Tests - Vehicle Icons API")
     print(f"Backend URL: {BACKEND_URL}")
     
     results = TestResults()
@@ -358,11 +501,9 @@ async def main():
     # Create session with timeout
     timeout = aiohttp.ClientTimeout(total=30)
     async with aiohttp.ClientSession(timeout=timeout) as session:
-        # Run tests
+        # Run tests - focusing on vehicle icons as requested
         await test_health_check(session, results)
-        await test_ride_chat(session, results)
-        await test_ai_support_chat(session, results)
-        await test_dispatcher_intervention(session, results)
+        await test_vehicle_icons_api(session, results)
     
     # Print summary
     results.summary()

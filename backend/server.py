@@ -1817,6 +1817,103 @@ async def update_admin_settings(
     
     return {"status": "success", "message": "Settings updated"}
 
+# ======================= VEHICLE ICONS ENDPOINTS =======================
+
+# Default vehicle icons
+DEFAULT_VEHICLE_ICONS = [
+    {"vehicle_type": "economy", "display_name": "Económico", "icon_type": "emoji", "emoji_value": "🚗", "image_data": None},
+    {"vehicle_type": "comfort", "display_name": "Confort", "icon_type": "emoji", "emoji_value": "🚙", "image_data": None},
+    {"vehicle_type": "premium", "display_name": "Premium", "icon_type": "emoji", "emoji_value": "🏎️", "image_data": None},
+    {"vehicle_type": "xl", "display_name": "XL", "icon_type": "emoji", "emoji_value": "🚐", "image_data": None},
+]
+
+@app.get("/api/vehicle-icons")
+async def get_vehicle_icons_public():
+    """Public endpoint - get vehicle icons for map rendering"""
+    icons = await db.vehicle_icons.find({}, {"_id": 0}).to_list(20)
+    if not icons:
+        # Seed defaults
+        for icon in DEFAULT_VEHICLE_ICONS:
+            icon["updated_at"] = datetime.now(timezone.utc).isoformat()
+            await db.vehicle_icons.update_one(
+                {"vehicle_type": icon["vehicle_type"]},
+                {"$set": icon},
+                upsert=True
+            )
+        icons = DEFAULT_VEHICLE_ICONS
+    return {"icons": icons}
+
+@app.get("/api/admin/vehicle-icons")
+async def get_vehicle_icons_admin(user: dict = Depends(get_current_user)):
+    if user["user_type"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    icons = await db.vehicle_icons.find({}, {"_id": 0}).to_list(20)
+    if not icons:
+        for icon in DEFAULT_VEHICLE_ICONS:
+            icon["updated_at"] = datetime.now(timezone.utc).isoformat()
+            await db.vehicle_icons.update_one(
+                {"vehicle_type": icon["vehicle_type"]},
+                {"$set": icon},
+                upsert=True
+            )
+        icons = DEFAULT_VEHICLE_ICONS
+    return {"icons": icons}
+
+class VehicleIconUpdate(BaseModel):
+    icon_type: str = "emoji"  # "emoji" or "image"
+    emoji_value: Optional[str] = None
+    image_data: Optional[str] = None  # base64 PNG
+
+@app.put("/api/admin/vehicle-icons/{vehicle_type}")
+async def update_vehicle_icon(
+    vehicle_type: str,
+    update: VehicleIconUpdate,
+    user: dict = Depends(get_current_user)
+):
+    if user["user_type"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    valid_types = ["economy", "comfort", "premium", "xl"]
+    if vehicle_type not in valid_types:
+        raise HTTPException(status_code=400, detail=f"Invalid vehicle type. Must be one of: {valid_types}")
+    
+    update_data = {
+        "vehicle_type": vehicle_type,
+        "icon_type": update.icon_type,
+        "updated_at": datetime.now(timezone.utc).isoformat()
+    }
+    
+    if update.icon_type == "emoji":
+        if not update.emoji_value:
+            raise HTTPException(status_code=400, detail="emoji_value required for emoji icon type")
+        update_data["emoji_value"] = update.emoji_value
+        update_data["image_data"] = None
+    elif update.icon_type == "image":
+        if not update.image_data:
+            raise HTTPException(status_code=400, detail="image_data (base64) required for image icon type")
+        # Validate base64 size (max 500KB)
+        if len(update.image_data) > 700000:
+            raise HTTPException(status_code=400, detail="Image too large. Max 500KB")
+        update_data["image_data"] = update.image_data
+        update_data["emoji_value"] = None
+    else:
+        raise HTTPException(status_code=400, detail="icon_type must be 'emoji' or 'image'")
+    
+    # Get display name
+    display_names = {"economy": "Económico", "comfort": "Confort", "premium": "Premium", "xl": "XL"}
+    update_data["display_name"] = display_names.get(vehicle_type, vehicle_type)
+    
+    await db.vehicle_icons.update_one(
+        {"vehicle_type": vehicle_type},
+        {"$set": update_data},
+        upsert=True
+    )
+    
+    return {"status": "success", "message": f"Icon for {vehicle_type} updated", "icon": update_data}
+
+
+
 @app.post("/api/admin/coupons")
 async def create_coupon(
     coupon: CouponCreate,

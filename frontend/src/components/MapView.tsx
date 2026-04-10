@@ -1,11 +1,19 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { View, StyleSheet, ActivityIndicator, Text, Platform } from 'react-native';
 
+interface VehicleIconConfig {
+  vehicle_type: string;
+  icon_type: 'emoji' | 'image';
+  emoji_value: string | null;
+  image_data: string | null;
+}
+
 interface MarkerProps {
   latitude: number;
   longitude: number;
   title?: string;
   type?: 'pickup' | 'dropoff' | 'driver' | 'user';
+  vehicleType?: string; // economy, comfort, premium, xl
 }
 
 interface MapViewProps {
@@ -34,8 +42,20 @@ function generateMapboxHtml(
   markers: MarkerProps[],
   showRoute: boolean,
   enableClick: boolean,
-  token: string
+  token: string,
+  vehicleIcons: VehicleIconConfig[] = []
 ) {
+  // Build a JS object mapping vehicle_type -> icon config
+  const iconsMap: Record<string, { type: string; emoji: string; image: string }> = {};
+  vehicleIcons.forEach(ic => {
+    iconsMap[ic.vehicle_type] = {
+      type: ic.icon_type,
+      emoji: ic.emoji_value || '🚗',
+      image: ic.image_data || '',
+    };
+  });
+  const iconsJson = JSON.stringify(iconsMap);
+
   return `<!DOCTYPE html>
 <html>
 <head>
@@ -49,6 +69,7 @@ html,body{width:100%;height:100%;overflow:hidden}
 #map{width:100%;height:100%}
 .marker-user{width:20px;height:20px;border-radius:50%;background:rgba(107,191,0,0.3);border:3px solid #6BBF00;animation:pulse 2s infinite}
 .marker-driver{font-size:28px;text-align:center;line-height:32px;filter:drop-shadow(1px 1px 3px rgba(0,0,0,0.4));cursor:pointer}
+.marker-driver-img{width:40px;height:40px;object-fit:contain;filter:drop-shadow(1px 1px 3px rgba(0,0,0,0.4));cursor:pointer}
 .marker-pickup{width:16px;height:16px;border-radius:50%;background:#6BBF00;border:3px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.3)}
 .marker-dropoff{width:16px;height:16px;border-radius:50%;background:#FF3B30;border:3px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.3)}
 .mapboxgl-ctrl-attrib{font-size:9px!important}
@@ -59,6 +80,8 @@ html,body{width:100%;height:100%;overflow:hidden}
 <body>
 <div id="map"></div>
 <script>
+var vehicleIcons=${iconsJson};
+
 mapboxgl.accessToken='${token}';
 var map=new mapboxgl.Map({
   container:'map',
@@ -77,12 +100,31 @@ map.addControl(new mapboxgl.GeolocateControl({
 var currentMarkers=[];
 var routeAdded=false;
 
-function createMarkerEl(type){
+function getDriverIcon(vType){
+  var cfg=vehicleIcons[vType||'economy'];
+  if(!cfg)cfg=vehicleIcons['economy'];
+  if(!cfg)return{type:'emoji',value:'\\uD83D\\uDE97'};
+  if(cfg.type==='image'&&cfg.image)return{type:'image',value:cfg.image};
+  return{type:'emoji',value:cfg.emoji||'\\uD83D\\uDE97'};
+}
+
+function createMarkerEl(type,vType){
   var el=document.createElement('div');
   switch(type){
     case 'pickup':el.className='marker-pickup';break;
     case 'dropoff':el.className='marker-dropoff';break;
-    case 'driver':el.className='marker-driver';el.innerHTML='\\uD83D\\uDE97';break;
+    case 'driver':
+      var icon=getDriverIcon(vType);
+      if(icon.type==='image'){
+        var img=document.createElement('img');
+        img.src=icon.value;
+        img.className='marker-driver-img';
+        el.appendChild(img);
+      }else{
+        el.className='marker-driver';
+        el.textContent=icon.value;
+      }
+      break;
     default:el.className='marker-user';break;
   }
   return el;
@@ -102,7 +144,7 @@ function setMarkers(arr){
   clearMarkers();
   var bounds=new mapboxgl.LngLatBounds();
   arr.forEach(function(m){
-    var el=createMarkerEl(m.type||'user');
+    var el=createMarkerEl(m.type||'user',m.vehicleType);
     var marker=new mapboxgl.Marker({element:el})
       .setLngLat([m.longitude,m.latitude])
       .addTo(map);
@@ -195,7 +237,7 @@ if(navigator.geolocation){
 </html>`;
 }
 
-function WebMapView({ initialRegion, markers = [], showRoute = false, onMapPress, style }: MapViewProps) {
+function WebMapView({ initialRegion, markers = [], showRoute = false, onMapPress, style, vehicleIcons = [] }: MapViewProps & { vehicleIcons: VehicleIconConfig[] }) {
   const containerRef = useRef<View>(null);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -222,7 +264,7 @@ function WebMapView({ initialRegion, markers = [], showRoute = false, onMapPress
       iframe.allow = 'geolocation';
       iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-popups');
 
-      const html = generateMapboxHtml(lat, lng, markersRef.current, showRoute, !!onMapPress, MAPBOX_TOKEN);
+      const html = generateMapboxHtml(lat, lng, markersRef.current, showRoute, !!onMapPress, MAPBOX_TOKEN, vehicleIcons);
       iframe.srcdoc = html;
       iframeRef.current = iframe;
 
@@ -282,7 +324,7 @@ function WebMapView({ initialRegion, markers = [], showRoute = false, onMapPress
   );
 }
 
-function NativeMapView({ initialRegion, markers = [], showRoute = false, onMapPress, onMarkerDrag, style }: MapViewProps) {
+function NativeMapView({ initialRegion, markers = [], showRoute = false, onMapPress, onMarkerDrag, style, vehicleIcons = [] }: MapViewProps & { vehicleIcons: VehicleIconConfig[] }) {
   const WebView = require('react-native-webview').WebView;
   const webViewRef = useRef<any>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -290,7 +332,7 @@ function NativeMapView({ initialRegion, markers = [], showRoute = false, onMapPr
   const lat = initialRegion?.latitude || DEFAULT_LAT;
   const lng = initialRegion?.longitude || DEFAULT_LNG;
 
-  const mapHtml = generateMapboxHtml(lat, lng, markers, showRoute, !!onMapPress, MAPBOX_TOKEN);
+  const mapHtml = generateMapboxHtml(lat, lng, markers, showRoute, !!onMapPress, MAPBOX_TOKEN, vehicleIcons);
 
   const handleMessage = (event: any) => {
     try {
@@ -338,11 +380,42 @@ function NativeMapView({ initialRegion, markers = [], showRoute = false, onMapPr
   );
 }
 
+// Cache vehicle icons to avoid repeated API calls
+let cachedVehicleIcons: VehicleIconConfig[] = [];
+let iconsFetchPromise: Promise<VehicleIconConfig[]> | null = null;
+
+async function fetchVehicleIcons(): Promise<VehicleIconConfig[]> {
+  if (cachedVehicleIcons.length > 0) return cachedVehicleIcons;
+  if (iconsFetchPromise) return iconsFetchPromise;
+  
+  const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || '';
+  iconsFetchPromise = fetch(`${backendUrl}/api/vehicle-icons`)
+    .then(r => r.json())
+    .then(data => {
+      cachedVehicleIcons = data.icons || [];
+      iconsFetchPromise = null;
+      return cachedVehicleIcons;
+    })
+    .catch(() => {
+      iconsFetchPromise = null;
+      return [];
+    });
+  return iconsFetchPromise;
+}
+
 export function MapView(props: MapViewProps) {
+  const [vehicleIcons, setVehicleIcons] = useState<VehicleIconConfig[]>(cachedVehicleIcons);
+
+  useEffect(() => {
+    fetchVehicleIcons().then(icons => {
+      if (icons.length > 0) setVehicleIcons(icons);
+    });
+  }, []);
+
   if (Platform.OS === 'web') {
-    return <WebMapView {...props} />;
+    return <WebMapView {...props} vehicleIcons={vehicleIcons} />;
   }
-  return <NativeMapView {...props} />;
+  return <NativeMapView {...props} vehicleIcons={vehicleIcons} />;
 }
 
 const styles = StyleSheet.create({
