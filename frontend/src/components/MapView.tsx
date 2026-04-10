@@ -1,6 +1,5 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { View, StyleSheet, ActivityIndicator, Text, Platform } from 'react-native';
-import Constants from 'expo-constants';
 
 interface MarkerProps {
   latitude: number;
@@ -23,12 +22,11 @@ interface MapViewProps {
   style?: any;
 }
 
-const DEFAULT_LAT = -34.6037;
-const DEFAULT_LNG = -58.3816;
+// Catamarca, Argentina as default
+const DEFAULT_LAT = -28.4696;
+const DEFAULT_LNG = -65.7852;
 
-const MAPBOX_TOKEN = Constants.expoConfig?.extra?.MAPBOX_TOKEN
-  || process.env.EXPO_PUBLIC_MAPBOX_TOKEN
-  || '';
+const MAPBOX_TOKEN = process.env.EXPO_PUBLIC_MAPBOX_TOKEN || '';
 
 function generateMapboxHtml(
   lat: number,
@@ -84,7 +82,7 @@ function createMarkerEl(type){
   switch(type){
     case 'pickup':el.className='marker-pickup';break;
     case 'dropoff':el.className='marker-dropoff';break;
-    case 'driver':el.className='marker-driver';el.innerHTML='🚗';break;
+    case 'driver':el.className='marker-driver';el.innerHTML='\\uD83D\\uDE97';break;
     default:el.className='marker-user';break;
   }
   return el;
@@ -120,7 +118,7 @@ function setMarkers(arr){
     map.fitBounds(bounds,{padding:{top:60,bottom:60,left:40,right:40},maxZoom:15});
   }
 
-  if(${showRoute?'true':'false'}&&arr.length>=2){
+  if(${showRoute ? 'true' : 'false'}&&arr.length>=2){
     drawRoute(arr);
   }
 }
@@ -154,7 +152,6 @@ function drawRoute(arr){
     }
   }).catch(function(e){
     console.log('Route error:',e);
-    // Fallback: draw straight line
     var coords=arr.map(function(m){return[m.longitude,m.latitude]});
     if(map.getSource('route')){
       map.getSource('route').setData({type:'Feature',geometry:{type:'LineString',coordinates:coords}});
@@ -175,11 +172,11 @@ map.on('load',function(){
   if(initMarkers.length>0)setMarkers(initMarkers);
 });
 
-${enableClick?`map.on('click',function(e){
+${enableClick ? `map.on('click',function(e){
   var msg=JSON.stringify({type:'mapPress',latitude:e.lngLat.lat,longitude:e.lngLat.lng});
   try{window.ReactNativeWebView&&window.ReactNativeWebView.postMessage(msg)}catch(x){}
   try{window.parent.postMessage(msg,'*')}catch(x){}
-});`:''}
+});` : ''}
 
 window.updateMarkers=function(arr){setMarkers(arr)};
 window.panTo=function(lat,lng,z){map.flyTo({center:[lng,lat],zoom:z||14,duration:1500})};
@@ -199,9 +196,10 @@ if(navigator.geolocation){
 }
 
 function WebMapView({ initialRegion, markers = [], showRoute = false, onMapPress, style }: MapViewProps) {
-  const iframeRef = useRef<any>(null);
+  const containerRef = useRef<View>(null);
+  const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const injectedRef = useRef(false);
+  const mountedRef = useRef(false);
   const markersRef = useRef(markers);
   markersRef.current = markers;
 
@@ -209,33 +207,40 @@ function WebMapView({ initialRegion, markers = [], showRoute = false, onMapPress
   const lng = initialRegion?.longitude || DEFAULT_LNG;
 
   useEffect(() => {
-    if (Platform.OS !== 'web' || injectedRef.current) return;
+    if (Platform.OS !== 'web' || mountedRef.current) return;
 
-    const inject = () => {
-      const el = document.querySelector('[data-map-container="true"]');
-      if (!el || injectedRef.current) return;
-      injectedRef.current = true;
+    // Use a small delay to ensure the View has rendered to a DOM node
+    const timer = setTimeout(() => {
+      // In React Native Web, ref.current IS the underlying DOM div
+      const domNode = containerRef.current as unknown as HTMLDivElement;
+      if (!domNode || mountedRef.current) return;
+
+      mountedRef.current = true;
 
       const iframe = document.createElement('iframe');
       iframe.style.cssText = 'width:100%;height:100%;border:none;border-radius:12px;position:absolute;top:0;left:0;z-index:0;';
       iframe.allow = 'geolocation';
+      iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-popups');
 
       const html = generateMapboxHtml(lat, lng, markersRef.current, showRoute, !!onMapPress, MAPBOX_TOKEN);
       iframe.srcdoc = html;
       iframeRef.current = iframe;
-      iframe.onload = () => setIsLoading(false);
 
-      (el as HTMLElement).style.position = 'relative';
-      el.appendChild(iframe);
+      iframe.onload = () => {
+        setIsLoading(false);
+      };
+
+      // Set position relative so the absolute iframe positions correctly
+      domNode.style.position = 'relative';
+      domNode.appendChild(iframe);
+    }, 100);
+
+    return () => {
+      clearTimeout(timer);
     };
+  }, []);
 
-    // Try multiple times in case DOM isn't ready
-    const t1 = setTimeout(inject, 200);
-    const t2 = setTimeout(inject, 500);
-    const t3 = setTimeout(inject, 1000);
-    return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
-  }, [lat, lng, showRoute, onMapPress]);
-
+  // Listen for messages from the iframe (map clicks, location detected)
   useEffect(() => {
     if (Platform.OS !== 'web') return;
     const handleMessage = (event: MessageEvent) => {
@@ -244,25 +249,29 @@ function WebMapView({ initialRegion, markers = [], showRoute = false, onMapPress
         if (data.type === 'mapPress' && onMapPress) {
           onMapPress({ latitude: data.latitude, longitude: data.longitude });
         }
-      } catch (e) {}
+      } catch (e) {
+        // Ignore non-JSON messages
+      }
     };
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
   }, [onMapPress]);
 
+  // Update markers when they change
   useEffect(() => {
     if (Platform.OS !== 'web' || !iframeRef.current) return;
     try {
-      const win = iframeRef.current.contentWindow;
-      if (win && win.updateMarkers) win.updateMarkers(markers);
-    } catch (e) {}
+      const win = iframeRef.current.contentWindow as any;
+      if (win && win.updateMarkers) {
+        win.updateMarkers(markers);
+      }
+    } catch (e) {
+      // Cross-origin or not loaded yet
+    }
   }, [markers]);
 
   return (
-    <View
-      style={[styles.container, style]}
-      {...({ 'data-map-container': 'true' } as any)}
-    >
+    <View ref={containerRef} style={[styles.container, style]}>
       {isLoading && (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#6BBF00" />

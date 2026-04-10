@@ -20,10 +20,10 @@ export async function getCurrentLocation(): Promise<LocationCoords | null> {
   try {
     const hasPermission = await requestLocationPermission();
     if (!hasPermission) {
-      // Return Buenos Aires as default for Latin America
+      // Return Catamarca as default
       return {
-        latitude: -34.6037,
-        longitude: -58.3816,
+        latitude: -28.4696,
+        longitude: -65.7852,
       };
     }
 
@@ -37,15 +37,42 @@ export async function getCurrentLocation(): Promise<LocationCoords | null> {
     };
   } catch (error) {
     console.error('Error getting current location:', error);
-    // Fallback to Buenos Aires
+    // Fallback to Catamarca
     return {
-      latitude: -34.6037,
-      longitude: -58.3816,
+      latitude: -28.4696,
+      longitude: -65.7852,
     };
   }
 }
 
 export async function reverseGeocode(latitude: number, longitude: number): Promise<string> {
+  // Try Mapbox geocoding first (works on all platforms)
+  const mapboxToken = process.env.EXPO_PUBLIC_MAPBOX_TOKEN || '';
+  if (mapboxToken) {
+    try {
+      const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${longitude},${latitude}.json?access_token=${mapboxToken}&language=es&limit=1`;
+      const response = await fetch(url);
+      const data = await response.json();
+      if (data.features && data.features.length > 0) {
+        // Use shorter text if available, otherwise clean up the full place_name
+        const feature = data.features[0];
+        if (feature.text && feature.context) {
+          const city = feature.context?.find((c: any) => c.id?.startsWith('place'))?.text;
+          return city ? `${feature.text}, ${city}` : feature.text;
+        }
+        // Shorten the full address: take first 2 parts
+        const parts = (feature.place_name || '').split(',').map((s: string) => s.trim());
+        if (parts.length > 2) {
+          return `${parts[0]}, ${parts[1]}`;
+        }
+        return feature.place_name || 'Ubicación desconocida';
+      }
+    } catch (e) {
+      console.log('Mapbox geocoding failed, trying Expo fallback');
+    }
+  }
+
+  // Fallback to Expo geocoding
   try {
     const results = await Location.reverseGeocodeAsync({ latitude, longitude });
     if (results.length > 0) {
@@ -56,12 +83,12 @@ export async function reverseGeocode(latitude: number, longitude: number): Promi
         address.city,
         address.region
       ].filter(Boolean);
-      return parts.join(', ') || 'Unknown location';
+      return parts.join(', ') || 'Ubicación desconocida';
     }
-    return 'Unknown location';
+    return 'Ubicación desconocida';
   } catch (error) {
     console.error('Error reverse geocoding:', error);
-    return 'Unknown location';
+    return 'Ubicación desconocida';
   }
 }
 

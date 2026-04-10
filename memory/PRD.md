@@ -12,7 +12,7 @@ A complete taxi booking application similar to Uber/Grab, featuring:
 - **Backend**: FastAPI (Python)
 - **Database**: MongoDB
 - **Real-time**: WebSockets
-- **Maps**: OpenStreetMap (default), Google Maps/Mapbox (optional)
+- **Maps**: Mapbox GL JS (Token: configured in .env as EXPO_PUBLIC_MAPBOX_TOKEN)
 - **Payments**: MercadoPago, AstroPay
 - **AI Chat**: OpenAI via Emergent LLM Key
 
@@ -25,16 +25,16 @@ A complete taxi booking application similar to Uber/Grab, featuring:
 - [x] Role-based access (rider, driver, admin, dispatcher)
 
 ### Rider App
-- [ ] Home screen with map
-- [ ] Location selection (pickup/dropoff)
-- [ ] Ride request creation
-- [ ] View driver bids
-- [ ] Accept bid and track ride
-- [ ] Chat with driver
+- [x] Home screen with map (Mapbox)
+- [x] Location selection (pickup/dropoff)
+- [x] Ride request creation
+- [x] View driver bids
+- [x] Accept bid and track ride
+- [x] Chat with driver
 - [ ] Rate completed rides
 - [ ] Ride history
 - [ ] Wallet and payments
-- [ ] Support chat (AI + human)
+- [x] Support chat (AI + human)
 
 ### Driver App
 - [ ] Online/offline toggle

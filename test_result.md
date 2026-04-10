@@ -310,6 +310,30 @@ backend:
         comment: "BLOCKED: POST /api/dispatcher/send/{session_id} returns 404. Depends on dispatcher intervention working first."
 
 frontend:
+  - task: "Mapbox Map Integration (Web)"
+    implemented: true
+    working: true
+    file: "/app/frontend/src/components/MapView.tsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "Mapbox GL JS rendering correctly in web via iframe injection using useRef. Shows Catamarca by default. Geolocation auto-detect works. Map controls (zoom, geolocation) work."
+
+  - task: "Mapbox Geocoding (Address Resolution)"
+    implemented: true
+    working: true
+    file: "/app/frontend/src/utils/location.ts"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "Mapbox reverse geocoding working. Shows correct address like 'San Martín 152, San Fernando del Valle de Catamarca'. Fallback to Expo geocoding if Mapbox fails."
+
   - task: "Frontend Testing"
     implemented: false
     working: "NA"
