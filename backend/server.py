@@ -2103,6 +2103,696 @@ async def get_support_history_v2(
     
     return {"messages": messages, "sessions": sessions}
 
+
+# ======================= ADMIN: USER MANAGEMENT =======================
+
+@app.get("/api/admin/users")
+async def admin_list_users(
+    user_type: Optional[str] = None,
+    search: Optional[str] = None,
+    page: int = 1,
+    limit: int = 20,
+    user: dict = Depends(get_current_user)
+):
+    if user["user_type"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    query: dict = {}
+    if user_type:
+        query["user_type"] = user_type
+    if search:
+        query["$or"] = [
+            {"name": {"$regex": search, "$options": "i"}},
+            {"email": {"$regex": search, "$options": "i"}},
+            {"phone": {"$regex": search, "$options": "i"}},
+        ]
+    
+    skip = (page - 1) * limit
+    total = await db.users.count_documents(query)
+    users = await db.users.find(query, {"_id": 0, "password": 0}).skip(skip).limit(limit).sort("created_at", -1).to_list(limit)
+    
+    # Enrich with balance info
+    for u in users:
+        balance = await db.user_balances.find_one({"user_id": u["user_id"]}, {"_id": 0})
+        u["balance"] = balance.get("amount", 0.0) if balance else 0.0
+        u["debt"] = balance.get("debt", 0.0) if balance else 0.0
+        # Driver status
+        if u["user_type"] == "driver":
+            driver = await db.drivers.find_one({"driver_id": u["user_id"]}, {"_id": 0})
+            u["is_online"] = driver.get("is_online", False) if driver else False
+            u["is_blocked"] = driver.get("is_blocked", False) if driver else False
+            u["block_type"] = driver.get("block_type", None) if driver else None
+            u["priority"] = driver.get("priority", 0) if driver else 0
+    
+    return {"users": users, "total": total, "page": page, "pages": (total + limit - 1) // limit}
+
+@app.get("/api/admin/users/{user_id}")
+async def admin_get_user(user_id: str, user: dict = Depends(get_current_user)):
+    if user["user_type"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    target = await db.users.find_one({"user_id": user_id}, {"_id": 0, "password": 0})
+    if not target:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    balance = await db.user_balances.find_one({"user_id": user_id}, {"_id": 0})
+    target["balance"] = balance.get("amount", 0.0) if balance else 0.0
+    target["debt"] = balance.get("debt", 0.0) if balance else 0.0
+    
+    if target["user_type"] == "driver":
+        driver = await db.drivers.find_one({"driver_id": user_id}, {"_id": 0})
+        if driver:
+            target["is_online"] = driver.get("is_online", False)
+            target["is_blocked"] = driver.get("is_blocked", False)
+            target["block_type"] = driver.get("block_type")
+            target["block_until"] = driver.get("block_until")
+            target["priority"] = driver.get("priority", 0)
+            target["commission_type"] = driver.get("commission_type", "percentage")
+            target["commission_value"] = driver.get("commission_value", 15)
+            target["vehicle"] = await db.vehicles.find_one({"driver_id": user_id}, {"_id": 0})
+    
+    # Ride stats
+    target["total_rides"] = await db.rides.count_documents({
+        "$or": [{"rider_id": user_id}, {"driver_id": user_id}],
+        "status": "completed"
+    })
+    
+    return target
+
+class AdminUserUpdate(BaseModel):
+    name: Optional[str] = None
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    user_type: Optional[str] = None
+
+@app.put("/api/admin/users/{user_id}")
+async def admin_update_user(
+    user_id: str,
+    update: AdminUserUpdate,
+    user: dict = Depends(get_current_user)
+):
+    if user["user_type"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    target = await db.users.find_one({"user_id": user_id})
+    if not target:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    update_data = {k: v for k, v in update.dict().items() if v is not None}
+    if not update_data:
+        raise HTTPException(status_code=400, detail="No data to update")
+    
+    update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
+    
+    # Log modification
+    await db.audit_log.insert_one({
+        "action": "user_update",
+        "target_user_id": user_id,
+        "admin_id": user["user_id"],
+        "changes": update_data,
+        "previous_values": {k: target.get(k) for k in update_data if k != "updated_at"},
+        "created_at": datetime.now(timezone.utc),
+        "source": "admin"
+    })
+    
+    await db.users.update_one({"user_id": user_id}, {"$set": update_data})
+    return {"status": "success", "message": "User updated"}
+
+class AdminCreateUser(BaseModel):
+    name: str
+    email: str
+    phone: Optional[str] = ""
+    password: str
+    user_type: str = "rider"
+
+@app.post("/api/admin/users")
+async def admin_create_user(data: AdminCreateUser, user: dict = Depends(get_current_user)):
+    if user["user_type"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    existing = await db.users.find_one({"email": data.email})
+    if existing:
+        raise HTTPException(status_code=400, detail="Email already exists")
+    
+    hashed = pwd_context.hash(data.password)
+    new_user_id = str(uuid.uuid4())
+    new_user = {
+        "user_id": new_user_id,
+        "name": data.name,
+        "email": data.email,
+        "phone": data.phone,
+        "password": hashed,
+        "user_type": data.user_type,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    
+    await db.users.insert_one(new_user)
+    
+    # Create balance
+    await db.user_balances.insert_one({
+        "user_id": new_user_id,
+        "amount": 0.0,
+        "debt": 0.0,
+        "updated_at": datetime.now(timezone.utc).isoformat()
+    })
+    
+    # If driver, create driver record
+    if data.user_type == "driver":
+        await db.drivers.insert_one({
+            "driver_id": new_user_id,
+            "is_online": False,
+            "is_blocked": False,
+            "priority": 0,
+            "commission_type": "percentage",
+            "commission_value": 15,
+            "created_at": datetime.now(timezone.utc).isoformat()
+        })
+    
+    # Audit log
+    await db.audit_log.insert_one({
+        "action": "user_create",
+        "target_user_id": new_user_id,
+        "admin_id": user["user_id"],
+        "changes": {"name": data.name, "email": data.email, "user_type": data.user_type},
+        "created_at": datetime.now(timezone.utc),
+        "source": "admin"
+    })
+    
+    del new_user["password"]
+    del new_user["_id"]
+    return {"status": "success", "user": new_user}
+
+# ======================= ADMIN: BALANCE MANAGEMENT =======================
+
+class BalanceUpdate(BaseModel):
+    amount: float
+    operation: str = "set"  # "set", "add", "subtract"
+    reason: str = ""
+
+@app.put("/api/admin/users/{user_id}/balance")
+async def admin_update_balance(
+    user_id: str,
+    update: BalanceUpdate,
+    user: dict = Depends(get_current_user)
+):
+    if user["user_type"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    current = await db.user_balances.find_one({"user_id": user_id})
+    old_amount = current.get("amount", 0.0) if current else 0.0
+    
+    if update.operation == "add":
+        new_amount = old_amount + update.amount
+    elif update.operation == "subtract":
+        new_amount = old_amount - update.amount
+    else:
+        new_amount = update.amount
+    
+    await db.user_balances.update_one(
+        {"user_id": user_id},
+        {"$set": {"amount": new_amount, "updated_at": datetime.now(timezone.utc).isoformat()}},
+        upsert=True
+    )
+    
+    await db.audit_log.insert_one({
+        "action": "balance_update",
+        "target_user_id": user_id,
+        "admin_id": user["user_id"],
+        "changes": {"amount": new_amount, "operation": update.operation},
+        "previous_values": {"amount": old_amount},
+        "reason": update.reason,
+        "created_at": datetime.now(timezone.utc),
+        "source": "admin"
+    })
+    
+    return {"status": "success", "balance": new_amount, "previous": old_amount}
+
+@app.put("/api/admin/users/{user_id}/debt")
+async def admin_update_debt(
+    user_id: str,
+    update: BalanceUpdate,
+    user: dict = Depends(get_current_user)
+):
+    if user["user_type"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    current = await db.user_balances.find_one({"user_id": user_id})
+    old_debt = current.get("debt", 0.0) if current else 0.0
+    
+    if update.operation == "add":
+        new_debt = old_debt + update.amount
+    elif update.operation == "subtract":
+        new_debt = max(0, old_debt - update.amount)
+    else:
+        new_debt = update.amount
+    
+    await db.user_balances.update_one(
+        {"user_id": user_id},
+        {"$set": {"debt": new_debt, "updated_at": datetime.now(timezone.utc).isoformat()}},
+        upsert=True
+    )
+    
+    await db.audit_log.insert_one({
+        "action": "debt_update",
+        "target_user_id": user_id,
+        "admin_id": user["user_id"],
+        "changes": {"debt": new_debt, "operation": update.operation},
+        "previous_values": {"debt": old_debt},
+        "reason": update.reason,
+        "created_at": datetime.now(timezone.utc),
+        "source": "admin"
+    })
+    
+    return {"status": "success", "debt": new_debt, "previous": old_debt}
+
+# ======================= ADMIN: AUDIT LOG =======================
+
+@app.get("/api/admin/audit-log")
+async def admin_get_audit_log(
+    target_user_id: Optional[str] = None,
+    action: Optional[str] = None,
+    page: int = 1,
+    limit: int = 30,
+    user: dict = Depends(get_current_user)
+):
+    if user["user_type"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    query: dict = {}
+    if target_user_id:
+        query["target_user_id"] = target_user_id
+    if action:
+        query["action"] = action
+    
+    skip = (page - 1) * limit
+    total = await db.audit_log.count_documents(query)
+    
+    logs = []
+    cursor = db.audit_log.find(query, {"_id": 0}).sort("created_at", -1).skip(skip).limit(limit)
+    async for log in cursor:
+        if isinstance(log.get("created_at"), datetime):
+            log["created_at"] = log["created_at"].isoformat()
+        # Get admin name
+        admin = await db.users.find_one({"user_id": log.get("admin_id", "")}, {"name": 1, "_id": 0})
+        log["admin_name"] = admin["name"] if admin else "Sistema"
+        # Get target name
+        target = await db.users.find_one({"user_id": log.get("target_user_id", "")}, {"name": 1, "_id": 0})
+        log["target_name"] = target["name"] if target else "Desconocido"
+        logs.append(log)
+    
+    return {"logs": logs, "total": total, "page": page, "pages": (total + limit - 1) // limit}
+
+# ======================= ADMIN: FARE CONFIGURATION =======================
+
+DEFAULT_FARES = {
+    "economy": {"base_fare": 500, "per_km": 150, "per_min": 50, "min_fare": 800, "multiplier": 1.0},
+    "comfort": {"base_fare": 700, "per_km": 200, "per_min": 70, "min_fare": 1200, "multiplier": 1.3},
+    "premium": {"base_fare": 1000, "per_km": 300, "per_min": 100, "min_fare": 1800, "multiplier": 1.8},
+    "xl": {"base_fare": 800, "per_km": 250, "per_min": 80, "min_fare": 1500, "multiplier": 1.5},
+}
+
+@app.get("/api/admin/fares")
+async def admin_get_fares(user: dict = Depends(get_current_user)):
+    if user["user_type"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    fares = await db.fare_config.find({}, {"_id": 0}).to_list(20)
+    if not fares:
+        for vtype, config in DEFAULT_FARES.items():
+            fare = {
+                "vehicle_type": vtype,
+                **config,
+                "dynamic_pricing": False,
+                "dynamic_multiplier": 1.5,
+                "night_surcharge": 0,
+                "night_start_hour": 22,
+                "night_end_hour": 6,
+                "day_surcharge": 0,
+                "updated_at": datetime.now(timezone.utc).isoformat()
+            }
+            await db.fare_config.update_one({"vehicle_type": vtype}, {"$set": fare}, upsert=True)
+            fares.append(fare)
+    return {"fares": fares}
+
+@app.get("/api/fares")
+async def get_fares_public():
+    """Public endpoint for fare display"""
+    fares = await db.fare_config.find({}, {"_id": 0}).to_list(20)
+    if not fares:
+        for vtype, config in DEFAULT_FARES.items():
+            fare = {"vehicle_type": vtype, **config, "dynamic_pricing": False, "night_surcharge": 0, "day_surcharge": 0}
+            fares.append(fare)
+    return {"fares": fares}
+
+class FareUpdate(BaseModel):
+    base_fare: Optional[float] = None
+    per_km: Optional[float] = None
+    per_min: Optional[float] = None
+    min_fare: Optional[float] = None
+    multiplier: Optional[float] = None
+    dynamic_pricing: Optional[bool] = None
+    dynamic_multiplier: Optional[float] = None
+    night_surcharge: Optional[float] = None
+    night_start_hour: Optional[int] = None
+    night_end_hour: Optional[int] = None
+    day_surcharge: Optional[float] = None
+
+@app.put("/api/admin/fares/{vehicle_type}")
+async def admin_update_fare(
+    vehicle_type: str,
+    update: FareUpdate,
+    user: dict = Depends(get_current_user)
+):
+    if user["user_type"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    valid = ["economy", "comfort", "premium", "xl"]
+    if vehicle_type not in valid:
+        raise HTTPException(status_code=400, detail=f"Invalid type. Must be: {valid}")
+    
+    update_data = {k: v for k, v in update.dict().items() if v is not None}
+    update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
+    
+    old = await db.fare_config.find_one({"vehicle_type": vehicle_type}, {"_id": 0})
+    
+    await db.fare_config.update_one(
+        {"vehicle_type": vehicle_type},
+        {"$set": update_data},
+        upsert=True
+    )
+    
+    await db.audit_log.insert_one({
+        "action": "fare_update",
+        "target_user_id": vehicle_type,
+        "admin_id": user["user_id"],
+        "changes": update_data,
+        "previous_values": {k: old.get(k) for k in update_data if old and k != "updated_at"} if old else {},
+        "created_at": datetime.now(timezone.utc),
+        "source": "admin"
+    })
+    
+    return {"status": "success", "message": f"Fare for {vehicle_type} updated"}
+
+# ======================= ADMIN: COUPONS =======================
+
+@app.get("/api/admin/coupons")
+async def admin_list_coupons(user: dict = Depends(get_current_user)):
+    if user["user_type"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    coupons = await db.coupons.find({}, {"_id": 0}).sort("created_at", -1).to_list(100)
+    return {"coupons": coupons}
+
+class CouponCreate(BaseModel):
+    code: str
+    discount_type: str = "percentage"  # "percentage" or "fixed"
+    discount_value: float = 10
+    max_uses: int = 100
+    min_fare: float = 0
+    max_discount: float = 0  # 0 = no limit
+    valid_from: Optional[str] = None
+    valid_until: Optional[str] = None
+    active: bool = True
+    description: str = ""
+
+@app.post("/api/admin/coupons")
+async def admin_create_coupon(data: CouponCreate, user: dict = Depends(get_current_user)):
+    if user["user_type"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    existing = await db.coupons.find_one({"code": data.code.upper()})
+    if existing:
+        raise HTTPException(status_code=400, detail="Coupon code already exists")
+    
+    coupon = {
+        "coupon_id": str(uuid.uuid4()),
+        "code": data.code.upper(),
+        "discount_type": data.discount_type,
+        "discount_value": data.discount_value,
+        "max_uses": data.max_uses,
+        "current_uses": 0,
+        "min_fare": data.min_fare,
+        "max_discount": data.max_discount,
+        "valid_from": data.valid_from or datetime.now(timezone.utc).isoformat(),
+        "valid_until": data.valid_until,
+        "active": data.active,
+        "description": data.description,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "created_by": user["user_id"]
+    }
+    
+    await db.coupons.insert_one(coupon)
+    del coupon["_id"]
+    
+    await db.audit_log.insert_one({
+        "action": "coupon_create",
+        "target_user_id": coupon["coupon_id"],
+        "admin_id": user["user_id"],
+        "changes": {"code": coupon["code"], "discount_type": coupon["discount_type"], "discount_value": coupon["discount_value"]},
+        "created_at": datetime.now(timezone.utc),
+        "source": "admin"
+    })
+    
+    return {"status": "success", "coupon": coupon}
+
+@app.put("/api/admin/coupons/{coupon_id}")
+async def admin_update_coupon(coupon_id: str, data: CouponCreate, user: dict = Depends(get_current_user)):
+    if user["user_type"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    existing = await db.coupons.find_one({"coupon_id": coupon_id})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Coupon not found")
+    
+    update_data = data.dict()
+    update_data["code"] = data.code.upper()
+    update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
+    
+    await db.coupons.update_one({"coupon_id": coupon_id}, {"$set": update_data})
+    
+    return {"status": "success", "message": "Coupon updated"}
+
+@app.delete("/api/admin/coupons/{coupon_id}")
+async def admin_delete_coupon(coupon_id: str, user: dict = Depends(get_current_user)):
+    if user["user_type"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    result = await db.coupons.delete_one({"coupon_id": coupon_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Coupon not found")
+    
+    return {"status": "success", "message": "Coupon deleted"}
+
+# ======================= ADMIN: COMMISSION CONFIG =======================
+
+class CommissionUpdate(BaseModel):
+    commission_type: str = "percentage"  # "percentage", "fixed_per_ride", "fixed_price"
+    commission_value: float = 15
+
+@app.put("/api/admin/drivers/{driver_id}/commission")
+async def admin_update_commission(
+    driver_id: str,
+    update: CommissionUpdate,
+    user: dict = Depends(get_current_user)
+):
+    if user["user_type"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    old = await db.drivers.find_one({"driver_id": driver_id}, {"_id": 0})
+    
+    await db.drivers.update_one(
+        {"driver_id": driver_id},
+        {"$set": {
+            "commission_type": update.commission_type,
+            "commission_value": update.commission_value,
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }},
+        upsert=True
+    )
+    
+    await db.audit_log.insert_one({
+        "action": "commission_update",
+        "target_user_id": driver_id,
+        "admin_id": user["user_id"],
+        "changes": {"commission_type": update.commission_type, "commission_value": update.commission_value},
+        "previous_values": {"commission_type": old.get("commission_type"), "commission_value": old.get("commission_value")} if old else {},
+        "created_at": datetime.now(timezone.utc),
+        "source": "admin"
+    })
+    
+    return {"status": "success", "message": "Commission updated"}
+
+# ======================= ADMIN: DRIVER BLOCKING =======================
+
+class DriverBlock(BaseModel):
+    block_type: str = "permanent"  # "permanent", "hours", "days"
+    block_duration: Optional[int] = None  # hours or days depending on type
+    reason: str = ""
+
+@app.put("/api/admin/drivers/{driver_id}/block")
+async def admin_block_driver(
+    driver_id: str,
+    data: DriverBlock,
+    user: dict = Depends(get_current_user)
+):
+    if user["user_type"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    block_until = None
+    if data.block_type == "hours" and data.block_duration:
+        block_until = (datetime.now(timezone.utc) + timedelta(hours=data.block_duration)).isoformat()
+    elif data.block_type == "days" and data.block_duration:
+        block_until = (datetime.now(timezone.utc) + timedelta(days=data.block_duration)).isoformat()
+    
+    await db.drivers.update_one(
+        {"driver_id": driver_id},
+        {"$set": {
+            "is_blocked": True,
+            "block_type": data.block_type,
+            "block_until": block_until,
+            "block_reason": data.reason,
+            "blocked_at": datetime.now(timezone.utc).isoformat()
+        }},
+        upsert=True
+    )
+    
+    await db.audit_log.insert_one({
+        "action": "driver_block",
+        "target_user_id": driver_id,
+        "admin_id": user["user_id"],
+        "changes": {"is_blocked": True, "block_type": data.block_type, "block_until": block_until},
+        "reason": data.reason,
+        "created_at": datetime.now(timezone.utc),
+        "source": "admin"
+    })
+    
+    return {"status": "success", "message": "Driver blocked", "block_until": block_until}
+
+@app.put("/api/admin/drivers/{driver_id}/unblock")
+async def admin_unblock_driver(driver_id: str, user: dict = Depends(get_current_user)):
+    if user["user_type"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    await db.drivers.update_one(
+        {"driver_id": driver_id},
+        {"$set": {
+            "is_blocked": False,
+            "block_type": None,
+            "block_until": None,
+            "block_reason": None,
+            "unblocked_at": datetime.now(timezone.utc).isoformat()
+        }}
+    )
+    
+    await db.audit_log.insert_one({
+        "action": "driver_unblock",
+        "target_user_id": driver_id,
+        "admin_id": user["user_id"],
+        "changes": {"is_blocked": False},
+        "created_at": datetime.now(timezone.utc),
+        "source": "admin"
+    })
+    
+    return {"status": "success", "message": "Driver unblocked"}
+
+# ======================= ADMIN: DRIVER PRIORITY =======================
+
+class PriorityUpdate(BaseModel):
+    priority: int = 0  # 0=normal, 1-10=priority (higher=more priority)
+
+@app.put("/api/admin/drivers/{driver_id}/priority")
+async def admin_update_priority(
+    driver_id: str,
+    update: PriorityUpdate,
+    user: dict = Depends(get_current_user)
+):
+    if user["user_type"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    await db.drivers.update_one(
+        {"driver_id": driver_id},
+        {"$set": {"priority": update.priority, "updated_at": datetime.now(timezone.utc).isoformat()}},
+        upsert=True
+    )
+    
+    await db.audit_log.insert_one({
+        "action": "priority_update",
+        "target_user_id": driver_id,
+        "admin_id": user["user_id"],
+        "changes": {"priority": update.priority},
+        "created_at": datetime.now(timezone.utc),
+        "source": "admin"
+    })
+    
+    return {"status": "success", "message": "Priority updated"}
+
+# ======================= ADMIN: PAYMENT GATEWAY CONFIG =======================
+
+@app.get("/api/admin/payment-config")
+async def admin_get_payment_config(user: dict = Depends(get_current_user)):
+    if user["user_type"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    config = await db.payment_config.find_one({"config_id": "main"}, {"_id": 0})
+    if not config:
+        config = {
+            "config_id": "main",
+            "mercadopago_enabled": False,
+            "mercadopago_public_key": "",
+            "mercadopago_access_token": "",
+            "astropay_enabled": False,
+            "astropay_api_key": "",
+            "astropay_secret": "",
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }
+        await db.payment_config.insert_one(config)
+    
+    # Mask sensitive keys
+    safe = {**config}
+    for key in ["mercadopago_access_token", "astropay_api_key", "astropay_secret"]:
+        if safe.get(key):
+            safe[key] = safe[key][:8] + "..." + safe[key][-4:] if len(safe.get(key, "")) > 12 else "***"
+    safe["mercadopago_configured"] = bool(config.get("mercadopago_access_token"))
+    safe["astropay_configured"] = bool(config.get("astropay_api_key"))
+    
+    return safe
+
+class PaymentConfigUpdate(BaseModel):
+    mercadopago_enabled: Optional[bool] = None
+    mercadopago_public_key: Optional[str] = None
+    mercadopago_access_token: Optional[str] = None
+    astropay_enabled: Optional[bool] = None
+    astropay_api_key: Optional[str] = None
+    astropay_secret: Optional[str] = None
+
+@app.put("/api/admin/payment-config")
+async def admin_update_payment_config(
+    update: PaymentConfigUpdate,
+    user: dict = Depends(get_current_user)
+):
+    if user["user_type"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    update_data = {k: v for k, v in update.dict().items() if v is not None}
+    update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
+    
+    await db.payment_config.update_one(
+        {"config_id": "main"},
+        {"$set": update_data},
+        upsert=True
+    )
+    
+    await db.audit_log.insert_one({
+        "action": "payment_config_update",
+        "target_user_id": "payment_config",
+        "admin_id": user["user_id"],
+        "changes": {k: "***" if "key" in k or "token" in k or "secret" in k else v for k, v in update_data.items()},
+        "created_at": datetime.now(timezone.utc),
+        "source": "admin"
+    })
+    
+    return {"status": "success", "message": "Payment configuration updated"}
+
 # ======================= WEBSOCKET =======================
 
 @app.websocket("/ws/{user_id}")

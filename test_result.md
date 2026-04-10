@@ -102,7 +102,7 @@
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
 
-user_problem_statement: "Test the vehicle icons API endpoints for the Molí taxi app"
+user_problem_statement: "Test ALL new admin management endpoints for the Molí taxi app"
 
 backend:
   - task: "Vehicle Icons API - Public Endpoint"
@@ -357,6 +357,114 @@ backend:
         agent: "testing"
         comment: "BLOCKED: POST /api/dispatcher/send/{session_id} returns 404. Depends on dispatcher intervention working first."
 
+  - task: "Admin User Management"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "COMPREHENSIVE ADMIN TESTING COMPLETED: All user management endpoints working perfectly. ✅ GET /api/admin/users (list all users), ✅ GET /api/admin/users?user_type=rider (filter by type), ✅ POST /api/admin/users (create new user), ✅ GET /api/admin/users/{user_id} (get user details), ✅ PUT /api/admin/users/{user_id} (update user). Authentication with Bearer token working correctly."
+
+  - task: "Admin Balance Management"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "Balance management endpoints working perfectly. ✅ PUT /api/admin/users/{user_id}/balance with 'set' operation (5000), ✅ PUT /api/admin/users/{user_id}/balance with 'add' operation (1000), ✅ PUT /api/admin/users/{user_id}/debt with 'set' operation (500). All operations properly logged in audit trail."
+
+  - task: "Admin Audit Log"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "Audit log endpoints working perfectly. ✅ GET /api/admin/audit-log (retrieved 21 audit entries), ✅ GET /api/admin/audit-log?target_user_id={user_id} (filtered by user - 5 entries). Audit trail properly tracking all admin actions including user creation, balance changes, and debt modifications."
+
+  - task: "Admin Fare Configuration"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "Fare configuration endpoints working perfectly. ✅ GET /api/admin/fares (retrieved fares for economy, comfort, premium, xl), ✅ PUT /api/admin/fares/economy (updated base_fare: 600, per_km: 180, night_surcharge: 200, dynamic_pricing: true), ✅ GET /api/fares (public endpoint accessible). All fare types properly configured and accessible."
+
+  - task: "Admin Coupon Management"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "Coupon management endpoints working perfectly. ✅ POST /api/admin/coupons (created coupon with unique code), ✅ GET /api/admin/coupons (list coupons), ✅ PUT /api/admin/coupons/{coupon_id} (updated from MOLI20 to MOLI25), ✅ DELETE /api/admin/coupons/{coupon_id} (deleted successfully). Full CRUD operations working with proper validation."
+
+  - task: "Admin Commission Management"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "Commission management working perfectly. ✅ PUT /api/admin/drivers/{driver_id}/commission (set commission_type: percentage, commission_value: 20). Driver commission configuration successful."
+
+  - task: "Admin Driver Block Management"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "Driver block management working perfectly. ✅ PUT /api/admin/drivers/{driver_id}/block (blocked for 24 hours with reason), ✅ PUT /api/admin/drivers/{driver_id}/unblock (unblocked successfully). Block/unblock functionality working correctly."
+
+  - task: "Admin Driver Priority Management"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "Driver priority management working perfectly. ✅ PUT /api/admin/drivers/{driver_id}/priority (set priority: 5). Priority assignment successful."
+
+  - task: "Admin Payment Configuration"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "Payment configuration endpoints working perfectly. ✅ GET /api/admin/payment-config (MercadoPago enabled: true), ✅ PUT /api/admin/payment-config (updated with test keys). Payment gateway configuration successful."
+
 frontend:
   - task: "Mapbox Map Integration (Web)"
     implemented: true
@@ -402,11 +510,20 @@ metadata:
 
 test_plan:
   current_focus:
-    - "Vehicle Icons API - Public Endpoint"
-    - "Vehicle Icons API - Admin Endpoint"
-    - "Vehicle Icons API - Update Icons"
-    - "Vehicle Icons API - Error Handling"
-  stuck_tasks: []
+    - "Admin User Management"
+    - "Admin Balance Management"
+    - "Admin Audit Log"
+    - "Admin Fare Configuration"
+    - "Admin Coupon Management"
+    - "Admin Commission Management"
+    - "Admin Driver Block Management"
+    - "Admin Driver Priority Management"
+    - "Admin Payment Configuration"
+  stuck_tasks:
+    - "Ride Chat - Get Messages"
+    - "AI Support Chat History"
+    - "Dispatcher Intervention"
+    - "Dispatcher Send Message"
   test_all: false
   test_priority: "high_first"
 
@@ -419,3 +536,5 @@ agent_communication:
     message: "CHAT & AI SUPPORT TESTING COMPLETED: Tested new chat and AI support features. RESULTS: 6/10 tests passing. ✅ WORKING: Ride chat sending (both rider/driver), AI chatbot responses, full ride flow. ❌ CRITICAL ISSUES: Database persistence failing - messages sent successfully but not saved/retrieved. This affects: ride chat history, AI support history, and dispatcher intervention (depends on support tickets). ROOT CAUSE: Database operations appear to succeed (200 OK) but data not persisting. Fixed ObjectId serialization issues and driver availability endpoint. WebSocket temporarily disabled due to serialization conflicts."
   - agent: "testing"
     message: "VEHICLE ICONS API TESTING COMPLETED: All 8/8 tests passing. ✅ WORKING: Public GET endpoint returns default icons (economy, comfort, premium, xl), Admin GET endpoint with authentication, Icon updates (economy to 🚕, premium to 🏎️), Error handling for invalid vehicle types (400 response). All endpoints functioning correctly with proper authentication, validation, and data persistence."
+  - agent: "testing"
+    message: "COMPREHENSIVE ADMIN MANAGEMENT ENDPOINTS TESTING COMPLETED: ALL 24/24 tests passing with 100% success rate! ✅ WORKING PERFECTLY: User Management (list, filter, create, get details, update), Balance Management (set, add balance, set debt), Audit Log (get all, filter by user), Fare Configuration (get all vehicle types, update economy fare, public endpoint), Coupon Management (create, list, update, delete), Commission Management (set driver commission), Driver Block Management (block/unblock), Driver Priority Management (set priority), Payment Configuration (get/update MercadoPago settings). All admin endpoints properly authenticated with Bearer tokens, returning correct responses, and maintaining audit trails. The admin panel backend is fully functional and ready for production use."

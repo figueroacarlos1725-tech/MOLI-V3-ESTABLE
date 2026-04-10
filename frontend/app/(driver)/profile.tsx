@@ -13,6 +13,7 @@ import {
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '@/src/stores/authStore';
+import { confirmAlert } from '@/src/utils/alert';
 import { apiService } from '@/src/services/api';
 import { Button } from '@/src/components/Button';
 import { Input } from '@/src/components/Input';
@@ -84,20 +85,14 @@ export default function DriverProfileScreen() {
   };
 
   const handleLogout = () => {
-    Alert.alert(
+    confirmAlert(
       'Cerrar sesion',
       'Estas seguro que deseas cerrar sesion?',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Cerrar sesion',
-          style: 'destructive',
-          onPress: async () => {
-            await logout();
-            router.replace('/(auth)/welcome');
-          },
-        },
-      ]
+      async () => {
+        await logout();
+        router.replace('/(auth)/welcome');
+      },
+      'Cerrar sesion'
     );
   };
 

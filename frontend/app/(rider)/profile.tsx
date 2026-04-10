@@ -13,6 +13,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '@/src/stores/authStore';
 import { Button } from '@/src/components/Button';
+import { confirmAlert } from '@/src/utils/alert';
 
 export default function RiderProfileScreen() {
   const router = useRouter();
@@ -21,20 +22,14 @@ export default function RiderProfileScreen() {
   const [darkMode, setDarkMode] = useState(false);
 
   const handleLogout = () => {
-    Alert.alert(
+    confirmAlert(
       'Cerrar sesión',
       '¿Estás seguro de que quieres cerrar sesión?',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Cerrar sesión',
-          style: 'destructive',
-          onPress: async () => {
-            await logout();
-            router.replace('/(auth)/welcome');
-          },
-        },
-      ]
+      async () => {
+        await logout();
+        router.replace('/(auth)/welcome');
+      },
+      'Cerrar sesión'
     );
   };
 
