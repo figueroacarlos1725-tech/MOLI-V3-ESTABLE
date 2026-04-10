@@ -1897,6 +1897,345 @@ async def take_support_ticket(
     
     return {"status": "success", "ticket": ticket}
 
+# ======================= RIDE CHAT =======================
+
+@app.post("/api/chat/send")
+async def send_chat_message(
+    ride_id: str = Query(...),
+    message: str = Query(...),
+    user: dict = Depends(get_current_user)
+):
+    """Send a chat message within an active ride"""
+    ride = await db.rides.find_one({"ride_id": ride_id}, {"_id": 0})
+    if not ride:
+        raise HTTPException(status_code=404, detail="Viaje no encontrado")
+    
+    if user["user_id"] not in [ride["rider_id"], ride.get("driver_id")]:
+        raise HTTPException(status_code=403, detail="No autorizado")
+    
+    receiver_id = ride["driver_id"] if user["user_id"] == ride["rider_id"] else ride["rider_id"]
+    
+    msg = {
+        "message_id": f"msg_{uuid.uuid4().hex[:12]}",
+        "ride_id": ride_id,
+        "sender_id": user["user_id"],
+        "sender_name": user.get("name", "Usuario"),
+        "receiver_id": receiver_id,
+        "message": message,
+        "is_ai": False,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    
+    await db.chat_messages.insert_one(msg)
+    
+    # TODO: Send via WebSocket
+    # await manager.send_personal_message(
+    #     {"type": "new_message", **msg},
+    #     receiver_id
+    # )
+    
+    return {"status": "sent", "message_id": msg["message_id"]}
+
+@app.get("/api/chat/messages/{ride_id}")
+async def get_chat_messages(
+    ride_id: str,
+    user: dict = Depends(get_current_user)
+):
+    """Get chat messages for a ride"""
+    ride = await db.rides.find_one({"ride_id": ride_id}, {"_id": 0})
+    if not ride:
+        raise HTTPException(status_code=404, detail="Viaje no encontrado")
+    
+    if user["user_id"] not in [ride["rider_id"], ride.get("driver_id")] and user["user_type"] != "admin":
+        raise HTTPException(status_code=403, detail="No autorizado")
+    
+    messages = await db.chat_messages.find(
+        {"ride_id": ride_id}, {"_id": 0}
+    ).sort("created_at", 1).to_list(200)
+    
+    return {"messages": messages}
+
+# ======================= AI SUPPORT CHATBOT =======================
+
+EMERGENT_LLM_KEY = os.getenv("EMERGENT_LLM_KEY", "")
+
+SUPPORT_SYSTEM_PROMPT = """Eres Moli Asistente, el chatbot de soporte de la app de taxi Moli.
+Responde SIEMPRE en español. Sé amable, conciso y útil.
+
+Puedes ayudar con:
+- Preguntas sobre viajes (estado, historial, tarifas)
+- Problemas con pagos o billetera
+- Información sobre conductores o vehículos
+- Quejas o reportes de incidentes
+- Preguntas frecuentes sobre la app
+
+Si el usuario tiene un problema que no puedes resolver, dile que un despachador humano se conectará pronto.
+Cuando recibas datos del contexto del usuario, úsalos para dar respuestas personalizadas.
+No inventes información que no tengas."""
+
+async def get_user_context(user_id: str) -> str:
+    """Get relevant context about a user for the AI chatbot"""
+    user = await db.users.find_one({"user_id": user_id}, {"_id": 0, "password_hash": 0})
+    if not user:
+        return "No se encontró información del usuario."
+    
+    context_parts = [f"Usuario: {user.get('name', 'Desconocido')}, Tipo: {user.get('user_type', 'rider')}"]
+    
+    # Get recent rides
+    recent_rides = await db.rides.find(
+        {"$or": [{"rider_id": user_id}, {"driver_id": user_id}]},
+        {"_id": 0, "ride_id": 1, "status": 1, "fare": 1, "created_at": 1}
+    ).sort("created_at", -1).to_list(5)
+    
+    if recent_rides:
+        rides_info = []
+        for r in recent_rides:
+            rides_info.append(f"Viaje {r['ride_id'][:8]}: estado={r.get('status')}, tarifa=${r.get('fare', 0):.2f}")
+        context_parts.append(f"Últimos viajes: {'; '.join(rides_info)}")
+    
+    # Get wallet
+    context_parts.append(f"Saldo billetera: ${user.get('wallet_balance', 0):.2f}")
+    context_parts.append(f"Calificación: {user.get('rating', 5.0):.1f}")
+    
+    # If driver, get vehicle info
+    if user.get("user_type") == "driver":
+        vehicle = await db.vehicles.find_one(
+            {"driver_id": user_id, "is_active": True}, {"_id": 0}
+        )
+        if vehicle:
+            context_parts.append(f"Vehículo: {vehicle.get('year')} {vehicle.get('make')} {vehicle.get('model')} ({vehicle.get('plate_number')})")
+    
+    return "\n".join(context_parts)
+
+@app.post("/api/support/chat")
+async def support_chat(
+    message: str = Query(...),
+    session_id: Optional[str] = Query(None),
+    user: dict = Depends(get_current_user)
+):
+    """Send a message to AI support chatbot"""
+    if not session_id:
+        session_id = f"support_{user['user_id']}_{uuid.uuid4().hex[:8]}"
+    
+    # Save user message
+    user_msg = {
+        "message_id": f"msg_{uuid.uuid4().hex[:12]}",
+        "session_id": session_id,
+        "sender_id": user["user_id"],
+        "sender_name": user.get("name", "Usuario"),
+        "message": message,
+        "is_ai": False,
+        "is_dispatcher": False,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.support_messages.insert_one(user_msg)
+    
+    # Check if a dispatcher has taken over this session
+    ticket = await db.support_tickets.find_one(
+        {"session_id": session_id, "status": "dispatcher_active"},
+        {"_id": 0}
+    )
+    
+    if ticket:
+        # Forward to dispatcher via WebSocket
+        if ticket.get("dispatcher_id"):
+            await manager.send_personal_message(
+                {"type": "support_message", **user_msg},
+                ticket["dispatcher_id"]
+            )
+        return {
+            "session_id": session_id,
+            "response": None,
+            "is_ai": False,
+            "waiting_for_dispatcher": True
+        }
+    
+    # Generate AI response
+    try:
+        from emergentintegrations.llm.chat import LlmChat, UserMessage
+        
+        user_context = await get_user_context(user["user_id"])
+        
+        # Get recent conversation history
+        recent_msgs = await db.support_messages.find(
+            {"session_id": session_id}, {"_id": 0}
+        ).sort("created_at", -1).to_list(10)
+        recent_msgs.reverse()
+        
+        history_text = ""
+        for m in recent_msgs[:-1]:  # Exclude the current message
+            role = "Asistente" if m.get("is_ai") else "Usuario"
+            history_text += f"{role}: {m['message']}\n"
+        
+        system_msg = f"{SUPPORT_SYSTEM_PROMPT}\n\nContexto del usuario:\n{user_context}"
+        if history_text:
+            system_msg += f"\n\nHistorial reciente:\n{history_text}"
+        
+        chat = LlmChat(
+            api_key=EMERGENT_LLM_KEY,
+            session_id=session_id,
+            system_message=system_msg
+        ).with_model("openai", "gpt-4.1-mini")
+        
+        ai_response = await chat.send_message(UserMessage(text=message))
+        
+        # Save AI response
+        ai_msg = {
+            "message_id": f"msg_{uuid.uuid4().hex[:12]}",
+            "session_id": session_id,
+            "sender_id": "ai_assistant",
+            "sender_name": "Moli Asistente",
+            "message": ai_response,
+            "is_ai": True,
+            "is_dispatcher": False,
+            "created_at": datetime.now(timezone.utc).isoformat()
+        }
+        await db.support_messages.insert_one(ai_msg)
+        
+        # Ensure support ticket exists
+        await db.support_tickets.update_one(
+            {"session_id": session_id},
+            {"$setOnInsert": {
+                "ticket_id": f"ticket_{uuid.uuid4().hex[:12]}",
+                "session_id": session_id,
+                "user_id": user["user_id"],
+                "status": "ai_active",
+                "created_at": datetime.now(timezone.utc).isoformat()
+            }, "$set": {
+                "last_message_at": datetime.now(timezone.utc).isoformat()
+            }},
+            upsert=True
+        )
+        
+        return {
+            "session_id": session_id,
+            "response": ai_msg,
+            "is_ai": True,
+            "waiting_for_dispatcher": False
+        }
+    except Exception as e:
+        error_msg = {
+            "message_id": f"msg_{uuid.uuid4().hex[:12]}",
+            "session_id": session_id,
+            "sender_id": "system",
+            "sender_name": "Sistema",
+            "message": "Lo siento, estoy teniendo problemas técnicos. Un despachador humano te atenderá pronto.",
+            "is_ai": False,
+            "is_dispatcher": False,
+            "created_at": datetime.now(timezone.utc).isoformat()
+        }
+        await db.support_messages.insert_one(error_msg)
+        
+        return {
+            "session_id": session_id,
+            "response": error_msg,
+            "is_ai": False,
+            "waiting_for_dispatcher": True,
+            "error": str(e)
+        }
+
+@app.get("/api/support/history")
+async def get_support_history(
+    session_id: Optional[str] = None,
+    user: dict = Depends(get_current_user)
+):
+    """Get support chat history"""
+    query = {}
+    if session_id:
+        query["session_id"] = session_id
+    else:
+        query["sender_id"] = {"$in": [user["user_id"], "ai_assistant", "system"]}
+    
+    messages = await db.support_messages.find(
+        query, {"_id": 0}
+    ).sort("created_at", 1).to_list(100)
+    
+    # Get active sessions
+    sessions = await db.support_tickets.find(
+        {"user_id": user["user_id"]},
+        {"_id": 0}
+    ).sort("created_at", -1).to_list(10)
+    
+    return {"messages": messages, "sessions": sessions}
+
+@app.post("/api/dispatcher/intervene/{session_id}")
+async def dispatcher_intervene(
+    session_id: str,
+    user: dict = Depends(get_current_user)
+):
+    """Dispatcher takes over from AI chatbot"""
+    if user["user_type"] not in ["admin", "dispatcher"]:
+        raise HTTPException(status_code=403, detail="Solo dispatchers pueden intervenir")
+    
+    ticket = await db.support_tickets.find_one({"session_id": session_id}, {"_id": 0})
+    if not ticket:
+        raise HTTPException(status_code=404, detail="Sesión no encontrada")
+    
+    await db.support_tickets.update_one(
+        {"session_id": session_id},
+        {"$set": {
+            "status": "dispatcher_active",
+            "dispatcher_id": user["user_id"],
+            "dispatcher_name": user.get("name"),
+            "taken_at": datetime.now(timezone.utc).isoformat()
+        }}
+    )
+    
+    # Send system message
+    sys_msg = {
+        "message_id": f"msg_{uuid.uuid4().hex[:12]}",
+        "session_id": session_id,
+        "sender_id": "system",
+        "sender_name": "Sistema",
+        "message": f"El despachador {user.get('name', 'Soporte')} se ha unido al chat.",
+        "is_ai": False,
+        "is_dispatcher": False,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.support_messages.insert_one(sys_msg)
+    
+    # Notify user via WebSocket
+    await manager.send_personal_message(
+        {"type": "dispatcher_joined", **sys_msg},
+        ticket["user_id"]
+    )
+    
+    return {"status": "success", "message": "Dispatcher connected"}
+
+@app.post("/api/dispatcher/send/{session_id}")
+async def dispatcher_send_message(
+    session_id: str,
+    message: str = Query(...),
+    user: dict = Depends(get_current_user)
+):
+    """Dispatcher sends a message in support chat"""
+    if user["user_type"] not in ["admin", "dispatcher"]:
+        raise HTTPException(status_code=403, detail="No autorizado")
+    
+    ticket = await db.support_tickets.find_one({"session_id": session_id}, {"_id": 0})
+    if not ticket:
+        raise HTTPException(status_code=404, detail="Sesión no encontrada")
+    
+    msg = {
+        "message_id": f"msg_{uuid.uuid4().hex[:12]}",
+        "session_id": session_id,
+        "sender_id": user["user_id"],
+        "sender_name": user.get("name", "Despachador"),
+        "message": message,
+        "is_ai": False,
+        "is_dispatcher": True,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.support_messages.insert_one(msg)
+    
+    # Send to user via WebSocket
+    await manager.send_personal_message(
+        {"type": "support_message", **msg},
+        ticket["user_id"]
+    )
+    
+    return {"status": "sent", "message": msg}
+
 # ======================= WEBSOCKET =======================
 
 @app.websocket("/ws/{user_id}")

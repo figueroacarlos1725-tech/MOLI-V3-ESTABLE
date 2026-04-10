@@ -11,6 +11,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { MapView } from '@/src/components/MapView';
 import { Button } from '@/src/components/Button';
 import { useAuthStore } from '@/src/stores/authStore';
@@ -24,6 +25,7 @@ import {
 
 export default function RiderHomeScreen() {
   const { user } = useAuthStore();
+  const router = useRouter();
   const {
     currentRequest,
     currentRide,
@@ -208,8 +210,14 @@ export default function RiderHomeScreen() {
                 <TouchableOpacity style={styles.actionButton}>
                   <Ionicons name="call" size={24} color="#34C759" />
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.actionButton}>
-                  <Ionicons name="chatbubble" size={24} color="#007AFF" />
+                <TouchableOpacity
+                  style={styles.actionButton}
+                  onPress={() => router.push({
+                    pathname: '/chat',
+                    params: { rideId: currentRide.ride_id, otherName: currentRide.driver_info?.name || 'Conductor' }
+                  })}
+                >
+                  <Ionicons name="chatbubble" size={24} color="#6BBF00" />
                 </TouchableOpacity>
               </View>
             </View>

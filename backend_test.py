@@ -1,526 +1,374 @@
 #!/usr/bin/env python3
 """
-Backend API Testing for TaxiRide Clone
-Tests the complete ride booking flow as specified in the review request
+Backend Test Suite for Moli Taxi App - Chat and AI Support Features
+Tests the new chat and AI support functionality
 """
 
-import requests
+import asyncio
+import aiohttp
 import json
-import time
 from datetime import datetime
+import sys
+import os
 
-# Base URL from frontend .env
-BASE_URL = "https://taxify-clone.preview.emergentagent.com/api"
+# Backend URL from frontend env
+BACKEND_URL = "https://taxify-clone.preview.emergentagent.com/api"
 
-# Test credentials from test_credentials.md
+# Test credentials
 RIDER_EMAIL = "rider@test.com"
 RIDER_PASSWORD = "test123456"
 DRIVER_EMAIL = "driver@test.com"
 DRIVER_PASSWORD = "test123456"
+ADMIN_EMAIL = "admin@test.com"
+ADMIN_PASSWORD = "admin123456"
 
-class TaxiRideAPITester:
+class TestResults:
     def __init__(self):
-        self.rider_token = None
-        self.driver_token = None
-        self.request_id = None
-        self.bid_id = None
-        self.ride_id = None
-        self.session = requests.Session()
-        self.session.headers.update({
-            'Content-Type': 'application/json',
-            'Accept': 'application/json'
-        })
-        
-    def log(self, message):
-        print(f"[{datetime.now().strftime('%H:%M:%S')}] {message}")
-        
-    def test_rider_login(self):
-        """Test rider login"""
-        self.log("Testing rider login...")
-        
-        payload = {
-            "email": RIDER_EMAIL,
-            "password": RIDER_PASSWORD
-        }
-        
-        response = self.session.post(f"{BASE_URL}/auth/login", json=payload)
-        
-        if response.status_code == 200:
-            data = response.json()
-            self.rider_token = data.get("access_token")
-            self.log(f"✅ Rider login successful. Token: {self.rider_token[:20]}...")
-            return True
-        else:
-            self.log(f"❌ Rider login failed: {response.status_code} - {response.text}")
-            return False
-            
-    def test_driver_login(self):
-        """Test driver login"""
-        self.log("Testing driver login...")
-        
-        payload = {
-            "email": DRIVER_EMAIL,
-            "password": DRIVER_PASSWORD
-        }
-        
-        response = self.session.post(f"{BASE_URL}/auth/login", json=payload)
-        
-        if response.status_code == 200:
-            data = response.json()
-            self.driver_token = data.get("access_token")
-            self.log(f"✅ Driver login successful. Token: {self.driver_token[:20]}...")
-            return True
-        else:
-            self.log(f"❌ Driver login failed: {response.status_code} - {response.text}")
-            return False
-            
-    def test_ride_request(self):
-        """Test ride request creation"""
-        self.log("Testing ride request creation...")
-        
-        if not self.rider_token:
-            self.log("❌ No rider token available")
-            return False
-            
-        headers = {"Authorization": f"Bearer {self.rider_token}"}
-        
-        payload = {
+        self.passed = 0
+        self.failed = 0
+        self.errors = []
+    
+    def add_pass(self, test_name):
+        self.passed += 1
+        print(f"✅ {test_name}")
+    
+    def add_fail(self, test_name, error):
+        self.failed += 1
+        self.errors.append(f"{test_name}: {error}")
+        print(f"❌ {test_name}: {error}")
+    
+    def summary(self):
+        total = self.passed + self.failed
+        print(f"\n{'='*60}")
+        print(f"TEST SUMMARY: {self.passed}/{total} passed")
+        if self.errors:
+            print(f"\nFAILED TESTS:")
+            for error in self.errors:
+                print(f"  - {error}")
+        print(f"{'='*60}")
+
+async def login_user(session, email, password):
+    """Login and return auth token"""
+    try:
+        async with session.post(f"{BACKEND_URL}/auth/login", json={
+            "email": email,
+            "password": password
+        }) as resp:
+            if resp.status == 200:
+                data = await resp.json()
+                return data.get("access_token")
+            else:
+                text = await resp.text()
+                print(f"Login failed for {email}: {resp.status} - {text}")
+                return None
+    except Exception as e:
+        print(f"Login error for {email}: {e}")
+        return None
+
+async def create_test_ride(session, rider_token, driver_token):
+    """Create a test ride for chat testing"""
+    try:
+        # 1. Rider creates ride request
+        headers = {"Authorization": f"Bearer {rider_token}"}
+        ride_request = {
             "pickup_location": {
-                "latitude": 40.7128,
-                "longitude": -74.0060,
-                "address": "New York, NY"
+                "latitude": -34.6037,
+                "longitude": -58.3816,
+                "address": "Buenos Aires, Argentina"
             },
             "dropoff_location": {
-                "latitude": 40.7589,
-                "longitude": -73.9851,
-                "address": "Times Square, NY"
+                "latitude": -34.6118,
+                "longitude": -58.3960,
+                "address": "Puerto Madero, Buenos Aires"
             },
-            "ride_type": "standard",
             "vehicle_type": "economy",
             "payment_method": "cash"
         }
         
-        response = self.session.post(f"{BASE_URL}/rides/request", json=payload, headers=headers)
-        
-        if response.status_code == 200:
-            data = response.json()
-            self.request_id = data.get("request_id")
-            estimated_fare = data.get("estimated_fare")
-            status = data.get("status")
+        async with session.post(f"{BACKEND_URL}/rides/request", 
+                               json=ride_request, headers=headers) as resp:
+            if resp.status != 200:
+                return None, f"Failed to create ride request: {resp.status}"
             
-            self.log(f"✅ Ride request created successfully")
-            self.log(f"   Request ID: {self.request_id}")
-            self.log(f"   Estimated Fare: ${estimated_fare}")
-            self.log(f"   Status: {status}")
-            
-            # Verify required fields
-            if self.request_id and estimated_fare and status == "pending":
-                return True
-            else:
-                self.log("❌ Missing required fields in response")
-                return False
-        else:
-            self.log(f"❌ Ride request failed: {response.status_code} - {response.text}")
-            return False
-            
-    def test_driver_register_vehicle(self):
-        """Register a vehicle for the driver"""
-        self.log("Registering driver vehicle...")
+            request_data = await resp.json()
+            request_id = request_data.get("request_id")
         
-        if not self.driver_token:
-            self.log("❌ No driver token available")
-            return False
-            
-        headers = {"Authorization": f"Bearer {self.driver_token}"}
+        # 2. Driver goes online and sets location
+        driver_headers = {"Authorization": f"Bearer {driver_token}"}
+        async with session.put(f"{BACKEND_URL}/drivers/availability?is_online=true&latitude=-34.6037&longitude=-58.3816", 
+                              headers=driver_headers) as resp:
+            if resp.status != 200:
+                text = await resp.text()
+                return None, f"Failed to set driver online: {resp.status} - {text}"
         
-        payload = {
-            "make": "Toyota",
-            "model": "Camry",
-            "year": 2020,
-            "color": "Blue",
-            "plate_number": "ABC123",
-            "vehicle_type": "economy",
-            "capacity": 4
-        }
-        
-        response = self.session.post(f"{BASE_URL}/vehicles", json=payload, headers=headers)
-        
-        if response.status_code == 200:
-            data = response.json()
-            vehicle_id = data.get("vehicle_id")
-            self.log(f"✅ Vehicle registered successfully: {vehicle_id}")
-            return True
-        else:
-            self.log(f"❌ Vehicle registration failed: {response.status_code} - {response.text}")
-            return False
-            
-    def test_driver_set_online(self):
-        """Set driver online and available"""
-        self.log("Setting driver online...")
-        
-        if not self.driver_token:
-            self.log("❌ No driver token available")
-            return False
-            
-        headers = {"Authorization": f"Bearer {self.driver_token}"}
-        
-        params = {
-            "is_online": True,
-            "latitude": 40.7128,
-            "longitude": -74.0060
-        }
-        
-        response = self.session.put(f"{BASE_URL}/drivers/availability", params=params, headers=headers)
-        
-        if response.status_code == 200:
-            self.log("✅ Driver set online successfully")
-            return True
-        else:
-            self.log(f"❌ Failed to set driver online: {response.status_code} - {response.text}")
-            return False
-            
-    def test_pending_requests(self):
-        """Test driver viewing pending requests"""
-        self.log("Testing driver viewing pending requests...")
-        
-        if not self.driver_token:
-            self.log("❌ No driver token available")
-            return False
-            
-        headers = {"Authorization": f"Bearer {self.driver_token}"}
-        
-        params = {
-            "latitude": 40.7128,
-            "longitude": -74.0060
-        }
-        
-        response = self.session.get(f"{BASE_URL}/rides/requests/pending", params=params, headers=headers)
-        
-        if response.status_code == 200:
-            data = response.json()
-            requests_list = data.get("requests", [])
-            
-            self.log(f"✅ Retrieved {len(requests_list)} pending requests")
-            
-            # Check if our request is in the list
-            found_request = False
-            for req in requests_list:
-                if req.get("request_id") == self.request_id:
-                    found_request = True
-                    self.log(f"   Found our request: {req.get('request_id')}")
-                    break
-                    
-            if found_request or len(requests_list) > 0:
-                return True
-            else:
-                self.log("❌ No pending requests found (this might be expected)")
-                return True  # This is not necessarily a failure
-        else:
-            self.log(f"❌ Failed to get pending requests: {response.status_code} - {response.text}")
-            return False
-            
-    def test_submit_bid(self):
-        """Test driver submitting a bid"""
-        self.log("Testing driver bid submission...")
-        
-        if not self.driver_token or not self.request_id:
-            self.log("❌ Missing driver token or request ID")
-            return False
-            
-        headers = {"Authorization": f"Bearer {self.driver_token}"}
-        
-        payload = {
-            "request_id": self.request_id,
+        # 3. Driver submits bid
+        bid_data = {
+            "request_id": request_id,
             "fare_amount": 15.50,
-            "estimated_arrival": 8
+            "estimated_arrival": 5
         }
         
-        response = self.session.post(f"{BASE_URL}/rides/bid", json=payload, headers=headers)
+        async with session.post(f"{BACKEND_URL}/rides/bid", 
+                               json=bid_data, headers=driver_headers) as resp:
+            if resp.status != 200:
+                return None, f"Failed to submit bid: {resp.status}"
+            
+            bid_data = await resp.json()
+            bid_id = bid_data.get("bid_id")
         
-        if response.status_code == 200:
-            data = response.json()
-            self.bid_id = data.get("bid_id")
-            driver_name = data.get("driver_name")
-            fare_amount = data.get("fare_amount")
+        # 4. Rider accepts bid
+        async with session.post(f"{BACKEND_URL}/rides/accept-bid/{bid_id}", 
+                               headers=headers) as resp:
+            if resp.status != 200:
+                return None, f"Failed to accept bid: {resp.status}"
             
-            self.log(f"✅ Bid submitted successfully")
-            self.log(f"   Bid ID: {self.bid_id}")
-            self.log(f"   Driver: {driver_name}")
-            self.log(f"   Fare: ${fare_amount}")
+            accept_data = await resp.json()
+            ride_id = accept_data.get("ride_id")
             
-            if self.bid_id:
-                return True
-            else:
-                self.log("❌ Missing bid_id in response")
-                return False
-        else:
-            self.log(f"❌ Bid submission failed: {response.status_code} - {response.text}")
-            return False
-            
-    def test_get_request_with_bids(self):
-        """Test rider getting request to see bids"""
-        self.log("Testing rider viewing request with bids...")
-        
-        if not self.rider_token or not self.request_id:
-            self.log("❌ Missing rider token or request ID")
-            return False
-            
-        headers = {"Authorization": f"Bearer {self.rider_token}"}
-        
-        # Get the ride request to see bids
-        response = self.session.get(f"{BASE_URL}/rides", headers=headers)
-        
-        if response.status_code == 200:
-            data = response.json()
-            rides = data.get("rides", [])
-            
-            self.log(f"✅ Retrieved rides list with {len(rides)} rides")
-            return True
-        else:
-            self.log(f"❌ Failed to get rides: {response.status_code} - {response.text}")
-            return False
-            
-    def test_accept_bid(self):
-        """Test rider accepting a bid"""
-        self.log("Testing rider accepting bid...")
-        
-        if not self.rider_token or not self.bid_id:
-            self.log("❌ Missing rider token or bid ID")
-            return False
-            
-        headers = {"Authorization": f"Bearer {self.rider_token}"}
-        
-        response = self.session.post(f"{BASE_URL}/rides/accept-bid/{self.bid_id}", headers=headers)
-        
-        if response.status_code == 200:
-            data = response.json()
-            self.ride_id = data.get("ride_id")
-            ride_data = data.get("ride", {})
-            
-            self.log(f"✅ Bid accepted successfully")
-            self.log(f"   Ride ID: {self.ride_id}")
-            self.log(f"   Status: {ride_data.get('status')}")
-            
-            if self.ride_id:
-                return True
-            else:
-                self.log("❌ Missing ride_id in response")
-                return False
-        else:
-            self.log(f"❌ Bid acceptance failed: {response.status_code} - {response.text}")
-            return False
-            
-    def test_ride_status_updates(self):
-        """Test ride status updates"""
-        if not self.driver_token or not self.ride_id:
-            self.log("❌ Missing driver token or ride ID")
-            return False
-            
-        headers = {"Authorization": f"Bearer {self.driver_token}"}
-        
-        statuses = ["arrived", "started", "completed"]
-        
-        for status in statuses:
-            self.log(f"Testing ride status update to '{status}'...")
-            
-            params = {"status": status}
-            response = self.session.put(f"{BASE_URL}/rides/{self.ride_id}/status", params=params, headers=headers)
-            
-            if response.status_code == 200:
-                data = response.json()
-                self.log(f"✅ Status updated to '{status}' successfully")
-                time.sleep(1)  # Small delay between status updates
-            else:
-                self.log(f"❌ Status update to '{status}' failed: {response.status_code} - {response.text}")
-                return False
-                
-        return True
-        
-    def test_get_ride_details(self):
-        """Test getting ride details"""
-        self.log("Testing ride details retrieval...")
-        
-        if not self.rider_token or not self.ride_id:
-            self.log("❌ Missing rider token or ride ID")
-            return False
-            
-        headers = {"Authorization": f"Bearer {self.rider_token}"}
-        
-        response = self.session.get(f"{BASE_URL}/rides/{self.ride_id}", headers=headers)
-        
-        if response.status_code == 200:
-            data = response.json()
-            driver_info = data.get("driver_info")
-            vehicle_info = data.get("vehicle_info")
-            rider_info = data.get("rider_info")
-            
-            self.log(f"✅ Ride details retrieved successfully")
-            self.log(f"   Driver: {driver_info.get('name') if driver_info else 'N/A'}")
-            self.log(f"   Vehicle: {vehicle_info.get('make') if vehicle_info else 'N/A'} {vehicle_info.get('model') if vehicle_info else ''}")
-            self.log(f"   Rider: {rider_info.get('name') if rider_info else 'N/A'}")
-            
-            # Verify required fields are present
-            if driver_info and vehicle_info and rider_info:
-                return True
-            else:
-                self.log("❌ Missing required info fields in ride details")
-                return False
-        else:
-            self.log(f"❌ Failed to get ride details: {response.status_code} - {response.text}")
-            return False
-            
-    def test_active_ride_endpoint(self):
-        """Test the active ride endpoint"""
-        self.log("Testing active ride endpoint...")
-        
-        if not self.rider_token:
-            self.log("❌ Missing rider token")
-            return False
-            
-        headers = {"Authorization": f"Bearer {self.rider_token}"}
-        
-        response = self.session.get(f"{BASE_URL}/rides/active", headers=headers)
-        
-        if response.status_code == 200:
-            data = response.json()
-            ride = data.get("ride")
-            
-            if ride:
-                self.log(f"✅ Active ride retrieved successfully")
-                self.log(f"   Ride ID: {ride.get('ride_id')}")
-                self.log(f"   Status: {ride.get('status')}")
-                
-                # Check for required fields
-                driver_info = ride.get("driver_info")
-                vehicle_info = ride.get("vehicle_info")
-                rider_info = ride.get("rider_info")
-                
-                if driver_info and vehicle_info and rider_info:
-                    self.log(f"   All details present: driver, vehicle, rider info")
-                    return True
+            return ride_id, None
+    
+    except Exception as e:
+        return None, f"Exception creating test ride: {e}"
+
+async def test_ride_chat(session, results):
+    """Test ride chat functionality between rider and driver"""
+    print("\n🚗 Testing Ride Chat...")
+    
+    # Login users
+    rider_token = await login_user(session, RIDER_EMAIL, RIDER_PASSWORD)
+    driver_token = await login_user(session, DRIVER_EMAIL, DRIVER_PASSWORD)
+    
+    if not rider_token or not driver_token:
+        results.add_fail("Ride Chat - User Login", "Failed to login test users")
+        return
+    
+    # Create test ride
+    ride_id, error = await create_test_ride(session, rider_token, driver_token)
+    if not ride_id:
+        results.add_fail("Ride Chat - Create Test Ride", error or "Unknown error")
+        return
+    
+    results.add_pass("Ride Chat - Create Test Ride")
+    
+    # Test 1: Rider sends message to driver
+    try:
+        headers = {"Authorization": f"Bearer {rider_token}"}
+        async with session.post(f"{BACKEND_URL}/chat/send?ride_id={ride_id}&message=Hola+conductor", 
+                               headers=headers) as resp:
+            if resp.status == 200:
+                data = await resp.json()
+                if data.get("status") == "sent" and data.get("message_id"):
+                    results.add_pass("Ride Chat - Rider Send Message")
                 else:
-                    self.log("❌ Missing some details in active ride")
-                    return False
+                    results.add_fail("Ride Chat - Rider Send Message", f"Unexpected response: {data}")
             else:
-                self.log("✅ No active ride found (expected after completion)")
-                return True
-        else:
-            self.log(f"❌ Failed to get active ride: {response.status_code} - {response.text}")
-            return False
-            
-    def test_active_ride_during_ride(self):
-        """Test the active ride endpoint during an active ride"""
-        self.log("Testing active ride endpoint during active ride...")
-        
-        if not self.rider_token or not self.ride_id:
-            self.log("❌ Missing rider token or ride ID")
-            return False
-            
-        headers = {"Authorization": f"Bearer {self.rider_token}"}
-        
-        response = self.session.get(f"{BASE_URL}/rides/active", headers=headers)
-        
-        if response.status_code == 200:
-            data = response.json()
-            ride = data.get("ride")
-            
-            if ride:
-                self.log(f"✅ Active ride retrieved successfully during ride")
-                self.log(f"   Ride ID: {ride.get('ride_id')}")
-                self.log(f"   Status: {ride.get('status')}")
-                
-                # Check for required fields
-                driver_info = ride.get("driver_info")
-                vehicle_info = ride.get("vehicle_info")
-                rider_info = ride.get("rider_info")
-                
-                if driver_info and vehicle_info and rider_info:
-                    self.log(f"   All details present: driver, vehicle, rider info")
-                    return True
+                text = await resp.text()
+                results.add_fail("Ride Chat - Rider Send Message", f"HTTP {resp.status}: {text}")
+    except Exception as e:
+        results.add_fail("Ride Chat - Rider Send Message", f"Exception: {e}")
+    
+    # Test 2: Driver sends message to rider
+    try:
+        headers = {"Authorization": f"Bearer {driver_token}"}
+        async with session.post(f"{BACKEND_URL}/chat/send?ride_id={ride_id}&message=Hola+pasajero", 
+                               headers=headers) as resp:
+            if resp.status == 200:
+                data = await resp.json()
+                if data.get("status") == "sent" and data.get("message_id"):
+                    results.add_pass("Ride Chat - Driver Send Message")
                 else:
-                    self.log("❌ Missing some details in active ride")
-                    return False
+                    results.add_fail("Ride Chat - Driver Send Message", f"Unexpected response: {data}")
             else:
-                self.log("❌ No active ride found when there should be one")
-                return False
-        else:
-            self.log(f"❌ Failed to get active ride: {response.status_code} - {response.text}")
-            return False
-            
-    def run_complete_flow_test(self):
-        """Run the complete ride booking flow test"""
-        self.log("=" * 60)
-        self.log("STARTING COMPLETE RIDE BOOKING FLOW TEST")
-        self.log("=" * 60)
-        
-        test_results = []
-        
-        # Step 1: Rider login
-        test_results.append(("Rider Login", self.test_rider_login()))
-        
-        # Step 2: Driver login
-        test_results.append(("Driver Login", self.test_driver_login()))
-        
-        # Step 3: Register driver vehicle
-        test_results.append(("Driver Register Vehicle", self.test_driver_register_vehicle()))
-        
-        # Step 4: Set driver online
-        test_results.append(("Driver Set Online", self.test_driver_set_online()))
-        
-        # Step 5: Rider requests ride
-        test_results.append(("Ride Request", self.test_ride_request()))
-        
-        # Step 6: Driver sees pending requests
-        test_results.append(("View Pending Requests", self.test_pending_requests()))
-        
-        # Step 7: Driver submits bid
-        test_results.append(("Submit Bid", self.test_submit_bid()))
-        
-        # Step 8: Rider sees bids
-        test_results.append(("View Rides with Bids", self.test_get_request_with_bids()))
-        
-        # Step 9: Rider accepts bid
-        test_results.append(("Accept Bid", self.test_accept_bid()))
-        
-        # Step 10: Test active ride endpoint during ride
-        test_results.append(("Active Ride During Ride", self.test_active_ride_during_ride()))
-        
-        # Step 11: Ride status updates
-        test_results.append(("Ride Status Updates", self.test_ride_status_updates()))
-        
-        # Step 12: Get ride details
-        test_results.append(("Get Ride Details", self.test_get_ride_details()))
-        
-        # Step 13: Test active ride endpoint after completion
-        test_results.append(("Active Ride After Completion", self.test_active_ride_endpoint()))
-        
-        # Summary
-        self.log("=" * 60)
-        self.log("TEST RESULTS SUMMARY")
-        self.log("=" * 60)
-        
-        passed = 0
-        failed = 0
-        
-        for test_name, result in test_results:
-            status = "✅ PASS" if result else "❌ FAIL"
-            self.log(f"{test_name:<25} {status}")
-            if result:
-                passed += 1
+                text = await resp.text()
+                results.add_fail("Ride Chat - Driver Send Message", f"HTTP {resp.status}: {text}")
+    except Exception as e:
+        results.add_fail("Ride Chat - Driver Send Message", f"Exception: {e}")
+    
+    # Test 3: Get chat messages for the ride
+    try:
+        headers = {"Authorization": f"Bearer {rider_token}"}
+        async with session.get(f"{BACKEND_URL}/chat/messages/{ride_id}", 
+                              headers=headers) as resp:
+            if resp.status == 200:
+                data = await resp.json()
+                messages = data.get("messages", [])
+                if len(messages) >= 2:
+                    # Check if both messages are present
+                    message_texts = [msg.get("message") for msg in messages]
+                    if "Hola conductor" in message_texts and "Hola pasajero" in message_texts:
+                        results.add_pass("Ride Chat - Get Messages")
+                    else:
+                        results.add_fail("Ride Chat - Get Messages", f"Missing expected messages: {message_texts}")
+                else:
+                    results.add_fail("Ride Chat - Get Messages", f"Expected 2+ messages, got {len(messages)}")
             else:
-                failed += 1
+                text = await resp.text()
+                results.add_fail("Ride Chat - Get Messages", f"HTTP {resp.status}: {text}")
+    except Exception as e:
+        results.add_fail("Ride Chat - Get Messages", f"Exception: {e}")
+
+async def test_ai_support_chat(session, results):
+    """Test AI support chatbot functionality"""
+    print("\n🤖 Testing AI Support Chat...")
+    
+    # Login rider
+    rider_token = await login_user(session, RIDER_EMAIL, RIDER_PASSWORD)
+    if not rider_token:
+        results.add_fail("AI Support - User Login", "Failed to login rider")
+        return
+    
+    headers = {"Authorization": f"Bearer {rider_token}"}
+    
+    # Test 1: Send message to AI support
+    try:
+        async with session.post(f"{BACKEND_URL}/support/chat?message=Hola+necesito+ayuda", 
+                               headers=headers) as resp:
+            if resp.status == 200:
+                data = await resp.json()
+                session_id = data.get("session_id")
+                response_msg = data.get("response", {})
                 
-        self.log("=" * 60)
-        self.log(f"TOTAL: {passed} passed, {failed} failed")
-        
-        if failed == 0:
-            self.log("🎉 ALL TESTS PASSED! Complete ride booking flow is working.")
+                if session_id and response_msg and data.get("is_ai"):
+                    results.add_pass("AI Support - Send Message")
+                    
+                    # Store session_id for next test
+                    global test_session_id
+                    test_session_id = session_id
+                else:
+                    results.add_fail("AI Support - Send Message", f"Invalid response structure: {data}")
+            else:
+                text = await resp.text()
+                results.add_fail("AI Support - Send Message", f"HTTP {resp.status}: {text}")
+    except Exception as e:
+        results.add_fail("AI Support - Send Message", f"Exception: {e}")
+    
+    # Test 2: Send follow-up message with session_id
+    try:
+        if 'test_session_id' in globals():
+            async with session.post(f"{BACKEND_URL}/support/chat?message=Cual+es+mi+saldo&session_id={test_session_id}", 
+                                   headers=headers) as resp:
+                if resp.status == 200:
+                    data = await resp.json()
+                    if data.get("session_id") == test_session_id and data.get("is_ai"):
+                        results.add_pass("AI Support - Follow-up Message")
+                    else:
+                        results.add_fail("AI Support - Follow-up Message", f"Session mismatch or not AI: {data}")
+                else:
+                    text = await resp.text()
+                    results.add_fail("AI Support - Follow-up Message", f"HTTP {resp.status}: {text}")
         else:
-            self.log(f"⚠️  {failed} test(s) failed. Please check the issues above.")
-            
-        return failed == 0
+            results.add_fail("AI Support - Follow-up Message", "No session_id from previous test")
+    except Exception as e:
+        results.add_fail("AI Support - Follow-up Message", f"Exception: {e}")
+    
+    # Test 3: Get support history
+    try:
+        async with session.get(f"{BACKEND_URL}/support/history", 
+                              headers=headers) as resp:
+            if resp.status == 200:
+                data = await resp.json()
+                messages = data.get("messages", [])
+                sessions = data.get("sessions", [])
+                
+                if len(messages) >= 2 and len(sessions) >= 1:
+                    results.add_pass("AI Support - Get History")
+                else:
+                    results.add_fail("AI Support - Get History", f"Expected messages and sessions, got {len(messages)} messages, {len(sessions)} sessions")
+            else:
+                text = await resp.text()
+                results.add_fail("AI Support - Get History", f"HTTP {resp.status}: {text}")
+    except Exception as e:
+        results.add_fail("AI Support - Get History", f"Exception: {e}")
+
+async def test_dispatcher_intervention(session, results):
+    """Test dispatcher intervention functionality"""
+    print("\n👨‍💼 Testing Dispatcher Intervention...")
+    
+    # Login admin (dispatcher)
+    admin_token = await login_user(session, ADMIN_EMAIL, ADMIN_PASSWORD)
+    if not admin_token:
+        results.add_fail("Dispatcher - Admin Login", "Failed to login admin")
+        return
+    
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    
+    # Test 1: Dispatcher intervenes in session
+    try:
+        if 'test_session_id' in globals():
+            async with session.post(f"{BACKEND_URL}/dispatcher/intervene/{test_session_id}", 
+                                   headers=headers) as resp:
+                if resp.status == 200:
+                    data = await resp.json()
+                    if data.get("status") == "success":
+                        results.add_pass("Dispatcher - Intervene")
+                    else:
+                        results.add_fail("Dispatcher - Intervene", f"Unexpected response: {data}")
+                else:
+                    text = await resp.text()
+                    results.add_fail("Dispatcher - Intervene", f"HTTP {resp.status}: {text}")
+        else:
+            results.add_fail("Dispatcher - Intervene", "No session_id available from AI support test")
+    except Exception as e:
+        results.add_fail("Dispatcher - Intervene", f"Exception: {e}")
+    
+    # Test 2: Dispatcher sends message
+    try:
+        if 'test_session_id' in globals():
+            async with session.post(f"{BACKEND_URL}/dispatcher/send/{test_session_id}?message=Soy+el+despachador", 
+                                   headers=headers) as resp:
+                if resp.status == 200:
+                    data = await resp.json()
+                    if data.get("status") == "sent" and data.get("message", {}).get("message") == "Soy el despachador":
+                        results.add_pass("Dispatcher - Send Message")
+                    else:
+                        results.add_fail("Dispatcher - Send Message", f"Unexpected response: {data}")
+                else:
+                    text = await resp.text()
+                    results.add_fail("Dispatcher - Send Message", f"HTTP {resp.status}: {text}")
+        else:
+            results.add_fail("Dispatcher - Send Message", "No session_id available")
+    except Exception as e:
+        results.add_fail("Dispatcher - Send Message", f"Exception: {e}")
+
+async def test_health_check(session, results):
+    """Test basic health check"""
+    print("\n🏥 Testing Health Check...")
+    
+    try:
+        async with session.get(f"{BACKEND_URL}/health") as resp:
+            if resp.status == 200:
+                data = await resp.json()
+                if data.get("status") == "healthy":
+                    results.add_pass("Health Check")
+                else:
+                    results.add_fail("Health Check", f"Unhealthy status: {data}")
+            else:
+                text = await resp.text()
+                results.add_fail("Health Check", f"HTTP {resp.status}: {text}")
+    except Exception as e:
+        results.add_fail("Health Check", f"Exception: {e}")
+
+async def main():
+    """Run all tests"""
+    print("🚀 Starting Moli Taxi App Backend Tests - Chat & AI Support Features")
+    print(f"Backend URL: {BACKEND_URL}")
+    
+    results = TestResults()
+    
+    # Create session with timeout
+    timeout = aiohttp.ClientTimeout(total=30)
+    async with aiohttp.ClientSession(timeout=timeout) as session:
+        # Run tests
+        await test_health_check(session, results)
+        await test_ride_chat(session, results)
+        await test_ai_support_chat(session, results)
+        await test_dispatcher_intervention(session, results)
+    
+    # Print summary
+    results.summary()
+    
+    # Exit with appropriate code
+    sys.exit(0 if results.failed == 0 else 1)
 
 if __name__ == "__main__":
-    tester = TaxiRideAPITester()
-    success = tester.run_complete_flow_test()
-    exit(0 if success else 1)
+    asyncio.run(main())

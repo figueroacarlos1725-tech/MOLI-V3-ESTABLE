@@ -214,7 +214,7 @@ export default function DriverProfileScreen() {
               <Ionicons name="chevron-forward" size={20} color="#C7C7CC" />
             </TouchableOpacity>
             <View style={styles.menuDivider} />
-            <TouchableOpacity style={styles.menuItem}>
+            <TouchableOpacity style={styles.menuItem} onPress={() => router.push('/support')}>
               <View style={styles.menuItemLeft}>
                 <Ionicons name="help-circle-outline" size={22} color="#6BBF00" />
                 <Text style={styles.menuItemText}>Ayuda y soporte</Text>

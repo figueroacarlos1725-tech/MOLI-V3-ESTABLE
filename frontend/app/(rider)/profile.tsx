@@ -62,7 +62,7 @@ export default function RiderProfileScreen() {
     {
       icon: 'help-circle-outline',
       title: 'Ayuda y soporte',
-      onPress: () => {},
+      onPress: () => router.push('/support'),
     },
     {
       icon: 'shield-outline',

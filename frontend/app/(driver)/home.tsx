@@ -11,6 +11,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { MapView } from '@/src/components/MapView';
 import { Button } from '@/src/components/Button';
 import { useAuthStore } from '@/src/stores/authStore';
@@ -21,6 +22,7 @@ import { getCurrentLocation, reverseGeocode } from '@/src/utils/location';
 
 export default function DriverHomeScreen() {
   const { user } = useAuthStore();
+  const router = useRouter();
   const { currentRide, fetchActiveRide, updateRideStatus } = useRideStore();
   
   const [isOnline, setIsOnline] = useState(false);
@@ -222,7 +224,13 @@ export default function DriverHomeScreen() {
                 <TouchableOpacity style={styles.actionButton}>
                   <Ionicons name="call" size={22} color="#6BBF00" />
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.actionButton}>
+                <TouchableOpacity
+                  style={styles.actionButton}
+                  onPress={() => router.push({
+                    pathname: '/chat',
+                    params: { rideId: currentRide.ride_id, otherName: currentRide.rider_info?.name || 'Pasajero' }
+                  })}
+                >
                   <Ionicons name="chatbubble" size={22} color="#007AFF" />
                 </TouchableOpacity>
               </View>
