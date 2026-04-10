@@ -102,7 +102,17 @@ export default function SupportChatScreen() {
       }
 
       if (response.response) {
-        setMessages(prev => [...prev, response.response]);
+        const aiMsg: SupportMessage = {
+          message_id: `ai_${Date.now()}`,
+          session_id: response.session_id || sessionId || '',
+          sender_id: 'ai_assistant',
+          sender_name: 'Moli Asistente',
+          message: typeof response.response === 'string' ? response.response : response.response.message || '',
+          is_ai: true,
+          is_dispatcher: false,
+          created_at: new Date().toISOString(),
+        };
+        setMessages(prev => [...prev, aiMsg]);
         setTimeout(() => flatListRef.current?.scrollToEnd(), 100);
       }
     } catch (error) {
