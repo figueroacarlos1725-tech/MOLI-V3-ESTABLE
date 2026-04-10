@@ -2169,6 +2169,7 @@ async def admin_get_user(user_id: str, user: dict = Depends(get_current_user)):
             target["priority"] = driver.get("priority", 0)
             target["commission_type"] = driver.get("commission_type", "percentage")
             target["commission_value"] = driver.get("commission_value", 15)
+            target["service_types"] = driver.get("service_types", ["economy"])
             target["vehicle"] = await db.vehicles.find_one({"driver_id": user_id}, {"_id": 0})
     
     # Ride stats
@@ -2725,6 +2726,57 @@ async def admin_update_priority(
     })
     
     return {"status": "success", "message": "Priority updated"}
+
+
+# ======================= ADMIN: DRIVER SERVICE TYPES =======================
+
+class ServiceTypesUpdate(BaseModel):
+    service_types: list = ["economy"]  # list of: economy, comfort, premium, xl
+
+@app.put("/api/admin/drivers/{driver_id}/services")
+async def admin_update_services(
+    driver_id: str,
+    update: ServiceTypesUpdate,
+    user: dict = Depends(get_current_user)
+):
+    if user["user_type"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    valid = ["economy", "comfort", "premium", "xl"]
+    service_types = [s for s in update.service_types if s in valid]
+    if not service_types:
+        raise HTTPException(status_code=400, detail="At least one valid service type required")
+    
+    old = await db.drivers.find_one({"driver_id": driver_id}, {"_id": 0})
+    old_services = old.get("service_types", []) if old else []
+    
+    await db.drivers.update_one(
+        {"driver_id": driver_id},
+        {"$set": {
+            "service_types": service_types,
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }},
+        upsert=True
+    )
+    
+    await db.audit_log.insert_one({
+        "action": "service_types_update",
+        "target_user_id": driver_id,
+        "admin_id": user["user_id"],
+        "changes": {"service_types": service_types},
+        "previous_values": {"service_types": old_services},
+        "created_at": datetime.now(timezone.utc),
+        "source": "admin"
+    })
+    
+    return {"status": "success", "message": "Service types updated", "service_types": service_types}
+
+@app.get("/api/drivers/{driver_id}/services")
+async def get_driver_services(driver_id: str):
+    """Public endpoint to get a driver's service types"""
+    driver = await db.drivers.find_one({"driver_id": driver_id}, {"_id": 0})
+    return {"service_types": driver.get("service_types", ["economy"]) if driver else ["economy"]}
+
 
 # ======================= ADMIN: PAYMENT GATEWAY CONFIG =======================
 

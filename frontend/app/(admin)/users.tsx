@@ -36,6 +36,7 @@ export default function AdminUsersScreen() {
   const [blockType, setBlockType] = useState('permanent');
   const [blockDuration, setBlockDuration] = useState('24');
   const [priority, setPriority] = useState('0');
+  const [serviceTypes, setServiceTypes] = useState<string[]>(['economy']);
   const [auditLogs, setAuditLogs] = useState<any[]>([]);
   const [showAudit, setShowAudit] = useState(false);
 
@@ -61,6 +62,7 @@ export default function AdminUsersScreen() {
       setCommType(r.commission_type || 'percentage');
       setCommValue(String(r.commission_value || 15));
       setPriority(String(r.priority || 0));
+      setServiceTypes(r.service_types || ['economy']);
       setShowModal(true);
     } catch (e) { console.error(e); }
   };
@@ -139,6 +141,25 @@ export default function AdminUsersScreen() {
       await apiService.put(`/admin/drivers/${selectedUser.user_id}/priority`, {priority: parseInt(priority)});
       fetchUserDetail(selectedUser.user_id);
     } catch (e) {}
+  };
+
+  const toggleServiceType = (type: string) => {
+    setServiceTypes(prev => {
+      if (prev.includes(type)) {
+        if (prev.length <= 1) return prev; // at least 1
+        return prev.filter(t => t !== type);
+      }
+      return [...prev, type];
+    });
+  };
+
+  const handleSaveServices = async () => {
+    if (!selectedUser) return;
+    setSaving(true);
+    try {
+      await apiService.put(`/admin/drivers/${selectedUser.user_id}/services`, {service_types: serviceTypes});
+      fetchUserDetail(selectedUser.user_id);
+    } catch (e) {} finally { setSaving(false); }
   };
 
   const fetchAuditLogs = async (uid: string) => {
@@ -250,6 +271,22 @@ export default function AdminUsersScreen() {
                 </View>
 
                 {selectedUser.user_type === 'driver' && <>
+                  <View style={s.section}>
+                    <Text style={s.sectionTitle}>Tipos de Servicio</Text>
+                    <Text style={{fontSize:12,color:'#8E8E93',marginBottom:10}}>Elegí qué servicios puede ofrecer este conductor</Text>
+                    <View style={s.radioRow}>
+                      {[{key:'economy',label:'Econ\u00f3mico'},{key:'comfort',label:'Confort'},{key:'premium',label:'Premium'},{key:'xl',label:'XL'}].map(t => (
+                        <TouchableOpacity key={t.key} style={[s.serviceChip, serviceTypes.includes(t.key)&&s.serviceChipActive]} onPress={() => toggleServiceType(t.key)}>
+                          <Ionicons name={serviceTypes.includes(t.key)?'checkmark-circle':'ellipse-outline'} size={18} color={serviceTypes.includes(t.key)?'#fff':'#8E8E93'} />
+                          <Text style={[s.serviceChipText, serviceTypes.includes(t.key)&&{color:'#fff'}]}>{t.label}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                    <TouchableOpacity style={s.saveBtn} onPress={handleSaveServices} disabled={saving}>
+                      <Text style={s.saveBtnText}>Guardar servicios</Text>
+                    </TouchableOpacity>
+                  </View>
+
                   <View style={s.section}>
                     <Text style={s.sectionTitle}>Comisión</Text>
                     <View style={s.radioRow}>
@@ -437,4 +474,7 @@ const s = StyleSheet.create({
   auditBy:{fontSize:11,color:'#8E8E93'},
   auditChanges:{fontSize:11,color:'#666',marginTop:2},
   auditDate:{fontSize:10,color:'#8E8E93',marginTop:2},
+  serviceChip:{flexDirection:'row',alignItems:'center',gap:6,paddingHorizontal:14,paddingVertical:10,borderRadius:10,backgroundColor:'#F2F2F7',borderWidth:1.5,borderColor:'#E5E5EA'},
+  serviceChipActive:{backgroundColor:'#8E44AD',borderColor:'#8E44AD'},
+  serviceChipText:{fontSize:13,fontWeight:'600',color:'#666'},
 });
