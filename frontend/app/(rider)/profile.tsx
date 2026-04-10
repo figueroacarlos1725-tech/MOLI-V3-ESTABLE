@@ -26,8 +26,16 @@ export default function RiderProfileScreen() {
       'Cerrar sesión',
       '¿Estás seguro de que quieres cerrar sesión?',
       async () => {
-        await logout();
-        router.replace('/(auth)/welcome');
+        try {
+          await logout();
+          if (typeof window !== 'undefined') {
+            window.location.href = '/';
+          } else {
+            router.replace('/');
+          }
+        } catch (e) {
+          console.error('Logout error:', e);
+        }
       },
       'Cerrar sesión'
     );

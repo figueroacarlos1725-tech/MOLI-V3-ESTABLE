@@ -6,13 +6,13 @@ import {
   SafeAreaView,
   ScrollView,
   TouchableOpacity,
-  Alert,
   TextInput,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { apiService } from '@/src/services/api';
 import { useAuthStore } from '@/src/stores/authStore';
 import { useRouter } from 'expo-router';
+import { confirmAlert } from '@/src/utils/alert';
 
 interface Settings {
   map_provider: string;
@@ -69,20 +69,22 @@ export default function AdminSettingsScreen() {
   };
 
   const handleLogout = () => {
-    Alert.alert(
+    confirmAlert(
       'Cerrar sesion',
       'Estas seguro que deseas cerrar sesion?',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Cerrar sesion',
-          style: 'destructive',
-          onPress: async () => {
-            await logout();
-            router.replace('/(auth)/welcome');
-          },
-        },
-      ]
+      async () => {
+        try {
+          await logout();
+          if (typeof window !== 'undefined') {
+            window.location.href = '/';
+          } else {
+            router.replace('/');
+          }
+        } catch (e) {
+          console.error('Logout error:', e);
+        }
+      },
+      'Cerrar sesion'
     );
   };
 

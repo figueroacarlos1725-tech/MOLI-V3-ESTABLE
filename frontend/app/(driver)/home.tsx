@@ -9,6 +9,8 @@ import {
   Switch,
   Modal,
   ScrollView,
+  Linking,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -258,6 +260,45 @@ export default function DriverHomeScreen() {
           </View>
           
           <View style={styles.actionButtons}>
+            {/* Navigation buttons */}
+            {currentRide.status === 'accepted' && currentRide.pickup_location && (
+              <TouchableOpacity
+                style={styles.navBtn}
+                onPress={() => {
+                  const lat = currentRide.pickup_location.latitude;
+                  const lng = currentRide.pickup_location.longitude;
+                  const label = encodeURIComponent(currentRide.pickup_location.address || 'Recoger pasajero');
+                  const url = Platform.OS === 'web'
+                    ? `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`
+                    : Platform.OS === 'ios'
+                      ? `maps://app?daddr=${lat},${lng}&dirflg=d`
+                      : `google.navigation:q=${lat},${lng}`;
+                  Linking.openURL(url);
+                }}
+              >
+                <Ionicons name="navigate" size={20} color="#fff" />
+                <Text style={styles.navBtnText}>Navegar al origen</Text>
+              </TouchableOpacity>
+            )}
+            {currentRide.status === 'started' && currentRide.dropoff_location && (
+              <TouchableOpacity
+                style={styles.navBtn}
+                onPress={() => {
+                  const lat = currentRide.dropoff_location.latitude;
+                  const lng = currentRide.dropoff_location.longitude;
+                  const url = Platform.OS === 'web'
+                    ? `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`
+                    : Platform.OS === 'ios'
+                      ? `maps://app?daddr=${lat},${lng}&dirflg=d`
+                      : `google.navigation:q=${lat},${lng}`;
+                  Linking.openURL(url);
+                }}
+              >
+                <Ionicons name="navigate" size={20} color="#fff" />
+                <Text style={styles.navBtnText}>Navegar al destino</Text>
+              </TouchableOpacity>
+            )}
+
             {currentRide.status === 'accepted' && (
               <Button
                 title="He llegado"
@@ -768,5 +809,20 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#1C1C1E',
   },
-  actionButtons: {},
+  actionButtons: { gap: 10 },
+  navBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#3B82F6',
+    paddingVertical: 14,
+    borderRadius: 12,
+    marginBottom: 4,
+  },
+  navBtnText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '700',
+  },
 });

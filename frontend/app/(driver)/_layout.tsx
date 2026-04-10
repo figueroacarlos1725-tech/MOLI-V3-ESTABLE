@@ -52,6 +52,15 @@ export default function DriverLayout() {
         }}
       />
       <Tabs.Screen
+        name="taximeter"
+        options={{
+          title: 'Taxímetro',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="speedometer" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="profile"
         options={{
           title: 'Perfil',

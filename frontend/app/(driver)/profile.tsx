@@ -89,8 +89,17 @@ export default function DriverProfileScreen() {
       'Cerrar sesion',
       'Estas seguro que deseas cerrar sesion?',
       async () => {
-        await logout();
-        router.replace('/(auth)/welcome');
+        try {
+          await logout();
+          // Navigate to index which will redirect to welcome
+          if (typeof window !== 'undefined') {
+            window.location.href = '/';
+          } else {
+            router.replace('/');
+          }
+        } catch (e) {
+          console.error('Logout error:', e);
+        }
       },
       'Cerrar sesion'
     );
