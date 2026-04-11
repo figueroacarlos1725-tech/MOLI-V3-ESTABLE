@@ -41,14 +41,41 @@ export default function RideChatScreen() {
   useEffect(() => {
     loadMessages();
     
+    // Listen for new messages via WebSocket
     const unsubscribe = socketService.on('new_message', (data: any) => {
       if (data.ride_id === rideId) {
-        setMessages(prev => [...prev, data]);
+        // Avoid duplicates
+        setMessages(prev => {
+          if (prev.some(m => m.message_id === data.message_id)) return prev;
+          return [...prev, data];
+        });
         setTimeout(() => flatListRef.current?.scrollToEnd(), 100);
       }
     });
 
-    return () => unsubscribe();
+    // Poll for new messages every 4s (WebSocket fallback)
+    const pollInterval = setInterval(async () => {
+      try {
+        const response = await apiService.get(`/chat/messages/${rideId}`);
+        if (response.messages) {
+          setMessages(prev => {
+            const newMsgs = response.messages.filter(
+              (m: ChatMessage) => !prev.some(p => p.message_id === m.message_id) && !m.message_id.startsWith('temp_')
+            );
+            if (newMsgs.length > 0) {
+              const merged = [...prev.filter(p => !p.message_id.startsWith('temp_')), ...newMsgs];
+              merged.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+              // Dedupe
+              const seen = new Set<string>();
+              return merged.filter(m => { if (seen.has(m.message_id)) return false; seen.add(m.message_id); return true; });
+            }
+            return prev;
+          });
+        }
+      } catch (e) { /* ignore */ }
+    }, 4000);
+
+    return () => { unsubscribe(); clearInterval(pollInterval); };
   }, [rideId]);
 
   const loadMessages = async () => {
@@ -65,18 +92,39 @@ export default function RideChatScreen() {
   const handleSend = async () => {
     if (!newMessage.trim() || isSending) return;
 
+    const msgText = newMessage.trim();
     setIsSending(true);
+    setNewMessage('');
+    
+    // Optimistic: add message locally immediately
+    const tempMsg: ChatMessage = {
+      message_id: `temp_${Date.now()}`,
+      ride_id: rideId || '',
+      sender_id: user?.user_id || '',
+      sender_name: user?.name || 'Yo',
+      receiver_id: '',
+      message: msgText,
+      is_ai: false,
+      created_at: new Date().toISOString(),
+    };
+    setMessages(prev => [...prev, tempMsg]);
+    setTimeout(() => flatListRef.current?.scrollToEnd(), 100);
+    
     try {
       const response = await apiService.post(
-        `/chat/send?ride_id=${rideId}&message=${encodeURIComponent(newMessage.trim())}`
+        `/chat/send?ride_id=${rideId}&message=${encodeURIComponent(msgText)}`
       );
+      // Replace temp message with real one
       if (response.message) {
-        setMessages(prev => [...prev, response.message]);
-        setNewMessage('');
-        setTimeout(() => flatListRef.current?.scrollToEnd(), 100);
+        setMessages(prev => prev.map(m => 
+          m.message_id === tempMsg.message_id ? { ...response.message } : m
+        ));
       }
     } catch (error) {
       console.error('Error enviando mensaje:', error);
+      // Remove temp message on error
+      setMessages(prev => prev.filter(m => m.message_id !== tempMsg.message_id));
+      setNewMessage(msgText); // Restore message text
     } finally {
       setIsSending(false);
     }

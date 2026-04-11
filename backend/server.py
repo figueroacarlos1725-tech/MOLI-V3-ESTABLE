@@ -93,10 +93,12 @@ async def assign_ride_to_drivers(request_id: str, rider_id: str, sorted_drivers:
             if total_attempts > 0:
                 try:
                     pickup = request_doc.get("pickup_location", {})
-                    fresh_drivers = await get_nearby_drivers(
+                    result = await get_nearby_drivers(
                         pickup.get("latitude", 0), pickup.get("longitude", 0),
-                        request_doc.get("vehicle_type"), 50
+                        radius_km=50,
+                        vehicle_type=request_doc.get("vehicle_type")
                     )
+                    fresh_drivers = result.get("drivers", [])
                 except Exception:
                     fresh_drivers = sorted_drivers
             
@@ -163,12 +165,29 @@ async def assign_ride_to_drivers(request_id: str, rider_id: str, sorted_drivers:
                     # Success! Notify rider
                     ride = await db.rides.find_one({"request_id": request_id}, {"_id": 0})
                     if ride:
-                        ride_data = {k: (v.isoformat() if isinstance(v, datetime) else v) for k, v in ride.items()}
+                        ride_data = {}
+                        for k, v in ride.items():
+                            if isinstance(v, datetime):
+                                ride_data[k] = v.isoformat()
+                            elif isinstance(v, dict):
+                                ride_data[k] = {kk: (vv.isoformat() if isinstance(vv, datetime) else vv) for kk, vv in v.items()}
+                            else:
+                                ride_data[k] = v
                         driver_info = await db.users.find_one({"user_id": ride["driver_id"]}, {"_id": 0, "password_hash": 0})
+                        # Serialize driver_info datetime fields
+                        if driver_info:
+                            driver_data = {}
+                            for k, v in driver_info.items():
+                                if isinstance(v, datetime):
+                                    driver_data[k] = v.isoformat()
+                                else:
+                                    driver_data[k] = v
+                        else:
+                            driver_data = None
                         await manager.send_personal_message({
                             "type": "ride_accepted",
                             "ride": ride_data,
-                            "driver": driver_info
+                            "driver": driver_data
                         }, rider_id)
                     return  # Done!
                 
@@ -2329,13 +2348,14 @@ async def send_chat_message(
     
     await db.chat_messages.insert_one(msg)
     
-    # TODO: Send via WebSocket
-    # await manager.send_personal_message(
-    #     {"type": "new_message", **msg},
-    #     receiver_id
-    # )
+    # Send via WebSocket to receiver
+    ws_msg = {k: v for k, v in msg.items() if k != "_id"}
+    await manager.send_personal_message(
+        {"type": "new_message", **ws_msg},
+        receiver_id
+    )
     
-    return {"status": "sent", "message_id": msg["message_id"]}
+    return {"status": "sent", "message_id": msg["message_id"], "message": ws_msg}
 
 @app.get("/api/chat/messages/{ride_id}")
 async def get_chat_messages(

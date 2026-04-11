@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { View, ActivityIndicator, StyleSheet, Image, Text, Dimensions } from 'react-native';
 import { Stack } from 'expo-router';
 import { useAuthStore } from '@/src/stores/authStore';
+import ChatNotificationBanner from '@/src/components/ChatNotificationBanner';
 
 const { width } = Dimensions.get('window');
 
@@ -36,13 +37,16 @@ export default function RootLayout() {
   }
 
   return (
-    <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="index" />
-      <Stack.Screen name="(auth)" />
-      <Stack.Screen name="(rider)" />
-      <Stack.Screen name="(driver)" />
-      <Stack.Screen name="(admin)" />
-    </Stack>
+    <View style={{ flex: 1 }}>
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="index" />
+        <Stack.Screen name="(auth)" />
+        <Stack.Screen name="(rider)" />
+        <Stack.Screen name="(driver)" />
+        <Stack.Screen name="(admin)" />
+      </Stack>
+      <ChatNotificationBanner />
+    </View>
   );
 }
 
