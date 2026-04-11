@@ -56,6 +56,12 @@ export default function RiderHomeScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<PlaceResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [fareEstimates, setFareEstimates] = useState<any[]>([]);
+  const [routeInfo, setRouteInfo] = useState<{distance_km: number; duration_min: number} | null>(null);
+  const [loadingEstimate, setLoadingEstimate] = useState(false);
+  const [banners, setBanners] = useState<any[]>([]);
+  const [isPremium, setIsPremium] = useState(false);
+  const [bannerIndex, setBannerIndex] = useState(0);
 
   const vehicleTypes = [
     { id: 'economy', name: 'Económico', icon: 'car-outline', multiplier: '1x' },
@@ -67,6 +73,7 @@ export default function RiderHomeScreen() {
   useEffect(() => {
     initializeLocation();
     fetchActiveRide();
+    fetchBanners();
   }, []);
 
   useEffect(() => {
@@ -159,6 +166,45 @@ export default function RiderHomeScreen() {
       setDropoffLocation({ ...coords, address });
       setDropoffAddress(address);
     }
+  };
+
+  const fetchEstimates = async (distance_km: number, duration_min: number) => {
+    setLoadingEstimate(true);
+    try {
+      const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || '';
+      const resp = await fetch(`${backendUrl}/api/rides/estimate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ distance_km, duration_min }),
+      });
+      const data = await resp.json();
+      if (data.estimates) {
+        setFareEstimates(data.estimates);
+        if (data.estimates.length > 0 && !data.estimates.find((e: any) => e.vehicle_type === selectedVehicleType)) {
+          setSelectedVehicleType(data.estimates[0].vehicle_type);
+        }
+      }
+    } catch (err) {
+      console.error('Error fetching estimates:', err);
+    } finally {
+      setLoadingEstimate(false);
+    }
+  };
+
+  const fetchBanners = async () => {
+    try {
+      const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || '';
+      const resp = await fetch(`${backendUrl}/api/banners`);
+      const data = await resp.json();
+      if (data.banners) setBanners(data.banners);
+    } catch (err) {
+      console.error('Error fetching banners:', err);
+    }
+  };
+
+  const handleRouteInfo = (info: { distance_km: number; duration_min: number }) => {
+    setRouteInfo(info);
+    fetchEstimates(info.distance_km, info.duration_min);
   };
 
   const handleRequestRide = async () => {
@@ -328,6 +374,7 @@ export default function RiderHomeScreen() {
           showRoute={pickupLocation && dropoffLocation ? true : false}
           onMapPress={isSelectingLocation ? handleMapPress : undefined}
           onMarkerDrag={handleMarkerDrag}
+          onRouteInfo={handleRouteInfo}
         />
         
         {isSelectingLocation && (
@@ -345,7 +392,7 @@ export default function RiderHomeScreen() {
         )}
       </View>
 
-      {/* Panel de reserva */}
+      {/* Panel de reserva estilo Cabify */}
       <View style={styles.bookingPanel}>
         {/* Inputs de ubicación */}
         <View style={styles.locationInputs}>
@@ -355,7 +402,7 @@ export default function RiderHomeScreen() {
           >
             <View style={[styles.locationDot, styles.pickupDot]} />
             <Text style={pickupAddress ? styles.locationText : styles.placeholderText} numberOfLines={1}>
-              {pickupAddress || 'Selecciona punto de recogida'}
+              {pickupAddress || 'Punto de recogida'}
             </Text>
             <TouchableOpacity onPress={initializeLocation} hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}>
               <Ionicons name="locate" size={20} color="#6BBF00" />
@@ -376,57 +423,112 @@ export default function RiderHomeScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Tipos de vehículo */}
+        {/* Banner publicitario */}
+        {!isPremium && banners.length > 0 && (
+          <TouchableOpacity style={[styles.bannerCard, { backgroundColor: banners[bannerIndex % banners.length]?.bg_color || '#6B21A8' }]}>
+            <View style={styles.bannerContent}>
+              <Text style={[styles.bannerTitle, { color: banners[bannerIndex % banners.length]?.text_color || '#fff' }]} numberOfLines={1}>
+                {banners[bannerIndex % banners.length]?.title}
+              </Text>
+              <Text style={[styles.bannerDesc, { color: banners[bannerIndex % banners.length]?.text_color || '#fff' }]} numberOfLines={1}>
+                {banners[bannerIndex % banners.length]?.description}
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={banners[bannerIndex % banners.length]?.text_color || '#fff'} />
+          </TouchableOpacity>
+        )}
+
+        {/* Promo Molí+ si no hay banners */}
+        {!isPremium && banners.length === 0 && (
+          <TouchableOpacity style={styles.moliPlusCard}>
+            <View style={styles.moliPlusBadge}>
+              <Text style={styles.moliPlusBadgeText}>Molí+</Text>
+            </View>
+            <Text style={styles.moliPlusText}>Sin publicidad y beneficios exclusivos</Text>
+            <Ionicons name="chevron-forward" size={18} color="#6B21A8" />
+          </TouchableOpacity>
+        )}
+
+        {/* Info de ruta + estimaciones */}
+        {routeInfo && fareEstimates.length > 0 && (
+          <View style={styles.routeInfoBar}>
+            <Ionicons name="navigate" size={16} color="#6BBF00" />
+            <Text style={styles.routeInfoText}>
+              {routeInfo.distance_km.toFixed(1)} km · {routeInfo.duration_min} min
+            </Text>
+          </View>
+        )}
+
+        {/* Tarjetas de vehículos con precios */}
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
           style={styles.vehicleTypesScroll}
           contentContainerStyle={styles.vehicleTypesContent}
         >
-          {vehicleTypes.map((type) => (
-            <TouchableOpacity
-              key={type.id}
-              style={[
-                styles.vehicleTypeCard,
-                selectedVehicleType === type.id && styles.vehicleTypeCardSelected,
-              ]}
-              onPress={() => setSelectedVehicleType(type.id)}
-            >
-              <Ionicons
-                name={type.icon as any}
-                size={28}
-                color={selectedVehicleType === type.id ? '#6BBF00' : '#8E8E93'}
-              />
-              <Text style={[
-                styles.vehicleTypeName,
-                selectedVehicleType === type.id && styles.vehicleTypeNameSelected,
-              ]}>
-                {type.name}
-              </Text>
-              <Text style={styles.vehicleTypeMultiplier}>{type.multiplier}</Text>
-            </TouchableOpacity>
-          ))}
+          {(fareEstimates.length > 0 ? fareEstimates : vehicleTypes).map((type: any) => {
+            const isEstimate = !!type.estimated_fare;
+            const id = type.vehicle_type || type.id;
+            const name = type.display_name || type.name;
+            const price = type.estimated_fare;
+            const isSelected = selectedVehicleType === id;
+            const iconMap: any = { economy: 'car-outline', comfort: 'car', premium: 'car-sport', xl: 'bus' };
+            const emojiMap: any = { economy: '🚗', comfort: '🚙', premium: '🏎️', xl: '🚌' };
+            return (
+              <TouchableOpacity
+                key={id}
+                style={[styles.vehicleCard, isSelected && styles.vehicleCardSelected]}
+                onPress={() => setSelectedVehicleType(id)}
+              >
+                <Text style={styles.vehicleEmoji}>{emojiMap[id] || '🚗'}</Text>
+                <Text style={[styles.vehicleCardName, isSelected && styles.vehicleCardNameSel]}>
+                  {name}
+                </Text>
+                {isEstimate ? (
+                  <Text style={[styles.vehicleCardPrice, isSelected && styles.vehicleCardPriceSel]}>
+                    ${Math.round(price).toLocaleString()}
+                  </Text>
+                ) : (
+                  <Text style={styles.vehicleCardMult}>{type.multiplier}</Text>
+                )}
+                {loadingEstimate && <ActivityIndicator size="small" color="#6BBF00" style={{marginTop: 2}} />}
+              </TouchableOpacity>
+            );
+          })}
         </ScrollView>
 
         {/* Botón de solicitar */}
-        <Button
-          title={currentRequest ? 'Buscando conductores...' : 'Solicitar viaje'}
-          onPress={handleRequestRide}
-          disabled={!pickupLocation || !dropoffLocation || isLoading || !!currentRequest}
-          loading={isLoading}
-          style={styles.requestButton}
-        />
+        {(() => {
+          const selected = fareEstimates.find((e: any) => e.vehicle_type === selectedVehicleType);
+          const priceLabel = selected ? ` · $${Math.round(selected.estimated_fare).toLocaleString()}` : '';
+          const typeName = selected?.display_name || vehicleTypes.find(v => v.id === selectedVehicleType)?.name || '';
+          return (
+            <TouchableOpacity
+              style={[
+                styles.requestBtn,
+                (!pickupLocation || !dropoffLocation || isLoading || !!currentRequest) && styles.requestBtnDisabled
+              ]}
+              onPress={handleRequestRide}
+              disabled={!pickupLocation || !dropoffLocation || isLoading || !!currentRequest}
+            >
+              {isLoading ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.requestBtnText}>
+                  {currentRequest ? 'Buscando conductores...' : `Solicitar ${typeName}${priceLabel}`}
+                </Text>
+              )}
+            </TouchableOpacity>
+          );
+        })()}
 
         {currentRequest && (
-          <Button
-            title="Cancelar solicitud"
-            onPress={() => {
-              clearRequest();
-              setShowBidsModal(false);
-            }}
-            variant="outline"
-            style={styles.cancelButton}
-          />
+          <TouchableOpacity
+            style={styles.cancelBtn}
+            onPress={() => { clearRequest(); setShowBidsModal(false); }}
+          >
+            <Text style={styles.cancelBtnText}>Cancelar solicitud</Text>
+          </TouchableOpacity>
         )}
       </View>
 
@@ -1034,5 +1136,134 @@ const styles = StyleSheet.create({
     color: '#C7C7CC',
     fontSize: 13,
     paddingVertical: 24,
+  },
+  // Banner & Molí+
+  bannerCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 10,
+  },
+  bannerContent: {
+    flex: 1,
+  },
+  bannerTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  bannerDesc: {
+    fontSize: 12,
+    marginTop: 2,
+    opacity: 0.85,
+  },
+  moliPlusCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F3E8FF',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 10,
+  },
+  moliPlusBadge: {
+    backgroundColor: '#6B21A8',
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    marginRight: 10,
+  },
+  moliPlusBadgeText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  moliPlusText: {
+    flex: 1,
+    fontSize: 13,
+    color: '#6B21A8',
+    fontWeight: '500',
+  },
+  // Route info
+  routeInfoBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 8,
+    paddingHorizontal: 2,
+  },
+  routeInfoText: {
+    fontSize: 13,
+    color: '#6BBF00',
+    fontWeight: '600',
+  },
+  // Vehicle cards
+  vehicleCard: {
+    backgroundColor: '#F2F2F7',
+    borderRadius: 14,
+    padding: 12,
+    marginRight: 10,
+    width: 90,
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  vehicleCardSelected: {
+    borderColor: '#6BBF00',
+    backgroundColor: '#F0FFF0',
+  },
+  vehicleEmoji: {
+    fontSize: 28,
+    marginBottom: 4,
+  },
+  vehicleCardName: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#666',
+    marginBottom: 2,
+  },
+  vehicleCardNameSel: {
+    color: '#1C1C1E',
+  },
+  vehicleCardPrice: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#1C1C1E',
+  },
+  vehicleCardPriceSel: {
+    color: '#6BBF00',
+  },
+  vehicleCardMult: {
+    fontSize: 12,
+    color: '#8E8E93',
+    fontWeight: '500',
+  },
+  // Request button
+  requestBtn: {
+    backgroundColor: '#6BBF00',
+    borderRadius: 14,
+    paddingVertical: 16,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  requestBtnDisabled: {
+    backgroundColor: '#C7C7CC',
+  },
+  requestBtnText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  cancelBtn: {
+    borderWidth: 1.5,
+    borderColor: '#EF4444',
+    borderRadius: 14,
+    paddingVertical: 12,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  cancelBtnText: {
+    color: '#EF4444',
+    fontSize: 14,
+    fontWeight: '600',
   },
 });

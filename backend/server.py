@@ -2445,6 +2445,115 @@ async def get_fares_public():
             fares.append(fare)
     return {"fares": fares}
 
+    return {"fares": fares}
+
+# ======================= FARE ESTIMATION =======================
+
+DISPLAY_NAMES = {"economy": "Económico", "comfort": "Confort", "premium": "Premium", "xl": "XL"}
+
+class EstimateRequest(BaseModel):
+    distance_km: float
+    duration_min: int
+
+@app.post("/api/rides/estimate")
+async def estimate_fares(data: EstimateRequest):
+    """Calculate fare estimates for all vehicle types"""
+    fares = await db.fare_config.find({}, {"_id": 0}).to_list(20)
+    if not fares:
+        fares = [{"vehicle_type": k, **v} for k, v in DEFAULT_FARES.items()]
+    
+    estimates = []
+    for fare in fares:
+        price = fare.get("base_fare", 500) + (data.distance_km * fare.get("per_km", 150)) + (data.duration_min * fare.get("per_min", 50))
+        min_fare = fare.get("min_fare", 0)
+        price = max(price, min_fare)
+        estimates.append({
+            "vehicle_type": fare["vehicle_type"],
+            "display_name": DISPLAY_NAMES.get(fare["vehicle_type"], fare["vehicle_type"].capitalize()),
+            "estimated_fare": round(price, 2),
+            "min_fare": min_fare,
+        })
+    
+    estimates.sort(key=lambda x: x["estimated_fare"])
+    return {"estimates": estimates, "distance_km": round(data.distance_km, 2), "duration_min": data.duration_min}
+
+# ======================= BANNERS & ADVERTISING =======================
+
+@app.get("/api/banners")
+async def get_active_banners():
+    """Public endpoint - returns active banners for rider app"""
+    banners = await db.banners.find({"is_active": True}, {"_id": 0}).sort("position", 1).to_list(10)
+    return {"banners": banners}
+
+@app.get("/api/admin/banners")
+async def admin_list_banners(user: dict = Depends(get_current_user)):
+    if user["user_type"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    banners = await db.banners.find({}, {"_id": 0}).sort("created_at", -1).to_list(50)
+    return {"banners": banners}
+
+class BannerCreate(BaseModel):
+    title: str
+    description: str = ""
+    image_url: str = ""
+    link_url: str = ""
+    bg_color: str = "#6B21A8"
+    text_color: str = "#FFFFFF"
+    position: int = 0
+    is_active: bool = True
+
+@app.post("/api/admin/banners")
+async def admin_create_banner(data: BannerCreate, user: dict = Depends(get_current_user)):
+    if user["user_type"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    banner = {
+        "banner_id": str(uuid.uuid4()),
+        **data.dict(),
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.banners.insert_one(banner)
+    return {"message": "Banner creado", "banner_id": banner["banner_id"]}
+
+@app.put("/api/admin/banners/{banner_id}")
+async def admin_update_banner(banner_id: str, data: BannerCreate, user: dict = Depends(get_current_user)):
+    if user["user_type"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    result = await db.banners.update_one(
+        {"banner_id": banner_id},
+        {"$set": {**data.dict(), "updated_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Banner no encontrado")
+    return {"message": "Banner actualizado"}
+
+@app.delete("/api/admin/banners/{banner_id}")
+async def admin_delete_banner(banner_id: str, user: dict = Depends(get_current_user)):
+    if user["user_type"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    result = await db.banners.delete_one({"banner_id": banner_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Banner no encontrado")
+    return {"message": "Banner eliminado"}
+
+# ======================= MOLÍ+ PREMIUM =======================
+
+@app.post("/api/user/premium/toggle")
+async def toggle_premium(user: dict = Depends(get_current_user)):
+    """Toggle Molí+ premium status"""
+    current = user.get("is_premium", False)
+    await db.users.update_one(
+        {"user_id": user["user_id"]},
+        {"$set": {"is_premium": not current}}
+    )
+    return {"is_premium": not current, "message": "Molí+ activado" if not current else "Molí+ desactivado"}
+
+@app.get("/api/user/premium/status")
+async def get_premium_status(user: dict = Depends(get_current_user)):
+    return {"is_premium": user.get("is_premium", False)}
+
 class FareUpdate(BaseModel):
     base_fare: Optional[float] = None
     per_km: Optional[float] = None

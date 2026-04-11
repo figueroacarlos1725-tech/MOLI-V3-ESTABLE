@@ -139,21 +139,42 @@ export async function searchPlaces(
   if (!mapboxToken || !query.trim() || query.length < 2) return [];
 
   try {
-    const proxParam = proximity
-      ? `&proximity=${proximity.longitude},${proximity.latitude}`
-      : '&proximity=-65.7852,-28.4696';
-    const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?access_token=${mapboxToken}&country=ar&language=es&limit=6&types=address,poi,place,neighborhood,locality${proxParam}`;
+    const proxLat = proximity?.latitude || -28.4696;
+    const proxLng = proximity?.longitude || -65.7852;
 
-    const response = await fetch(url);
-    const data = await response.json();
+    // First search within Catamarca bbox
+    const bboxCatamarca = '&bbox=-68.5,-30.0,-64.5,-25.5';
+    const urlLocal = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?access_token=${mapboxToken}&country=ar&language=es&limit=5&types=address,poi,place,neighborhood,locality&proximity=${proxLng},${proxLat}${bboxCatamarca}`;
 
-    return (data.features || []).map((f: any) => ({
+    const respLocal = await fetch(urlLocal);
+    const dataLocal = await respLocal.json();
+    const localResults: PlaceResult[] = (dataLocal.features || []).map((f: any) => ({
       id: f.id,
       name: f.text,
       address: f.place_name,
       latitude: f.center[1],
       longitude: f.center[0],
     }));
+
+    // If less than 3 local results, search broader
+    let broadResults: PlaceResult[] = [];
+    if (localResults.length < 3) {
+      const urlBroad = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?access_token=${mapboxToken}&country=ar&language=es&limit=4&types=address,poi,place,neighborhood,locality&proximity=${proxLng},${proxLat}`;
+      const respBroad = await fetch(urlBroad);
+      const dataBroad = await respBroad.json();
+      const existingIds = new Set(localResults.map(r => r.id));
+      broadResults = (dataBroad.features || [])
+        .filter((f: any) => !existingIds.has(f.id))
+        .map((f: any) => ({
+          id: f.id,
+          name: f.text,
+          address: f.place_name,
+          latitude: f.center[1],
+          longitude: f.center[0],
+        }));
+    }
+
+    return [...localResults, ...broadResults].slice(0, 6);
   } catch (error) {
     console.error('Error searching places:', error);
     return [];

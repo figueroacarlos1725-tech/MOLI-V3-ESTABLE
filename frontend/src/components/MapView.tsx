@@ -28,6 +28,7 @@ interface MapViewProps {
   showRoute?: boolean;
   onMapPress?: (coords: { latitude: number; longitude: number }) => void;
   onMarkerDrag?: (markerId: string, coords: { latitude: number; longitude: number }) => void;
+  onRouteInfo?: (info: { distance_km: number; duration_min: number }) => void;
   style?: any;
 }
 
@@ -182,6 +183,8 @@ function drawRoute(arr){
   fetch(url).then(function(r){return r.json()}).then(function(data){
     if(data.routes&&data.routes.length>0){
       var route=data.routes[0].geometry;
+      var dist=data.routes[0].distance/1000;
+      var dur=Math.ceil(data.routes[0].duration/60);
       if(map.getSource('route')){
         map.getSource('route').setData({type:'Feature',geometry:route});
       }else{
@@ -195,6 +198,9 @@ function drawRoute(arr){
         });
       }
       routeAdded=true;
+      var riMsg=JSON.stringify({type:'routeInfo',distance_km:dist,duration_min:dur});
+      try{window.ReactNativeWebView&&window.ReactNativeWebView.postMessage(riMsg)}catch(x){}
+      try{window.parent.postMessage(riMsg,'*')}catch(x){}
     }
   }).catch(function(e){
     console.log('Route error:',e);
@@ -241,7 +247,7 @@ if(navigator.geolocation){
 </html>`;
 }
 
-function WebMapView({ initialRegion, markers = [], showRoute = false, onMapPress, onMarkerDrag, style, vehicleIcons = [] }: MapViewProps & { vehicleIcons: VehicleIconConfig[] }) {
+function WebMapView({ initialRegion, markers = [], showRoute = false, onMapPress, onMarkerDrag, onRouteInfo, style, vehicleIcons = [] }: MapViewProps & { vehicleIcons: VehicleIconConfig[] }) {
   const containerRef = useRef<View>(null);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -297,6 +303,9 @@ function WebMapView({ initialRegion, markers = [], showRoute = false, onMapPress
         }
         if (data.type === 'markerDrag' && onMarkerDrag) {
           onMarkerDrag(data.markerType, { latitude: data.latitude, longitude: data.longitude });
+        }
+        if (data.type === 'routeInfo' && onRouteInfo) {
+          onRouteInfo({ distance_km: data.distance_km, duration_min: data.duration_min });
         }
       } catch (e) {
         // Ignore non-JSON messages
