@@ -7,7 +7,6 @@ import {
   TouchableOpacity,
   ScrollView,
   Modal,
-  Alert,
   ActivityIndicator,
   TextInput,
   KeyboardAvoidingView,
@@ -66,6 +65,7 @@ export default function RiderHomeScreen() {
   const [banners, setBanners] = useState<any[]>([]);
   const [isPremium, setIsPremium] = useState(false);
   const [bannerIndex, setBannerIndex] = useState(0);
+  const [errorMessage, setErrorMessage] = useState('');
 
   const vehicleTypes = [
     { id: 'economy', name: 'Económico', icon: 'car-outline', multiplier: '1x' },
@@ -264,11 +264,13 @@ export default function RiderHomeScreen() {
 
   const handleRequestRide = async () => {
     if (!pickupLocation || !dropoffLocation) {
-      Alert.alert('Error', 'Por favor selecciona las ubicaciones de recogida y destino');
+      setErrorMessage('Por favor selecciona las ubicaciones de recogida y destino');
+      setTimeout(() => setErrorMessage(''), 4000);
       return;
     }
 
     setIsLoading(true);
+    setErrorMessage('');
     try {
       await createRideRequest({
         pickup_location: {
@@ -287,7 +289,8 @@ export default function RiderHomeScreen() {
       });
       setShowBidsModal(true);
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'No se pudo solicitar el viaje');
+      setErrorMessage(error.message || 'No se pudo solicitar el viaje');
+      setTimeout(() => setErrorMessage(''), 4000);
     } finally {
       setIsLoading(false);
     }
@@ -297,9 +300,10 @@ export default function RiderHomeScreen() {
     try {
       await acceptBid(bidId);
       setShowBidsModal(false);
-      Alert.alert('¡Excelente!', '¡El conductor está en camino!');
+      fetchActiveRide();
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'No se pudo aceptar la oferta');
+      setErrorMessage(error.message || 'No se pudo aceptar la oferta');
+      setTimeout(() => setErrorMessage(''), 4000);
     }
   };
 
@@ -407,6 +411,17 @@ export default function RiderHomeScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+      {/* Error message banner */}
+      {errorMessage ? (
+        <View style={styles.errorBanner}>
+          <Ionicons name="alert-circle" size={18} color="#FF3B30" />
+          <Text style={styles.errorBannerText}>{errorMessage}</Text>
+          <TouchableOpacity onPress={() => setErrorMessage('')}>
+            <Ionicons name="close" size={18} color="#8E8E93" />
+          </TouchableOpacity>
+        </View>
+      ) : null}
+
       {/* Encabezado */}
       <View style={styles.header}>
         <View>
@@ -1514,5 +1529,22 @@ const styles = StyleSheet.create({
     color: '#8E8E93',
     paddingHorizontal: 20,
     paddingBottom: 8,
+  },
+  errorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFF0F0',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    marginHorizontal: 16,
+    marginTop: 4,
+    borderRadius: 10,
+    gap: 8,
+  },
+  errorBannerText: {
+    flex: 1,
+    fontSize: 13,
+    color: '#FF3B30',
+    fontWeight: '500',
   },
 });
