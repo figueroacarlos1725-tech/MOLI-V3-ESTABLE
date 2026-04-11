@@ -42,7 +42,7 @@ type Phase = 'idle' | 'destination' | 'confirm' | 'searching' | 'active' | 'comp
 export default function RiderHomeScreen() {
   const { user } = useAuthStore();
   const router = useRouter();
-  const { currentRequest, currentRide, bids, createRideRequest, acceptBid, fetchActiveRide, addBid, clearRequest } = useRideStore();
+  const { currentRequest, currentRide, bids, createRideRequest, acceptBid, fetchActiveRide, addBid, clearRequest, updateRideStatus } = useRideStore();
 
   // Core state
   const [phase, setPhase] = useState<Phase>('idle');

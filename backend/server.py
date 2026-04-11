@@ -1907,6 +1907,14 @@ async def get_active_ride(user: dict = Depends(get_current_user)):
         ride["rider_info"] = rider
         ride["vehicle_info"] = vehicle
         ride["driver_location"] = driver_location.get("current_location") if driver_location else None
+        
+        # Ensure all datetime fields include timezone info (UTC) for correct client parsing
+        for dt_field in ["accepted_at", "started_at", "completed_at", "cancelled_at", "created_at", "updated_at"]:
+            if isinstance(ride.get(dt_field), datetime):
+                dt_val = ride[dt_field]
+                if dt_val.tzinfo is None:
+                    dt_val = dt_val.replace(tzinfo=timezone.utc)
+                ride[dt_field] = dt_val.isoformat()
     
     return {"ride": ride}
 

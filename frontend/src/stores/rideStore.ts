@@ -63,7 +63,7 @@ interface RideState {
   fetchPendingRequests: (lat: number, lng: number) => Promise<void>;
   submitBid: (requestId: string, fareAmount: number, estimatedArrival: number) => Promise<void>;
   acceptBid: (bidId: string) => Promise<void>;
-  updateRideStatus: (rideId: string, status: string) => Promise<void>;
+  updateRideStatus: (rideId: string, status: string) => Promise<any>;
   rateRide: (rideId: string, rating: number, comment?: string) => Promise<void>;
   addBid: (bid: Bid) => void;
   setCurrentRide: (ride: Ride | null) => void;
