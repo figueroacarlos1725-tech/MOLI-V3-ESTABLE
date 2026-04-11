@@ -84,25 +84,20 @@ export default function DriverProfileScreen() {
     }
   };
 
-  const handleLogout = () => {
-    confirmAlert(
-      'Cerrar sesion',
-      'Estas seguro que deseas cerrar sesion?',
-      async () => {
-        try {
-          await logout();
-          // Navigate to index which will redirect to welcome
-          if (typeof window !== 'undefined') {
-            window.location.href = '/';
-          } else {
-            router.replace('/');
-          }
-        } catch (e) {
-          console.error('Logout error:', e);
-        }
-      },
-      'Cerrar sesion'
-    );
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+
+  const doLogout = async () => {
+    try {
+      await logout();
+    } catch (e) {
+      console.error('Logout error:', e);
+    }
+    // Force full page reload on web to clear all state
+    if (typeof window !== 'undefined') {
+      window.location.href = '/';
+    } else {
+      router.replace('/');
+    }
   };
 
   const vehicleTypes = [
@@ -229,12 +224,35 @@ export default function DriverProfileScreen() {
         </View>
 
         <View style={styles.logoutSection}>
-          <Button
-            title="Cerrar sesion"
-            onPress={handleLogout}
-            variant="danger"
-            icon={<Ionicons name="log-out-outline" size={20} color="#fff" />}
-          />
+          {showLogoutConfirm ? (
+            <View style={{gap: 10}}>
+              <Text style={{textAlign: 'center', fontSize: 15, color: '#EF4444', fontWeight: '600'}}>
+                ¿Seguro que quieres cerrar sesion?
+              </Text>
+              <View style={{flexDirection: 'row', gap: 10}}>
+                <TouchableOpacity 
+                  style={{flex:1, backgroundColor:'#E5E5EA', paddingVertical:14, borderRadius:12, alignItems:'center'}}
+                  onPress={() => setShowLogoutConfirm(false)}
+                >
+                  <Text style={{fontWeight:'600', color:'#666', fontSize:15}}>Cancelar</Text>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={{flex:1, backgroundColor:'#EF4444', paddingVertical:14, borderRadius:12, alignItems:'center'}}
+                  onPress={doLogout}
+                >
+                  <Text style={{fontWeight:'700', color:'#fff', fontSize:15}}>Si, salir</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          ) : (
+            <TouchableOpacity 
+              style={{backgroundColor:'#EF4444', paddingVertical:14, borderRadius:12, alignItems:'center', flexDirection:'row', justifyContent:'center', gap:8}}
+              onPress={() => setShowLogoutConfirm(true)}
+            >
+              <Ionicons name="log-out-outline" size={20} color="#fff" />
+              <Text style={{fontWeight:'700', color:'#fff', fontSize:15}}>Cerrar sesion</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         <Text style={styles.versionText}>Moli Conductor v1.0.0</Text>

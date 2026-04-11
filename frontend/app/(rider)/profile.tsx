@@ -20,25 +20,19 @@ export default function RiderProfileScreen() {
   const { user, logout } = useAuthStore();
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [darkMode, setDarkMode] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
-  const handleLogout = () => {
-    confirmAlert(
-      'Cerrar sesión',
-      '¿Estás seguro de que quieres cerrar sesión?',
-      async () => {
-        try {
-          await logout();
-          if (typeof window !== 'undefined') {
-            window.location.href = '/';
-          } else {
-            router.replace('/');
-          }
-        } catch (e) {
-          console.error('Logout error:', e);
-        }
-      },
-      'Cerrar sesión'
-    );
+  const doLogout = async () => {
+    try {
+      await logout();
+    } catch (e) {
+      console.error('Logout error:', e);
+    }
+    if (typeof window !== 'undefined') {
+      window.location.href = '/';
+    } else {
+      router.replace('/');
+    }
   };
 
   const menuItems = [
