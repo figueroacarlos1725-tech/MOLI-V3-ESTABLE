@@ -24,6 +24,7 @@ import {
   getCurrentLocation,
   reverseGeocode,
   searchPlaces,
+  estimateDriving,
   LocationCoords,
   PlaceResult,
 } from '@/src/utils/location';
@@ -142,9 +143,21 @@ export default function RiderHomeScreen() {
     if (searchType === 'pickup') {
       setPickupLocation({ latitude: place.latitude, longitude: place.longitude, address: place.address });
       setPickupAddress(place.name);
+      // If dropoff exists, recalculate estimate
+      if (dropoffLocation) {
+        const est = estimateDriving({ latitude: place.latitude, longitude: place.longitude }, dropoffLocation);
+        setRouteInfo(est);
+        fetchEstimates(est.distance_km, est.duration_min);
+      }
     } else {
       setDropoffLocation({ latitude: place.latitude, longitude: place.longitude, address: place.address });
       setDropoffAddress(place.name);
+      // Calculate estimate immediately
+      if (pickupLocation) {
+        const est = estimateDriving(pickupLocation, { latitude: place.latitude, longitude: place.longitude });
+        setRouteInfo(est);
+        fetchEstimates(est.distance_km, est.duration_min);
+      }
     }
     setShowSearchModal(false);
     setSearchQuery('');

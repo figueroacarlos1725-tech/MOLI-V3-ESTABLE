@@ -1,10 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Platform, Dimensions } from 'react-native';
 import { Tabs, usePathname, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthStore } from '@/src/stores/authStore';
-import { confirmAlert } from '@/src/utils/alert';
 
 const { width } = Dimensions.get('window');
 const isDesktop = Platform.OS === 'web' && width > 768;
@@ -28,12 +27,11 @@ function AdminSidebar() {
   const router = useRouter();
   const { logout } = useAuthStore();
   const insets = useSafeAreaInsets();
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
-  const handleLogout = () => {
-    confirmAlert('Cerrar sesión', '¿Estás seguro?', async () => {
-      await logout();
-      router.replace('/(auth)/welcome');
-    }, 'Salir');
+  const doLogout = async () => {
+    await logout();
+    router.replace('/(auth)/welcome');
   };
 
   return (
@@ -65,10 +63,30 @@ function AdminSidebar() {
         })}
       </ScrollView>
 
-      <TouchableOpacity style={styles.sidebarLogout} onPress={handleLogout}>
-        <Ionicons name="log-out-outline" size={20} color="#EF4444" />
-        <Text style={styles.sidebarLogoutText}>Cerrar sesión</Text>
-      </TouchableOpacity>
+      {showLogoutConfirm ? (
+        <View style={styles.sidebarLogoutConfirm}>
+          <Text style={styles.sidebarLogoutQuestion}>¿Cerrar sesión?</Text>
+          <View style={styles.sidebarLogoutBtns}>
+            <TouchableOpacity
+              style={styles.sidebarLogoutCancel}
+              onPress={() => setShowLogoutConfirm(false)}
+            >
+              <Text style={styles.sidebarLogoutCancelText}>No</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.sidebarLogoutConfirmBtn}
+              onPress={doLogout}
+            >
+              <Text style={styles.sidebarLogoutConfirmText}>Sí, salir</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      ) : (
+        <TouchableOpacity style={styles.sidebarLogout} onPress={() => setShowLogoutConfirm(true)}>
+          <Ionicons name="log-out-outline" size={20} color="#EF4444" />
+          <Text style={styles.sidebarLogoutText}>Cerrar sesión</Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 }
@@ -202,6 +220,48 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#EF4444',
     fontWeight: '500',
+  },
+  sidebarLogoutConfirm: {
+    borderTopWidth: 1,
+    borderTopColor: '#374151',
+    marginTop: 8,
+    paddingTop: 10,
+    paddingHorizontal: 8,
+  },
+  sidebarLogoutQuestion: {
+    color: '#EF4444',
+    fontSize: 13,
+    fontWeight: '600',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  sidebarLogoutBtns: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  sidebarLogoutCancel: {
+    flex: 1,
+    backgroundColor: '#374151',
+    paddingVertical: 8,
+    borderRadius: 6,
+    alignItems: 'center',
+  },
+  sidebarLogoutCancelText: {
+    color: '#9CA3AF',
+    fontWeight: '600',
+    fontSize: 13,
+  },
+  sidebarLogoutConfirmBtn: {
+    flex: 1,
+    backgroundColor: '#EF4444',
+    paddingVertical: 8,
+    borderRadius: 6,
+    alignItems: 'center',
+  },
+  sidebarLogoutConfirmText: {
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: 13,
   },
   desktopContent: {
     flex: 1,

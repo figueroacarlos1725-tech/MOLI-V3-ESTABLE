@@ -13,7 +13,7 @@ interface MarkerProps {
   longitude: number;
   title?: string;
   type?: 'pickup' | 'dropoff' | 'driver' | 'user';
-  vehicleType?: string; // economy, comfort, premium, xl
+  vehicleType?: string;
   draggable?: boolean;
 }
 
@@ -36,18 +36,14 @@ interface MapViewProps {
 const DEFAULT_LAT = -28.4696;
 const DEFAULT_LNG = -65.7852;
 
-const MAPBOX_TOKEN = process.env.EXPO_PUBLIC_MAPBOX_TOKEN || '';
-
-function generateMapboxHtml(
+function generateLeafletHtml(
   lat: number,
   lng: number,
   markers: MarkerProps[],
   showRoute: boolean,
   enableClick: boolean,
-  token: string,
   vehicleIcons: VehicleIconConfig[] = []
 ) {
-  // Build a JS object mapping vehicle_type -> icon config
   const iconsMap: Record<string, { type: string; emoji: string; image: string }> = {};
   vehicleIcons.forEach(ic => {
     iconsMap[ic.vehicle_type] = {
@@ -57,194 +53,117 @@ function generateMapboxHtml(
     };
   });
   const iconsJson = JSON.stringify(iconsMap);
+  const markersJson = JSON.stringify(markers);
 
   return `<!DOCTYPE html>
-<html>
-<head>
-<meta charset="utf-8"/>
+<html><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<link href="https://api.mapbox.com/mapbox-gl-js/v3.9.4/mapbox-gl.css" rel="stylesheet"/>
-<script src="https://api.mapbox.com/mapbox-gl-js/v3.9.4/mapbox-gl.js"><\/script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"><\/script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-html,body{width:100%;height:100%;overflow:hidden}
-#map{width:100%;height:100%}
-.marker-user{width:20px;height:20px;border-radius:50%;background:rgba(107,191,0,0.3);border:3px solid #6BBF00;animation:pulse 2s infinite}
-.marker-driver{font-size:28px;text-align:center;line-height:32px;filter:drop-shadow(1px 1px 3px rgba(0,0,0,0.4));cursor:pointer}
-.marker-driver-img{width:40px;height:40px;object-fit:contain;filter:drop-shadow(1px 1px 3px rgba(0,0,0,0.4));cursor:pointer}
-.marker-pickup{width:22px;height:22px;border-radius:50%;background:#6BBF00;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.4);cursor:grab}
-.marker-dropoff{width:16px;height:16px;border-radius:50%;background:#FF3B30;border:3px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.3)}
-.mapboxgl-ctrl-attrib{font-size:9px!important}
-@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(107,191,0,0.4)}70%{box-shadow:0 0 0 14px rgba(107,191,0,0)}100%{box-shadow:0 0 0 0 rgba(107,191,0,0)}}
-.popup-content{font-family:-apple-system,BlinkMacSystemFont,sans-serif;font-size:13px;padding:4px 8px;font-weight:600}
-</style>
-</head>
-<body>
-<div id="map"></div>
+html,body,#map{width:100%;height:100%}
+.leaflet-div-icon{background:none!important;border:none!important}
+.m-pickup{width:22px;height:22px;border-radius:50%;background:#6BBF00;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.4);cursor:grab}
+.m-dropoff{width:16px;height:16px;border-radius:50%;background:#EF4444;border:3px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.3)}
+.m-user{width:14px;height:14px;border-radius:50%;background:#007AFF;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,0.3)}
+.m-driver{display:flex;align-items:center;justify-content:center;width:36px;height:36px;background:#fff;border-radius:50%;box-shadow:0 2px 8px rgba(0,0,0,0.3);font-size:20px}
+.popup-content{font:600 13px -apple-system,BlinkMacSystemFont,sans-serif;color:#1C1C1E;padding:4px}
+.leaflet-control-attribution{font-size:10px!important;opacity:0.6}
+</style></head><body><div id="map"></div>
 <script>
-var vehicleIcons=${iconsJson};
-
-mapboxgl.accessToken='${token}';
-var map=new mapboxgl.Map({
-  container:'map',
-  style:'mapbox://styles/mapbox/streets-v12',
-  center:[${lng},${lat}],
-  zoom:14,
-  attributionControl:true
-});
-map.addControl(new mapboxgl.NavigationControl({showCompass:false}),'top-right');
-map.addControl(new mapboxgl.GeolocateControl({
-  positionOptions:{enableHighAccuracy:true},
-  trackUserLocation:true,
-  showUserHeading:true
-}),'top-right');
+var vicMap=${iconsJson};
+var map=L.map('map',{zoomControl:true}).setView([${lat},${lng}],14);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+  maxZoom:19,
+  attribution:'© <a href="https://www.openstreetmap.org/copyright">OSM</a>'
+}).addTo(map);
 
 var currentMarkers=[];
-var routeAdded=false;
+var routeLayer=null;
 
-function getDriverIcon(vType){
-  var cfg=vehicleIcons[vType||'economy'];
-  if(!cfg)cfg=vehicleIcons['economy'];
-  if(!cfg)return{type:'emoji',value:'\\uD83D\\uDE97'};
-  if(cfg.type==='image'&&cfg.image)return{type:'image',value:cfg.image};
-  return{type:'emoji',value:cfg.emoji||'\\uD83D\\uDE97'};
-}
-
-function createMarkerEl(type,vType){
-  var el=document.createElement('div');
-  switch(type){
-    case 'pickup':el.className='marker-pickup';break;
-    case 'dropoff':el.className='marker-dropoff';break;
-    case 'driver':
-      var icon=getDriverIcon(vType);
-      if(icon.type==='image'){
-        var img=document.createElement('img');
-        img.src=icon.value;
-        img.className='marker-driver-img';
-        el.appendChild(img);
-      }else{
-        el.className='marker-driver';
-        el.textContent=icon.value;
-      }
-      break;
-    default:el.className='marker-user';break;
+function getIcon(type,vt){
+  if(type==='pickup')return L.divIcon({className:'leaflet-div-icon',html:'<div class="m-pickup"></div>',iconSize:[22,22],iconAnchor:[11,11]});
+  if(type==='dropoff')return L.divIcon({className:'leaflet-div-icon',html:'<div class="m-dropoff"></div>',iconSize:[16,16],iconAnchor:[8,8]});
+  if(type==='user')return L.divIcon({className:'leaflet-div-icon',html:'<div class="m-user"></div>',iconSize:[14,14],iconAnchor:[7,7]});
+  if(type==='driver'){
+    var emoji='🚗';var v=vt||'economy';
+    if(vicMap[v]&&vicMap[v].emoji)emoji=vicMap[v].emoji;
+    else{var em={'economy':'🚗','comfort':'🚙','premium':'🏎️','xl':'🚌'};emoji=em[v]||'🚗';}
+    return L.divIcon({className:'leaflet-div-icon',html:'<div class="m-driver">'+emoji+'</div>',iconSize:[36,36],iconAnchor:[18,18]});
   }
-  return el;
+  return L.divIcon({className:'leaflet-div-icon',html:'<div class="m-user"></div>',iconSize:[14,14],iconAnchor:[7,7]});
 }
 
-function clearMarkers(){
-  currentMarkers.forEach(function(m){m.remove()});
+function sendMsg(obj){
+  var s=JSON.stringify(obj);
+  try{window.ReactNativeWebView&&window.ReactNativeWebView.postMessage(s)}catch(x){}
+  try{window.parent.postMessage(s,'*')}catch(x){}
+}
+
+function clearAll(){
+  currentMarkers.forEach(function(m){map.removeLayer(m)});
   currentMarkers=[];
-  if(routeAdded&&map.getSource('route')){
-    map.removeLayer('route-line');
-    map.removeSource('route');
-    routeAdded=false;
-  }
+  if(routeLayer){map.removeLayer(routeLayer);routeLayer=null;}
 }
 
 function setMarkers(arr){
-  clearMarkers();
-  var bounds=new mapboxgl.LngLatBounds();
+  clearAll();
+  if(!arr||arr.length===0)return;
+  var bounds=L.latLngBounds([]);
   arr.forEach(function(m){
-    var el=createMarkerEl(m.type||'user',m.vehicleType);
-    var marker=new mapboxgl.Marker({element:el,draggable:m.draggable||false})
-      .setLngLat([m.longitude,m.latitude])
-      .addTo(map);
-    if(m.title){
-      marker.setPopup(new mapboxgl.Popup({offset:25,closeButton:false})
-        .setHTML('<div class="popup-content">'+m.title+'</div>'));
+    var ic=getIcon(m.type||'user',m.vehicleType);
+    var mk=L.marker([m.latitude,m.longitude],{icon:ic,draggable:m.draggable||false}).addTo(map);
+    if(m.title)mk.bindPopup('<div class="popup-content">'+m.title+'</div>');
+    if(m.draggable){
+      mk.on('dragend',function(e){
+        var ll=e.target.getLatLng();
+        sendMsg({type:'markerDrag',markerType:m.type||'',latitude:ll.lat,longitude:ll.lng});
+      });
     }
-    if(m.draggable){marker.on('dragend',function(){var ll=marker.getLngLat();var msg=JSON.stringify({type:'markerDrag',markerType:m.type||'',latitude:ll.lat,longitude:ll.lng});try{window.ReactNativeWebView&&window.ReactNativeWebView.postMessage(msg)}catch(x){}try{window.parent.postMessage(msg,'*')}catch(x){}});}
-    currentMarkers.push(marker);
-    bounds.extend([m.longitude,m.latitude]);
+    currentMarkers.push(mk);
+    bounds.extend([m.latitude,m.longitude]);
   });
-
-  if(arr.length>1){
-    map.fitBounds(bounds,{padding:{top:60,bottom:60,left:40,right:40},maxZoom:15});
-  }
-
-  var hasPickup=arr.some(function(m){return m.type==='pickup'});
-  var hasDropoff=arr.some(function(m){return m.type==='dropoff'});
-  if(hasPickup&&hasDropoff){
-    drawRoute(arr);
-  }
+  if(arr.length>1)map.fitBounds(bounds,{padding:[60,40],maxZoom:15});
+  else if(arr.length===1)map.setView([arr[0].latitude,arr[0].longitude],14);
+  var hasP=arr.some(function(m){return m.type==='pickup'});
+  var hasD=arr.some(function(m){return m.type==='dropoff'});
+  if(hasP&&hasD)drawRoute(arr);
 }
 
 function drawRoute(arr){
-  if(arr.length<2)return;
-  var pickup=arr.find(function(m){return m.type==='pickup'})||arr[0];
-  var dropoff=arr.find(function(m){return m.type==='dropoff'})||arr[arr.length-1];
-  
-  var url='https://api.mapbox.com/directions/v5/mapbox/driving/'+
-    pickup.longitude+','+pickup.latitude+';'+
-    dropoff.longitude+','+dropoff.latitude+
-    '?geometries=geojson&overview=full&access_token=${token}';
-  
+  var p=arr.find(function(m){return m.type==='pickup'});
+  var d=arr.find(function(m){return m.type==='dropoff'});
+  if(!p||!d)return;
+  var url='https://router.project-osrm.org/route/v1/driving/'+p.longitude+','+p.latitude+';'+d.longitude+','+d.latitude+'?overview=full&geometries=geojson';
   fetch(url).then(function(r){return r.json()}).then(function(data){
     if(data.routes&&data.routes.length>0){
-      var route=data.routes[0].geometry;
-      var dist=data.routes[0].distance/1000;
-      var dur=Math.ceil(data.routes[0].duration/60);
-      if(map.getSource('route')){
-        map.getSource('route').setData({type:'Feature',geometry:route});
-      }else{
-        map.addSource('route',{type:'geojson',data:{type:'Feature',geometry:route}});
-        map.addLayer({
-          id:'route-line',
-          type:'line',
-          source:'route',
-          layout:{'line-join':'round','line-cap':'round'},
-          paint:{'line-color':'#6BBF00','line-width':5,'line-opacity':0.85}
-        });
-      }
-      routeAdded=true;
-      var riMsg=JSON.stringify({type:'routeInfo',distance_km:dist,duration_min:dur});
-      try{window.ReactNativeWebView&&window.ReactNativeWebView.postMessage(riMsg)}catch(x){}
-      try{window.parent.postMessage(riMsg,'*')}catch(x){}
+      var rt=data.routes[0];
+      var coords=rt.geometry.coordinates.map(function(c){return[c[1],c[0]]});
+      if(routeLayer)map.removeLayer(routeLayer);
+      routeLayer=L.polyline(coords,{color:'#6BBF00',weight:5,opacity:0.85}).addTo(map);
+      sendMsg({type:'routeInfo',distance_km:rt.distance/1000,duration_min:Math.ceil(rt.duration/60)});
     }
-  }).catch(function(e){
-    console.log('Route error:',e);
-    var coords=arr.map(function(m){return[m.longitude,m.latitude]});
-    if(map.getSource('route')){
-      map.getSource('route').setData({type:'Feature',geometry:{type:'LineString',coordinates:coords}});
-    }else{
-      map.addSource('route',{type:'geojson',data:{type:'Feature',geometry:{type:'LineString',coordinates:coords}}});
-      map.addLayer({
-        id:'route-line',type:'line',source:'route',
-        layout:{'line-join':'round','line-cap':'round'},
-        paint:{'line-color':'#6BBF00','line-width':4,'line-dasharray':[2,2]}
-      });
-    }
-    routeAdded=true;
-  });
+  }).catch(function(e){console.error('Route error:',e)});
 }
 
-map.on('load',function(){
-  var initMarkers=${JSON.stringify(markers)};
-  if(initMarkers.length>0)setMarkers(initMarkers);
-});
-
 ${enableClick ? `map.on('click',function(e){
-  var msg=JSON.stringify({type:'mapPress',latitude:e.lngLat.lat,longitude:e.lngLat.lng});
-  try{window.ReactNativeWebView&&window.ReactNativeWebView.postMessage(msg)}catch(x){}
-  try{window.parent.postMessage(msg,'*')}catch(x){}
+  sendMsg({type:'mapPress',latitude:e.latlng.lat,longitude:e.latlng.lng});
 });` : ''}
 
 window.updateMarkers=function(arr){setMarkers(arr)};
-window.panTo=function(lat,lng,z){map.flyTo({center:[lng,lat],zoom:z||14,duration:1500})};
-window.setStyle=function(s){map.setStyle('mapbox://styles/mapbox/'+s)};
+window.panTo=function(lat,lng,z){map.setView([lat,lng],z||14)};
 
 if(navigator.geolocation){
   navigator.geolocation.getCurrentPosition(function(p){
-    map.flyTo({center:[p.coords.longitude,p.coords.latitude],zoom:14,duration:2000});
-    var msg=JSON.stringify({type:'locationDetected',latitude:p.coords.latitude,longitude:p.coords.longitude});
-    try{window.ReactNativeWebView&&window.ReactNativeWebView.postMessage(msg)}catch(x){}
-    try{window.parent.postMessage(msg,'*')}catch(x){}
-  },function(){},{ enableHighAccuracy:false,timeout:8000});
+    map.setView([p.coords.latitude,p.coords.longitude],14);
+    sendMsg({type:'locationDetected',latitude:p.coords.latitude,longitude:p.coords.longitude});
+  },function(){},{enableHighAccuracy:false,timeout:8000});
 }
-<\/script>
-</body>
-</html>`;
+
+var initM=${markersJson};
+if(initM.length>0)setMarkers(initM);
+<\/script></body></html>`;
 }
 
 function WebMapView({ initialRegion, markers = [], showRoute = false, onMapPress, onMarkerDrag, onRouteInfo, style, vehicleIcons = [] }: MapViewProps & { vehicleIcons: VehicleIconConfig[] }) {
@@ -261,9 +180,7 @@ function WebMapView({ initialRegion, markers = [], showRoute = false, onMapPress
   useEffect(() => {
     if (Platform.OS !== 'web' || mountedRef.current) return;
 
-    // Use a small delay to ensure the View has rendered to a DOM node
     const timer = setTimeout(() => {
-      // In React Native Web, ref.current IS the underlying DOM div
       const domNode = containerRef.current as unknown as HTMLDivElement;
       if (!domNode || mountedRef.current) return;
 
@@ -274,7 +191,7 @@ function WebMapView({ initialRegion, markers = [], showRoute = false, onMapPress
       iframe.allow = 'geolocation';
       iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-popups');
 
-      const html = generateMapboxHtml(lat, lng, markersRef.current, showRoute, !!onMapPress, MAPBOX_TOKEN, vehicleIcons);
+      const html = generateLeafletHtml(lat, lng, markersRef.current, showRoute, !!onMapPress, vehicleIcons);
       iframe.srcdoc = html;
       iframeRef.current = iframe;
 
@@ -282,7 +199,6 @@ function WebMapView({ initialRegion, markers = [], showRoute = false, onMapPress
         setIsLoading(false);
       };
 
-      // Set position relative so the absolute iframe positions correctly
       domNode.style.position = 'relative';
       domNode.appendChild(iframe);
     }, 100);
@@ -292,7 +208,6 @@ function WebMapView({ initialRegion, markers = [], showRoute = false, onMapPress
     };
   }, []);
 
-  // Listen for messages from the iframe (map clicks, location detected)
   useEffect(() => {
     if (Platform.OS !== 'web') return;
     const handleMessage = (event: MessageEvent) => {
@@ -313,9 +228,8 @@ function WebMapView({ initialRegion, markers = [], showRoute = false, onMapPress
     };
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
-  }, [onMapPress]);
+  }, [onMapPress, onMarkerDrag, onRouteInfo]);
 
-  // Update markers when they change
   useEffect(() => {
     if (Platform.OS !== 'web' || !iframeRef.current) return;
     try {
@@ -340,7 +254,7 @@ function WebMapView({ initialRegion, markers = [], showRoute = false, onMapPress
   );
 }
 
-function NativeMapView({ initialRegion, markers = [], showRoute = false, onMapPress, onMarkerDrag, style, vehicleIcons = [] }: MapViewProps & { vehicleIcons: VehicleIconConfig[] }) {
+function NativeMapView({ initialRegion, markers = [], showRoute = false, onMapPress, onMarkerDrag, onRouteInfo, style, vehicleIcons = [] }: MapViewProps & { vehicleIcons: VehicleIconConfig[] }) {
   const WebView = require('react-native-webview').WebView;
   const webViewRef = useRef<any>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -348,7 +262,7 @@ function NativeMapView({ initialRegion, markers = [], showRoute = false, onMapPr
   const lat = initialRegion?.latitude || DEFAULT_LAT;
   const lng = initialRegion?.longitude || DEFAULT_LNG;
 
-  const mapHtml = generateMapboxHtml(lat, lng, markers, showRoute, !!onMapPress, MAPBOX_TOKEN, vehicleIcons);
+  const mapHtml = generateLeafletHtml(lat, lng, markers, showRoute, !!onMapPress, vehicleIcons);
 
   const handleMessage = (event: any) => {
     try {
@@ -357,6 +271,8 @@ function NativeMapView({ initialRegion, markers = [], showRoute = false, onMapPr
         onMapPress({ latitude: data.latitude, longitude: data.longitude });
       } else if (data.type === 'markerDrag' && onMarkerDrag) {
         onMarkerDrag(data.markerType || data.markerId, { latitude: data.latitude, longitude: data.longitude });
+      } else if (data.type === 'routeInfo' && onRouteInfo) {
+        onRouteInfo({ distance_km: data.distance_km, duration_min: data.duration_min });
       }
     } catch (error) {
       console.error('Error parsing map message:', error);
@@ -403,7 +319,7 @@ let iconsFetchPromise: Promise<VehicleIconConfig[]> | null = null;
 async function fetchVehicleIcons(): Promise<VehicleIconConfig[]> {
   if (cachedVehicleIcons.length > 0) return cachedVehicleIcons;
   if (iconsFetchPromise) return iconsFetchPromise;
-  
+
   const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || '';
   iconsFetchPromise = fetch(`${backendUrl}/api/vehicle-icons`)
     .then(r => r.json())

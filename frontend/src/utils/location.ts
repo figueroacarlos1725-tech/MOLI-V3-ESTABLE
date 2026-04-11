@@ -46,30 +46,27 @@ export async function getCurrentLocation(): Promise<LocationCoords | null> {
 }
 
 export async function reverseGeocode(latitude: number, longitude: number): Promise<string> {
-  // Try Mapbox geocoding first (works on all platforms)
-  const mapboxToken = process.env.EXPO_PUBLIC_MAPBOX_TOKEN || '';
-  if (mapboxToken) {
-    try {
-      const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${longitude},${latitude}.json?access_token=${mapboxToken}&language=es&limit=1`;
-      const response = await fetch(url);
-      const data = await response.json();
-      if (data.features && data.features.length > 0) {
-        // Use shorter text if available, otherwise clean up the full place_name
-        const feature = data.features[0];
-        if (feature.text && feature.context) {
-          const city = feature.context?.find((c: any) => c.id?.startsWith('place'))?.text;
-          return city ? `${feature.text}, ${city}` : feature.text;
-        }
-        // Shorten the full address: take first 2 parts
-        const parts = (feature.place_name || '').split(',').map((s: string) => s.trim());
-        if (parts.length > 2) {
-          return `${parts[0]}, ${parts[1]}`;
-        }
-        return feature.place_name || 'Ubicación desconocida';
-      }
-    } catch (e) {
-      console.log('Mapbox geocoding failed, trying Expo fallback');
+  // Use Nominatim (OSM) for reverse geocoding - free, no API key
+  try {
+    const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&accept-language=es&zoom=18`;
+    const response = await fetch(url, {
+      headers: { 'User-Agent': 'MoliApp/1.0' }
+    });
+    const data = await response.json();
+    if (data.address) {
+      const a = data.address;
+      const street = a.road || a.pedestrian || a.footway || '';
+      const number = a.house_number || '';
+      const city = a.city || a.town || a.village || a.municipality || '';
+      const parts = [street, number, city].filter(Boolean);
+      return parts.join(', ') || data.display_name?.split(',').slice(0, 2).join(',') || 'Ubicación desconocida';
     }
+    if (data.display_name) {
+      return data.display_name.split(',').slice(0, 2).join(',').trim();
+    }
+    return 'Ubicación desconocida';
+  } catch (e) {
+    console.log('Nominatim geocoding failed, trying Expo fallback');
   }
 
   // Fallback to Expo geocoding
@@ -123,6 +120,21 @@ export function formatDuration(minutes: number): string {
   return `${hours}h ${mins}m`;
 }
 
+// Estimate driving distance and time (haversine × 1.4 correction factor)
+export function estimateDriving(
+  pickup: { latitude: number; longitude: number },
+  dropoff: { latitude: number; longitude: number }
+): { distance_km: number; duration_min: number } {
+  const straightLine = calculateDistance(
+    pickup.latitude, pickup.longitude,
+    dropoff.latitude, dropoff.longitude
+  );
+  const drivingDistance = straightLine * 1.4; // Road correction factor
+  const avgSpeedKmh = drivingDistance > 15 ? 50 : 30; // Highway vs city
+  const durationMin = Math.ceil((drivingDistance / avgSpeedKmh) * 60);
+  return { distance_km: Math.round(drivingDistance * 10) / 10, duration_min: durationMin };
+}
+
 export interface PlaceResult {
   id: string;
   name: string;
@@ -135,42 +147,42 @@ export async function searchPlaces(
   query: string,
   proximity?: { latitude: number; longitude: number }
 ): Promise<PlaceResult[]> {
-  const mapboxToken = process.env.EXPO_PUBLIC_MAPBOX_TOKEN || '';
-  if (!mapboxToken || !query.trim() || query.length < 2) return [];
+  if (!query.trim() || query.length < 2) return [];
 
   try {
-    const proxLat = proximity?.latitude || -28.4696;
-    const proxLng = proximity?.longitude || -65.7852;
+    // First search within Catamarca region using Nominatim (OSM)
+    const catamarcaViewbox = '&viewbox=-68.5,-25.5,-64.5,-30.0&bounded=1';
+    const urlLocal = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=ar&limit=5&accept-language=es${catamarcaViewbox}`;
 
-    // First search within Catamarca bbox
-    const bboxCatamarca = '&bbox=-68.5,-30.0,-64.5,-25.5';
-    const urlLocal = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?access_token=${mapboxToken}&country=ar&language=es&limit=5&types=address,poi,place,neighborhood,locality&proximity=${proxLng},${proxLat}${bboxCatamarca}`;
-
-    const respLocal = await fetch(urlLocal);
+    const respLocal = await fetch(urlLocal, {
+      headers: { 'User-Agent': 'MoliApp/1.0' }
+    });
     const dataLocal = await respLocal.json();
-    const localResults: PlaceResult[] = (dataLocal.features || []).map((f: any) => ({
-      id: f.id,
-      name: f.text,
-      address: f.place_name,
-      latitude: f.center[1],
-      longitude: f.center[0],
+    const localResults: PlaceResult[] = (dataLocal || []).map((f: any) => ({
+      id: String(f.place_id),
+      name: f.display_name.split(',')[0],
+      address: f.display_name,
+      latitude: parseFloat(f.lat),
+      longitude: parseFloat(f.lon),
     }));
 
-    // If less than 3 local results, search broader
+    // If less than 3 local results, search broader Argentina
     let broadResults: PlaceResult[] = [];
     if (localResults.length < 3) {
-      const urlBroad = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?access_token=${mapboxToken}&country=ar&language=es&limit=4&types=address,poi,place,neighborhood,locality&proximity=${proxLng},${proxLat}`;
-      const respBroad = await fetch(urlBroad);
+      const urlBroad = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=ar&limit=4&accept-language=es`;
+      const respBroad = await fetch(urlBroad, {
+        headers: { 'User-Agent': 'MoliApp/1.0' }
+      });
       const dataBroad = await respBroad.json();
       const existingIds = new Set(localResults.map(r => r.id));
-      broadResults = (dataBroad.features || [])
-        .filter((f: any) => !existingIds.has(f.id))
+      broadResults = (dataBroad || [])
+        .filter((f: any) => !existingIds.has(String(f.place_id)))
         .map((f: any) => ({
-          id: f.id,
-          name: f.text,
-          address: f.place_name,
-          latitude: f.center[1],
-          longitude: f.center[0],
+          id: String(f.place_id),
+          name: f.display_name.split(',')[0],
+          address: f.display_name,
+          latitude: parseFloat(f.lat),
+          longitude: parseFloat(f.lon),
         }));
     }
 
