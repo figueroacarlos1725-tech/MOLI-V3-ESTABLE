@@ -216,6 +216,18 @@ export default function DriverHomeScreen() {
         }
       });
       
+      // Rider cancelled → driver gets notified with compensation
+      const unsubRiderCancel = socketService.on('ride_cancelled_by_rider', (data: any) => {
+        console.log('Rider cancelled:', data);
+        const comp = data.compensation || 0;
+        if (comp > 0) {
+          setStatusMessage(`El pasajero canceló. Recibiste $${comp} de compensación.`);
+        } else {
+          setStatusMessage('El pasajero canceló el viaje.');
+        }
+        fetchActiveRide();
+      });
+      
       startLocationUpdates();
 
       // Health check: ensure WebSocket stays alive + poll for active ride
@@ -234,6 +246,7 @@ export default function DriverHomeScreen() {
         unsubExpired();
         unsubAccepted();
         unsubStatus();
+        unsubRiderCancel();
         clearInterval(healthCheck);
         if (locationInterval.current) clearInterval(locationInterval.current);
       };

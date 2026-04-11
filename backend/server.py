@@ -1346,13 +1346,13 @@ async def update_ride_status(
                     {"$set": {"status": "collected", "collected_ride_id": ride_id, "collected_at": now}}
                 )
             
-            # Update rider wallet (clear the negative)
+            # Update rider wallet (clear the negative from penalties)
             await db.users.update_one(
                 {"user_id": ride["rider_id"]},
                 {"$inc": {"wallet_balance": total_penalty}}
             )
             
-            # Record wallet transaction
+            # Record rider wallet transaction
             await db.wallet_transactions.insert_one({
                 "transaction_id": generate_id("txn_"),
                 "user_id": ride["rider_id"],
@@ -1364,18 +1364,76 @@ async def update_ride_status(
                 "created_at": now,
             })
         
+        # Determine payment method
+        payment_method = ride.get("payment_method", "cash")
+        final_fare = update_data.get("fare", ride.get("fare", 0))
+        commission_rate = settings.get("commission_rate", 0.20)
+        final_commission = round(final_fare * commission_rate, 2)
+        final_driver_earnings = round(final_fare - final_commission, 2)
+        update_data["commission"] = final_commission
+        update_data["driver_earnings"] = final_driver_earnings
+        
+        if payment_method == "cash":
+            # CASH: Driver collected full fare from rider physically
+            # Driver OWES the system the commission → wallet goes NEGATIVE by commission
+            await db.users.update_one(
+                {"user_id": ride["driver_id"]},
+                {"$inc": {"wallet_balance": -final_commission}}
+            )
+            await db.wallet_transactions.insert_one({
+                "transaction_id": generate_id("txn_"),
+                "user_id": ride["driver_id"],
+                "amount": -final_commission,
+                "transaction_type": "commission_debit",
+                "description": f"Comisión por viaje (efectivo) - debes ${final_commission} al sistema",
+                "ride_id": ride_id,
+                "status": "completed",
+                "created_at": now,
+            })
+        else:
+            # CARD: System collected the money → Driver gets earnings credited
+            await db.users.update_one(
+                {"user_id": ride["driver_id"]},
+                {"$inc": {"wallet_balance": final_driver_earnings}}
+            )
+            await db.wallet_transactions.insert_one({
+                "transaction_id": generate_id("txn_"),
+                "user_id": ride["driver_id"],
+                "amount": final_driver_earnings,
+                "transaction_type": "ride_earnings",
+                "description": f"Ganancia del viaje (tarjeta) - ${final_driver_earnings}",
+                "ride_id": ride_id,
+                "status": "completed",
+                "created_at": now,
+            })
+        
         # Update driver stats
-        final_earnings = update_data.get("driver_earnings", ride["driver_earnings"])
         await db.drivers.update_one(
             {"driver_id": ride["driver_id"]},
             {
                 "$set": {"is_available": True},
                 "$inc": {
                     "completed_rides": 1,
-                    "total_earnings": final_earnings
+                    "total_earnings": final_driver_earnings
                 }
             }
         )
+        
+        # Check if driver wallet hit max negative after commission
+        driver_user = await db.users.find_one({"user_id": ride["driver_id"]})
+        max_neg = settings.get("driver_max_negative_balance", -15000)
+        if driver_user and driver_user.get("wallet_balance", 0) <= max_neg:
+            await db.drivers.update_one(
+                {"driver_id": ride["driver_id"]},
+                {"$set": {
+                    "is_blocked": True,
+                    "block_reason": "negative_balance",
+                    "blocked_at": now,
+                    "blocked_until": None,
+                    "is_available": False,
+                    "is_online": False,
+                }}
+            )
         
         # Update user stats
         await db.users.update_one(
@@ -1412,8 +1470,9 @@ async def update_ride_status(
             elapsed = (now - accepted_at).total_seconds() / 60.0
             is_free_cancel = elapsed <= free_minutes
         
+        canceller_type = "rider" if user["user_id"] == ride["rider_id"] else "driver"
+        
         if not is_free_cancel and accepted_at:
-            canceller_type = "rider" if user["user_id"] == ride["rider_id"] else "driver"
             
             if canceller_type == "rider":
                 penalty_amount = settings.get("rider_cancel_penalty", 500)
@@ -1435,23 +1494,48 @@ async def update_ride_status(
                 }
                 await db.cancellation_records.insert_one(record)
                 
-                # Deduct from wallet
+                # Deduct from rider wallet
                 await db.users.update_one(
                     {"user_id": user["user_id"]},
                     {"$inc": {"wallet_balance": -penalty_amount}}
                 )
                 
-                # Record wallet transaction
+                # Record rider wallet transaction
                 await db.wallet_transactions.insert_one({
                     "transaction_id": generate_id("txn_"),
                     "user_id": user["user_id"],
-                    "amount": penalty_amount,
+                    "amount": -penalty_amount,
                     "transaction_type": "cancel_penalty",
                     "description": "Multa por cancelación tardía del viaje",
                     "ride_id": ride_id,
                     "status": "completed",
                     "created_at": now,
                 })
+                
+                # CREDIT driver as compensation for wasted time
+                driver_compensation = penalty_amount
+                await db.users.update_one(
+                    {"user_id": ride["driver_id"]},
+                    {"$inc": {"wallet_balance": driver_compensation}}
+                )
+                await db.wallet_transactions.insert_one({
+                    "transaction_id": generate_id("txn_"),
+                    "user_id": ride["driver_id"],
+                    "amount": driver_compensation,
+                    "transaction_type": "cancel_compensation",
+                    "description": f"Compensación por cancelación del pasajero (+${driver_compensation})",
+                    "ride_id": ride_id,
+                    "status": "completed",
+                    "created_at": now,
+                })
+                
+                # Notify driver about the compensation
+                await manager.send_personal_message({
+                    "type": "ride_cancelled_by_rider",
+                    "ride_id": ride_id,
+                    "message": f"El pasajero canceló. Recibiste ${driver_compensation} de compensación.",
+                    "compensation": driver_compensation,
+                }, ride["driver_id"])
                 
                 penalty_info = {
                     "penalty_applied": True,
@@ -1523,7 +1607,7 @@ async def update_ride_status(
                 
                 await db.cancellation_records.insert_one(record)
                 
-                # Deduct from wallet
+                # Deduct from driver wallet
                 await db.users.update_one(
                     {"user_id": user["user_id"]},
                     {"$inc": {"wallet_balance": -penalty_amount}}
@@ -1533,7 +1617,7 @@ async def update_ride_status(
                 await db.wallet_transactions.insert_one({
                     "transaction_id": generate_id("txn_"),
                     "user_id": user["user_id"],
-                    "amount": penalty_amount,
+                    "amount": -penalty_amount,
                     "transaction_type": "cancel_penalty",
                     "description": f"Multa por cancelación tardía #{cancel_number}",
                     "ride_id": ride_id,
@@ -1560,8 +1644,132 @@ async def update_ride_status(
                         penalty_info["blocked"] = True
                         penalty_info["block_reason"] = "negative_balance"
                         penalty_info["message"] = f"Tu saldo llegó al límite de ${max_neg}. No puedes trabajar hasta recargar."
+                
+                # AUTO RE-DISPATCH: Notify rider and search for another driver
+                await manager.send_personal_message({
+                    "type": "driver_cancelled_redispatching",
+                    "ride_id": ride_id,
+                    "message": "Tu conductor canceló. Buscando otro conductor...",
+                }, ride["rider_id"])
+                
+                # Re-create ride request for dispatch
+                try:
+                    pickup = ride.get("pickup", {})
+                    dropoff = ride.get("dropoff", {})
+                    new_req_id = generate_id("req_")
+                    new_request_doc = {
+                        "request_id": new_req_id,
+                        "rider_id": ride["rider_id"],
+                        "pickup_location": pickup,
+                        "dropoff_location": dropoff,
+                        "stops": ride.get("stops", []),
+                        "ride_type": "instant",
+                        "vehicle_type": ride.get("vehicle_type", "standard"),
+                        "status": "pending",
+                        "estimated_fare": ride.get("fare", 0),
+                        "estimated_distance": ride.get("distance_km", 0),
+                        "estimated_duration": ride.get("duration_min", 0),
+                        "payment_method": ride.get("payment_method", "cash"),
+                        "bids": [],
+                        "created_at": now,
+                        "expires_at": now + timedelta(minutes=5),
+                        "excluded_drivers": [ride["driver_id"]],
+                        "redispatch_from": ride_id,
+                    }
+                    await db.ride_requests.insert_one(new_request_doc)
+                    
+                    nearby = await get_nearby_drivers(
+                        pickup.get("latitude", pickup.get("lat", 0)),
+                        pickup.get("longitude", pickup.get("lng", 0)),
+                        radius_km=15.0,
+                        vehicle_type=ride.get("vehicle_type"),
+                    )
+                    sorted_drivers = [d for d in nearby.get("drivers", []) if d["driver_id"] != ride["driver_id"]]
+                    
+                    if sorted_drivers:
+                        import asyncio as _aio
+                        task = _aio.create_task(
+                            assign_ride_to_drivers(new_req_id, ride["rider_id"], sorted_drivers, new_request_doc)
+                        )
+                        assignment_tasks[new_req_id] = task
+                    else:
+                        await manager.send_personal_message({
+                            "type": "no_drivers_available",
+                            "ride_id": ride_id,
+                            "message": "No hay conductores disponibles en este momento. Intenta de nuevo.",
+                        }, ride["rider_id"])
+                except Exception as e:
+                    print(f"Error re-dispatching ride: {e}")
+                    await manager.send_personal_message({
+                        "type": "redispatch_failed",
+                        "ride_id": ride_id,
+                        "message": "No se pudo buscar otro conductor. Intenta solicitar un nuevo viaje.",
+                    }, ride["rider_id"])
         else:
             penalty_info = {"penalty_applied": False, "message": "Cancelación sin cargo (dentro del tiempo libre)."}
+            
+            # Even free cancels: notify the other party and re-dispatch if driver cancelled
+            if canceller_type == "driver":
+                await manager.send_personal_message({
+                    "type": "driver_cancelled_redispatching",
+                    "ride_id": ride_id,
+                    "message": "Tu conductor canceló. Buscando otro conductor...",
+                }, ride["rider_id"])
+                
+                # Re-dispatch
+                try:
+                    pickup = ride.get("pickup", {})
+                    new_req_id = generate_id("req_")
+                    new_request_doc = {
+                        "request_id": new_req_id,
+                        "rider_id": ride["rider_id"],
+                        "pickup_location": pickup,
+                        "dropoff_location": ride.get("dropoff", {}),
+                        "stops": ride.get("stops", []),
+                        "ride_type": "instant",
+                        "vehicle_type": ride.get("vehicle_type", "standard"),
+                        "status": "pending",
+                        "estimated_fare": ride.get("fare", 0),
+                        "estimated_distance": ride.get("distance_km", 0),
+                        "estimated_duration": ride.get("duration_min", 0),
+                        "payment_method": ride.get("payment_method", "cash"),
+                        "bids": [],
+                        "created_at": now,
+                        "expires_at": now + timedelta(minutes=5),
+                        "excluded_drivers": [ride["driver_id"]],
+                        "redispatch_from": ride_id,
+                    }
+                    await db.ride_requests.insert_one(new_request_doc)
+                    
+                    nearby = await get_nearby_drivers(
+                        pickup.get("latitude", pickup.get("lat", 0)),
+                        pickup.get("longitude", pickup.get("lng", 0)),
+                        radius_km=15.0,
+                        vehicle_type=ride.get("vehicle_type"),
+                    )
+                    sorted_drivers = [d for d in nearby.get("drivers", []) if d["driver_id"] != ride["driver_id"]]
+                    
+                    if sorted_drivers:
+                        import asyncio as _aio
+                        task = _aio.create_task(
+                            assign_ride_to_drivers(new_req_id, ride["rider_id"], sorted_drivers, new_request_doc)
+                        )
+                        assignment_tasks[new_req_id] = task
+                    else:
+                        await manager.send_personal_message({
+                            "type": "no_drivers_available",
+                            "ride_id": ride_id,
+                            "message": "No hay conductores disponibles. Intenta de nuevo.",
+                        }, ride["rider_id"])
+                except Exception as e:
+                    print(f"Error re-dispatching ride: {e}")
+            elif canceller_type == "rider":
+                await manager.send_personal_message({
+                    "type": "ride_cancelled_by_rider",
+                    "ride_id": ride_id,
+                    "message": "El pasajero canceló el viaje (sin cargo).",
+                    "compensation": 0,
+                }, ride["driver_id"])
     
     await db.rides.update_one({"ride_id": ride_id}, {"$set": update_data})
     
@@ -2176,6 +2384,11 @@ async def get_wallet_transactions(
         {"user_id": user["user_id"]},
         {"_id": 0}
     ).sort("created_at", -1).to_list(limit)
+    
+    # Serialize datetimes
+    for t in transactions:
+        if isinstance(t.get("created_at"), datetime):
+            t["created_at"] = t["created_at"].isoformat()
     
     return {"transactions": transactions}
 

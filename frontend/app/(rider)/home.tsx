@@ -216,7 +216,24 @@ export default function RiderHomeScreen() {
       Vibration.vibrate([0, 300, 200, 300]);
     });
 
-    return () => { unsub1(); unsub2(); unsub3(); unsub4(); unsub5(); };
+    // Driver cancelled → auto re-dispatch
+    const unsub6 = socketService.on('driver_cancelled_redispatching', (d: any) => {
+      setPhase('searching');
+      setDispatchMsg(d.message || 'Tu conductor canceló. Buscando otro...');
+      setDriverFound(false);
+      playSound('arrived');
+      Vibration.vibrate([0, 400, 200, 400]);
+      fetchActiveRide();
+    });
+    
+    const unsub7 = socketService.on('redispatch_failed', (d: any) => {
+      setErrorMsg(d.message || 'No se encontró otro conductor.');
+      setPhase('idle');
+      resetDispatch();
+      clearRequest();
+    });
+
+    return () => { unsub1(); unsub2(); unsub3(); unsub4(); unsub5(); unsub6(); unsub7(); };
   }, [user]);
 
   // ─── Polling fallback when searching ──────
