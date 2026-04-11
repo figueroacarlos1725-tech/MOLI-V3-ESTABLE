@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, SafeAreaView, TouchableOpacity, ScrollView,
   ActivityIndicator, Dimensions, RefreshControl, Modal, TextInput,
-  Alert, KeyboardAvoidingView, Platform, FlatList,
+  Alert, KeyboardAvoidingView, Platform, FlatList, Pressable,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -142,21 +142,43 @@ export default function DispatchHome() {
     if (assignPin !== '0725') { Alert.alert('PIN incorrecto', 'Ingresa el PIN de supervisión correcto'); return; }
     if (!assignDriverId || !selectedRide) return;
     try {
-      // TODO: Implement manual assignment endpoint
-      Alert.alert('Conductor asignado', `Conductor asignado al viaje`);
-      setShowAssign(false); setAssignPin(''); setAssignDriverId('');
-    } catch (e: any) { Alert.alert('Error', e.message); }
+      const reqId = selectedRide.request_id;
+      if (!reqId) { Alert.alert('Error', 'No se puede asignar sin ID de solicitud'); return; }
+      const result = await apiService.post(`/dispatch/assign/${reqId}`, { driver_id: assignDriverId, pin: assignPin });
+      Alert.alert('Conductor asignado', result?.driver ? `Asignado a ${result.driver}` : 'Asignado correctamente');
+      setShowAssign(false); setAssignPin(''); setAssignDriverId(''); setSelectedRide(null);
+      fetchRides();
+    } catch (e: any) { Alert.alert('Error', e.message || 'No se pudo asignar'); }
   };
+
+  const handleCancelRide = async () => {
+    if (!selectedRide) return;
+    const reqId = selectedRide.request_id;
+    if (!reqId) return;
+    Alert.alert('Cancelar viaje', '¿Estás seguro de cancelar este viaje?', [
+      { text: 'No', style: 'cancel' },
+      { text: 'Sí, cancelar', style: 'destructive', onPress: async () => {
+        try {
+          await apiService.post(`/dispatch/cancel/${reqId}`, 'Cancelado por despacho');
+          setSelectedRide(null);
+          fetchRides();
+        } catch (e: any) { Alert.alert('Error', e.message); }
+      }},
+    ]);
+  };
+
+  const rideKey = (r: DispatchRide) => r.request_id || r.ride_id || '';
 
   const renderRideRow = (ride: DispatchRide, index: number) => {
     const pickup = ride.pickup_location || {};
-    const isSelected = selectedRide?.request_id === ride.request_id || selectedRide?.ride_id === ride.ride_id;
+    const key = rideKey(ride);
+    const selKey = selectedRide ? rideKey(selectedRide) : '';
+    const isSelected = key === selKey && key !== '';
     return (
-      <TouchableOpacity
-        key={ride.request_id || ride.ride_id || index}
-        style={[s.rideRow, isSelected && s.rideRowSelected]}
-        onPress={() => setSelectedRide(isSelected ? null : ride)}
-        activeOpacity={0.7}
+      <Pressable
+        key={key || index}
+        style={({ pressed }) => [s.rideRow, isSelected && s.rideRowSelected, pressed && { opacity: 0.7 }]}
+        onPress={() => { setSelectedRide(isSelected ? null : { ...ride }); }}
       >
         <View style={s.rideColTime}>
           <Text style={s.rideTime}>{fmt(ride.created_at)}</Text>
@@ -191,7 +213,7 @@ export default function DispatchHome() {
           <Text style={s.rideFare}>${Math.round(ride.estimated_fare || ride.fare || 0)}</Text>
           <Text style={s.rideType}>{ride.vehicle_type || 'eco'}</Text>
         </View>
-      </TouchableOpacity>
+      </Pressable>
     );
   };
 
@@ -300,7 +322,7 @@ export default function DispatchHome() {
               </TouchableOpacity>
             )}
             {r.status !== 'completed' && r.status !== 'cancelled' && (
-              <TouchableOpacity style={[s.actionBtn, { backgroundColor: RED }]} onPress={() => Alert.alert('Cancelar viaje', '¿Estás seguro?', [{ text: 'No' }, { text: 'Sí, cancelar', style: 'destructive' }])}>
+              <TouchableOpacity style={[s.actionBtn, { backgroundColor: RED }]} onPress={handleCancelRide}>
                 <Ionicons name="close" size={16} color="#fff" />
                 <Text style={s.actionBtnText}>Cancelar viaje</Text>
               </TouchableOpacity>
@@ -397,6 +419,10 @@ export default function DispatchHome() {
         <TouchableOpacity style={s.navBtn} onPress={() => router.push('/(admin)/dashboard' as any)}>
           <Ionicons name="settings-outline" size={20} color={ACCENT_LIGHT} />
           <Text style={s.navLabel}>Admin</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={s.navBtn} onPress={() => router.push('/(admin)/dispatchers' as any)}>
+          <Ionicons name="headset-outline" size={20} color={ORANGE} />
+          <Text style={s.navLabel}>Operadores</Text>
         </TouchableOpacity>
         <TouchableOpacity style={s.navBtn} onPress={() => router.push('/(admin)/godseye' as any)}>
           <Ionicons name="globe-outline" size={20} color={BLUE} />

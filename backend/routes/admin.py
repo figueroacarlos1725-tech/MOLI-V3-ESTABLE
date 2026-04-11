@@ -670,6 +670,131 @@ async def get_dispatch_rides(
     return {"rides": [], "count": 0}
 
 
+@router.post("/api/dispatch/cancel/{request_id}")
+async def dispatch_cancel_ride(request_id: str, reason: str = Body("Cancelado por despacho"), user: dict = Depends(get_current_user)):
+    """Cancel a ride from dispatch"""
+    if user["user_type"] not in ("admin", "dispatcher"):
+        raise HTTPException(status_code=403, detail="Dispatch access required")
+    
+    now = datetime.now(timezone.utc)
+    
+    # Cancel the request
+    await db.ride_requests.update_one(
+        {"request_id": request_id},
+        {"$set": {"status": "cancelled", "cancelled_at": now, "cancel_reason": reason}}
+    )
+    
+    # Cancel associated ride if exists
+    ride = await db.rides.find_one({"request_id": request_id})
+    if ride:
+        driver_id = ride.get("driver_id")
+        await db.rides.update_one(
+            {"request_id": request_id},
+            {"$set": {"status": "cancelled", "cancelled_at": now, "cancel_reason": reason}}
+        )
+        # Notify driver
+        if driver_id:
+            await manager.send_personal_message({
+                "type": "ride_cancelled",
+                "ride_id": ride.get("ride_id"),
+                "reason": reason,
+            }, driver_id)
+    
+    return {"status": "cancelled", "request_id": request_id}
+
+
+@router.post("/api/dispatch/assign/{request_id}")
+async def dispatch_assign_driver(
+    request_id: str,
+    driver_id: str = Body(..., embed=True),
+    pin: str = Body(..., embed=True),
+    user: dict = Depends(get_current_user)
+):
+    """Manually assign a driver to a ride from dispatch. Requires supervisor PIN."""
+    if user["user_type"] not in ("admin", "dispatcher"):
+        raise HTTPException(status_code=403, detail="Dispatch access required")
+    
+    if pin != "0725":
+        raise HTTPException(status_code=403, detail="PIN de supervisión incorrecto")
+    
+    # Get the request
+    request_doc = await db.ride_requests.find_one({"request_id": request_id})
+    if not request_doc:
+        raise HTTPException(status_code=404, detail="Solicitud no encontrada")
+    
+    # Get driver
+    driver = await db.users.find_one({"user_id": driver_id, "user_type": "driver"})
+    if not driver:
+        raise HTTPException(status_code=404, detail="Conductor no encontrado")
+    
+    now = datetime.now(timezone.utc)
+    
+    # Update request status
+    await db.ride_requests.update_one(
+        {"request_id": request_id},
+        {"$set": {"status": "accepted", "assigned_driver": driver_id}}
+    )
+    
+    # Get or create ride
+    existing_ride = await db.rides.find_one({"request_id": request_id})
+    vehicle = await db.vehicles.find_one({"driver_id": driver_id, "is_active": True}, {"_id": 0})
+    
+    if existing_ride:
+        await db.rides.update_one(
+            {"request_id": request_id},
+            {"$set": {
+                "driver_id": driver_id,
+                "status": "accepted",
+                "accepted_at": now,
+                "vehicle_info": {
+                    "make": vehicle.get("make", "") if vehicle else "",
+                    "model": vehicle.get("model", "") if vehicle else "",
+                    "plate_number": vehicle.get("plate_number", "") if vehicle else "",
+                } if vehicle else None,
+            }}
+        )
+        ride_id = existing_ride["ride_id"]
+    else:
+        ride_id = f"ride_{uuid.uuid4().hex[:12]}"
+        ride_doc = {
+            "ride_id": ride_id,
+            "request_id": request_id,
+            "rider_id": request_doc.get("rider_id", "dispatch"),
+            "driver_id": driver_id,
+            "pickup_location": request_doc.get("pickup_location"),
+            "dropoff_location": request_doc.get("dropoff_location"),
+            "vehicle_type": request_doc.get("vehicle_type", "economy"),
+            "status": "accepted",
+            "fare": request_doc.get("estimated_fare", 0),
+            "accepted_at": now,
+            "created_at": now,
+        }
+        await db.rides.insert_one(ride_doc)
+    
+    # Notify driver
+    await manager.send_personal_message({
+        "type": "ride_assigned",
+        "ride_id": ride_id,
+        "request_id": request_id,
+        "message": f"Viaje asignado por despacho. Dirígete al punto de recogida.",
+        "pickup": request_doc.get("pickup_location"),
+    }, driver_id)
+    
+    # Send push notification
+    try:
+        await send_push_notification(
+            driver_id,
+            "Viaje asignado",
+            "Se te ha asignado un viaje desde despacho. Dirígete al punto de recogida.",
+            data={"type": "ride_assigned", "ride_id": ride_id}
+        )
+    except:
+        pass
+    
+    return {"status": "assigned", "ride_id": ride_id, "driver": driver.get("name", "")}
+
+
+
 @router.put("/api/admin/users/{user_id}/balance")
 async def admin_update_balance(
     user_id: str,
