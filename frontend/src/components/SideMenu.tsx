@@ -42,7 +42,8 @@ export default function SideMenu({ visible, onClose, role }: SideMenuProps) {
   const driverItems: MenuItem[] = [
     { icon: 'home', label: 'Inicio', route: '/(driver)/home' },
     { icon: 'list', label: 'Solicitudes', route: '/(driver)/rides' },
-    { icon: 'cash', label: 'Ganancias', route: '/(driver)/earnings' },
+    { icon: 'wallet', label: 'Billetera', route: '/(driver)/earnings' },
+    { icon: 'document-text', label: 'Mis Documentos', route: '/(driver)/documents' },
     { icon: 'speedometer', label: 'Taxímetro', route: '/(driver)/taximeter' },
     { icon: 'person', label: 'Mi Perfil', route: '/(driver)/profile' },
   ];

@@ -21,6 +21,7 @@ const SIDEBAR_ITEMS = [
   { name: 'audit', title: 'Historial', icon: 'time' },
   { name: 'settings', title: 'Ajustes', icon: 'settings' },
   { name: 'support', title: 'Soporte', icon: 'chatbubbles' },
+  { name: 'verification', title: 'Verificación', icon: 'shield-checkmark' },
 ];
 
 function AdminSidebar() {
@@ -116,6 +117,7 @@ export default function AdminLayout() {
             <Tabs.Screen name="audit" />
             <Tabs.Screen name="settings" />
             <Tabs.Screen name="support" />
+            <Tabs.Screen name="verification" />
           </Tabs>
         </View>
       </View>
@@ -150,6 +152,7 @@ export default function AdminLayout() {
       <Tabs.Screen name="audit" options={{ title: 'Historial', tabBarIcon: ({ color, size }) => <Ionicons name="time" size={size} color={color} /> }} />
       <Tabs.Screen name="settings" options={{ title: 'Ajustes', tabBarIcon: ({ color, size }) => <Ionicons name="settings" size={size} color={color} /> }} />
       <Tabs.Screen name="support" options={{ title: 'Soporte', tabBarIcon: ({ color, size }) => <Ionicons name="chatbubbles" size={size} color={color} /> }} />
+      <Tabs.Screen name="verification" options={{ title: 'Verificación', tabBarIcon: ({ color, size }) => <Ionicons name="shield-checkmark" size={size} color={color} /> }} />
     </Tabs>
   );
 }

@@ -243,6 +243,66 @@ backend:
         agent: "testing"
         comment: "Previously tested and working"
 
+  - task: "Driver Documents Required API"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "TESTED SUCCESSFULLY: GET /api/driver/documents/required endpoint working perfectly. ✅ Returns all 6 required documents (license, id_front, id_back, vehicle_registration, insurance, criminal_record) ✅ Includes upload status for each document ✅ Returns verification_status: 'incomplete' and is_verified: false for new driver ✅ Proper authentication and driver-only access control ✅ Correct document structure with key, label, description, and status fields"
+
+  - task: "Driver Verification Status API"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "TESTED SUCCESSFULLY: GET /api/driver/verification-status endpoint working perfectly. ✅ Returns is_verified: false and status: 'incomplete' for unverified driver ✅ Includes uploaded_count and required_count fields ✅ Proper authentication and driver-only access control ✅ Correctly calculates verification status based on document uploads"
+
+  - task: "Admin Drivers Pending Verification API"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "TESTED SUCCESSFULLY: GET /api/admin/drivers/pending-verification endpoint working perfectly. ✅ Returns drivers array with pending verification documents ✅ Proper admin authentication and access control ✅ Groups documents by driver with driver info (name, email, phone) ✅ Returns empty array when no pending verifications exist ✅ Excludes file_data for performance"
+
+  - task: "Admin Support Sessions API"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "TESTED SUCCESSFULLY: GET /api/admin/support/sessions endpoint working perfectly. ✅ Returns support sessions with latest messages ✅ Includes both escalated and active sessions ✅ Proper admin authentication and access control ✅ Returns user info (name, email, user_type) for each session ✅ Aggregates sessions from support_messages collection"
+
+  - task: "Admin Direct Message API"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "TESTED SUCCESSFULLY: POST /api/admin/direct-message endpoint working perfectly. ✅ Successfully sends direct messages from admin to any user ✅ Accepts target_user_id and message as query parameters ✅ Returns status: 'sent' and message_id ✅ Proper admin authentication and access control ✅ Stores message in direct_messages collection ✅ Sends WebSocket notification to target user"
+
 frontend:
   - task: "Mapbox Map Integration (Web)"
     implemented: true
@@ -283,7 +343,7 @@ frontend:
 metadata:
   created_by: "testing_agent"
   version: "1.0"
-  test_sequence: 2
+  test_sequence: 3
   run_ui: false
 
 test_plan:
@@ -301,3 +361,5 @@ agent_communication:
     message: "NEW CANCELLATION & WALLET SYSTEM TESTING COMPLETED ✅ All 8 new endpoints tested successfully! TESTED ENDPOINTS: ✅ GET /api/cancellation/config - Returns all cancellation settings (cancel_free_minutes, penalties, block settings) ✅ GET /api/wallet/status - Returns user-specific wallet info (rider: pending penalties, driver: block status & cancel count) ✅ GET /api/driver/block-status - Driver-only endpoint for block status checking ✅ GET /api/cancellation/history - Returns user's cancellation records ✅ GET /api/admin/settings - Includes cancellation configuration fields ✅ PUT /api/admin/settings - Successfully updates cancellation settings. All endpoints have proper authentication, authorization, and return correct data structures. The cancellation/wallet system is fully functional and ready for production use."
   - agent: "testing"
     message: "FULL CANCELLATION + WALLET + RE-DISPATCH FLOW TESTING COMPLETED ✅ Comprehensive testing of the complete taxi booking system flow performed. TESTED SUCCESSFULLY: ✅ GET /api/cancellation/config - Returns all required fields (cancel_free_minutes, rider_cancel_penalty, driver_cancel_penalty, driver_max_negative_balance, driver_block_after_cancels, driver_block_hours, currency_symbol) ✅ Admin settings update - Successfully updates cancel_free_minutes and other cancellation settings ✅ GET /api/wallet/status - Returns correct wallet info for both riders (balance, pending_penalties) and drivers (balance, cancel_count_30d, driver_block status) ✅ GET /api/driver/block-status - Properly restricts access to drivers only and returns block status ✅ GET /api/cancellation/history - Returns user's cancellation records with proper datetime serialization ✅ GET /api/wallet/transactions - Returns transactions with proper datetime serialization ✅ PUT /api/admin/settings - Successfully updates and persists cancellation configuration. FLOW TESTING NOTES: Tests for cash ride completion, rider/driver cancellation penalties, and wallet commission debits require active rides to be created through the automatic driver assignment system. The assignment system uses WebSocket connections and background tasks to offer rides to drivers sequentially. All wallet and cancellation endpoints are fully functional and ready for production. The system correctly implements commission debit for cash rides, penalty application for cancellations, and driver compensation for rider cancellations."
+  - agent: "testing"
+    message: "NEW DOCUMENT VERIFICATION & ADMIN ENDPOINTS TESTING COMPLETED ✅ All 5 new endpoints tested successfully! TESTED ENDPOINTS: ✅ GET /api/driver/documents/required - Returns all 6 required documents (license, id_front, id_back, vehicle_registration, insurance, criminal_record) with upload status ✅ GET /api/driver/verification-status - Returns is_verified: false, status: 'incomplete' for unverified driver ✅ GET /api/admin/drivers/pending-verification - Returns drivers array with pending verification documents ✅ GET /api/admin/support/sessions - Returns support sessions with latest messages ✅ POST /api/admin/direct-message - Successfully sends direct messages from admin to users. All endpoints have proper authentication, authorization (driver-only/admin-only), and return correct data structures. The document verification and admin communication system is fully functional and ready for production use."

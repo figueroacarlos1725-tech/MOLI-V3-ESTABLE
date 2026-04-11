@@ -1,261 +1,303 @@
 #!/usr/bin/env python3
 """
-Backend API Testing for Molí Taxi App - Cancellation & Wallet System
-Tests the new cancellation/wallet endpoints (simplified version)
+Backend API Testing for Molí Taxi App - NEW Document Verification & Admin Endpoints
+Testing the following NEW endpoints:
+1. GET /api/driver/documents/required (as driver)
+2. GET /api/driver/verification-status (as driver)
+3. GET /api/admin/drivers/pending-verification (as admin)
+4. GET /api/admin/support/sessions (as admin)
+5. POST /api/admin/direct-message (as admin)
 """
 
-import asyncio
-import httpx
+import requests
 import json
-from datetime import datetime, timezone
+import sys
+from datetime import datetime
 
-# Backend URL from environment
-BACKEND_URL = "https://taxify-clone.preview.emergentagent.com/api"
+# Configuration
+BASE_URL = "https://taxify-clone.preview.emergentagent.com/api"
 
-# Test credentials
-ADMIN_CREDS = {"email": "admin@test.com", "password": "admin123456"}
-RIDER_CREDS = {"email": "rider@test.com", "password": "test123456"}
-DRIVER_CREDS = {"email": "driver@test.com", "password": "test123456"}
+# Test credentials from test_credentials.md
+ADMIN_CREDENTIALS = {
+    "email": "admin@test.com",
+    "password": "admin123456"
+}
 
-class TestResults:
+DRIVER_CREDENTIALS = {
+    "email": "driver@test.com", 
+    "password": "test123456"
+}
+
+class TaxiAPITester:
     def __init__(self):
-        self.passed = 0
-        self.failed = 0
-        self.errors = []
+        self.admin_token = None
+        self.driver_token = None
+        self.driver_user_id = None
+        self.test_results = []
+        
+    def log_test(self, test_name, success, details="", response_data=None):
+        """Log test results"""
+        status = "✅ PASS" if success else "❌ FAIL"
+        print(f"{status} {test_name}")
+        if details:
+            print(f"   Details: {details}")
+        if response_data and not success:
+            print(f"   Response: {json.dumps(response_data, indent=2)}")
+        print()
+        
+        self.test_results.append({
+            "test": test_name,
+            "success": success,
+            "details": details,
+            "response": response_data
+        })
     
-    def success(self, test_name):
-        print(f"✅ {test_name}")
-        self.passed += 1
-    
-    def fail(self, test_name, error):
-        print(f"❌ {test_name}: {error}")
-        self.failed += 1
-        self.errors.append(f"{test_name}: {error}")
-    
-    def summary(self):
-        total = self.passed + self.failed
-        print(f"\n📊 Test Results: {self.passed}/{total} passed")
-        if self.errors:
-            print("\n🔍 Failures:")
-            for error in self.errors:
-                print(f"  - {error}")
-
-async def login_user(credentials):
-    """Login and return auth token"""
-    async with httpx.AsyncClient(timeout=30) as client:
-        response = await client.post(f"{BACKEND_URL}/auth/login", json=credentials)
-        if response.status_code == 200:
-            data = response.json()
-            return data["access_token"]
-        else:
-            raise Exception(f"Login failed: {response.status_code} - {response.text}")
-
-async def make_request(method, endpoint, token=None, json_data=None, params=None):
-    """Make authenticated API request"""
-    headers = {}
-    if token:
-        headers["Authorization"] = f"Bearer {token}"
-    
-    async with httpx.AsyncClient(timeout=30) as client:
-        if method.upper() == "GET":
-            response = await client.get(f"{BACKEND_URL}{endpoint}", headers=headers, params=params)
-        elif method.upper() == "POST":
-            response = await client.post(f"{BACKEND_URL}{endpoint}", headers=headers, json=json_data, params=params)
-        elif method.upper() == "PUT":
-            response = await client.put(f"{BACKEND_URL}{endpoint}", headers=headers, json=json_data, params=params)
-        else:
-            raise ValueError(f"Unsupported method: {method}")
-        
-        return response
-
-async def test_cancellation_config(results):
-    """Test GET /api/cancellation/config"""
-    try:
-        # Test with rider auth
-        rider_token = await login_user(RIDER_CREDS)
-        response = await make_request("GET", "/cancellation/config", rider_token)
-        
-        if response.status_code == 200:
-            data = response.json()
-            required_fields = ["cancel_free_minutes", "rider_cancel_penalty", "driver_cancel_penalty", 
-                             "driver_max_negative_balance", "driver_block_after_cancels", "driver_block_hours"]
+    def authenticate_user(self, credentials, user_type):
+        """Authenticate and get token"""
+        try:
+            response = requests.post(f"{BASE_URL}/auth/login", json=credentials)
             
-            missing_fields = [field for field in required_fields if field not in data]
-            if missing_fields:
-                results.fail("GET /api/cancellation/config", f"Missing fields: {missing_fields}")
-            else:
-                results.success("GET /api/cancellation/config - Returns all required fields")
-                print(f"   Config: {data}")
-        else:
-            results.fail("GET /api/cancellation/config", f"HTTP {response.status_code}: {response.text}")
-    except Exception as e:
-        results.fail("GET /api/cancellation/config", str(e))
-
-async def test_wallet_status(results):
-    """Test GET /api/wallet/status for both rider and driver"""
-    try:
-        # Test rider wallet status
-        rider_token = await login_user(RIDER_CREDS)
-        response = await make_request("GET", "/wallet/status", rider_token)
-        
-        if response.status_code == 200:
-            data = response.json()
-            rider_fields = ["balance", "pending_penalties", "total_pending", "max_pending_penalties", "cancel_penalty"]
-            missing_fields = [field for field in rider_fields if field not in data]
-            if missing_fields:
-                results.fail("GET /api/wallet/status (Rider)", f"Missing fields: {missing_fields}")
-            else:
-                results.success("GET /api/wallet/status (Rider) - Returns all required fields")
-                print(f"   Rider wallet: balance={data['balance']}, pending_penalties={len(data['pending_penalties'])}")
-        else:
-            results.fail("GET /api/wallet/status (Rider)", f"HTTP {response.status_code}: {response.text}")
-        
-        # Test driver wallet status
-        driver_token = await login_user(DRIVER_CREDS)
-        response = await make_request("GET", "/wallet/status", driver_token)
-        
-        if response.status_code == 200:
-            data = response.json()
-            driver_fields = ["balance", "driver_block", "cancel_count_30d", "max_cancels_before_block", 
-                           "max_negative_balance", "cancel_penalty"]
-            missing_fields = [field for field in driver_fields if field not in data]
-            if missing_fields:
-                results.fail("GET /api/wallet/status (Driver)", f"Missing fields: {missing_fields}")
-            else:
-                results.success("GET /api/wallet/status (Driver) - Returns all required fields")
-                print(f"   Driver wallet: balance={data['balance']}, cancel_count_30d={data['cancel_count_30d']}")
-        else:
-            results.fail("GET /api/wallet/status (Driver)", f"HTTP {response.status_code}: {response.text}")
-            
-    except Exception as e:
-        results.fail("GET /api/wallet/status", str(e))
-
-async def test_driver_block_status(results):
-    """Test GET /api/driver/block-status"""
-    try:
-        # Test with driver auth
-        driver_token = await login_user(DRIVER_CREDS)
-        response = await make_request("GET", "/driver/block-status", driver_token)
-        
-        if response.status_code == 200:
-            data = response.json()
-            if "is_blocked" not in data:
-                results.fail("GET /api/driver/block-status", "Missing 'is_blocked' field")
-            else:
-                results.success("GET /api/driver/block-status - Returns block status")
-                print(f"   Driver blocked: {data['is_blocked']}")
-        else:
-            results.fail("GET /api/driver/block-status", f"HTTP {response.status_code}: {response.text}")
-        
-        # Test with non-driver (should fail)
-        rider_token = await login_user(RIDER_CREDS)
-        response = await make_request("GET", "/driver/block-status", rider_token)
-        
-        if response.status_code == 403:
-            results.success("GET /api/driver/block-status - Correctly rejects non-drivers")
-        else:
-            results.fail("GET /api/driver/block-status", f"Should reject non-drivers, got {response.status_code}")
-            
-    except Exception as e:
-        results.fail("GET /api/driver/block-status", str(e))
-
-async def test_cancellation_history(results):
-    """Test GET /api/cancellation/history"""
-    try:
-        # Test with rider auth
-        rider_token = await login_user(RIDER_CREDS)
-        response = await make_request("GET", "/cancellation/history", rider_token)
-        
-        if response.status_code == 200:
-            data = response.json()
-            if "records" not in data:
-                results.fail("GET /api/cancellation/history", "Missing 'records' field")
-            else:
-                results.success("GET /api/cancellation/history - Returns records array")
-                print(f"   Cancellation records: {len(data['records'])} found")
-        else:
-            results.fail("GET /api/cancellation/history", f"HTTP {response.status_code}: {response.text}")
-            
-    except Exception as e:
-        results.fail("GET /api/cancellation/history", str(e))
-
-async def test_admin_settings(results):
-    """Test GET /api/admin/settings includes cancellation fields"""
-    try:
-        admin_token = await login_user(ADMIN_CREDS)
-        response = await make_request("GET", "/admin/settings", admin_token)
-        
-        if response.status_code == 200:
-            data = response.json()
-            cancellation_fields = ["cancel_free_minutes", "rider_cancel_penalty", "driver_cancel_penalty"]
-            missing_fields = [field for field in cancellation_fields if field not in data]
-            if missing_fields:
-                results.fail("GET /api/admin/settings", f"Missing cancellation fields: {missing_fields}")
-            else:
-                results.success("GET /api/admin/settings - Includes cancellation configuration")
-                print(f"   Settings: cancel_free_minutes={data.get('cancel_free_minutes')}, rider_penalty={data.get('rider_cancel_penalty')}")
-        else:
-            results.fail("GET /api/admin/settings", f"HTTP {response.status_code}: {response.text}")
-            
-    except Exception as e:
-        results.fail("GET /api/admin/settings", str(e))
-
-async def test_admin_settings_update(results):
-    """Test PUT /api/admin/settings with cancellation fields"""
-    try:
-        admin_token = await login_user(ADMIN_CREDS)
-        
-        # Update cancellation settings
-        update_data = {
-            "cancel_free_minutes": 2,
-            "rider_cancel_penalty": 600
-        }
-        
-        response = await make_request("PUT", "/admin/settings", admin_token, json_data=update_data)
-        
-        if response.status_code == 200:
-            # Verify the update worked
-            get_response = await make_request("GET", "/admin/settings", admin_token)
-            if get_response.status_code == 200:
-                data = get_response.json()
-                if data.get("cancel_free_minutes") == 2 and data.get("rider_cancel_penalty") == 600:
-                    results.success("PUT /api/admin/settings - Successfully updates cancellation settings")
-                    print(f"   Updated: cancel_free_minutes={data.get('cancel_free_minutes')}, rider_penalty={data.get('rider_cancel_penalty')}")
+            if response.status_code == 200:
+                data = response.json()
+                token = data.get("access_token")
+                user_id = data.get("user", {}).get("user_id")
+                
+                if token:
+                    self.log_test(f"{user_type.title()} Authentication", True, f"Token obtained successfully")
+                    return token, user_id
                 else:
-                    results.fail("PUT /api/admin/settings", "Settings not properly updated")
+                    self.log_test(f"{user_type.title()} Authentication", False, "No token in response", data)
+                    return None, None
             else:
-                results.fail("PUT /api/admin/settings", "Could not verify update")
-        else:
-            results.fail("PUT /api/admin/settings", f"HTTP {response.status_code}: {response.text}")
+                self.log_test(f"{user_type.title()} Authentication", False, f"HTTP {response.status_code}", response.json())
+                return None, None
+                
+        except Exception as e:
+            self.log_test(f"{user_type.title()} Authentication", False, f"Exception: {str(e)}")
+            return None, None
+    
+    def make_authenticated_request(self, method, endpoint, token, **kwargs):
+        """Make authenticated request"""
+        headers = {"Authorization": f"Bearer {token}"}
+        if "headers" in kwargs:
+            headers.update(kwargs["headers"])
+        kwargs["headers"] = headers
+        
+        url = f"{BASE_URL}{endpoint}"
+        return requests.request(method, url, **kwargs)
+    
+    def test_driver_documents_required(self):
+        """Test GET /api/driver/documents/required"""
+        if not self.driver_token:
+            self.log_test("Driver Documents Required", False, "No driver token available")
+            return
             
-    except Exception as e:
-        results.fail("PUT /api/admin/settings", str(e))
-
-async def run_all_tests():
-    """Run all cancellation/wallet system tests"""
-    print("🚀 Testing Molí Taxi App - NEW Cancellation & Wallet System Endpoints")
-    print("=" * 70)
+        try:
+            response = self.make_authenticated_request("GET", "/driver/documents/required", self.driver_token)
+            
+            if response.status_code == 200:
+                data = response.json()
+                
+                # Check required fields
+                required_fields = ["documents", "verification_status", "is_verified"]
+                missing_fields = [field for field in required_fields if field not in data]
+                
+                if missing_fields:
+                    self.log_test("Driver Documents Required", False, f"Missing fields: {missing_fields}", data)
+                    return
+                
+                # Check documents structure
+                documents = data.get("documents", [])
+                expected_doc_types = {"license", "id_front", "id_back", "vehicle_registration", "insurance", "criminal_record"}
+                actual_doc_types = {doc.get("key") for doc in documents}
+                
+                if expected_doc_types == actual_doc_types:
+                    self.log_test("Driver Documents Required", True, 
+                                f"All 6 required documents present. Status: {data.get('verification_status')}")
+                else:
+                    missing_docs = expected_doc_types - actual_doc_types
+                    self.log_test("Driver Documents Required", False, 
+                                f"Missing document types: {missing_docs}", data)
+            else:
+                self.log_test("Driver Documents Required", False, f"HTTP {response.status_code}", response.json())
+                
+        except Exception as e:
+            self.log_test("Driver Documents Required", False, f"Exception: {str(e)}")
     
-    results = TestResults()
+    def test_driver_verification_status(self):
+        """Test GET /api/driver/verification-status"""
+        if not self.driver_token:
+            self.log_test("Driver Verification Status", False, "No driver token available")
+            return
+            
+        try:
+            response = self.make_authenticated_request("GET", "/driver/verification-status", self.driver_token)
+            
+            if response.status_code == 200:
+                data = response.json()
+                
+                # Check required fields
+                required_fields = ["is_verified", "status", "uploaded_count", "required_count"]
+                missing_fields = [field for field in required_fields if field not in data]
+                
+                if missing_fields:
+                    self.log_test("Driver Verification Status", False, f"Missing fields: {missing_fields}", data)
+                    return
+                
+                # Validate expected values for new driver
+                is_verified = data.get("is_verified")
+                status = data.get("status")
+                
+                if is_verified == False and status == "incomplete":
+                    self.log_test("Driver Verification Status", True, 
+                                f"Correct status for unverified driver: is_verified={is_verified}, status={status}")
+                else:
+                    self.log_test("Driver Verification Status", True, 
+                                f"Status returned: is_verified={is_verified}, status={status}")
+            else:
+                self.log_test("Driver Verification Status", False, f"HTTP {response.status_code}", response.json())
+                
+        except Exception as e:
+            self.log_test("Driver Verification Status", False, f"Exception: {str(e)}")
     
-    # Test individual endpoints
-    await test_cancellation_config(results)
-    await test_wallet_status(results)
-    await test_driver_block_status(results)
-    await test_cancellation_history(results)
-    await test_admin_settings(results)
-    await test_admin_settings_update(results)
+    def test_admin_drivers_pending_verification(self):
+        """Test GET /api/admin/drivers/pending-verification"""
+        if not self.admin_token:
+            self.log_test("Admin Drivers Pending Verification", False, "No admin token available")
+            return
+            
+        try:
+            response = self.make_authenticated_request("GET", "/admin/drivers/pending-verification", self.admin_token)
+            
+            if response.status_code == 200:
+                data = response.json()
+                
+                # Check required structure
+                if "drivers" not in data:
+                    self.log_test("Admin Drivers Pending Verification", False, "Missing 'drivers' field", data)
+                    return
+                
+                drivers = data.get("drivers", [])
+                self.log_test("Admin Drivers Pending Verification", True, 
+                            f"Endpoint accessible. Found {len(drivers)} drivers with pending verification")
+            else:
+                self.log_test("Admin Drivers Pending Verification", False, f"HTTP {response.status_code}", response.json())
+                
+        except Exception as e:
+            self.log_test("Admin Drivers Pending Verification", False, f"Exception: {str(e)}")
     
-    print("=" * 70)
-    results.summary()
+    def test_admin_support_sessions(self):
+        """Test GET /api/admin/support/sessions"""
+        if not self.admin_token:
+            self.log_test("Admin Support Sessions", False, "No admin token available")
+            return
+            
+        try:
+            response = self.make_authenticated_request("GET", "/admin/support/sessions", self.admin_token)
+            
+            if response.status_code == 200:
+                data = response.json()
+                
+                # Should return an array or object with sessions
+                if isinstance(data, list):
+                    sessions = data
+                elif isinstance(data, dict) and "sessions" in data:
+                    sessions = data["sessions"]
+                else:
+                    sessions = []
+                
+                self.log_test("Admin Support Sessions", True, 
+                            f"Endpoint accessible. Found {len(sessions)} support sessions")
+            else:
+                self.log_test("Admin Support Sessions", False, f"HTTP {response.status_code}", response.json())
+                
+        except Exception as e:
+            self.log_test("Admin Support Sessions", False, f"Exception: {str(e)}")
     
-    if results.failed == 0:
-        print("\n🎉 ALL NEW CANCELLATION/WALLET ENDPOINTS ARE WORKING CORRECTLY!")
-    else:
-        print(f"\n⚠️  {results.failed} endpoint(s) have issues that need attention.")
+    def test_admin_direct_message(self):
+        """Test POST /api/admin/direct-message"""
+        if not self.admin_token or not self.driver_user_id:
+            self.log_test("Admin Direct Message", False, "Missing admin token or driver user ID")
+            return
+            
+        try:
+            # Send message to driver
+            params = {
+                "target_user_id": self.driver_user_id,
+                "message": "Hola conductor"
+            }
+            
+            response = self.make_authenticated_request("POST", "/admin/direct-message", self.admin_token, params=params)
+            
+            if response.status_code == 200:
+                data = response.json()
+                
+                # Check response structure
+                if "status" in data and data["status"] == "sent":
+                    self.log_test("Admin Direct Message", True, 
+                                f"Message sent successfully. Message ID: {data.get('message_id', 'N/A')}")
+                else:
+                    self.log_test("Admin Direct Message", False, "Unexpected response structure", data)
+            else:
+                self.log_test("Admin Direct Message", False, f"HTTP {response.status_code}", response.json())
+                
+        except Exception as e:
+            self.log_test("Admin Direct Message", False, f"Exception: {str(e)}")
     
-    return results.failed == 0
+    def run_all_tests(self):
+        """Run all tests"""
+        print("=" * 80)
+        print("MOLÍ TAXI APP - NEW BACKEND API ENDPOINTS TESTING")
+        print("=" * 80)
+        print()
+        
+        # Authenticate users
+        print("🔐 AUTHENTICATION PHASE")
+        print("-" * 40)
+        self.admin_token, _ = self.authenticate_user(ADMIN_CREDENTIALS, "admin")
+        self.driver_token, self.driver_user_id = self.authenticate_user(DRIVER_CREDENTIALS, "driver")
+        
+        if not self.admin_token or not self.driver_token:
+            print("❌ Authentication failed. Cannot proceed with API tests.")
+            return
+        
+        print("🧪 API ENDPOINT TESTING PHASE")
+        print("-" * 40)
+        
+        # Test driver endpoints
+        self.test_driver_documents_required()
+        self.test_driver_verification_status()
+        
+        # Test admin endpoints
+        self.test_admin_drivers_pending_verification()
+        self.test_admin_support_sessions()
+        self.test_admin_direct_message()
+        
+        # Summary
+        print("=" * 80)
+        print("TEST SUMMARY")
+        print("=" * 80)
+        
+        total_tests = len(self.test_results)
+        passed_tests = sum(1 for result in self.test_results if result["success"])
+        failed_tests = total_tests - passed_tests
+        
+        print(f"Total Tests: {total_tests}")
+        print(f"Passed: {passed_tests}")
+        print(f"Failed: {failed_tests}")
+        print()
+        
+        if failed_tests > 0:
+            print("FAILED TESTS:")
+            for result in self.test_results:
+                if not result["success"]:
+                    print(f"❌ {result['test']}: {result['details']}")
+        else:
+            print("🎉 ALL TESTS PASSED!")
+        
+        return failed_tests == 0
 
 if __name__ == "__main__":
-    success = asyncio.run(run_all_tests())
-    exit(0 if success else 1)
+    tester = TaxiAPITester()
+    success = tester.run_all_tests()
+    sys.exit(0 if success else 1)

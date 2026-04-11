@@ -4364,6 +4364,65 @@ async def get_support_history(session_id: str = Query(None), user: dict = Depend
             m["created_at"] = m["created_at"].isoformat()
     return {"messages": msgs, "session_id": session_id}
 
+
+@app.get("/api/admin/support/sessions")
+async def get_admin_support_sessions(user: dict = Depends(get_current_user)):
+    """Admin: Get all support sessions with their latest messages"""
+    if user["user_type"] != "admin":
+        raise HTTPException(status_code=403, detail="Solo administradores")
+    
+    sessions = await db.support_sessions.find({}, {"_id": 0}).sort("escalated_at", -1).to_list(50)
+    
+    result = []
+    for s in sessions:
+        # Get last message for this session
+        last_msg = await db.support_messages.find(
+            {"session_id": s["session_id"]},
+            {"_id": 0}
+        ).sort("created_at", -1).to_list(1)
+        
+        # Get user info
+        target_user = await db.users.find_one(
+            {"user_id": s.get("user_id")},
+            {"_id": 0, "name": 1, "email": 1, "user_type": 1}
+        )
+        
+        result.append({
+            "session_id": s["session_id"],
+            "user_id": s.get("user_id", ""),
+            "user_name": target_user.get("name", target_user.get("email", "")) if target_user else s.get("user_id", ""),
+            "user_type": target_user.get("user_type", "") if target_user else "",
+            "escalated": s.get("escalated", False),
+            "last_message": last_msg[0].get("message", "") if last_msg else "",
+            "created_at": s.get("escalated_at", ""),
+        })
+    
+    # Also get non-escalated active support chats (unique sessions from messages)
+    active_sessions = await db.support_messages.aggregate([
+        {"$group": {"_id": "$session_id", "last_msg": {"$last": "$message"}, "user_id": {"$first": "$user_id"}, "last_at": {"$max": "$created_at"}}},
+        {"$sort": {"last_at": -1}},
+        {"$limit": 50}
+    ]).to_list(50)
+    
+    existing_ids = {r["session_id"] for r in result}
+    for a in active_sessions:
+        if a["_id"] not in existing_ids:
+            target_user = await db.users.find_one(
+                {"user_id": a.get("user_id")},
+                {"_id": 0, "name": 1, "email": 1, "user_type": 1}
+            )
+            result.append({
+                "session_id": a["_id"],
+                "user_id": a.get("user_id", ""),
+                "user_name": target_user.get("name", target_user.get("email", "")) if target_user else "",
+                "user_type": target_user.get("user_type", "") if target_user else "",
+                "escalated": False,
+                "last_message": a.get("last_msg", ""),
+                "created_at": a.get("last_at").isoformat() if isinstance(a.get("last_at"), datetime) else "",
+            })
+    
+    return {"sessions": result}
+
 @app.post("/api/admin/support/reply")
 async def admin_reply_to_support(
     session_id: str = Query(...),
@@ -4446,6 +4505,256 @@ async def update_support_hours(
     )
     return {"status": "updated", "hours": f"{start_hour}:00 - {end_hour}:00"}
 
+
+# ======================= DRIVER DOCUMENT VERIFICATION =======================
+
+REQUIRED_DOCUMENTS = [
+    {"key": "license", "label": "Licencia de conducir", "description": "Foto legible de tu licencia vigente"},
+    {"key": "id_front", "label": "DNI frente", "description": "Foto del frente de tu documento de identidad"},
+    {"key": "id_back", "label": "DNI dorso", "description": "Foto del dorso de tu documento de identidad"},
+    {"key": "vehicle_registration", "label": "Tarjeta de circulación", "description": "Registro del vehículo"},
+    {"key": "insurance", "label": "Seguro del vehículo", "description": "Póliza de seguro vigente"},
+    {"key": "criminal_record", "label": "Antecedentes penales", "description": "Certificado de antecedentes penales"},
+]
+
+@app.get("/api/driver/documents/required")
+async def get_required_documents(user: dict = Depends(get_current_user)):
+    """Get list of required documents and their upload status"""
+    if user["user_type"] != "driver":
+        raise HTTPException(status_code=403, detail="Solo conductores")
+    
+    uploaded = await db.driver_documents.find(
+        {"driver_id": user["user_id"]}, {"_id": 0}
+    ).to_list(20)
+    uploaded_map = {d["doc_type"]: d for d in uploaded}
+    
+    result = []
+    for doc in REQUIRED_DOCUMENTS:
+        entry = {
+            "key": doc["key"],
+            "label": doc["label"],
+            "description": doc["description"],
+            "status": "not_uploaded",
+        }
+        if doc["key"] in uploaded_map:
+            d = uploaded_map[doc["key"]]
+            entry["status"] = d.get("status", "pending")  # pending, approved, rejected
+            entry["uploaded_at"] = d.get("uploaded_at").isoformat() if isinstance(d.get("uploaded_at"), datetime) else str(d.get("uploaded_at", ""))
+            entry["reject_reason"] = d.get("reject_reason", "")
+            entry["document_id"] = d.get("document_id", "")
+        result.append(entry)
+    
+    # Overall status
+    all_approved = all(r["status"] == "approved" for r in result)
+    any_rejected = any(r["status"] == "rejected" for r in result)
+    all_uploaded = all(r["status"] != "not_uploaded" for r in result)
+    
+    return {
+        "documents": result,
+        "verification_status": "approved" if all_approved else "rejected" if any_rejected else "pending" if all_uploaded else "incomplete",
+        "is_verified": all_approved,
+    }
+
+@app.post("/api/driver/documents/upload")
+async def upload_driver_document(
+    doc_type: str = Query(...),
+    file: UploadFile = File(...),
+    user: dict = Depends(get_current_user)
+):
+    """Upload a required document"""
+    if user["user_type"] != "driver":
+        raise HTTPException(status_code=403, detail="Solo conductores")
+    
+    valid_types = [d["key"] for d in REQUIRED_DOCUMENTS]
+    if doc_type not in valid_types:
+        raise HTTPException(status_code=400, detail=f"Tipo inválido. Usa: {', '.join(valid_types)}")
+    
+    # Read file and store as base64
+    content = await file.read()
+    import base64
+    b64 = base64.b64encode(content).decode("utf-8")
+    mime = file.content_type or "image/jpeg"
+    data_uri = f"data:{mime};base64,{b64}"
+    
+    now = datetime.now(timezone.utc)
+    doc_id = generate_id("doc_")
+    
+    # Upsert document
+    await db.driver_documents.update_one(
+        {"driver_id": user["user_id"], "doc_type": doc_type},
+        {"$set": {
+            "document_id": doc_id,
+            "driver_id": user["user_id"],
+            "doc_type": doc_type,
+            "file_data": data_uri,
+            "file_name": file.filename,
+            "status": "pending",
+            "uploaded_at": now,
+            "reject_reason": "",
+        }},
+        upsert=True
+    )
+    
+    # Notify admins
+    admins = await db.users.find({"user_type": "admin"}, {"user_id": 1}).to_list(10)
+    for admin in admins:
+        await manager.send_personal_message({
+            "type": "new_document_upload",
+            "driver_id": user["user_id"],
+            "driver_name": user.get("name", "Conductor"),
+            "doc_type": doc_type,
+            "document_id": doc_id,
+        }, admin["user_id"])
+    
+    return {"status": "uploaded", "document_id": doc_id}
+
+@app.get("/api/driver/verification-status")
+async def get_driver_verification_status(user: dict = Depends(get_current_user)):
+    """Check if driver is fully verified"""
+    if user["user_type"] != "driver":
+        raise HTTPException(status_code=403, detail="Solo conductores")
+    
+    docs = await db.driver_documents.find(
+        {"driver_id": user["user_id"]}, {"_id": 0, "file_data": 0}
+    ).to_list(20)
+    
+    uploaded_types = {d["doc_type"] for d in docs}
+    required_types = {d["key"] for d in REQUIRED_DOCUMENTS}
+    
+    all_uploaded = required_types.issubset(uploaded_types)
+    all_approved = all_uploaded and all(d.get("status") == "approved" for d in docs if d["doc_type"] in required_types)
+    any_rejected = any(d.get("status") == "rejected" for d in docs)
+    
+    return {
+        "is_verified": all_approved,
+        "status": "approved" if all_approved else "rejected" if any_rejected else "pending" if all_uploaded else "incomplete",
+        "uploaded_count": len(uploaded_types & required_types),
+        "required_count": len(required_types),
+    }
+
+@app.get("/api/admin/drivers/pending-verification")
+async def get_pending_verifications(user: dict = Depends(get_current_user)):
+    """Admin: Get drivers with pending document verification"""
+    if user["user_type"] != "admin":
+        raise HTTPException(status_code=403, detail="Solo administradores")
+    
+    # Get all pending documents
+    pending_docs = await db.driver_documents.find(
+        {"status": "pending"}, {"_id": 0, "file_data": 0}
+    ).to_list(100)
+    
+    # Group by driver
+    driver_ids = list(set(d["driver_id"] for d in pending_docs))
+    drivers_data = []
+    
+    for did in driver_ids:
+        driver_user = await db.users.find_one({"user_id": did}, {"_id": 0, "password": 0})
+        driver_docs = await db.driver_documents.find(
+            {"driver_id": did}, {"_id": 0, "file_data": 0}
+        ).to_list(20)
+        
+        if driver_user:
+            drivers_data.append({
+                "driver_id": did,
+                "name": driver_user.get("name", "Sin nombre"),
+                "email": driver_user.get("email", ""),
+                "phone": driver_user.get("phone", ""),
+                "documents": [{
+                    **doc,
+                    "uploaded_at": doc["uploaded_at"].isoformat() if isinstance(doc.get("uploaded_at"), datetime) else str(doc.get("uploaded_at", "")),
+                } for doc in driver_docs],
+                "pending_count": sum(1 for d in driver_docs if d.get("status") == "pending"),
+            })
+    
+    return {"drivers": drivers_data}
+
+@app.get("/api/admin/drivers/{driver_id}/documents")
+async def get_driver_documents_admin(driver_id: str, user: dict = Depends(get_current_user)):
+    """Admin: Get all documents for a specific driver (with image data)"""
+    if user["user_type"] != "admin":
+        raise HTTPException(status_code=403, detail="Solo administradores")
+    
+    docs = await db.driver_documents.find(
+        {"driver_id": driver_id}, {"_id": 0}
+    ).to_list(20)
+    
+    driver_user = await db.users.find_one({"user_id": driver_id}, {"_id": 0, "password": 0})
+    
+    for d in docs:
+        if isinstance(d.get("uploaded_at"), datetime):
+            d["uploaded_at"] = d["uploaded_at"].isoformat()
+    
+    return {
+        "driver": {"name": driver_user.get("name", ""), "email": driver_user.get("email", "")} if driver_user else {},
+        "documents": docs,
+    }
+
+@app.post("/api/admin/documents/{document_id}/review")
+async def review_driver_document(
+    document_id: str,
+    action: str = Query(...),  # approve or reject
+    reason: str = Query(""),
+    user: dict = Depends(get_current_user)
+):
+    """Admin: Approve or reject a driver document"""
+    if user["user_type"] != "admin":
+        raise HTTPException(status_code=403, detail="Solo administradores")
+    
+    doc = await db.driver_documents.find_one({"document_id": document_id})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Documento no encontrado")
+    
+    now = datetime.now(timezone.utc)
+    update = {
+        "status": "approved" if action == "approve" else "rejected",
+        "reviewed_at": now,
+        "reviewed_by": user["user_id"],
+    }
+    if action == "reject":
+        update["reject_reason"] = reason
+    
+    await db.driver_documents.update_one(
+        {"document_id": document_id},
+        {"$set": update}
+    )
+    
+    # Check if ALL documents are now approved
+    driver_id = doc["driver_id"]
+    all_docs = await db.driver_documents.find(
+        {"driver_id": driver_id}, {"_id": 0, "file_data": 0}
+    ).to_list(20)
+    
+    required_types = {d["key"] for d in REQUIRED_DOCUMENTS}
+    uploaded_types = {d["doc_type"] for d in all_docs}
+    all_approved = required_types.issubset(uploaded_types) and all(
+        d.get("status") == "approved" for d in all_docs if d["doc_type"] in required_types
+    )
+    
+    # Update driver verification status
+    await db.drivers.update_one(
+        {"driver_id": driver_id},
+        {"$set": {"is_verified": all_approved, "verified_at": now if all_approved else None}}
+    )
+    
+    # Notify driver
+    status_text = "aprobado" if action == "approve" else "rechazado"
+    doc_label = next((d["label"] for d in REQUIRED_DOCUMENTS if d["key"] == doc["doc_type"]), doc["doc_type"])
+    notify_msg = f"Tu documento '{doc_label}' fue {status_text}."
+    if action == "reject" and reason:
+        notify_msg += f" Motivo: {reason}"
+    if all_approved:
+        notify_msg = "¡Todos tus documentos fueron aprobados! Ya puedes aceptar viajes."
+    
+    await manager.send_personal_message({
+        "type": "document_review",
+        "document_id": document_id,
+        "doc_type": doc["doc_type"],
+        "status": update["status"],
+        "message": notify_msg,
+        "all_verified": all_approved,
+    }, driver_id)
+    
+    return {"status": update["status"], "all_verified": all_approved}
 
 # ======================= BANNER / AD SYSTEM =======================
 
