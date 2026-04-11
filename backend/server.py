@@ -78,96 +78,131 @@ assignment_events: Dict[str, asyncio.Event] = {}  # request_id -> Event (set whe
 assignment_tasks: Dict[str, asyncio.Task] = {}  # request_id -> Task
 
 async def assign_ride_to_drivers(request_id: str, rider_id: str, sorted_drivers: list, request_doc: dict):
-    """Background task: offer ride to drivers one by one with 8s countdown"""
+    """Background task: offer ride to drivers in loop until one accepts or rider cancels.
+    After 10 total attempts without acceptance, asks rider if they want to continue."""
     event = asyncio.Event()
     assignment_events[request_id] = event
     
+    MAX_BEFORE_ASK = 10  # After 10 attempts, ask rider to continue
+    total_attempts = 0
+    
     try:
-        for i, driver in enumerate(sorted_drivers):
-            driver_id = driver["driver_id"]
-            now = datetime.now(timezone.utc)
+        while True:
+            # Re-fetch available drivers each round (they may come online)
+            fresh_drivers = sorted_drivers if total_attempts == 0 else None
+            if total_attempts > 0:
+                try:
+                    pickup = request_doc.get("pickup_location", {})
+                    fresh_drivers = await get_nearby_drivers(
+                        pickup.get("latitude", 0), pickup.get("longitude", 0),
+                        request_doc.get("vehicle_type"), 50
+                    )
+                except Exception:
+                    fresh_drivers = sorted_drivers
             
-            # Mark current offer on the request
-            await db.ride_requests.update_one(
-                {"request_id": request_id},
-                {"$set": {
-                    "current_offer_driver": driver_id,
-                    "offer_index": i,
-                    "offer_sent_at": now,
-                }}
-            )
+            if not fresh_drivers or len(fresh_drivers) == 0:
+                fresh_drivers = sorted_drivers  # fallback to original list
             
-            # Send offer to this driver via WebSocket
-            offer_msg = {
-                "type": "ride_offer",
-                "request_id": request_id,
-                "countdown": 8,
-                "pickup": request_doc.get("pickup_location", {}),
-                "dropoff": request_doc.get("dropoff_location", {}),
-                "fare": request_doc.get("estimated_fare", 0),
-                "distance_km": request_doc.get("estimated_distance", 0),
-                "duration_min": request_doc.get("estimated_duration", 0),
-                "vehicle_type": request_doc.get("vehicle_type", "economy"),
-                "rider_name": "Pasajero",
-            }
-            await manager.send_personal_message(offer_msg, driver_id)
-            
-            # Notify rider that we're offering to a driver
-            await manager.send_personal_message({
-                "type": "searching_driver",
-                "request_id": request_id,
-                "driver_index": i + 1,
-                "total_drivers": len(sorted_drivers),
-                "message": f"Ofreciendo viaje a conductor {i+1}/{len(sorted_drivers)}..."
-            }, rider_id)
-            
-            # Wait up to 8 seconds for driver response
-            event.clear()
-            try:
-                await asyncio.wait_for(event.wait(), timeout=8.0)
-            except asyncio.TimeoutError:
-                pass  # Driver didn't respond in time
-            
-            # Check if request was accepted
-            updated = await db.ride_requests.find_one({"request_id": request_id}, {"_id": 0})
-            if not updated:
-                return
-            
-            if updated.get("status") == "accepted":
-                # Driver accepted! Notify rider
-                ride = await db.rides.find_one({"request_id": request_id}, {"_id": 0})
-                if ride:
-                    ride_data = {k: (v.isoformat() if isinstance(v, datetime) else v) for k, v in ride.items()}
-                    driver_info = await db.users.find_one({"user_id": ride["driver_id"]}, {"_id": 0, "password_hash": 0})
+            for i, driver in enumerate(fresh_drivers):
+                # Check if request was cancelled by rider
+                req_check = await db.ride_requests.find_one({"request_id": request_id}, {"_id": 0})
+                if not req_check or req_check.get("status") in ("accepted", "cancelled", "completed"):
+                    return
+                
+                driver_id = driver["driver_id"]
+                total_attempts += 1
+                now = datetime.now(timezone.utc)
+                
+                # Mark current offer
+                await db.ride_requests.update_one(
+                    {"request_id": request_id},
+                    {"$set": {
+                        "current_offer_driver": driver_id,
+                        "offer_index": total_attempts,
+                        "offer_sent_at": now,
+                    }}
+                )
+                
+                # Send offer to driver via WebSocket
+                offer_msg = {
+                    "type": "ride_offer",
+                    "request_id": request_id,
+                    "countdown": 8,
+                    "pickup": request_doc.get("pickup_location", {}),
+                    "dropoff": request_doc.get("dropoff_location", {}),
+                    "fare": request_doc.get("estimated_fare", 0),
+                    "distance_km": request_doc.get("estimated_distance", 0),
+                    "duration_min": request_doc.get("estimated_duration", 0),
+                    "vehicle_type": request_doc.get("vehicle_type", "economy"),
+                    "rider_name": "Pasajero",
+                }
+                await manager.send_personal_message(offer_msg, driver_id)
+                
+                # Notify rider
+                await manager.send_personal_message({
+                    "type": "searching_driver",
+                    "request_id": request_id,
+                    "driver_index": total_attempts,
+                    "total_drivers": max(len(fresh_drivers), total_attempts),
+                    "message": f"Ofreciendo viaje a conductor {total_attempts}..."
+                }, rider_id)
+                
+                # Wait 8 seconds for response
+                event.clear()
+                try:
+                    await asyncio.wait_for(event.wait(), timeout=8.0)
+                except asyncio.TimeoutError:
+                    pass
+                
+                # Check result
+                updated = await db.ride_requests.find_one({"request_id": request_id}, {"_id": 0})
+                if not updated:
+                    return
+                
+                if updated.get("status") == "accepted":
+                    # Success! Notify rider
+                    ride = await db.rides.find_one({"request_id": request_id}, {"_id": 0})
+                    if ride:
+                        ride_data = {k: (v.isoformat() if isinstance(v, datetime) else v) for k, v in ride.items()}
+                        driver_info = await db.users.find_one({"user_id": ride["driver_id"]}, {"_id": 0, "password_hash": 0})
+                        await manager.send_personal_message({
+                            "type": "ride_accepted",
+                            "ride": ride_data,
+                            "driver": driver_info
+                        }, rider_id)
+                    return  # Done!
+                
+                if updated.get("status") in ("cancelled", "completed"):
+                    return  # Rider cancelled
+                
+                # Tell driver their offer expired
+                await manager.send_personal_message({
+                    "type": "ride_offer_expired",
+                    "request_id": request_id,
+                }, driver_id)
+                
+                # After MAX_BEFORE_ASK attempts, notify rider it's taking long
+                if total_attempts == MAX_BEFORE_ASK:
                     await manager.send_personal_message({
-                        "type": "ride_accepted",
-                        "ride": ride_data,
-                        "driver": driver_info
+                        "type": "search_taking_long",
+                        "request_id": request_id,
+                        "attempts": total_attempts,
+                        "message": "Está tardando más de lo normal en conseguir conductor. ¿Deseas seguir buscando?"
                     }, rider_id)
-                return  # Done!
             
-            # Not accepted - tell this driver their offer expired
-            await manager.send_personal_message({
-                "type": "ride_offer_expired",
-                "request_id": request_id,
-            }, driver_id)
+            # Finished one round of all drivers - small pause before retrying
+            await asyncio.sleep(2)
+            
+            # Re-check request status
+            req_final = await db.ride_requests.find_one({"request_id": request_id}, {"_id": 0})
+            if not req_final or req_final.get("status") in ("accepted", "cancelled", "completed"):
+                return
         
-        # All drivers passed - notify rider
-        await manager.send_personal_message({
-            "type": "no_drivers_available",
-            "request_id": request_id,
-            "message": "No hay conductores disponibles en este momento"
-        }, rider_id)
-        
-        # Mark request as no_drivers
-        await db.ride_requests.update_one(
-            {"request_id": request_id},
-            {"$set": {"status": "no_drivers", "current_offer_driver": None}}
-        )
     except Exception as e:
         print(f"Assignment error for {request_id}: {e}")
     finally:
         assignment_events.pop(request_id, None)
+        assignment_tasks.pop(request_id, None)
         assignment_tasks.pop(request_id, None)
 
 # ======================= PYDANTIC MODELS =======================
@@ -935,6 +970,29 @@ async def submit_bid(bid: BidCreate, user: dict = Depends(get_current_user)):
         estimated_arrival=bid.estimated_arrival,
         created_at=now
     )
+
+
+@app.post("/api/rides/request/{request_id}/cancel")
+async def cancel_ride_request(request_id: str, user: dict = Depends(get_current_user)):
+    """Rider cancels a pending ride request - stops the dispatch loop"""
+    request_doc = await db.ride_requests.find_one({"request_id": request_id}, {"_id": 0})
+    if not request_doc:
+        raise HTTPException(status_code=404, detail="Solicitud no encontrada")
+    
+    if request_doc.get("rider_id") != user["user_id"]:
+        raise HTTPException(status_code=403, detail="No autorizado")
+    
+    await db.ride_requests.update_one(
+        {"request_id": request_id},
+        {"$set": {"status": "cancelled", "current_offer_driver": None}}
+    )
+    
+    # Signal the assignment event so background task stops
+    if request_id in assignment_events:
+        assignment_events[request_id].set()
+    
+    return {"status": "cancelled", "message": "Búsqueda cancelada"}
+
 
 @app.post("/api/rides/{request_id}/driver-response")
 async def driver_respond_to_offer(

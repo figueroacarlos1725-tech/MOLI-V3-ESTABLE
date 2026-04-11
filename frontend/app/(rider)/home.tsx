@@ -64,6 +64,7 @@ export default function RiderHomeScreen() {
   const [dispatchMsg, setDispatchMsg] = useState('');
   const [dispatchProgress, setDispatchProgress] = useState<{ i: number; t: number } | null>(null);
   const [driverFound, setDriverFound] = useState(false);
+  const [showContinuePrompt, setShowContinuePrompt] = useState(false);
 
   // Banners
   const [banners, setBanners] = useState<any[]>([]);
@@ -197,8 +198,14 @@ export default function RiderHomeScreen() {
         clearRequest();
       }, 3000);
     });
+    const unsub5 = socketService.on('search_taking_long', () => {
+      setShowContinuePrompt(true);
+      setDispatchMsg('Está tardando más de lo normal...');
+      playSound('arrived');
+      Vibration.vibrate([0, 300, 200, 300]);
+    });
 
-    return () => { unsub1(); unsub2(); unsub3(); unsub4(); };
+    return () => { unsub1(); unsub2(); unsub3(); unsub4(); unsub5(); };
   }, [user]);
 
   // ─── Polling fallback when searching ──────
@@ -355,10 +362,27 @@ export default function RiderHomeScreen() {
     }
   };
 
-  const handleCancelSearch = () => {
+  const handleCancelSearch = async () => {
+    // Cancel the search on backend
+    try {
+      if (currentRequest?.request_id) {
+        const url = process.env.EXPO_PUBLIC_BACKEND_URL || '';
+        const token = useAuthStore.getState().token;
+        await fetch(`${url}/api/rides/request/${currentRequest.request_id}/cancel`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}` },
+        });
+      }
+    } catch (e) { /* ignore */ }
     clearRequest();
     resetDispatch();
+    setShowContinuePrompt(false);
     setPhase('confirm');
+  };
+
+  const handleContinueSearch = () => {
+    setShowContinuePrompt(false);
+    setDispatchMsg('Seguimos buscando conductor...');
   };
 
   const handleBackToIdle = () => {
@@ -631,16 +655,28 @@ export default function RiderHomeScreen() {
               <Text style={s.foundText}>¡Conductor encontrado!</Text>
               <Text style={s.foundSub}>Preparando tu viaje...</Text>
             </View>
+          ) : showContinuePrompt ? (
+            <View style={s.searchingContainer}>
+              <Ionicons name="time-outline" size={48} color="#FF9500" />
+              <Text style={s.searchingText}>Está tardando más de lo normal</Text>
+              <Text style={s.searchingHint}>No hemos podido asignar un conductor aún. ¿Deseas seguir buscando?</Text>
+              <TouchableOpacity style={s.confirmBtn} onPress={handleContinueSearch}>
+                <Text style={s.confirmBtnText}>Sí, seguir buscando</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={s.cancelSearchBtn} onPress={handleCancelSearch}>
+                <Text style={s.cancelSearchText}>Cancelar viaje</Text>
+              </TouchableOpacity>
+            </View>
           ) : (
             <View style={s.searchingContainer}>
               <ActivityIndicator size="large" color="#6BBF00" />
               <Text style={s.searchingText}>{dispatchMsg || 'Buscando conductores cercanos...'}</Text>
               {dispatchProgress && (
                 <View style={s.progressBar}>
-                  <View style={[s.progressFill, { width: `${(dispatchProgress.i / dispatchProgress.t) * 100}%` }]} />
+                  <View style={[s.progressFill, { width: `${Math.min((dispatchProgress.i / Math.max(dispatchProgress.t, 1)) * 100, 100)}%` }]} />
                 </View>
               )}
-              <Text style={s.searchingHint}>Esto puede tardar unos segundos</Text>
+              <Text style={s.searchingHint}>El sistema busca al conductor más cercano</Text>
               <TouchableOpacity style={s.cancelSearchBtn} onPress={handleCancelSearch}>
                 <Text style={s.cancelSearchText}>Cancelar búsqueda</Text>
               </TouchableOpacity>
