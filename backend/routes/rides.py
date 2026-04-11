@@ -228,7 +228,7 @@ async def driver_respond_to_offer(
     if not request_doc:
         raise HTTPException(status_code=404, detail="Solicitud no encontrada")
     
-    if request_doc.get("status") not in ["pending", "bidding"]:
+    if request_doc.get("status") not in ["pending", "bidding", "searching"]:
         raise HTTPException(status_code=400, detail="Esta solicitud ya no está disponible")
     
     # Verify this driver is the one being offered
@@ -236,12 +236,12 @@ async def driver_respond_to_offer(
         raise HTTPException(status_code=400, detail="Esta oferta no está asignada a ti")
     
     if action == "accept":
-        # Create ride (similar to accept_bid logic)
-        ride_id = generate_id("ride_")
-        now = datetime.now(timezone.utc)
+        # Check if a ride already exists for this request (manual trips create one)
+        existing_ride = await db.rides.find_one({"request_id": request_id}, {"_id": 0})
         
+        now = datetime.now(timezone.utc)
         settings = await get_settings()
-        fare = request_doc.get("estimated_fare", 0)
+        fare = request_doc.get("estimated_fare", 0) or existing_ride.get("fare", 0) if existing_ride else 0
         commission = fare * settings.get("commission_rate", 0.20)
         driver_earnings = fare - commission
         
@@ -251,37 +251,61 @@ async def driver_respond_to_offer(
             {"_id": 0}
         )
         
-        ride_doc = {
-            "ride_id": ride_id,
-            "request_id": request_id,
-            "rider_id": request_doc["rider_id"],
-            "driver_id": user["user_id"],
-            "pickup_location": request_doc["pickup_location"],
-            "dropoff_location": request_doc["dropoff_location"],
-            "ride_type": request_doc.get("ride_type", "standard"),
-            "vehicle_type": request_doc.get("vehicle_type", "economy"),
-            "status": "accepted",
-            "fare": fare,
-            "commission": round(commission, 2),
-            "driver_earnings": round(driver_earnings, 2),
-            "payment_method": request_doc.get("payment_method", "cash"),
-            "payment_status": "pending",
-            "driver_location": None,
-            "vehicle_info": {
-                "make": vehicle.get("make", "") if vehicle else "",
-                "model": vehicle.get("model", "") if vehicle else "",
-                "color": vehicle.get("color", "") if vehicle else "",
-                "plate_number": vehicle.get("plate_number", "") if vehicle else "",
-                "vehicle_type": vehicle.get("vehicle_type", "economy") if vehicle else "economy",
-            } if vehicle else None,
-            "accepted_at": now,
-            "started_at": None,
-            "completed_at": None,
-            "cancelled_at": None,
-            "created_at": now
-        }
+        vehicle_info = {
+            "make": vehicle.get("make", "") if vehicle else "",
+            "model": vehicle.get("model", "") if vehicle else "",
+            "color": vehicle.get("color", "") if vehicle else "",
+            "plate_number": vehicle.get("plate_number", "") if vehicle else "",
+            "vehicle_type": vehicle.get("vehicle_type", "economy") if vehicle else "economy",
+        } if vehicle else None
         
-        await db.rides.insert_one(ride_doc)
+        is_taximeter = request_doc.get("dropoff_location") is None or existing_ride.get("is_ticketera", False) if existing_ride else False
+        
+        if existing_ride:
+            # Update the existing ride (manual trips)
+            ride_id = existing_ride["ride_id"]
+            await db.rides.update_one(
+                {"ride_id": ride_id},
+                {"$set": {
+                    "driver_id": user["user_id"],
+                    "status": "accepted",
+                    "fare": fare,
+                    "commission": round(commission, 2),
+                    "driver_earnings": round(driver_earnings, 2),
+                    "vehicle_info": vehicle_info,
+                    "accepted_at": now,
+                    "is_taximeter": is_taximeter,
+                }}
+            )
+            ride_doc = {**existing_ride, "driver_id": user["user_id"], "status": "accepted", "accepted_at": now, "vehicle_info": vehicle_info, "is_taximeter": is_taximeter}
+        else:
+            # Create new ride (app-based requests)
+            ride_id = generate_id("ride_")
+            ride_doc = {
+                "ride_id": ride_id,
+                "request_id": request_id,
+                "rider_id": request_doc["rider_id"],
+                "driver_id": user["user_id"],
+                "pickup_location": request_doc["pickup_location"],
+                "dropoff_location": request_doc.get("dropoff_location"),
+                "ride_type": request_doc.get("ride_type", "standard"),
+                "vehicle_type": request_doc.get("vehicle_type", "economy"),
+                "status": "accepted",
+                "fare": fare,
+                "commission": round(commission, 2),
+                "driver_earnings": round(driver_earnings, 2),
+                "payment_method": request_doc.get("payment_method", "cash"),
+                "payment_status": "pending",
+                "driver_location": None,
+                "vehicle_info": vehicle_info,
+                "is_taximeter": request_doc.get("dropoff_location") is None,
+                "accepted_at": now,
+                "started_at": None,
+                "completed_at": None,
+                "cancelled_at": None,
+                "created_at": now
+            }
+            await db.rides.insert_one(ride_doc)
         
         # Update request status
         await db.ride_requests.update_one(
@@ -326,6 +350,18 @@ async def driver_respond_to_offer(
         
         ride_response = {k: (v.isoformat() if isinstance(v, datetime) else v) for k, v in ride_doc.items() if k != "_id"}
         ride_response["driver_info"] = driver_info
+        
+        # Send taximeter notification if applicable
+        if ride_doc.get("is_taximeter") or ride_doc.get("is_ticketera"):
+            try:
+                await send_push_notification(
+                    user["user_id"],
+                    "Viaje de Taxímetro",
+                    "Este viaje usa taxímetro. El cobro se calcula por distancia recorrida y tiempo de espera. ¡Aprovechá para generar más ingresos!",
+                    data={"type": "taximeter_ride", "ride_id": ride_id}
+                )
+            except Exception:
+                pass
         
         return {
             "status": "accepted",
