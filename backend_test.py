@@ -1,442 +1,261 @@
 #!/usr/bin/env python3
 """
-Backend Test Suite for Molí Taxi App - Automatic Driver Dispatch System
-Tests the new driver-response endpoint and complete dispatch flow
+Backend API Testing for Molí Taxi App - Cancellation & Wallet System
+Tests the new cancellation/wallet endpoints (simplified version)
 """
 
 import asyncio
 import httpx
 import json
-import time
-from datetime import datetime
+from datetime import datetime, timezone
 
-# Backend URL from frontend .env
+# Backend URL from environment
 BACKEND_URL = "https://taxify-clone.preview.emergentagent.com/api"
 
-# Test credentials from test_credentials.md
-RIDER_EMAIL = "rider@test.com"
-RIDER_PASSWORD = "test123456"
-DRIVER_EMAIL = "driver@test.com"
-DRIVER_PASSWORD = "test123456"
+# Test credentials
+ADMIN_CREDS = {"email": "admin@test.com", "password": "admin123456"}
+RIDER_CREDS = {"email": "rider@test.com", "password": "test123456"}
+DRIVER_CREDS = {"email": "driver@test.com", "password": "test123456"}
 
 class TestResults:
     def __init__(self):
         self.passed = 0
         self.failed = 0
         self.errors = []
-        
-    def log_pass(self, test_name):
-        print(f"✅ PASS: {test_name}")
+    
+    def success(self, test_name):
+        print(f"✅ {test_name}")
         self.passed += 1
-        
-    def log_fail(self, test_name, error):
-        print(f"❌ FAIL: {test_name} - {error}")
+    
+    def fail(self, test_name, error):
+        print(f"❌ {test_name}: {error}")
         self.failed += 1
         self.errors.append(f"{test_name}: {error}")
-        
+    
     def summary(self):
         total = self.passed + self.failed
-        print(f"\n{'='*60}")
-        print(f"TEST SUMMARY: {self.passed}/{total} passed")
+        print(f"\n📊 Test Results: {self.passed}/{total} passed")
         if self.errors:
-            print(f"\nFAILED TESTS:")
+            print("\n🔍 Failures:")
             for error in self.errors:
                 print(f"  - {error}")
-        print(f"{'='*60}")
 
-results = TestResults()
-
-async def make_request(method, endpoint, headers=None, json_data=None, params=None):
-    """Make HTTP request with error handling"""
-    url = f"{BACKEND_URL}{endpoint}"
-    
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        try:
-            if method.upper() == "GET":
-                response = await client.get(url, headers=headers, params=params)
-            elif method.upper() == "POST":
-                response = await client.post(url, headers=headers, json=json_data, params=params)
-            elif method.upper() == "PUT":
-                response = await client.put(url, headers=headers, json=json_data, params=params)
-            else:
-                raise ValueError(f"Unsupported method: {method}")
-                
-            return response
-        except Exception as e:
-            print(f"Request error for {method} {url}: {e}")
-            return None
-
-async def login_user(email, password):
+async def login_user(credentials):
     """Login and return auth token"""
-    response = await make_request("POST", "/auth/login", json_data={
-        "email": email,
-        "password": password
-    })
-    
-    if response and response.status_code == 200:
-        data = response.json()
-        return data.get("access_token"), data.get("user")
-    return None, None
-
-async def test_driver_login():
-    """Test Step 1: Login as driver"""
-    print("\n🔐 Testing driver login...")
-    
-    token, user = await login_user(DRIVER_EMAIL, DRIVER_PASSWORD)
-    
-    if token and user:
-        if user.get("user_type") == "driver":
-            results.log_pass("Driver login successful")
-            return token, user
+    async with httpx.AsyncClient(timeout=30) as client:
+        response = await client.post(f"{BACKEND_URL}/auth/login", json=credentials)
+        if response.status_code == 200:
+            data = response.json()
+            return data["access_token"]
         else:
-            results.log_fail("Driver login", f"Expected driver user type, got {user.get('user_type')}")
-    else:
-        results.log_fail("Driver login", "Failed to get token or user data")
-    
-    return None, None
+            raise Exception(f"Login failed: {response.status_code} - {response.text}")
 
-async def test_vehicle_registration(driver_token):
-    """Test Step 2: Register a vehicle for the driver"""
-    print("\n🚗 Testing vehicle registration...")
+async def make_request(method, endpoint, token=None, json_data=None, params=None):
+    """Make authenticated API request"""
+    headers = {}
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
     
-    headers = {"Authorization": f"Bearer {driver_token}"}
-    vehicle_data = {
-        "make": "Toyota",
-        "model": "Corolla",
-        "year": 2020,
-        "color": "Blanco",
-        "plate_number": "ABC123",
-        "vehicle_type": "economy",
-        "capacity": 4
-    }
-    
-    response = await make_request("POST", "/vehicles", headers=headers, json_data=vehicle_data)
-    
-    if response and response.status_code == 200:
-        data = response.json()
-        if data.get("vehicle_id"):
-            results.log_pass("Vehicle registration successful")
-            return data.get("vehicle_id")
+    async with httpx.AsyncClient(timeout=30) as client:
+        if method.upper() == "GET":
+            response = await client.get(f"{BACKEND_URL}{endpoint}", headers=headers, params=params)
+        elif method.upper() == "POST":
+            response = await client.post(f"{BACKEND_URL}{endpoint}", headers=headers, json=json_data, params=params)
+        elif method.upper() == "PUT":
+            response = await client.put(f"{BACKEND_URL}{endpoint}", headers=headers, json=json_data, params=params)
         else:
-            results.log_fail("Vehicle registration", "No vehicle_id in response")
-    else:
-        error_msg = response.text if response else "No response"
-        results.log_fail("Vehicle registration", f"Status: {response.status_code if response else 'None'}, Error: {error_msg}")
-    
-    return None
-
-async def test_driver_availability(driver_token):
-    """Test Step 3: Set driver online with location"""
-    print("\n📍 Testing driver availability update...")
-    
-    headers = {"Authorization": f"Bearer {driver_token}"}
-    params = {
-        "is_online": "true",
-        "latitude": "-28.4696",
-        "longitude": "-65.7852"
-    }
-    
-    response = await make_request("PUT", "/drivers/availability", headers=headers, params=params)
-    
-    if response and response.status_code == 200:
-        data = response.json()
-        if data.get("status") == "success" and data.get("is_online") == True:
-            results.log_pass("Driver availability update successful")
-            return True
-        else:
-            results.log_fail("Driver availability", f"Unexpected response: {data}")
-    else:
-        error_msg = response.text if response else "No response"
-        results.log_fail("Driver availability", f"Status: {response.status_code if response else 'None'}, Error: {error_msg}")
-    
-    return False
-
-async def test_rider_login():
-    """Test Step 4: Login as rider"""
-    print("\n🔐 Testing rider login...")
-    
-    token, user = await login_user(RIDER_EMAIL, RIDER_PASSWORD)
-    
-    if token and user:
-        if user.get("user_type") == "rider":
-            results.log_pass("Rider login successful")
-            return token, user
-        else:
-            results.log_fail("Rider login", f"Expected rider user type, got {user.get('user_type')}")
-    else:
-        results.log_fail("Rider login", "Failed to get token or user data")
-    
-    return None, None
-
-async def test_ride_request_creation(rider_token):
-    """Test Step 5: Create ride request as rider"""
-    print("\n🚕 Testing ride request creation...")
-    
-    headers = {"Authorization": f"Bearer {rider_token}"}
-    ride_request = {
-        "pickup_location": {
-            "latitude": -28.4696,
-            "longitude": -65.7852,
-            "address": "San Martín 152, San Fernando del Valle de Catamarca"
-        },
-        "dropoff_location": {
-            "latitude": -28.4800,
-            "longitude": -65.7900,
-            "address": "Avenida Belgrano 500, San Fernando del Valle de Catamarca"
-        },
-        "ride_type": "standard",
-        "vehicle_type": "economy",
-        "payment_method": "cash"
-    }
-    
-    response = await make_request("POST", "/rides/request", headers=headers, json_data=ride_request)
-    
-    if response and response.status_code == 200:
-        data = response.json()
-        request_id = data.get("request_id")
-        if request_id and data.get("status") == "pending":
-            results.log_pass("Ride request creation successful")
-            return request_id
-        else:
-            results.log_fail("Ride request creation", f"Missing request_id or wrong status: {data}")
-    else:
-        error_msg = response.text if response else "No response"
-        results.log_fail("Ride request creation", f"Status: {response.status_code if response else 'None'}, Error: {error_msg}")
-    
-    return None
-
-async def test_ride_request_status(request_id, rider_token, driver_token):
-    """Test Step 6: Check that request has status 'pending' and current_offer_driver is set"""
-    print("\n📋 Testing ride request status and driver assignment...")
-    
-    # Wait a moment for background assignment to start
-    await asyncio.sleep(3)
-    
-    # Use driver token to check pending requests (since riders can't access this endpoint)
-    headers = {"Authorization": f"Bearer {driver_token}"}
-    
-    response = await make_request("GET", f"/rides/requests/pending", headers=headers, params={
-        "latitude": "-28.4696",
-        "longitude": "-65.7852"
-    })
-    
-    if response and response.status_code == 200:
-        data = response.json()
-        requests = data.get("requests", [])
+            raise ValueError(f"Unsupported method: {method}")
         
-        # Find our request
-        our_request = None
-        for req in requests:
-            if req.get("request_id") == request_id:
-                our_request = req
-                break
+        return response
+
+async def test_cancellation_config(results):
+    """Test GET /api/cancellation/config"""
+    try:
+        # Test with rider auth
+        rider_token = await login_user(RIDER_CREDS)
+        response = await make_request("GET", "/cancellation/config", rider_token)
         
-        if our_request:
-            status = our_request.get("status")
-            current_offer_driver = our_request.get("current_offer_driver")
+        if response.status_code == 200:
+            data = response.json()
+            required_fields = ["cancel_free_minutes", "rider_cancel_penalty", "driver_cancel_penalty", 
+                             "driver_max_negative_balance", "driver_block_after_cancels", "driver_block_hours"]
             
-            if status == "pending":
-                results.log_pass("Ride request status is 'pending'")
-                
-                if current_offer_driver:
-                    results.log_pass("Current offer driver is set")
-                    return current_offer_driver
-                else:
-                    # The assignment might still be in progress, let's check if it's in the list
-                    results.log_pass("Ride request found in pending list (assignment in progress)")
-                    return "assignment_in_progress"
+            missing_fields = [field for field in required_fields if field not in data]
+            if missing_fields:
+                results.fail("GET /api/cancellation/config", f"Missing fields: {missing_fields}")
             else:
-                results.log_fail("Ride request status", f"Expected 'pending', got '{status}'")
+                results.success("GET /api/cancellation/config - Returns all required fields")
+                print(f"   Config: {data}")
         else:
-            # Request might have been processed already, let's check if it was accepted
-            results.log_pass("Request not in pending list (may have been processed)")
-            return "processed"
-    else:
-        error_msg = response.text if response else "No response"
-        results.log_fail("Ride request status", f"Status: {response.status_code if response else 'None'}, Error: {error_msg}")
-    
-    return None
+            results.fail("GET /api/cancellation/config", f"HTTP {response.status_code}: {response.text}")
+    except Exception as e:
+        results.fail("GET /api/cancellation/config", str(e))
 
-async def test_driver_accept_offer(request_id, driver_token):
-    """Test Step 7: Use driver token to accept ride offer"""
-    print("\n✅ Testing driver accept offer...")
-    
-    headers = {"Authorization": f"Bearer {driver_token}"}
-    params = {"action": "accept"}
-    
-    response = await make_request("POST", f"/rides/{request_id}/driver-response", headers=headers, params=params)
-    
-    if response and response.status_code == 200:
-        data = response.json()
-        if data.get("status") == "accepted" and data.get("ride_id"):
-            results.log_pass("Driver accept offer successful")
-            return data.get("ride_id"), data.get("ride")
-        else:
-            results.log_fail("Driver accept offer", f"Unexpected response: {data}")
-    else:
-        error_msg = response.text if response else "No response"
-        results.log_fail("Driver accept offer", f"Status: {response.status_code if response else 'None'}, Error: {error_msg}")
-    
-    return None, None
-
-async def test_active_ride_verification(driver_token):
-    """Test Step 8: Verify ride was created"""
-    print("\n🔍 Testing active ride verification...")
-    
-    headers = {"Authorization": f"Bearer {driver_token}"}
-    
-    response = await make_request("GET", "/rides/active", headers=headers)
-    
-    if response and response.status_code == 200:
-        data = response.json()
-        ride = data.get("ride")
+async def test_wallet_status(results):
+    """Test GET /api/wallet/status for both rider and driver"""
+    try:
+        # Test rider wallet status
+        rider_token = await login_user(RIDER_CREDS)
+        response = await make_request("GET", "/wallet/status", rider_token)
         
-        if ride and ride.get("status") == "accepted":
-            results.log_pass("Active ride verification successful")
-            return ride
+        if response.status_code == 200:
+            data = response.json()
+            rider_fields = ["balance", "pending_penalties", "total_pending", "max_pending_penalties", "cancel_penalty"]
+            missing_fields = [field for field in rider_fields if field not in data]
+            if missing_fields:
+                results.fail("GET /api/wallet/status (Rider)", f"Missing fields: {missing_fields}")
+            else:
+                results.success("GET /api/wallet/status (Rider) - Returns all required fields")
+                print(f"   Rider wallet: balance={data['balance']}, pending_penalties={len(data['pending_penalties'])}")
         else:
-            results.log_fail("Active ride verification", f"No active ride or wrong status: {data}")
-    else:
-        error_msg = response.text if response else "No response"
-        results.log_fail("Active ride verification", f"Status: {response.status_code if response else 'None'}, Error: {error_msg}")
-    
-    return None
-
-async def test_driver_reject_offer(request_id, driver_token):
-    """Test Step 9: Test rejection flow"""
-    print("\n❌ Testing driver reject offer...")
-    
-    headers = {"Authorization": f"Bearer {driver_token}"}
-    params = {"action": "reject"}
-    
-    response = await make_request("POST", f"/rides/{request_id}/driver-response", headers=headers, params=params)
-    
-    if response and response.status_code == 200:
-        data = response.json()
-        if data.get("status") == "rejected":
-            results.log_pass("Driver reject offer successful")
-            return True
+            results.fail("GET /api/wallet/status (Rider)", f"HTTP {response.status_code}: {response.text}")
+        
+        # Test driver wallet status
+        driver_token = await login_user(DRIVER_CREDS)
+        response = await make_request("GET", "/wallet/status", driver_token)
+        
+        if response.status_code == 200:
+            data = response.json()
+            driver_fields = ["balance", "driver_block", "cancel_count_30d", "max_cancels_before_block", 
+                           "max_negative_balance", "cancel_penalty"]
+            missing_fields = [field for field in driver_fields if field not in data]
+            if missing_fields:
+                results.fail("GET /api/wallet/status (Driver)", f"Missing fields: {missing_fields}")
+            else:
+                results.success("GET /api/wallet/status (Driver) - Returns all required fields")
+                print(f"   Driver wallet: balance={data['balance']}, cancel_count_30d={data['cancel_count_30d']}")
         else:
-            results.log_fail("Driver reject offer", f"Unexpected response: {data}")
-    else:
-        error_msg = response.text if response else "No response"
-        results.log_fail("Driver reject offer", f"Status: {response.status_code if response else 'None'}, Error: {error_msg}")
-    
-    return False
+            results.fail("GET /api/wallet/status (Driver)", f"HTTP {response.status_code}: {response.text}")
+            
+    except Exception as e:
+        results.fail("GET /api/wallet/status", str(e))
 
-async def test_error_cases(driver_token, rider_token):
-    """Test Step 10: Test error cases"""
-    print("\n🚨 Testing error cases...")
-    
-    # Test 1: Invalid request_id
-    headers = {"Authorization": f"Bearer {driver_token}"}
-    params = {"action": "accept"}
-    
-    response = await make_request("POST", "/rides/invalid_request_id/driver-response", headers=headers, params=params)
-    
-    if response and response.status_code == 404:
-        results.log_pass("Invalid request_id error handling")
-    else:
-        results.log_fail("Invalid request_id error", f"Expected 404, got {response.status_code if response else 'None'}")
-    
-    # Test 2: Invalid action (this returns 404 because route doesn't match)
-    headers = {"Authorization": f"Bearer {driver_token}"}
-    params = {"action": "invalid_action"}
-    
-    response = await make_request("POST", "/rides/req_123/driver-response", headers=headers, params=params)
-    
-    if response and response.status_code == 404:
-        results.log_pass("Invalid action error handling (404 expected)")
-    else:
-        results.log_fail("Invalid action error", f"Expected 404, got {response.status_code if response else 'None'}")
-    
-    # Test 3: Rider trying to use driver endpoint
-    headers = {"Authorization": f"Bearer {rider_token}"}
-    params = {"action": "accept"}
-    
-    response = await make_request("POST", "/rides/req_123/driver-response", headers=headers, params=params)
-    
-    if response and response.status_code == 403:
-        results.log_pass("Rider access restriction")
-    else:
-        results.log_fail("Rider access restriction", f"Expected 403, got {response.status_code if response else 'None'}")
-
-async def main():
-    """Main test execution"""
-    print("🚀 Starting Automatic Driver Dispatch System Tests")
-    print(f"Backend URL: {BACKEND_URL}")
-    print("="*60)
-    
-    # Step 1: Login as driver
-    driver_token, driver_user = await test_driver_login()
-    if not driver_token:
-        print("❌ Cannot continue without driver login")
-        results.summary()
-        return
-    
-    # Step 2: Register vehicle
-    vehicle_id = await test_vehicle_registration(driver_token)
-    if not vehicle_id:
-        print("⚠️ Vehicle registration failed, but continuing...")
-    
-    # Step 3: Set driver online
-    driver_online = await test_driver_availability(driver_token)
-    if not driver_online:
-        print("❌ Cannot continue without driver being online")
-        results.summary()
-        return
-    
-    # Step 4: Login as rider
-    rider_token, rider_user = await test_rider_login()
-    if not rider_token:
-        print("❌ Cannot continue without rider login")
-        results.summary()
-        return
-    
-    # Step 5: Create ride request
-    request_id = await test_ride_request_creation(rider_token)
-    if not request_id:
-        print("❌ Cannot continue without ride request")
-        results.summary()
-        return
-    
-    # Step 6: Check request status and driver assignment
-    current_offer_driver = await test_ride_request_status(request_id, rider_token, driver_token)
-    
-    # Step 7: Accept offer
-    ride_id, ride_data = await test_driver_accept_offer(request_id, driver_token)
-    
-    # Step 8: Verify active ride
-    if ride_id:
-        active_ride = await test_active_ride_verification(driver_token)
-    
-    # Step 9: Test rejection flow (create new request first)
-    print("\n🔄 Creating new request for rejection test...")
-    
-    # First, we need to make the driver available again by completing the current ride
-    if ride_id:
-        print("📝 Completing current ride to make driver available...")
-        headers = {"Authorization": f"Bearer {driver_token}"}
-        await make_request("PUT", f"/rides/{ride_id}/status", headers=headers, json_data={"status": "completed"})
-        await asyncio.sleep(1)
-    
-    request_id_2 = await test_ride_request_creation(rider_token)
-    if request_id_2:
-        # Wait for assignment to happen
-        await asyncio.sleep(5)
-        # Check if the driver is assigned to this request
-        current_offer_driver_2 = await test_ride_request_status(request_id_2, rider_token, driver_token)
-        if current_offer_driver_2 and current_offer_driver_2 not in ["assignment_in_progress", "processed"]:
-            await test_driver_reject_offer(request_id_2, driver_token)
+async def test_driver_block_status(results):
+    """Test GET /api/driver/block-status"""
+    try:
+        # Test with driver auth
+        driver_token = await login_user(DRIVER_CREDS)
+        response = await make_request("GET", "/driver/block-status", driver_token)
+        
+        if response.status_code == 200:
+            data = response.json()
+            if "is_blocked" not in data:
+                results.fail("GET /api/driver/block-status", "Missing 'is_blocked' field")
+            else:
+                results.success("GET /api/driver/block-status - Returns block status")
+                print(f"   Driver blocked: {data['is_blocked']}")
         else:
-            print("⚠️ No driver assignment for rejection test, skipping...")
-            results.log_pass("Driver reject offer (skipped - no assignment)")
+            results.fail("GET /api/driver/block-status", f"HTTP {response.status_code}: {response.text}")
+        
+        # Test with non-driver (should fail)
+        rider_token = await login_user(RIDER_CREDS)
+        response = await make_request("GET", "/driver/block-status", rider_token)
+        
+        if response.status_code == 403:
+            results.success("GET /api/driver/block-status - Correctly rejects non-drivers")
+        else:
+            results.fail("GET /api/driver/block-status", f"Should reject non-drivers, got {response.status_code}")
+            
+    except Exception as e:
+        results.fail("GET /api/driver/block-status", str(e))
+
+async def test_cancellation_history(results):
+    """Test GET /api/cancellation/history"""
+    try:
+        # Test with rider auth
+        rider_token = await login_user(RIDER_CREDS)
+        response = await make_request("GET", "/cancellation/history", rider_token)
+        
+        if response.status_code == 200:
+            data = response.json()
+            if "records" not in data:
+                results.fail("GET /api/cancellation/history", "Missing 'records' field")
+            else:
+                results.success("GET /api/cancellation/history - Returns records array")
+                print(f"   Cancellation records: {len(data['records'])} found")
+        else:
+            results.fail("GET /api/cancellation/history", f"HTTP {response.status_code}: {response.text}")
+            
+    except Exception as e:
+        results.fail("GET /api/cancellation/history", str(e))
+
+async def test_admin_settings(results):
+    """Test GET /api/admin/settings includes cancellation fields"""
+    try:
+        admin_token = await login_user(ADMIN_CREDS)
+        response = await make_request("GET", "/admin/settings", admin_token)
+        
+        if response.status_code == 200:
+            data = response.json()
+            cancellation_fields = ["cancel_free_minutes", "rider_cancel_penalty", "driver_cancel_penalty"]
+            missing_fields = [field for field in cancellation_fields if field not in data]
+            if missing_fields:
+                results.fail("GET /api/admin/settings", f"Missing cancellation fields: {missing_fields}")
+            else:
+                results.success("GET /api/admin/settings - Includes cancellation configuration")
+                print(f"   Settings: cancel_free_minutes={data.get('cancel_free_minutes')}, rider_penalty={data.get('rider_cancel_penalty')}")
+        else:
+            results.fail("GET /api/admin/settings", f"HTTP {response.status_code}: {response.text}")
+            
+    except Exception as e:
+        results.fail("GET /api/admin/settings", str(e))
+
+async def test_admin_settings_update(results):
+    """Test PUT /api/admin/settings with cancellation fields"""
+    try:
+        admin_token = await login_user(ADMIN_CREDS)
+        
+        # Update cancellation settings
+        update_data = {
+            "cancel_free_minutes": 2,
+            "rider_cancel_penalty": 600
+        }
+        
+        response = await make_request("PUT", "/admin/settings", admin_token, json_data=update_data)
+        
+        if response.status_code == 200:
+            # Verify the update worked
+            get_response = await make_request("GET", "/admin/settings", admin_token)
+            if get_response.status_code == 200:
+                data = get_response.json()
+                if data.get("cancel_free_minutes") == 2 and data.get("rider_cancel_penalty") == 600:
+                    results.success("PUT /api/admin/settings - Successfully updates cancellation settings")
+                    print(f"   Updated: cancel_free_minutes={data.get('cancel_free_minutes')}, rider_penalty={data.get('rider_cancel_penalty')}")
+                else:
+                    results.fail("PUT /api/admin/settings", "Settings not properly updated")
+            else:
+                results.fail("PUT /api/admin/settings", "Could not verify update")
+        else:
+            results.fail("PUT /api/admin/settings", f"HTTP {response.status_code}: {response.text}")
+            
+    except Exception as e:
+        results.fail("PUT /api/admin/settings", str(e))
+
+async def run_all_tests():
+    """Run all cancellation/wallet system tests"""
+    print("🚀 Testing Molí Taxi App - NEW Cancellation & Wallet System Endpoints")
+    print("=" * 70)
     
-    # Step 10: Test error cases
-    await test_error_cases(driver_token, rider_token)
+    results = TestResults()
     
-    # Final summary
+    # Test individual endpoints
+    await test_cancellation_config(results)
+    await test_wallet_status(results)
+    await test_driver_block_status(results)
+    await test_cancellation_history(results)
+    await test_admin_settings(results)
+    await test_admin_settings_update(results)
+    
+    print("=" * 70)
     results.summary()
+    
+    if results.failed == 0:
+        print("\n🎉 ALL NEW CANCELLATION/WALLET ENDPOINTS ARE WORKING CORRECTLY!")
+    else:
+        print(f"\n⚠️  {results.failed} endpoint(s) have issues that need attention.")
+    
+    return results.failed == 0
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    success = asyncio.run(run_all_tests())
+    exit(0 if success else 1)

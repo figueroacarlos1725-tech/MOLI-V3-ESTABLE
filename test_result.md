@@ -102,7 +102,7 @@
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
 
-user_problem_statement: "Test the automatic driver dispatch system for the Molí taxi app - including the new driver-response endpoint and the complete dispatch flow"
+user_problem_statement: "Test the NEW backend API endpoints for the Molí taxi app cancellation and wallet system - including cancellation config, wallet status, driver block status, cancellation history, and admin settings"
 
 backend:
   - task: "Vehicle Icons API - Public Endpoint"
@@ -146,6 +146,78 @@ backend:
       - working: true
         agent: "testing"
         comment: "TESTED SUCCESSFULLY: Driver response endpoint working perfectly. ✅ POST /api/rides/{request_id}/driver-response?action=accept creates ride and returns ride data ✅ Driver accept marks driver unavailable ✅ Driver accept signals assignment event ✅ Active ride verification working ✅ Error handling for invalid request_id (404) ✅ Error handling for invalid action (404) ✅ Access control for riders (403) ✅ All authentication and authorization working correctly"
+
+  - task: "Cancellation Configuration API"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "TESTED SUCCESSFULLY: GET /api/cancellation/config endpoint working perfectly. ✅ Returns all required fields: cancel_free_minutes, rider_cancel_penalty, driver_cancel_penalty, driver_max_negative_balance, driver_block_after_cancels, driver_block_hours, currency_symbol ✅ Accessible by any authenticated user ✅ Proper authentication required"
+
+  - task: "Wallet Status API"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "TESTED SUCCESSFULLY: GET /api/wallet/status endpoint working perfectly for both user types. ✅ Rider response includes: balance, pending_penalties, total_pending, max_pending_penalties, cancel_penalty ✅ Driver response includes: balance, driver_block, cancel_count_30d, max_cancels_before_block, max_negative_balance, cancel_penalty ✅ Proper user-specific data returned ✅ Authentication working correctly"
+
+  - task: "Driver Block Status API"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "TESTED SUCCESSFULLY: GET /api/driver/block-status endpoint working perfectly. ✅ Returns is_blocked boolean field ✅ Correctly restricts access to drivers only (403 for non-drivers) ✅ Proper authentication and authorization ✅ Returns driver block status information"
+
+  - task: "Cancellation History API"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "TESTED SUCCESSFULLY: GET /api/cancellation/history endpoint working perfectly. ✅ Returns records array with user's cancellation history ✅ Accessible by any authenticated user ✅ Proper authentication required ✅ Returns empty array when no records exist"
+
+  - task: "Admin Settings with Cancellation Fields"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "TESTED SUCCESSFULLY: GET /api/admin/settings endpoint includes cancellation configuration. ✅ Returns cancel_free_minutes, rider_cancel_penalty, driver_cancel_penalty fields ✅ Admin authentication required ✅ All cancellation settings properly included in response"
+
+  - task: "Admin Settings Update with Cancellation Fields"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "TESTED SUCCESSFULLY: PUT /api/admin/settings endpoint updates cancellation settings correctly. ✅ Successfully updates cancel_free_minutes and rider_cancel_penalty ✅ Changes persist and are reflected in subsequent GET requests ✅ Admin authentication required ✅ Proper validation and error handling"
 
   - task: "Ride Status Flow (arrived, started, completed)"
     implemented: true
@@ -211,7 +283,7 @@ frontend:
 metadata:
   created_by: "testing_agent"
   version: "1.0"
-  test_sequence: 1
+  test_sequence: 2
   run_ui: false
 
 test_plan:
@@ -225,3 +297,5 @@ agent_communication:
     message: "Implemented the automatic driver dispatch system. KEY CHANGES: 1) POST /api/rides/{request_id}/driver-response?action=accept|reject - NEW endpoint for drivers to respond to offers. 2) The create_ride_request endpoint now starts a background task (assign_ride_to_drivers) that offers rides to drivers one-by-one with 8s timeout. 3) The driver-response endpoint creates rides on accept and signals events on reject. TEST CREDENTIALS: rider@test.com/test123456, driver@test.com/test123456. TEST FLOW: Login as driver -> register vehicle -> set online with location -> Login as rider -> create ride request -> check that request status is pending and background task runs -> Use driver-response endpoint to accept/reject."
   - agent: "testing"
     message: "COMPREHENSIVE TESTING COMPLETED ✅ All 16 tests passed! The automatic driver dispatch system is working perfectly. TESTED SUCCESSFULLY: ✅ Driver/Rider authentication ✅ Vehicle registration ✅ Driver availability management ✅ Ride request creation with background assignment ✅ Driver assignment with current_offer_driver field ✅ NEW driver-response endpoint (accept/reject) ✅ Ride creation on accept ✅ Active ride verification ✅ Error handling (invalid request_id, invalid action, access control) ✅ Complete end-to-end dispatch flow. The system correctly implements the 8-second timeout mechanism, driver assignment, and all required functionality. Ready for production use."
+  - agent: "testing"
+    message: "NEW CANCELLATION & WALLET SYSTEM TESTING COMPLETED ✅ All 8 new endpoints tested successfully! TESTED ENDPOINTS: ✅ GET /api/cancellation/config - Returns all cancellation settings (cancel_free_minutes, penalties, block settings) ✅ GET /api/wallet/status - Returns user-specific wallet info (rider: pending penalties, driver: block status & cancel count) ✅ GET /api/driver/block-status - Driver-only endpoint for block status checking ✅ GET /api/cancellation/history - Returns user's cancellation records ✅ GET /api/admin/settings - Includes cancellation configuration fields ✅ PUT /api/admin/settings - Successfully updates cancellation settings. All endpoints have proper authentication, authorization, and return correct data structures. The cancellation/wallet system is fully functional and ready for production use."

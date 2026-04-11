@@ -21,9 +21,11 @@ import { MapView } from '@/src/components/MapView';
 import { useAuthStore } from '@/src/stores/authStore';
 import { useRideStore } from '@/src/stores/rideStore';
 import { socketService } from '@/src/services/socket';
+import { apiService } from '@/src/services/api';
 import { Audio } from 'expo-av';
 import SideMenu from '@/src/components/SideMenu';
 import BannerPopup from '@/src/components/BannerPopup';
+import CancelRideModal from '@/src/components/CancelRideModal';
 import {
   getCurrentLocation,
   reverseGeocode,
@@ -58,6 +60,8 @@ export default function RiderHomeScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [sideMenuOpen, setSideMenuOpen] = useState(false);
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [cancelConfig, setCancelConfig] = useState<any>(null);
   const [searchModal, setSearchModal] = useState(false);
   const [searchType, setSearchType] = useState<'pickup' | 'dropoff' | 'stop'>('dropoff');
   const [editingStopIndex, setEditingStopIndex] = useState(-1);
@@ -116,6 +120,8 @@ export default function RiderHomeScreen() {
       }
     });
     fetchBanners();
+    // Load cancellation config
+    apiService.get('/cancellation/config').then(setCancelConfig).catch(() => {});
   }, []);
 
   // Detect active ride → switch phase
@@ -469,6 +475,15 @@ export default function RiderHomeScreen() {
               <Text style={s.completedLabel}>Tarifa total</Text>
               <Text style={s.completedFare}>${currentRide.fare?.toFixed(0)}</Text>
             </View>
+            {currentRide.penalty_surcharge > 0 && (
+              <>
+                <View style={s.completedDivider} />
+                <View style={s.completedRow}>
+                  <Text style={[s.completedLabel, { color: '#FF9500' }]}>Multa(s) incluida(s)</Text>
+                  <Text style={[s.completedValue, { color: '#FF9500', fontWeight: '700' }]}>${currentRide.penalty_surcharge?.toFixed(0)}</Text>
+                </View>
+              </>
+            )}
             <View style={s.completedDivider} />
             {currentRide.driver_info && (
               <View style={s.completedRow}>
@@ -542,7 +557,37 @@ export default function RiderHomeScreen() {
             <Text style={s.fareLabel}>Tarifa estimada</Text>
             <Text style={s.fareVal}>${currentRide.fare?.toFixed(0)}</Text>
           </View>
+          
+          {/* Cancel ride - only before trip starts */}
+          {(currentRide.status === 'accepted' || currentRide.status === 'arrived') && (
+            <TouchableOpacity style={s.cancelActiveBtn} onPress={() => setShowCancelModal(true)}>
+              <Ionicons name="close-circle-outline" size={18} color="#FF3B30" />
+              <Text style={s.cancelActiveText}>Cancelar viaje</Text>
+            </TouchableOpacity>
+          )}
         </View>
+        
+        {/* Cancel Ride Modal */}
+        <CancelRideModal
+          visible={showCancelModal}
+          onClose={() => setShowCancelModal(false)}
+          onConfirmCancel={async () => {
+            try {
+              const response = await updateRideStatus(currentRide.ride_id, 'cancelled');
+              setShowCancelModal(false);
+              if (response?.penalty?.penalty_applied) {
+                setErrorMsg(response.penalty.message);
+              }
+              setPhase('idle');
+              fetchActiveRide();
+            } catch (e: any) {
+              setErrorMsg(e.message || 'Error al cancelar');
+            }
+          }}
+          userType="rider"
+          rideAcceptedAt={currentRide.accepted_at || currentRide.created_at}
+          cancelConfig={cancelConfig}
+        />
       </SafeAreaView>
     );
   }
@@ -908,6 +953,18 @@ const s = StyleSheet.create({
   searchingHint: { fontSize: 13, color: '#8E8E93', marginTop: 12 },
   cancelSearchBtn: { marginTop: 24, paddingVertical: 12, paddingHorizontal: 32, borderRadius: 10, borderWidth: 1.5, borderColor: '#FF3B30' },
   cancelSearchText: { color: '#FF3B30', fontSize: 15, fontWeight: '600' },
+  cancelActiveBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 12,
+    marginTop: 10,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: '#FF3B30',
+  },
+  cancelActiveText: { color: '#FF3B30', fontSize: 14, fontWeight: '600' },
   foundContainer: { alignItems: 'center' },
   foundCircle: { width: 72, height: 72, borderRadius: 36, backgroundColor: '#6BBF00', justifyContent: 'center', alignItems: 'center' },
   foundText: { fontSize: 20, fontWeight: '700', color: '#1C1C1E', marginTop: 16 },

@@ -385,6 +385,14 @@ class SettingsUpdate(BaseModel):
     per_km_rate: Optional[float] = None
     per_minute_rate: Optional[float] = None
     commission_rate: Optional[float] = None
+    # Cancellation & Wallet settings
+    cancel_free_minutes: Optional[int] = None
+    rider_cancel_penalty: Optional[float] = None
+    driver_cancel_penalty: Optional[float] = None
+    driver_max_negative_balance: Optional[float] = None
+    driver_block_after_cancels: Optional[int] = None
+    driver_block_hours: Optional[int] = None  # 0 = permanent
+    rider_max_pending_penalties: Optional[int] = None
 
 # ======================= HELPER FUNCTIONS =======================
 
@@ -433,9 +441,30 @@ async def get_settings() -> dict:
             "per_minute_rate": 0.15,
             "commission_rate": 0.20,
             "currency": "USD",
-            "currency_symbol": "$"
+            "currency_symbol": "$",
+            # Cancellation & Wallet defaults
+            "cancel_free_minutes": 1,
+            "rider_cancel_penalty": 500,
+            "driver_cancel_penalty": 500,
+            "driver_max_negative_balance": -15000,
+            "driver_block_after_cancels": 3,
+            "driver_block_hours": 24,
+            "rider_max_pending_penalties": 2,
         }
         await db.settings.insert_one(settings)
+    # Ensure cancellation defaults exist even if settings were created before
+    defaults = {
+        "cancel_free_minutes": 1,
+        "rider_cancel_penalty": 500,
+        "driver_cancel_penalty": 500,
+        "driver_max_negative_balance": -15000,
+        "driver_block_after_cancels": 3,
+        "driver_block_hours": 24,
+        "rider_max_pending_penalties": 2,
+    }
+    for k, v in defaults.items():
+        if k not in settings:
+            settings[k] = v
     return settings
 
 def calculate_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
@@ -1285,6 +1314,7 @@ async def update_ride_status(
     
     now = datetime.now(timezone.utc)
     update_data = {"status": status, "updated_at": now}
+    penalty_info = None
     
     if status == "started":
         update_data["started_at"] = now
@@ -1292,14 +1322,57 @@ async def update_ride_status(
         update_data["completed_at"] = now
         update_data["payment_status"] = "completed"
         
+        # Check if rider has pending penalties -> add to fare
+        settings = await get_settings()
+        pending_penalties = await db.cancellation_records.find(
+            {"user_id": ride["rider_id"], "status": "pending"}
+        ).to_list(10)
+        
+        total_penalty = sum(p.get("penalty_amount", 0) for p in pending_penalties)
+        if total_penalty > 0:
+            # Add penalty to fare
+            new_fare = ride.get("fare", 0) + total_penalty
+            new_commission = new_fare * settings.get("commission_rate", 0.20)
+            new_driver_earnings = new_fare - new_commission
+            update_data["fare"] = round(new_fare, 2)
+            update_data["commission"] = round(new_commission, 2)
+            update_data["driver_earnings"] = round(new_driver_earnings, 2)
+            update_data["penalty_surcharge"] = round(total_penalty, 2)
+            
+            # Mark penalties as paid
+            for p in pending_penalties:
+                await db.cancellation_records.update_one(
+                    {"record_id": p["record_id"]},
+                    {"$set": {"status": "collected", "collected_ride_id": ride_id, "collected_at": now}}
+                )
+            
+            # Update rider wallet (clear the negative)
+            await db.users.update_one(
+                {"user_id": ride["rider_id"]},
+                {"$inc": {"wallet_balance": total_penalty}}
+            )
+            
+            # Record wallet transaction
+            await db.wallet_transactions.insert_one({
+                "transaction_id": generate_id("txn_"),
+                "user_id": ride["rider_id"],
+                "amount": total_penalty,
+                "transaction_type": "penalty_collection",
+                "description": f"Multas pendientes cobradas en viaje {ride_id}",
+                "ride_id": ride_id,
+                "status": "completed",
+                "created_at": now,
+            })
+        
         # Update driver stats
+        final_earnings = update_data.get("driver_earnings", ride["driver_earnings"])
         await db.drivers.update_one(
             {"driver_id": ride["driver_id"]},
             {
                 "$set": {"is_available": True},
                 "$inc": {
                     "completed_rides": 1,
-                    "total_earnings": ride["driver_earnings"]
+                    "total_earnings": final_earnings
                 }
             }
         )
@@ -1316,21 +1389,193 @@ async def update_ride_status(
         
     elif status == "cancelled":
         update_data["cancelled_at"] = now
+        update_data["cancelled_by"] = user["user_id"]
+        
+        # Make driver available again
         await db.drivers.update_one(
             {"driver_id": ride["driver_id"]},
             {"$set": {"is_available": True}}
         )
+        
+        # Check if cancellation is within free window
+        settings = await get_settings()
+        free_minutes = settings.get("cancel_free_minutes", 1)
+        accepted_at = ride.get("accepted_at")
+        
+        is_free_cancel = False
+        if accepted_at:
+            if isinstance(accepted_at, str):
+                accepted_at = datetime.fromisoformat(accepted_at.replace("Z", "+00:00"))
+            elapsed = (now - accepted_at).total_seconds() / 60.0
+            is_free_cancel = elapsed <= free_minutes
+        
+        if not is_free_cancel and accepted_at:
+            canceller_type = "rider" if user["user_id"] == ride["rider_id"] else "driver"
+            
+            if canceller_type == "rider":
+                penalty_amount = settings.get("rider_cancel_penalty", 500)
+                
+                # Count existing pending penalties for rider
+                existing_pending = await db.cancellation_records.count_documents(
+                    {"user_id": user["user_id"], "status": "pending"}
+                )
+                
+                # Record penalty
+                record = {
+                    "record_id": generate_id("cancel_"),
+                    "user_id": user["user_id"],
+                    "user_type": "rider",
+                    "ride_id": ride_id,
+                    "penalty_amount": penalty_amount,
+                    "status": "pending",
+                    "created_at": now,
+                }
+                await db.cancellation_records.insert_one(record)
+                
+                # Deduct from wallet
+                await db.users.update_one(
+                    {"user_id": user["user_id"]},
+                    {"$inc": {"wallet_balance": -penalty_amount}}
+                )
+                
+                # Record wallet transaction
+                await db.wallet_transactions.insert_one({
+                    "transaction_id": generate_id("txn_"),
+                    "user_id": user["user_id"],
+                    "amount": penalty_amount,
+                    "transaction_type": "cancel_penalty",
+                    "description": "Multa por cancelación tardía del viaje",
+                    "ride_id": ride_id,
+                    "status": "completed",
+                    "created_at": now,
+                })
+                
+                penalty_info = {
+                    "penalty_applied": True,
+                    "penalty_amount": penalty_amount,
+                    "message": f"Se aplicó una multa de ${penalty_amount} por cancelación tardía. Se sumará a tu próximo viaje.",
+                    "pending_penalties": existing_pending + 1,
+                }
+                
+            elif canceller_type == "driver":
+                penalty_amount = settings.get("driver_cancel_penalty", 500)
+                block_after = settings.get("driver_block_after_cancels", 3)
+                block_hours = settings.get("driver_block_hours", 24)
+                
+                # Count driver cancellations in last 30 days
+                thirty_days_ago = now - timedelta(days=30)
+                recent_cancels = await db.cancellation_records.count_documents(
+                    {"user_id": user["user_id"], "user_type": "driver", "created_at": {"$gte": thirty_days_ago}}
+                )
+                cancel_number = recent_cancels + 1  # this is the current one
+                
+                # Record penalty
+                record = {
+                    "record_id": generate_id("cancel_"),
+                    "user_id": user["user_id"],
+                    "user_type": "driver",
+                    "ride_id": ride_id,
+                    "penalty_amount": penalty_amount,
+                    "cancel_number": cancel_number,
+                    "status": "charged",
+                    "created_at": now,
+                }
+                
+                if cancel_number >= block_after:
+                    # Block the driver
+                    block_until = None
+                    if block_hours > 0:
+                        block_until = now + timedelta(hours=block_hours)
+                    
+                    await db.drivers.update_one(
+                        {"driver_id": user["user_id"]},
+                        {"$set": {
+                            "is_blocked": True,
+                            "block_reason": "cancellations",
+                            "blocked_at": now,
+                            "blocked_until": block_until,
+                            "is_available": False,
+                            "is_online": False,
+                        }}
+                    )
+                    record["block_applied"] = True
+                    record["blocked_until"] = block_until
+                    
+                    penalty_info = {
+                        "penalty_applied": True,
+                        "penalty_amount": penalty_amount,
+                        "blocked": True,
+                        "blocked_until": block_until.isoformat() if block_until else None,
+                        "message": f"Has sido bloqueado por {block_hours}h debido a {cancel_number} cancelaciones." if block_hours > 0 else "Has sido bloqueado permanentemente por cancelaciones excesivas.",
+                    }
+                else:
+                    penalty_info = {
+                        "penalty_applied": True,
+                        "penalty_amount": penalty_amount,
+                        "blocked": False,
+                        "cancel_count": cancel_number,
+                        "cancels_before_block": block_after - cancel_number,
+                        "message": f"Multa de ${penalty_amount}. Cancelación {cancel_number}/{block_after} antes de bloqueo.",
+                    }
+                
+                await db.cancellation_records.insert_one(record)
+                
+                # Deduct from wallet
+                await db.users.update_one(
+                    {"user_id": user["user_id"]},
+                    {"$inc": {"wallet_balance": -penalty_amount}}
+                )
+                
+                # Record wallet transaction
+                await db.wallet_transactions.insert_one({
+                    "transaction_id": generate_id("txn_"),
+                    "user_id": user["user_id"],
+                    "amount": penalty_amount,
+                    "transaction_type": "cancel_penalty",
+                    "description": f"Multa por cancelación tardía #{cancel_number}",
+                    "ride_id": ride_id,
+                    "status": "completed",
+                    "created_at": now,
+                })
+                
+                # Check if driver wallet is below max negative
+                updated_user = await db.users.find_one({"user_id": user["user_id"]})
+                max_neg = settings.get("driver_max_negative_balance", -15000)
+                if updated_user and updated_user.get("wallet_balance", 0) <= max_neg:
+                    await db.drivers.update_one(
+                        {"driver_id": user["user_id"]},
+                        {"$set": {
+                            "is_blocked": True,
+                            "block_reason": "negative_balance",
+                            "blocked_at": now,
+                            "blocked_until": None,
+                            "is_available": False,
+                            "is_online": False,
+                        }}
+                    )
+                    if penalty_info:
+                        penalty_info["blocked"] = True
+                        penalty_info["block_reason"] = "negative_balance"
+                        penalty_info["message"] = f"Tu saldo llegó al límite de ${max_neg}. No puedes trabajar hasta recargar."
+        else:
+            penalty_info = {"penalty_applied": False, "message": "Cancelación sin cargo (dentro del tiempo libre)."}
     
     await db.rides.update_one({"ride_id": ride_id}, {"$set": update_data})
     
     # Notify both parties
     other_user_id = ride["driver_id"] if user["user_id"] == ride["rider_id"] else ride["rider_id"]
-    await manager.send_personal_message(
-        {"type": "ride_status_update", "ride_id": ride_id, "status": status},
-        other_user_id
-    )
+    ws_data = {"type": "ride_status_update", "ride_id": ride_id, "status": status}
+    if penalty_info:
+        ws_data["penalty_info"] = {k: (v.isoformat() if isinstance(v, datetime) else v) for k, v in penalty_info.items()} if penalty_info else None
+    await manager.send_personal_message(ws_data, other_user_id)
     
-    return {"status": "success", "ride_status": status}
+    response = {"status": "success", "ride_status": status}
+    if penalty_info:
+        response["penalty"] = penalty_info
+    if status == "completed" and update_data.get("penalty_surcharge"):
+        response["penalty_surcharge"] = update_data["penalty_surcharge"]
+        response["new_fare"] = update_data["fare"]
+    return response
 
 @app.get("/api/rides/active")
 async def get_active_ride(user: dict = Depends(get_current_user)):
@@ -1634,6 +1879,152 @@ async def get_conversations(user: dict = Depends(get_current_user)):
             })
     
     return {"conversations": conversations}
+
+# ======================= WALLET STATUS & CANCELLATION RECORDS =======================
+
+@app.get("/api/wallet/status")
+async def get_wallet_status(user: dict = Depends(get_current_user)):
+    """Get full wallet status including pending penalties"""
+    settings = await get_settings()
+    balance = user.get("wallet_balance", 0.0)
+    
+    # Get pending penalties for riders
+    pending_penalties = []
+    if user["user_type"] == "rider":
+        pens = await db.cancellation_records.find(
+            {"user_id": user["user_id"], "status": "pending"},
+            {"_id": 0}
+        ).to_list(10)
+        for p in pens:
+            if isinstance(p.get("created_at"), datetime):
+                p["created_at"] = p["created_at"].isoformat()
+            pending_penalties.append(p)
+    
+    # Get driver block status
+    driver_block = None
+    if user["user_type"] == "driver":
+        driver = await db.drivers.find_one({"driver_id": user["user_id"]}, {"_id": 0})
+        if driver and driver.get("is_blocked"):
+            blocked_until = driver.get("blocked_until")
+            if blocked_until and isinstance(blocked_until, datetime):
+                # Check if block expired
+                if blocked_until <= datetime.now(timezone.utc):
+                    await db.drivers.update_one(
+                        {"driver_id": user["user_id"]},
+                        {"$set": {"is_blocked": False, "block_reason": None, "blocked_at": None, "blocked_until": None}}
+                    )
+                else:
+                    driver_block = {
+                        "is_blocked": True,
+                        "reason": driver.get("block_reason", "unknown"),
+                        "blocked_until": blocked_until.isoformat() if isinstance(blocked_until, datetime) else str(blocked_until),
+                    }
+            elif driver.get("is_blocked"):
+                driver_block = {
+                    "is_blocked": True,
+                    "reason": driver.get("block_reason", "unknown"),
+                    "blocked_until": None,  # permanent or until admin unblocks
+                }
+        
+        # Get recent cancel count
+        thirty_days_ago = datetime.now(timezone.utc) - timedelta(days=30)
+        cancel_count = await db.cancellation_records.count_documents(
+            {"user_id": user["user_id"], "user_type": "driver", "created_at": {"$gte": thirty_days_ago}}
+        )
+        max_neg = settings.get("driver_max_negative_balance", -15000)
+        
+        return {
+            "balance": balance,
+            "driver_block": driver_block,
+            "cancel_count_30d": cancel_count,
+            "max_cancels_before_block": settings.get("driver_block_after_cancels", 3),
+            "max_negative_balance": max_neg,
+            "cancel_penalty": settings.get("driver_cancel_penalty", 500),
+        }
+    
+    # Rider response
+    return {
+        "balance": balance,
+        "pending_penalties": pending_penalties,
+        "total_pending": sum(p.get("penalty_amount", 0) for p in pending_penalties),
+        "max_pending_penalties": settings.get("rider_max_pending_penalties", 2),
+        "cancel_penalty": settings.get("rider_cancel_penalty", 500),
+    }
+
+@app.get("/api/driver/block-status")
+async def get_driver_block_status(user: dict = Depends(get_current_user)):
+    """Check if driver is blocked and why"""
+    if user["user_type"] != "driver":
+        raise HTTPException(status_code=403, detail="Solo conductores")
+    
+    driver = await db.drivers.find_one({"driver_id": user["user_id"]}, {"_id": 0})
+    if not driver:
+        return {"is_blocked": False}
+    
+    is_blocked = driver.get("is_blocked", False)
+    
+    # Auto-unblock if time expired
+    if is_blocked and driver.get("blocked_until"):
+        blocked_until = driver["blocked_until"]
+        if isinstance(blocked_until, datetime) and blocked_until <= datetime.now(timezone.utc):
+            await db.drivers.update_one(
+                {"driver_id": user["user_id"]},
+                {"$set": {"is_blocked": False, "block_reason": None, "blocked_at": None, "blocked_until": None}}
+            )
+            return {"is_blocked": False}
+    
+    if not is_blocked:
+        # Also check wallet limit
+        settings = await get_settings()
+        max_neg = settings.get("driver_max_negative_balance", -15000)
+        if user.get("wallet_balance", 0) <= max_neg:
+            return {
+                "is_blocked": True,
+                "reason": "negative_balance",
+                "message": f"Tu saldo llegó al límite de ${max_neg}. Recarga tu billetera para continuar.",
+                "balance": user.get("wallet_balance", 0),
+                "blocked_until": None,
+            }
+        return {"is_blocked": False}
+    
+    blocked_until = driver.get("blocked_until")
+    return {
+        "is_blocked": True,
+        "reason": driver.get("block_reason", "unknown"),
+        "message": "Fuiste bloqueado por cancelaciones excesivas." if driver.get("block_reason") == "cancellations" else "Tu saldo es muy negativo. Recarga para continuar.",
+        "balance": user.get("wallet_balance", 0),
+        "blocked_until": blocked_until.isoformat() if isinstance(blocked_until, datetime) else str(blocked_until) if blocked_until else None,
+    }
+
+@app.get("/api/cancellation/config")
+async def get_cancellation_config(user: dict = Depends(get_current_user)):
+    """Get cancellation configuration (public for users to know penalties)"""
+    settings = await get_settings()
+    return {
+        "cancel_free_minutes": settings.get("cancel_free_minutes", 1),
+        "rider_cancel_penalty": settings.get("rider_cancel_penalty", 500),
+        "driver_cancel_penalty": settings.get("driver_cancel_penalty", 500),
+        "driver_max_negative_balance": settings.get("driver_max_negative_balance", -15000),
+        "driver_block_after_cancels": settings.get("driver_block_after_cancels", 3),
+        "driver_block_hours": settings.get("driver_block_hours", 24),
+        "currency_symbol": settings.get("currency_symbol", "$"),
+    }
+
+@app.get("/api/cancellation/history")
+async def get_cancellation_history(user: dict = Depends(get_current_user)):
+    """Get user's cancellation records"""
+    records = await db.cancellation_records.find(
+        {"user_id": user["user_id"]},
+        {"_id": 0}
+    ).sort("created_at", -1).to_list(20)
+    for r in records:
+        if isinstance(r.get("created_at"), datetime):
+            r["created_at"] = r["created_at"].isoformat()
+        if isinstance(r.get("blocked_until"), datetime):
+            r["blocked_until"] = r["blocked_until"].isoformat()
+        if isinstance(r.get("collected_at"), datetime):
+            r["collected_at"] = r["collected_at"].isoformat()
+    return {"records": records}
 
 # ======================= AI CHATBOT SUPPORT =======================
 
@@ -3737,9 +4128,9 @@ async def support_chat_message(
             "escalated": needs_escalation,
             "session_id": session_id,
         }
-    except Exception as e:
+    except Exception:
         return {
-            "response": f"Disculpa, tuve un problema procesando tu consulta. Por favor intenta de nuevo.",
+            "response": "Disculpa, tuve un problema procesando tu consulta. Por favor intenta de nuevo.",
             "escalated": False,
             "session_id": session_id,
         }

@@ -29,6 +29,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
 import { Audio } from 'expo-av';
 
+import DriverBlockedModal from '@/src/components/DriverBlockedModal';
+import CancelRideModal from '@/src/components/CancelRideModal';
+
 const COUNTDOWN_SECONDS = 8;
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -74,6 +77,13 @@ export default function DriverHomeScreen() {
   const [confirmOffline, setConfirmOffline] = useState(false);
   const [sideMenuOpen, setSideMenuOpen] = useState(false);
 
+  // Block & Cancel state
+  const [driverBlocked, setDriverBlocked] = useState(false);
+  const [blockInfo, setBlockInfo] = useState<any>(null);
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [cancelConfig, setCancelConfig] = useState<any>(null);
+  const [driverCancelCount, setDriverCancelCount] = useState(0);
+
   useEffect(() => {
     initializeLocation();
     
@@ -111,6 +121,26 @@ export default function DriverHomeScreen() {
       }
     };
     restore();
+    
+    // Check block status and load cancel config
+    const checkBlockAndConfig = async () => {
+      try {
+        const [blockRes, configRes, walletRes] = await Promise.all([
+          apiService.get('/driver/block-status'),
+          apiService.get('/cancellation/config'),
+          apiService.get('/wallet/status'),
+        ]);
+        if (blockRes.is_blocked) {
+          setDriverBlocked(true);
+          setBlockInfo(blockRes);
+        }
+        setCancelConfig(configRes);
+        if (walletRes.cancel_count_30d !== undefined) {
+          setDriverCancelCount(walletRes.cancel_count_30d);
+        }
+      } catch (e) { /* silent */ }
+    };
+    checkBlockAndConfig();
     
     return () => {
       if (locationInterval.current) clearInterval(locationInterval.current);
@@ -472,14 +502,49 @@ export default function DriverHomeScreen() {
     if (!currentRide) return;
     setPaymentConfirmed(true);
     try {
-      await updateRideStatus(currentRide.ride_id, 'completed');
+      const response = await updateRideStatus(currentRide.ride_id, 'completed');
       setShowPaymentConfirm(false);
       setPaymentConfirmed(false);
-      setStatusMessage(`¡Viaje completado! Ganaste $${currentRide.driver_earnings?.toFixed(0) || currentRide.fare?.toFixed(0)}`);
+      let msg = `¡Viaje completado! Ganaste $${currentRide.driver_earnings?.toFixed(0) || currentRide.fare?.toFixed(0)}`;
+      if (response?.penalty_surcharge) {
+        msg += ` (incluye $${response.penalty_surcharge} en multas del pasajero)`;
+      }
+      setStatusMessage(msg);
       fetchActiveRide();
     } catch (error: any) {
       setStatusMessage(error.message || 'Error al completar viaje');
       setPaymentConfirmed(false);
+    }
+  };
+
+  const handleCancelRide = async () => {
+    if (!currentRide) return;
+    try {
+      const response = await updateRideStatus(currentRide.ride_id, 'cancelled');
+      setShowCancelModal(false);
+      
+      if (response?.penalty?.penalty_applied) {
+        const p = response.penalty;
+        if (p.blocked) {
+          // Driver got blocked
+          setDriverBlocked(true);
+          setBlockInfo({
+            is_blocked: true,
+            reason: p.block_reason || 'cancellations',
+            message: p.message,
+            balance: user?.wallet_balance || 0,
+            blocked_until: p.blocked_until,
+          });
+        }
+        setStatusMessage(p.message);
+        // Update cancel count
+        setDriverCancelCount(prev => prev + 1);
+      } else {
+        setStatusMessage('Viaje cancelado sin cargo.');
+      }
+      fetchActiveRide();
+    } catch (error: any) {
+      setStatusMessage(error.message || 'Error al cancelar');
     }
   };
 
@@ -641,8 +706,44 @@ export default function DriverHomeScreen() {
             {currentRide.status === 'started' && (
               <Button title="Finalizar viaje" onPress={() => handleUpdateRideStatus('completed')} variant="secondary" />
             )}
+
+            {/* Cancel ride button - only before trip starts */}
+            {(currentRide.status === 'accepted' || currentRide.status === 'arrived') && (
+              <TouchableOpacity style={styles.cancelRideBtn} onPress={() => setShowCancelModal(true)}>
+                <Ionicons name="close-circle-outline" size={18} color="#FF3B30" />
+                <Text style={styles.cancelRideText}>Cancelar viaje</Text>
+              </TouchableOpacity>
+            )}
           </View>
         </View>
+        
+        {/* Cancel Ride Modal */}
+        <CancelRideModal
+          visible={showCancelModal}
+          onClose={() => setShowCancelModal(false)}
+          onConfirmCancel={handleCancelRide}
+          userType="driver"
+          rideAcceptedAt={currentRide.accepted_at || currentRide.created_at}
+          cancelConfig={cancelConfig}
+          driverCancelCount={driverCancelCount}
+        />
+        
+        {/* Driver Blocked Modal */}
+        <DriverBlockedModal
+          visible={driverBlocked}
+          reason={blockInfo?.reason || 'negative_balance'}
+          message={blockInfo?.message || 'Tu cuenta ha sido bloqueada.'}
+          balance={blockInfo?.balance ?? user?.wallet_balance ?? 0}
+          blockedUntil={blockInfo?.blocked_until || null}
+          onChatSupport={() => {
+            setDriverBlocked(false);
+            // Open support bubble by navigating
+          }}
+          onRechargeWallet={() => {
+            setDriverBlocked(false);
+            router.push('/(driver)/earnings');
+          }}
+        />
         
         {/* Payment Confirmation Modal */}
         <Modal visible={showPaymentConfirm} transparent animationType="slide" onRequestClose={() => setShowPaymentConfirm(false)}>
@@ -1603,5 +1704,21 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600',
     color: '#fff',
+  },
+  cancelRideBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 12,
+    marginTop: 8,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: '#FF3B30',
+  },
+  cancelRideText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#FF3B30',
   },
 });

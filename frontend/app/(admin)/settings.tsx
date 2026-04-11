@@ -7,6 +7,7 @@ import {
   ScrollView,
   TouchableOpacity,
   TextInput,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { apiService } from '@/src/services/api';
@@ -27,6 +28,14 @@ interface Settings {
   mercadopago_access_token?: string;
   astropay_api_key?: string;
   astropay_secret_key?: string;
+  // Cancellation & Wallet
+  cancel_free_minutes?: number;
+  rider_cancel_penalty?: number;
+  driver_cancel_penalty?: number;
+  driver_max_negative_balance?: number;
+  driver_block_after_cancels?: number;
+  driver_block_hours?: number;
+  rider_max_pending_penalties?: number;
 }
 
 export default function AdminSettingsScreen() {
@@ -178,6 +187,25 @@ export default function AdminSettingsScreen() {
             <Text style={styles.gatewayTitle}>AstroPay</Text>
             {renderSettingInput('API Key', 'astropay_api_key', 'Ingresa la API key', true)}
             {renderSettingInput('Clave secreta', 'astropay_secret_key', 'Ingresa la clave secreta', true)}
+          </View>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Cancelaciones y Multas</Text>
+          <View style={styles.sectionCard}>
+            {renderSettingInput('Tiempo gratis para cancelar (min)', 'cancel_free_minutes', '1')}
+            
+            <View style={styles.gatewayDivider} />
+            <Text style={styles.gatewayTitle}>Pasajero</Text>
+            {renderSettingInput('Multa por cancelacion ($)', 'rider_cancel_penalty', '500')}
+            {renderSettingInput('Max multas pendientes', 'rider_max_pending_penalties', '2')}
+            
+            <View style={styles.gatewayDivider} />
+            <Text style={styles.gatewayTitle}>Conductor</Text>
+            {renderSettingInput('Multa por cancelacion ($)', 'driver_cancel_penalty', '500')}
+            {renderSettingInput('Cancelaciones antes de bloqueo', 'driver_block_after_cancels', '3')}
+            {renderSettingInput('Horas de bloqueo (0=permanente)', 'driver_block_hours', '24')}
+            {renderSettingInput('Saldo negativo maximo ($)', 'driver_max_negative_balance', '-15000')}
           </View>
         </View>
 

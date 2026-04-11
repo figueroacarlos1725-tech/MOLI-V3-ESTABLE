@@ -142,11 +142,12 @@ export const useRideStore = create<RideState>((set, get) => ({
 
   updateRideStatus: async (rideId, status) => {
     try {
-      await apiService.put(`/rides/${rideId}/status?status=${status}`);
+      const response = await apiService.put(`/rides/${rideId}/status?status=${status}`);
       const currentRide = get().currentRide;
       if (currentRide && currentRide.ride_id === rideId) {
         set({ currentRide: { ...currentRide, status } });
       }
+      return response;
     } catch (error) {
       throw error;
     }
