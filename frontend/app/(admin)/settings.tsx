@@ -238,7 +238,7 @@ export default function AdminSettingsScreen() {
             <View style={s.card}>
               {renderField('Tarifa base ($)', 'base_fare', { placeholder: '2.50', numeric: true })}
               {renderField('Tarifa por KM ($)', 'per_km_rate', { placeholder: '1.20', numeric: true })}
-              {renderField('Tarifa por minuto ($)', 'per_minute_rate', { placeholder: '0.15', numeric: true })}
+              {renderField('Tarifa por tiempo de espera ($)', 'per_minute_rate', { placeholder: '0.15', numeric: true })}
               {renderField('Comision (%)', 'commission_rate', { placeholder: '0.20', numeric: true })}
               {renderField('Moneda', 'currency', { placeholder: 'ARS' })}
             </View>

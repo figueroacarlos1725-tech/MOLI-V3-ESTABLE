@@ -85,25 +85,28 @@ export default function DriverHomeScreen() {
   const [driverCancelCount, setDriverCancelCount] = useState(0);
 
   useEffect(() => {
-    // Check if tutorial should show:
-    // Only show if driver is NOT verified AND hasn't completed tutorial before
+    // Tutorial: only show for brand-new drivers who haven't seen it
     const checkTutorial = async () => {
       try {
         const completed = await AsyncStorage.getItem('tutorial_completed');
         if (completed) return; // Already completed tutorial
         
-        // Check verification status from API
-        const response = await apiService.get('/driver/verification-status');
-        if (response?.is_verified) {
-          // Driver is verified, skip tutorial and mark as completed
-          await AsyncStorage.setItem('tutorial_completed', 'true');
-          return;
+        // Check if this is a new driver (registered recently)
+        const profile = await apiService.get('/auth/me');
+        if (profile?.created_at) {
+          const created = new Date(profile.created_at);
+          const hoursSinceCreation = (Date.now() - created.getTime()) / (1000 * 60 * 60);
+          if (hoursSinceCreation > 1) {
+            // Existing driver - skip tutorial, mark as done
+            await AsyncStorage.setItem('tutorial_completed', 'true');
+            return;
+          }
         }
         
-        // Not verified and hasn't done tutorial -> show tutorial
+        // New driver, hasn't done tutorial -> show it
         router.replace('/(driver)/tutorial');
       } catch (e) {
-        // On error, don't block - just skip tutorial check
+        // On error, don't block
         console.log('Tutorial check error:', e);
       }
     };

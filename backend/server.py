@@ -54,7 +54,8 @@ app.include_router(misc_router)
 # ======================= STARTUP =======================
 @app.on_event("startup")
 async def startup_db():
-    """Initialize database indexes"""
+    """Initialize database indexes and seed settings from env"""
+    import os
     try:
         await db.users.create_index("user_id", unique=True)
         await db.users.create_index("email", unique=True)
@@ -65,6 +66,24 @@ async def startup_db():
         print("Database indexes created")
     except Exception as e:
         print(f"Index creation note: {e}")
+
+    # Auto-seed API keys from .env into settings if not already set
+    try:
+        env_keys = {
+            "google_maps_key": os.getenv("GOOGLE_MAPS_KEY", ""),
+            "mapbox_key": os.getenv("MAPBOX_TOKEN", ""),
+        }
+        settings = await db.settings.find_one({"setting_id": "global"})
+        if settings:
+            updates = {}
+            for key, env_val in env_keys.items():
+                if env_val and not settings.get(key):
+                    updates[key] = env_val
+            if updates:
+                await db.settings.update_one({"setting_id": "global"}, {"$set": updates})
+                print(f"Auto-seeded {len(updates)} API keys from .env")
+    except Exception as e:
+        print(f"Settings seed note: {e}")
 
 
 if __name__ == "__main__":
