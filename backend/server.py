@@ -2778,6 +2778,180 @@ async def get_driver_services(driver_id: str):
     return {"service_types": driver.get("service_types", ["economy"]) if driver else ["economy"]}
 
 
+# ======================= ADMIN: EYE OF GOD (LIVE DRIVERS MAP) =======================
+
+@app.get("/api/admin/drivers/live")
+async def admin_get_live_drivers(user: dict = Depends(get_current_user)):
+    """Get all drivers with their current locations for the God's Eye view"""
+    if user["user_type"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    drivers = await db.drivers.find({}, {"_id": 0}).to_list(500)
+    result = []
+    for d in drivers:
+        driver_user = await db.users.find_one({"user_id": d["driver_id"]}, {"_id": 0, "password": 0})
+        if driver_user:
+            loc = d.get("current_location", {})
+            result.append({
+                "driver_id": d["driver_id"],
+                "name": driver_user.get("name", "Sin nombre"),
+                "phone": driver_user.get("phone", ""),
+                "is_online": d.get("is_online", False),
+                "is_available": d.get("is_available", True),
+                "is_blocked": d.get("is_blocked", False),
+                "service_types": d.get("service_types", ["economy"]),
+                "priority": d.get("priority", 0),
+                "latitude": loc.get("latitude"),
+                "longitude": loc.get("longitude"),
+                "location_updated": loc.get("updated_at"),
+                # Check active ride
+                "active_ride": None
+            })
+            # Check if driver has active ride
+            active = await db.rides.find_one({
+                "driver_id": d["driver_id"],
+                "status": {"$in": ["accepted", "arrived", "started"]}
+            }, {"_id": 0, "ride_id": 1, "status": 1, "rider_id": 1})
+            if active:
+                result[-1]["active_ride"] = active
+    
+    return {"drivers": result, "total": len(result), "online": sum(1 for d in result if d["is_online"])}
+
+# ======================= ADMIN: MANUAL TRIP CREATION =======================
+
+class ManualTripCreate(BaseModel):
+    trip_type: str = "full"  # "full" (origin+destination) or "destination_only" (ticketera)
+    rider_name: str = ""
+    rider_phone: str = ""
+    rider_id: Optional[str] = None  # existing rider or null for walk-in
+    pickup_address: str = ""
+    pickup_latitude: Optional[float] = None
+    pickup_longitude: Optional[float] = None
+    dropoff_address: str = ""
+    dropoff_latitude: Optional[float] = None
+    dropoff_longitude: Optional[float] = None
+    vehicle_type: str = "economy"
+    assigned_driver_id: Optional[str] = None  # optionally assign directly
+    notes: str = ""
+
+@app.post("/api/admin/trips/manual")
+async def admin_create_manual_trip(
+    data: ManualTripCreate,
+    user: dict = Depends(get_current_user)
+):
+    if user["user_type"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    ride_id = f"ride_{uuid.uuid4().hex[:12]}"
+    
+    # Calculate fare for full trips
+    fare = 0
+    if data.trip_type == "full" and data.pickup_latitude and data.dropoff_latitude:
+        # Calculate distance and estimated fare
+        fare_config = await db.fare_config.find_one({"vehicle_type": data.vehicle_type}, {"_id": 0})
+        if not fare_config:
+            fare_config = DEFAULT_FARES.get(data.vehicle_type, DEFAULT_FARES["economy"])
+        
+        # Haversine distance
+        import math
+        R = 6371
+        lat1, lat2 = math.radians(data.pickup_latitude), math.radians(data.dropoff_latitude)
+        dlat = math.radians(data.dropoff_latitude - data.pickup_latitude)
+        dlng = math.radians(data.dropoff_longitude - data.pickup_longitude)
+        a = math.sin(dlat/2)**2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlng/2)**2
+        distance_km = R * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+        
+        base = fare_config.get("base_fare", 500)
+        per_km = fare_config.get("per_km", 150)
+        min_fare = fare_config.get("min_fare", 800)
+        fare = max(base + (distance_km * per_km), min_fare)
+    
+    ride = {
+        "ride_id": ride_id,
+        "rider_id": data.rider_id or f"walkin_{uuid.uuid4().hex[:8]}",
+        "rider_name": data.rider_name,
+        "rider_phone": data.rider_phone,
+        "driver_id": data.assigned_driver_id,
+        "trip_type": data.trip_type,  # "full" or "destination_only"
+        "is_manual": True,
+        "source": "admin",  # created by admin (phone/whatsapp)
+        "pickup_location": {
+            "address": data.pickup_address,
+            "latitude": data.pickup_latitude or -28.4696,
+            "longitude": data.pickup_longitude or -65.7852,
+        },
+        "dropoff_location": {
+            "address": data.dropoff_address,
+            "latitude": data.dropoff_latitude,
+            "longitude": data.dropoff_longitude,
+        } if data.dropoff_latitude else None,
+        "vehicle_type": data.vehicle_type,
+        "status": "accepted" if data.assigned_driver_id else "requested",
+        "fare": round(fare, 0) if fare else None,
+        "is_ticketera": data.trip_type == "destination_only",
+        "notes": data.notes,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "created_by": user["user_id"],
+    }
+    
+    await db.rides.insert_one(ride)
+    del ride["_id"]
+    
+    # Audit
+    await db.audit_log.insert_one({
+        "action": "manual_trip_create",
+        "target_user_id": ride_id,
+        "admin_id": user["user_id"],
+        "changes": {
+            "trip_type": data.trip_type,
+            "rider_name": data.rider_name,
+            "fare": fare,
+            "driver_id": data.assigned_driver_id
+        },
+        "created_at": datetime.now(timezone.utc),
+        "source": "admin"
+    })
+    
+    return {
+        "status": "success",
+        "ride": ride,
+        "message": f"Viaje {'de ticketera' if data.trip_type == 'destination_only' else 'con precio fijo $' + str(round(fare))} creado"
+    }
+
+@app.get("/api/admin/trips")
+async def admin_list_trips(
+    status: Optional[str] = None,
+    is_manual: Optional[bool] = None,
+    page: int = 1,
+    limit: int = 20,
+    user: dict = Depends(get_current_user)
+):
+    if user["user_type"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    query: dict = {}
+    if status:
+        query["status"] = status
+    if is_manual is not None:
+        query["is_manual"] = is_manual
+    
+    skip = (page - 1) * limit
+    total = await db.rides.count_documents(query)
+    rides = await db.rides.find(query, {"_id": 0}).sort("created_at", -1).skip(skip).limit(limit).to_list(limit)
+    
+    # Enrich with names
+    for ride in rides:
+        if ride.get("rider_id") and not ride["rider_id"].startswith("walkin_"):
+            rider = await db.users.find_one({"user_id": ride["rider_id"]}, {"name": 1, "_id": 0})
+            ride["rider_name"] = ride.get("rider_name") or (rider["name"] if rider else "Desconocido")
+        if ride.get("driver_id"):
+            driver = await db.users.find_one({"user_id": ride["driver_id"]}, {"name": 1, "_id": 0})
+            ride["driver_name"] = driver["name"] if driver else "Sin asignar"
+    
+    return {"rides": rides, "total": total, "page": page, "pages": (total + limit - 1) // limit}
+
+
+
 # ======================= ADMIN: PAYMENT GATEWAY CONFIG =======================
 
 @app.get("/api/admin/payment-config")

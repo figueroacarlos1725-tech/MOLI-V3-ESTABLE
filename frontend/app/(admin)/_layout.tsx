@@ -11,6 +11,8 @@ const isDesktop = Platform.OS === 'web' && width > 768;
 
 const SIDEBAR_ITEMS = [
   { name: 'dashboard', title: 'Panel', icon: 'grid' },
+  { name: 'godseye', title: 'Ojo de Dios', icon: 'eye' },
+  { name: 'trips', title: 'Viajes', icon: 'car' },
   { name: 'users', title: 'Usuarios', icon: 'people' },
   { name: 'fares', title: 'Tarifas', icon: 'cash' },
   { name: 'coupons', title: 'Cupones', icon: 'pricetag' },
@@ -84,6 +86,8 @@ export default function AdminLayout() {
             }}
           >
             <Tabs.Screen name="dashboard" />
+            <Tabs.Screen name="godseye" />
+            <Tabs.Screen name="trips" />
             <Tabs.Screen name="users" />
             <Tabs.Screen name="fares" />
             <Tabs.Screen name="coupons" />
@@ -115,6 +119,8 @@ export default function AdminLayout() {
       }}
     >
       <Tabs.Screen name="dashboard" options={{ title: 'Panel', tabBarIcon: ({ color, size }) => <Ionicons name="grid" size={size} color={color} /> }} />
+      <Tabs.Screen name="godseye" options={{ title: 'Ojo de Dios', tabBarIcon: ({ color, size }) => <Ionicons name="eye" size={size} color={color} /> }} />
+      <Tabs.Screen name="trips" options={{ title: 'Viajes', tabBarIcon: ({ color, size }) => <Ionicons name="car" size={size} color={color} /> }} />
       <Tabs.Screen name="users" options={{ title: 'Usuarios', tabBarIcon: ({ color, size }) => <Ionicons name="people" size={size} color={color} /> }} />
       <Tabs.Screen name="fares" options={{ title: 'Tarifas', tabBarIcon: ({ color, size }) => <Ionicons name="cash" size={size} color={color} /> }} />
       <Tabs.Screen name="coupons" options={{ title: 'Cupones', tabBarIcon: ({ color, size }) => <Ionicons name="pricetag" size={size} color={color} /> }} />
