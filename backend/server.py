@@ -5265,6 +5265,57 @@ async def delete_custom_place(place_id: str, user: dict = Depends(get_current_us
     
     return {"status": "deleted"}
 
+
+# ======================= APP VERSION CONTROL =======================
+
+@app.get("/api/app/version-check")
+async def version_check(current_version: str = "1.0.0"):
+    """Check if app version is acceptable. Admin can set min_version in settings."""
+    settings = await get_settings()
+    min_version = settings.get("min_app_version", "1.0.0")
+    update_message = settings.get("update_message", "Hay una nueva versión disponible con mejoras importantes.")
+    
+    # Compare versions
+    def parse_ver(v):
+        try:
+            return tuple(int(x) for x in v.split('.'))
+        except:
+            return (0, 0, 0)
+    
+    current = parse_ver(current_version)
+    minimum = parse_ver(min_version)
+    force_update = current < minimum
+    
+    return {
+        "force_update": force_update,
+        "min_version": min_version,
+        "current_version": current_version,
+        "message": update_message if force_update else "",
+    }
+
+@app.put("/api/admin/app-version")
+async def set_min_version(data: dict = Body(...), user: dict = Depends(get_current_user)):
+    """Admin sets minimum required app version"""
+    if user.get("user_type") not in ("admin", "dispatcher"):
+        raise HTTPException(403, "Solo admin")
+    
+    update = {}
+    if "min_app_version" in data:
+        update["min_app_version"] = data["min_app_version"]
+    if "update_message" in data:
+        update["update_message"] = data["update_message"]
+    
+    if update:
+        await db.settings.update_one(
+            {"setting_id": "global"},
+            {"$set": update},
+            upsert=True
+        )
+    
+    return {"status": "updated", **update}
+
+
+
 async def _google_places_search(q: str, lat: float, lng: float):
     key = os.getenv("GOOGLE_MAPS_KEY", "")
     if not key:

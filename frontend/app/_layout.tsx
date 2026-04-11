@@ -5,6 +5,7 @@ import { useAuthStore } from '@/src/stores/authStore';
 import ChatNotificationBanner from '@/src/components/ChatNotificationBanner';
 import SupportBubble from '@/src/components/SupportBubble';
 import AnimatedSplash from '@/src/components/AnimatedSplash';
+import ForceUpdateChecker from '@/src/components/ForceUpdateChecker';
 
 export default function RootLayout() {
   const { isLoading, loadStoredAuth } = useAuthStore();
@@ -46,6 +47,7 @@ export default function RootLayout() {
       </Stack>
       <ChatNotificationBanner />
       <SupportBubble />
+      <ForceUpdateChecker />
     </View>
   );
 }

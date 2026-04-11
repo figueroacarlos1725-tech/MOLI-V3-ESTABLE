@@ -85,6 +85,16 @@ export default function DriverHomeScreen() {
   const [driverCancelCount, setDriverCancelCount] = useState(0);
 
   useEffect(() => {
+    // Check if tutorial has been completed
+    const checkTutorial = async () => {
+      const completed = await AsyncStorage.getItem('tutorial_completed');
+      if (!completed) {
+        router.replace('/(driver)/tutorial');
+        return;
+      }
+    };
+    checkTutorial();
+    
     initializeLocation();
     
     // Restore online state + active ride on mount
