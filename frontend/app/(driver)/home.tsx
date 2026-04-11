@@ -1004,14 +1004,14 @@ export default function DriverHomeScreen() {
                 <View style={styles.offerDetailRow}>
                   <View style={[styles.offerDot, { backgroundColor: '#34C759' }]} />
                   <Text style={styles.offerDetailText} numberOfLines={1}>
-                    {rideOffer.pickup?.address || 'Punto de recogida'}
+                    Zona de recogida ({rideOffer.distance_km ? `a ${rideOffer.distance_km} km` : 'cercana'})
                   </Text>
                 </View>
                 <View style={styles.offerDetailDivider} />
                 <View style={styles.offerDetailRow}>
                   <View style={[styles.offerDot, { backgroundColor: '#FF3B30' }]} />
                   <Text style={styles.offerDetailText} numberOfLines={1}>
-                    {rideOffer.dropoff?.address || 'Destino'}
+                    Destino visible al aceptar
                   </Text>
                 </View>
 

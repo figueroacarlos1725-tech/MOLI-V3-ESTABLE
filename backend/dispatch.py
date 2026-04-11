@@ -117,12 +117,23 @@ async def assign_ride_to_drivers(request_id: str, rider_id: str, sorted_drivers:
                 )
 
                 # Send offer to driver via WebSocket
+                # SECURITY: Only send approximate location, not exact addresses
+                pickup_loc = request_doc.get("pickup_location", {})
+                dropoff_loc = request_doc.get("dropoff_location", {})
                 offer_msg = {
                     "type": "ride_offer",
                     "request_id": request_id,
                     "countdown": accept_seconds,
-                    "pickup": request_doc.get("pickup_location", {}),
-                    "dropoff": request_doc.get("dropoff_location", {}),
+                    "pickup": {
+                        "latitude": pickup_loc.get("latitude", 0),
+                        "longitude": pickup_loc.get("longitude", 0),
+                        # No address - only visible after acceptance
+                    },
+                    "dropoff": {
+                        "latitude": dropoff_loc.get("latitude", 0),
+                        "longitude": dropoff_loc.get("longitude", 0),
+                        # No address - only visible after acceptance
+                    },
                     "fare": request_doc.get("estimated_fare", 0),
                     "distance_km": request_doc.get("estimated_distance", 0),
                     "duration_min": request_doc.get("estimated_duration", 0),

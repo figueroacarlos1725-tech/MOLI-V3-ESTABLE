@@ -359,7 +359,7 @@ export default function JobsHomeScreen() {
                 </View>
                 <View style={s.pill}>
                   <Ionicons name="navigate-outline" size={14} color="#007AFF" />
-                  <Text style={s.pillText}>{selectedJob.address}</Text>
+                  <Text style={s.pillText}>Dirección visible al aceptar</Text>
                 </View>
                 {selectedJob.interestedCount > 0 && (
                   <View style={[s.pill, { borderColor: 'rgba(255,149,0,0.3)' }]}>
