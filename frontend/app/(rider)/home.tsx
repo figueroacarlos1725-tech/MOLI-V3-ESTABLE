@@ -95,19 +95,22 @@ export default function RiderHomeScreen() {
       try {
         const ride = await fetchActiveRide();
         if (!ride) {
-          // Ride was cancelled or disappeared
           setPhase('idle');
           clearInterval(pollInterval);
           return;
         }
         if (ride.status === 'completed') {
+          // Show completed briefly then auto-return to idle
           setPhase('completed');
           clearInterval(pollInterval);
+          setTimeout(() => {
+            handleFinishRide();
+          }, 4000);
           return;
         }
         if (ride.status === 'cancelled') {
           showError('El viaje fue cancelado');
-          setPhase('idle');
+          handleFinishRide();
           clearInterval(pollInterval);
           return;
         }
@@ -393,6 +396,7 @@ export default function RiderHomeScreen() {
       accepted: 'Tu conductor está en camino',
       arrived: 'Tu conductor ha llegado',
       started: 'Viaje en curso',
+      completed: '¡Viaje completado!',
     };
     return (
       <SafeAreaView style={s.container}>
