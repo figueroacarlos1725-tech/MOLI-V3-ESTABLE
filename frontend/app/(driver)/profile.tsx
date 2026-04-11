@@ -6,14 +6,12 @@ import {
   SafeAreaView,
   TouchableOpacity,
   ScrollView,
-  Alert,
   Switch,
   Modal,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '@/src/stores/authStore';
-import { confirmAlert } from '@/src/utils/alert';
 import { apiService } from '@/src/services/api';
 import { Button } from '@/src/components/Button';
 import { Input } from '@/src/components/Input';
