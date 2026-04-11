@@ -37,6 +37,7 @@ export default function SideMenu({ visible, onClose, role }: SideMenuProps) {
     { icon: 'car', label: 'Mis Viajes', route: '/(rider)/rides' },
     { icon: 'wallet', label: 'Billetera', route: '/(rider)/wallet' },
     { icon: 'person', label: 'Mi Perfil', route: '/(rider)/profile' },
+    { icon: 'swap-horizontal', label: 'Viajes / Trabajos', color: '#7B2D8E', onPress: () => { onClose(); setTimeout(() => router.replace('/modules'), 200); } },
   ];
 
   const driverItems: MenuItem[] = [
@@ -46,6 +47,7 @@ export default function SideMenu({ visible, onClose, role }: SideMenuProps) {
     { icon: 'document-text', label: 'Mis Documentos', route: '/(driver)/documents' },
     { icon: 'speedometer', label: 'Taxímetro', route: '/(driver)/taximeter' },
     { icon: 'person', label: 'Mi Perfil', route: '/(driver)/profile' },
+    { icon: 'swap-horizontal', label: 'Viajes / Trabajos', color: '#7B2D8E', onPress: () => { onClose(); setTimeout(() => router.replace('/modules'), 200); } },
   ];
 
   const items = role === 'rider' ? riderItems : driverItems;
