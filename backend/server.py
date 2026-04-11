@@ -71,6 +71,107 @@ class ConnectionManager:
 
 manager = ConnectionManager()
 
+# ======================= RIDE ASSIGNMENT SYSTEM =======================
+import asyncio
+
+# Track active assignment tasks and driver response events
+assignment_events: Dict[str, asyncio.Event] = {}  # request_id -> Event (set when driver responds)
+assignment_tasks: Dict[str, asyncio.Task] = {}  # request_id -> Task
+
+async def assign_ride_to_drivers(request_id: str, rider_id: str, sorted_drivers: list, request_doc: dict):
+    """Background task: offer ride to drivers one by one with 8s countdown"""
+    event = asyncio.Event()
+    assignment_events[request_id] = event
+    
+    try:
+        for i, driver in enumerate(sorted_drivers):
+            driver_id = driver["driver_id"]
+            driver_name = driver.get("name", "Conductor")
+            now = datetime.now(timezone.utc)
+            
+            # Mark current offer on the request
+            await db.ride_requests.update_one(
+                {"request_id": request_id},
+                {"$set": {
+                    "current_offer_driver": driver_id,
+                    "offer_index": i,
+                    "offer_sent_at": now,
+                }}
+            )
+            
+            # Send offer to this driver via WebSocket
+            offer_msg = {
+                "type": "ride_offer",
+                "request_id": request_id,
+                "countdown": 8,
+                "pickup": request_doc.get("pickup_location", {}),
+                "dropoff": request_doc.get("dropoff_location", {}),
+                "fare": request_doc.get("estimated_fare", 0),
+                "distance_km": request_doc.get("estimated_distance", 0),
+                "duration_min": request_doc.get("estimated_duration", 0),
+                "vehicle_type": request_doc.get("vehicle_type", "economy"),
+                "rider_name": "Pasajero",
+            }
+            await manager.send_personal_message(offer_msg, driver_id)
+            
+            # Notify rider that we're offering to a driver
+            await manager.send_personal_message({
+                "type": "searching_driver",
+                "request_id": request_id,
+                "driver_index": i + 1,
+                "total_drivers": len(sorted_drivers),
+                "message": f"Ofreciendo viaje a conductor {i+1}/{len(sorted_drivers)}..."
+            }, rider_id)
+            
+            # Wait up to 8 seconds for driver response
+            event.clear()
+            try:
+                await asyncio.wait_for(event.wait(), timeout=8.0)
+            except asyncio.TimeoutError:
+                pass  # Driver didn't respond in time
+            
+            # Check if request was accepted
+            updated = await db.ride_requests.find_one({"request_id": request_id}, {"_id": 0})
+            if not updated:
+                return
+            
+            if updated.get("status") == "accepted":
+                # Driver accepted! Notify rider
+                ride = await db.rides.find_one({"request_id": request_id}, {"_id": 0})
+                if ride:
+                    ride_data = {k: (v.isoformat() if isinstance(v, datetime) else v) for k, v in ride.items()}
+                    driver_info = await db.users.find_one({"user_id": ride["driver_id"]}, {"_id": 0, "password_hash": 0})
+                    await manager.send_personal_message({
+                        "type": "ride_accepted",
+                        "ride": ride_data,
+                        "driver": driver_info
+                    }, rider_id)
+                return  # Done!
+            
+            # Not accepted - tell this driver their offer expired
+            await manager.send_personal_message({
+                "type": "ride_offer_expired",
+                "request_id": request_id,
+            }, driver_id)
+        
+        # All drivers passed - notify rider
+        await manager.send_personal_message({
+            "type": "no_drivers_available",
+            "request_id": request_id,
+            "message": "No hay conductores disponibles en este momento"
+        }, rider_id)
+        
+        # Mark request as no_drivers
+        await db.ride_requests.update_one(
+            {"request_id": request_id},
+            {"$set": {"status": "no_drivers", "current_offer_driver": None}}
+        )
+    except Exception as e:
+        print(f"Assignment error for {request_id}: {e}")
+    finally:
+        assignment_events.pop(request_id, None)
+        assignment_tasks.pop(request_id, None)
+
 # ======================= PYDANTIC MODELS =======================
 
 class UserBase(BaseModel):
@@ -257,7 +358,7 @@ async def get_settings() -> dict:
         # Default settings
         settings = {
             "setting_id": "global",
-            "map_provider": "osm",  # osm, google, mapbox
+            "map_provider": "google",  # osm, google, mapbox
             "base_fare": 2.50,
             "per_km_rate": 1.20,
             "per_minute_rate": 0.15,
@@ -732,22 +833,22 @@ async def create_ride_request(request: RideRequestCreate, user: dict = Depends(g
     
     await db.ride_requests.insert_one(request_doc)
     
-    # Notify nearby drivers via WebSocket
+    # Get nearby drivers sorted by distance (closest first)
     nearby = await get_nearby_drivers(
         request.pickup_location.latitude,
         request.pickup_location.longitude,
-        radius_km=10.0,
+        radius_km=15.0,
         vehicle_type=request.vehicle_type
     )
     
-    driver_ids = [d["driver_id"] for d in nearby.get("drivers", [])]
-    await manager.broadcast_to_drivers(
-        {
-            "type": "new_ride_request",
-            "request": {k: v for k, v in request_doc.items() if k != "_id"}
-        },
-        driver_ids
-    )
+    sorted_drivers = nearby.get("drivers", [])
+    
+    # Start automatic assignment in background
+    if sorted_drivers:
+        task = asyncio.create_task(
+            assign_ride_to_drivers(request_id, user["user_id"], sorted_drivers, request_doc)
+        )
+        assignment_tasks[request_id] = task
     
     return RideRequestResponse(
         request_id=request_id,

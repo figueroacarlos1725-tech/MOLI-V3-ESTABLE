@@ -462,23 +462,31 @@ async function fetchVehicleIcons(): Promise<VehicleIconConfig[]> {
 
 // Map config cache
 let cachedMapConfig: { provider: string; google_key: string } | null = null;
+let mapConfigPromise: Promise<{ provider: string; google_key: string }> | null = null;
 
 async function fetchMapConfig(): Promise<{ provider: string; google_key: string }> {
   if (cachedMapConfig) return cachedMapConfig;
-  try {
-    const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || '';
-    const resp = await fetch(`${backendUrl}/api/config/maps`);
-    const data = await resp.json();
-    cachedMapConfig = { provider: data.provider || 'osm', google_key: data.google_key || '' };
+  if (mapConfigPromise) return mapConfigPromise;
+  
+  mapConfigPromise = (async () => {
+    try {
+      const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || '';
+      const resp = await fetch(`${backendUrl}/api/config/maps`);
+      const data = await resp.json();
+      cachedMapConfig = { provider: data.provider || 'google', google_key: data.google_key || process.env.EXPO_PUBLIC_GOOGLE_MAPS_KEY || '' };
+    } catch {
+      cachedMapConfig = { provider: 'google', google_key: process.env.EXPO_PUBLIC_GOOGLE_MAPS_KEY || '' };
+    }
+    mapConfigPromise = null;
     return cachedMapConfig;
-  } catch {
-    return { provider: 'osm', google_key: '' };
-  }
+  })();
+  return mapConfigPromise;
 }
 
 export function MapView(props: MapViewProps) {
   const [vehicleIcons, setVehicleIcons] = useState<VehicleIconConfig[]>(cachedVehicleIcons);
-  const [mapConfig, setMapConfig] = useState(cachedMapConfig || { provider: 'osm', google_key: '' });
+  const [mapConfig, setMapConfig] = useState(cachedMapConfig || { provider: 'google', google_key: process.env.EXPO_PUBLIC_GOOGLE_MAPS_KEY || '' });
+  const [configLoaded, setConfigLoaded] = useState(!!cachedMapConfig);
 
   useEffect(() => {
     fetchVehicleIcons().then(icons => {
@@ -486,8 +494,20 @@ export function MapView(props: MapViewProps) {
     });
     fetchMapConfig().then(config => {
       setMapConfig(config);
+      setConfigLoaded(true);
     });
   }, []);
+
+  if (!configLoaded) {
+    return (
+      <View style={[styles.container, props.style]}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#6BBF00" />
+          <Text style={styles.loadingText}>Cargando mapa...</Text>
+        </View>
+      </View>
+    );
+  }
 
   if (Platform.OS === 'web') {
     return <WebMapView {...props} vehicleIcons={vehicleIcons} mapProvider={mapConfig.provider} googleKey={mapConfig.google_key} />;
