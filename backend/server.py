@@ -103,9 +103,32 @@ async def assign_ride_to_drivers(request_id: str, rider_id: str, sorted_drivers:
     
     try:
         while True:
+            # Check if request has expired (5 min timeout)
+            req_check_exp = await db.ride_requests.find_one({"request_id": request_id}, {"_id": 0})
+            if req_check_exp:
+                expires_at = req_check_exp.get("expires_at")
+                if expires_at:
+                    # Ensure expires_at is timezone-aware
+                    if isinstance(expires_at, str):
+                        expires_at = datetime.fromisoformat(expires_at.replace('Z', '+00:00'))
+                    elif expires_at.tzinfo is None:
+                        expires_at = expires_at.replace(tzinfo=timezone.utc)
+                    
+                    if datetime.now(timezone.utc) > expires_at:
+                        await db.ride_requests.update_one(
+                            {"request_id": request_id},
+                            {"$set": {"status": "expired"}}
+                        )
+                        await manager.send_personal_message({
+                            "type": "no_drivers_available",
+                            "request_id": request_id,
+                            "message": "No se encontraron conductores disponibles. Intenta de nuevo."
+                        }, rider_id)
+                        return
+            
             # Re-fetch available drivers each round (they may come online)
             fresh_drivers = sorted_drivers if total_attempts == 0 else None
-            if total_attempts > 0:
+            if total_attempts > 0 or not sorted_drivers or len(sorted_drivers) == 0:
                 try:
                     pickup = request_doc.get("pickup_location", {})
                     result = await get_nearby_drivers(
@@ -115,10 +138,23 @@ async def assign_ride_to_drivers(request_id: str, rider_id: str, sorted_drivers:
                     )
                     fresh_drivers = result.get("drivers", [])
                 except Exception:
-                    fresh_drivers = sorted_drivers
+                    fresh_drivers = sorted_drivers or []
             
             if not fresh_drivers or len(fresh_drivers) == 0:
-                fresh_drivers = sorted_drivers  # fallback to original list
+                # No drivers available yet - notify rider and wait before retrying
+                await manager.send_personal_message({
+                    "type": "searching_driver",
+                    "request_id": request_id,
+                    "driver_index": 0,
+                    "total_drivers": 0,
+                    "message": "Buscando conductores disponibles..."
+                }, rider_id)
+                await asyncio.sleep(5)  # Wait 5 seconds before checking again
+                # Re-check if cancelled
+                req_recheck = await db.ride_requests.find_one({"request_id": request_id}, {"_id": 0})
+                if not req_recheck or req_recheck.get("status") in ("accepted", "cancelled", "completed", "expired"):
+                    return
+                continue  # Try fetching drivers again
             
             for i, driver in enumerate(fresh_drivers):
                 # Check if request was cancelled by rider
@@ -234,6 +270,8 @@ async def assign_ride_to_drivers(request_id: str, rider_id: str, sorted_drivers:
         
     except Exception as e:
         print(f"Assignment error for {request_id}: {e}")
+        import traceback
+        traceback.print_exc()
     finally:
         assignment_events.pop(request_id, None)
         assignment_tasks.pop(request_id, None)
@@ -322,6 +360,7 @@ class RideRequestResponse(BaseModel):
     estimated_distance: float
     estimated_duration: int
     created_at: datetime
+    expires_at: Optional[datetime] = None
     bids: List[dict] = []
 
 class BidCreate(BaseModel):
@@ -777,6 +816,37 @@ async def update_availability(
         }
     
     await db.drivers.update_one({"driver_id": user["user_id"]}, {"$set": update_data})
+    
+    # When driver comes online, check for pending ride requests without active dispatch
+    if is_online:
+        try:
+            pending_requests = await db.ride_requests.find({
+                "status": "pending",
+                "expires_at": {"$gt": datetime.now(timezone.utc)}
+            }, {"_id": 0}).to_list(20)
+            
+            for req in pending_requests:
+                req_id = req["request_id"]
+                # Only start dispatch if no active task exists for this request
+                if req_id not in assignment_tasks or assignment_tasks[req_id].done():
+                    rider_id = req["rider_id"]
+                    pickup = req.get("pickup_location", {})
+                    # Get nearby drivers AFTER driver is marked online
+                    nearby = await get_nearby_drivers(
+                        pickup.get("latitude", 0), pickup.get("longitude", 0),
+                        radius_km=50,
+                        vehicle_type=req.get("vehicle_type")
+                    )
+                    drivers_found = nearby.get("drivers", [])
+                    # Always start dispatch even if no drivers found initially (loop will wait)
+                    print(f"Driver {user['user_id']} came online - dispatching pending ride {req_id}")
+                    task = asyncio.create_task(
+                        assign_ride_to_drivers(req_id, rider_id, drivers_found, req)
+                    )
+                    assignment_tasks[req_id] = task
+        except Exception as e:
+            print(f"Error checking pending rides for new driver: {e}")
+    
     return {"status": "success", "is_online": is_online}
 
 @app.put("/api/drivers/location")
@@ -956,12 +1026,11 @@ async def create_ride_request(request: RideRequestCreate, user: dict = Depends(g
     
     sorted_drivers = nearby.get("drivers", [])
     
-    # Start automatic assignment in background
-    if sorted_drivers:
-        task = asyncio.create_task(
-            assign_ride_to_drivers(request_id, user["user_id"], sorted_drivers, request_doc)
-        )
-        assignment_tasks[request_id] = task
+    # Start automatic assignment in background (even with 0 drivers, loop will wait for new ones)
+    task = asyncio.create_task(
+        assign_ride_to_drivers(request_id, user["user_id"], sorted_drivers, request_doc)
+    )
+    assignment_tasks[request_id] = task
     
     return RideRequestResponse(
         request_id=request_id,
@@ -976,6 +1045,7 @@ async def create_ride_request(request: RideRequestCreate, user: dict = Depends(g
         estimated_distance=round(distance_km, 2),
         estimated_duration=duration_min,
         created_at=now,
+        expires_at=now + timedelta(minutes=5),
         bids=[]
     )
 
@@ -1846,6 +1916,25 @@ async def get_rides(
     limit: int = 20,
     user: dict = Depends(get_current_user)
 ):
+    query = {}
+    
+    if user["user_type"] == "rider":
+        query["rider_id"] = user["user_id"]
+    elif user["user_type"] == "driver":
+        query["driver_id"] = user["user_id"]
+    
+    if status:
+        query["status"] = status
+    
+    rides = await db.rides.find(query, {"_id": 0}).sort("created_at", -1).to_list(limit)
+    return {"rides": rides}
+@app.get("/api/rides/my-rides")
+async def get_my_rides(
+    status: Optional[str] = None,
+    limit: int = 20,
+    user: dict = Depends(get_current_user)
+):
+    """Alias for /api/rides - get user's rides"""
     query = {}
     
     if user["user_type"] == "rider":

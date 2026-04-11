@@ -325,6 +325,27 @@ export default function RiderHomeScreen() {
   };
 
   // ─── Location select ──────────────────────
+  
+  // Handle marker drag (pin adjustment)
+  const handleMarkerDrag = async (markerType: string, coords: { latitude: number; longitude: number }) => {
+    const addr = await reverseGeocode(coords.latitude, coords.longitude);
+    if (markerType === 'pickup') {
+      const newPickup = { ...coords, address: addr };
+      setPickupLocation(newPickup);
+      setPickupAddress(addr);
+      if (dropoffLocation) {
+        recalcEstimates(newPickup, dropoffLocation, stops);
+      }
+    } else if (markerType === 'dropoff') {
+      const newDropoff = { ...coords, address: addr };
+      setDropoffLocation(newDropoff);
+      setDropoffAddress(addr);
+      if (pickupLocation) {
+        recalcEstimates(pickupLocation, newDropoff, stops);
+      }
+    }
+  };
+
   const recalcEstimates = (pickup: LocationCoords, dropoff: LocationCoords, currentStops: Array<{ location: LocationCoords; address: string }>) => {
     // Calculate total distance through all waypoints
     let totalDist = 0;
@@ -454,11 +475,12 @@ export default function RiderHomeScreen() {
   // ─── Memoized markers (prevents re-render loop) ───
   const markers = useMemo(() => {
     const m: any[] = [];
-    if (pickupLocation) m.push({ latitude: pickupLocation.latitude, longitude: pickupLocation.longitude, title: 'Recogida', type: 'pickup' as const, draggable: true });
-    if (dropoffLocation) m.push({ latitude: dropoffLocation.latitude, longitude: dropoffLocation.longitude, title: 'Destino', type: 'dropoff' as const });
+    const isDraggable = phase === 'confirm' || phase === 'idle';
+    if (pickupLocation) m.push({ latitude: pickupLocation.latitude, longitude: pickupLocation.longitude, title: 'Recogida', type: 'pickup' as const, draggable: isDraggable });
+    if (dropoffLocation) m.push({ latitude: dropoffLocation.latitude, longitude: dropoffLocation.longitude, title: 'Destino', type: 'dropoff' as const, draggable: phase === 'confirm' });
     if (currentRide?.driver_location) m.push({ latitude: currentRide.driver_location.latitude, longitude: currentRide.driver_location.longitude, title: 'Conductor', type: 'driver' as const });
     return m;
-  }, [pickupLocation?.latitude, pickupLocation?.longitude, dropoffLocation?.latitude, dropoffLocation?.longitude, currentRide?.driver_location?.latitude]);
+  }, [pickupLocation?.latitude, pickupLocation?.longitude, dropoffLocation?.latitude, dropoffLocation?.longitude, currentRide?.driver_location?.latitude, phase]);
 
   const emojiMap: Record<string, string> = { economy: '🚗', comfort: '🚙', premium: '🏎️', xl: '🚌' };
   const nameMap: Record<string, string> = { economy: 'Económico', comfort: 'Confort', premium: 'Premium', xl: 'XL' };
@@ -630,7 +652,16 @@ export default function RiderHomeScreen() {
           markers={markers}
           showRoute={!!pickupLocation && !!dropoffLocation}
           onMapPress={phase === 'idle' ? handleMapPress : undefined}
+          onMarkerDrag={phase === 'confirm' || phase === 'idle' ? handleMarkerDrag : undefined}
         />
+
+        {/* Drag hint */}
+        {phase === 'confirm' && (
+          <View style={s.dragHint}>
+            <Ionicons name="move-outline" size={14} color="#fff" />
+            <Text style={s.dragHintText}>Arrastra los puntos para ajustar</Text>
+          </View>
+        )}
 
         {/* Hamburger menu button */}
         {(phase === 'idle' || phase === 'confirm') && !currentRide && (
@@ -915,6 +946,8 @@ const s = StyleSheet.create({
   mapFull: { flex: 1 },
   mapBackBtn: { position: 'absolute', top: Platform.OS === 'ios' ? 54 : 38, left: 16, width: 44, height: 44, borderRadius: 22, backgroundColor: '#fff', justifyContent: 'center', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.15, shadowRadius: 6, elevation: 4, zIndex: 2 },
   hamburgerBtn: { position: 'absolute', top: Platform.OS === 'ios' ? 54 : 38, left: 16, width: 44, height: 44, borderRadius: 22, backgroundColor: '#fff', justifyContent: 'center', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.15, shadowRadius: 6, elevation: 4, zIndex: 2 },
+  dragHint: { position: 'absolute', top: Platform.OS === 'ios' ? 54 : 38, alignSelf: 'center', flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(28,28,30,0.85)', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, gap: 6, zIndex: 2 },
+  dragHintText: { color: '#fff', fontSize: 12, fontWeight: '600' },
 
   // ─── Idle Bottom Panel ───
   bottomPanel: { backgroundColor: '#fff', borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: 20, paddingTop: 20, paddingBottom: 24, shadowColor: '#000', shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 8 },

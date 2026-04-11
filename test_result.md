@@ -303,7 +303,49 @@ backend:
         agent: "testing"
         comment: "TESTED SUCCESSFULLY: POST /api/admin/direct-message endpoint working perfectly. ✅ Successfully sends direct messages from admin to any user ✅ Accepts target_user_id and message as query parameters ✅ Returns status: 'sent' and message_id ✅ Proper admin authentication and access control ✅ Stores message in direct_messages collection ✅ Sends WebSocket notification to target user"
 
+  - task: "Dispatch Pending Rides to Newly Online Drivers"
+    implemented: true
+    working: false
+    file: "/app/backend/server.py"
+    stuck_count: 1
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "NEW: When a driver comes online via PUT /api/drivers/availability?is_online=true, the system now checks for pending ride_requests (status=pending, not expired) and starts dispatch for those that don't have an active dispatch task. Also, the dispatch loop now always starts even with 0 drivers - it loops every 5 seconds checking for newly available drivers until the request expires (5 min). TEST: 1) Create ride request when no drivers online 2) Wait 3-5 seconds 3) Put driver online 4) Verify the ride gets offered to the driver."
+      - working: false
+        agent: "testing"
+        comment: "TESTED: Dispatch trigger is working correctly - when driver comes online, pending rides are detected and dispatch tasks are started. However, the automatic offer system is not working properly. The WebSocket offer mechanism or assignment loop has issues. Manual driver response works correctly (tested via POST /api/rides/{request_id}/driver-response). Fixed timezone comparison issue in assignment function and added expires_at field to API response. The dispatch system starts but drivers don't receive ride offers automatically."
+
+  - task: "Dispatch Loop with Zero Drivers and Expiration"
+    implemented: true
+    working: false
+    file: "/app/backend/server.py"
+    stuck_count: 1
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "NEW: The dispatch loop (assign_ride_to_drivers) now handles the case where no drivers are available - it sleeps 5s and retries. Also checks expires_at field - if request expired, sets status to expired and sends no_drivers_available to rider."
+      - working: false
+        agent: "testing"
+        comment: "TESTED: Dispatch loop starts correctly even with zero drivers and expires_at field is properly set (5 min TTL). Fixed timezone comparison issues in expiration logic. However, the automatic WebSocket offer system is not working - drivers don't receive ride offers. The background task starts but the offer mechanism fails. Manual driver response endpoint works correctly, indicating the issue is in the automatic offer delivery system."
+
 frontend:
+  - task: "Pin Adjustment (Draggable Markers)"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/app/(rider)/home.tsx"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "NEW: Both pickup and dropoff markers are now draggable in the confirm phase. When user drags a pin, the location updates, reverse geocodes the new address, and recalculates route/fare estimates. A visual hint 'Arrastra los puntos para ajustar' shows at the top of the map."
+
   - task: "Mapbox Map Integration (Web)"
     implemented: true
     working: true
@@ -347,8 +389,12 @@ metadata:
   run_ui: false
 
 test_plan:
-  current_focus: []
-  stuck_tasks: []
+  current_focus:
+    - "Dispatch Pending Rides to Newly Online Drivers"
+    - "Dispatch Loop with Zero Drivers and Expiration"
+  stuck_tasks:
+    - "Dispatch Pending Rides to Newly Online Drivers"
+    - "Dispatch Loop with Zero Drivers and Expiration"
   test_all: false
   test_priority: "high_first"
 
@@ -363,3 +409,7 @@ agent_communication:
     message: "FULL CANCELLATION + WALLET + RE-DISPATCH FLOW TESTING COMPLETED ✅ Comprehensive testing of the complete taxi booking system flow performed. TESTED SUCCESSFULLY: ✅ GET /api/cancellation/config - Returns all required fields (cancel_free_minutes, rider_cancel_penalty, driver_cancel_penalty, driver_max_negative_balance, driver_block_after_cancels, driver_block_hours, currency_symbol) ✅ Admin settings update - Successfully updates cancel_free_minutes and other cancellation settings ✅ GET /api/wallet/status - Returns correct wallet info for both riders (balance, pending_penalties) and drivers (balance, cancel_count_30d, driver_block status) ✅ GET /api/driver/block-status - Properly restricts access to drivers only and returns block status ✅ GET /api/cancellation/history - Returns user's cancellation records with proper datetime serialization ✅ GET /api/wallet/transactions - Returns transactions with proper datetime serialization ✅ PUT /api/admin/settings - Successfully updates and persists cancellation configuration. FLOW TESTING NOTES: Tests for cash ride completion, rider/driver cancellation penalties, and wallet commission debits require active rides to be created through the automatic driver assignment system. The assignment system uses WebSocket connections and background tasks to offer rides to drivers sequentially. All wallet and cancellation endpoints are fully functional and ready for production. The system correctly implements commission debit for cash rides, penalty application for cancellations, and driver compensation for rider cancellations."
   - agent: "testing"
     message: "NEW DOCUMENT VERIFICATION & ADMIN ENDPOINTS TESTING COMPLETED ✅ All 5 new endpoints tested successfully! TESTED ENDPOINTS: ✅ GET /api/driver/documents/required - Returns all 6 required documents (license, id_front, id_back, vehicle_registration, insurance, criminal_record) with upload status ✅ GET /api/driver/verification-status - Returns is_verified: false, status: 'incomplete' for unverified driver ✅ GET /api/admin/drivers/pending-verification - Returns drivers array with pending verification documents ✅ GET /api/admin/support/sessions - Returns support sessions with latest messages ✅ POST /api/admin/direct-message - Successfully sends direct messages from admin to users. All endpoints have proper authentication, authorization (driver-only/admin-only), and return correct data structures. The document verification and admin communication system is fully functional and ready for production use."
+  - agent: "main"
+    message: "NEW DISPATCH IMPROVEMENTS: Two critical changes were made: 1) PUT /api/drivers/availability?is_online=true NOW checks for pending ride requests (status=pending, not expired) and starts dispatch tasks for them. 2) The dispatch loop (assign_ride_to_drivers) NOW always starts even with 0 initial drivers - it loops every 5 seconds checking for available drivers. It also checks the expires_at field and stops if the request has expired (5 min TTL). TEST FLOW: Step1: Login as rider, create ride request (no drivers online). Step2: Login as driver, register vehicle, set online with location. Step3: Verify the driver receives the ride offer. Also verify that expired requests (>5 min old) are not dispatched. CREDENTIALS: rider@test.com/test123456, driver@test.com/test123456, admin@test.com/admin123456"
+  - agent: "testing"
+    message: "DISPATCH IMPROVEMENTS TESTING COMPLETED ❌ PARTIAL SUCCESS: ✅ Fixed expires_at field - now properly returned in API response with 5-minute TTL ✅ Fixed timezone comparison issues in assignment function ✅ Dispatch trigger works - when driver comes online, pending rides are detected and dispatch tasks start ✅ Manual driver response endpoint works perfectly (POST /api/rides/{request_id}/driver-response) ❌ CRITICAL ISSUE: Automatic WebSocket offer system not working - drivers don't receive ride offers automatically. The dispatch background task starts but the offer delivery mechanism fails. Root cause appears to be in WebSocket connection management or offer message delivery. Manual testing shows driver response works when called directly, indicating the issue is specifically in the automatic offer notification system."
