@@ -31,7 +31,7 @@ import {
 
 const { width: SW, height: SH } = Dimensions.get('window');
 
-type Phase = 'idle' | 'destination' | 'confirm' | 'searching' | 'active';
+type Phase = 'idle' | 'destination' | 'confirm' | 'searching' | 'active' | 'completed';
 
 export default function RiderHomeScreen() {
   const { user } = useAuthStore();
@@ -72,7 +72,6 @@ export default function RiderHomeScreen() {
   // ─── Init ─────────────────────────────────
   useEffect(() => {
     initLocation();
-    // Restore active ride on mount (important for app reopen)
     fetchActiveRide().then((ride) => {
       if (ride && ['accepted', 'arrived', 'started'].includes(ride.status)) {
         setPhase('active');
@@ -87,6 +86,38 @@ export default function RiderHomeScreen() {
       setPhase('active');
     }
   }, [currentRide]);
+
+  // ─── POLLING: Active ride status updates ──
+  useEffect(() => {
+    if (phase !== 'active') return;
+    
+    const pollInterval = setInterval(async () => {
+      try {
+        const ride = await fetchActiveRide();
+        if (!ride) {
+          // Ride was cancelled or disappeared
+          setPhase('idle');
+          clearInterval(pollInterval);
+          return;
+        }
+        if (ride.status === 'completed') {
+          setPhase('completed');
+          clearInterval(pollInterval);
+          return;
+        }
+        if (ride.status === 'cancelled') {
+          showError('El viaje fue cancelado');
+          setPhase('idle');
+          clearInterval(pollInterval);
+          return;
+        }
+      } catch (e) {
+        // silently retry
+      }
+    }, 4000);
+
+    return () => clearInterval(pollInterval);
+  }, [phase]);
 
   // ─── WebSocket ────────────────────────────
   useEffect(() => {
@@ -298,6 +329,61 @@ export default function RiderHomeScreen() {
   const emojiMap: Record<string, string> = { economy: '🚗', comfort: '🚙', premium: '🏎️', xl: '🚌' };
   const nameMap: Record<string, string> = { economy: 'Económico', comfort: 'Confort', premium: 'Premium', xl: 'XL' };
   const selectedFare = fareEstimates.find((e: any) => e.vehicle_type === selectedVehicle);
+
+  const handleFinishRide = () => {
+    clearRequest();
+    setDropoffLocation(null);
+    setDropoffAddress('');
+    setRouteInfo(null);
+    setFareEstimates([]);
+    estimateFetched.current = false;
+    setPhase('idle');
+  };
+
+  // ═══════════════════════════════════════════
+  // PHASE: COMPLETED RIDE
+  // ═══════════════════════════════════════════
+  if (phase === 'completed' && currentRide) {
+    return (
+      <SafeAreaView style={s.container}>
+        <View style={s.completedContainer}>
+          <View style={s.completedIcon}>
+            <Ionicons name="checkmark-circle" size={72} color="#6BBF00" />
+          </View>
+          <Text style={s.completedTitle}>¡Viaje completado!</Text>
+          <Text style={s.completedSubtitle}>Gracias por viajar con Molí</Text>
+
+          <View style={s.completedCard}>
+            <View style={s.completedRow}>
+              <Text style={s.completedLabel}>Tarifa total</Text>
+              <Text style={s.completedFare}>${currentRide.fare?.toFixed(0)}</Text>
+            </View>
+            <View style={s.completedDivider} />
+            {currentRide.driver_info && (
+              <View style={s.completedRow}>
+                <Text style={s.completedLabel}>Conductor</Text>
+                <Text style={s.completedValue}>{currentRide.driver_info.name}</Text>
+              </View>
+            )}
+            <View style={s.completedRow}>
+              <Text style={s.completedLabel}>Método de pago</Text>
+              <Text style={s.completedValue}>Efectivo</Text>
+            </View>
+            {currentRide.vehicle_info && (
+              <View style={s.completedRow}>
+                <Text style={s.completedLabel}>Vehículo</Text>
+                <Text style={s.completedValue}>{currentRide.vehicle_info.plate_number}</Text>
+              </View>
+            )}
+          </View>
+
+          <TouchableOpacity style={s.completedBtn} onPress={handleFinishRide}>
+            <Text style={s.completedBtnText}>Volver al inicio</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   // ═══════════════════════════════════════════
   // PHASE: ACTIVE RIDE
@@ -672,4 +758,18 @@ const s = StyleSheet.create({
   resultName: { fontSize: 15, fontWeight: '600', color: '#1C1C1E' },
   resultAddr: { fontSize: 13, color: '#8E8E93', marginTop: 2 },
   noResults: { textAlign: 'center', marginTop: 40, fontSize: 15, color: '#8E8E93' },
+
+  // ─── Completed ───
+  completedContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32, backgroundColor: '#fff' },
+  completedIcon: { marginBottom: 16 },
+  completedTitle: { fontSize: 26, fontWeight: '800', color: '#1C1C1E' },
+  completedSubtitle: { fontSize: 15, color: '#8E8E93', marginTop: 6 },
+  completedCard: { backgroundColor: '#F8F8FA', borderRadius: 16, padding: 20, width: '100%', marginTop: 32 },
+  completedRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 10 },
+  completedLabel: { fontSize: 14, color: '#8E8E93' },
+  completedFare: { fontSize: 28, fontWeight: '800', color: '#6BBF00' },
+  completedValue: { fontSize: 14, fontWeight: '600', color: '#1C1C1E' },
+  completedDivider: { height: 1, backgroundColor: '#E5E5EA', marginVertical: 4 },
+  completedBtn: { backgroundColor: '#1C1C1E', width: '100%', paddingVertical: 18, borderRadius: 14, alignItems: 'center', marginTop: 32 },
+  completedBtnText: { color: '#fff', fontSize: 17, fontWeight: '700' },
 });

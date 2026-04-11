@@ -1224,6 +1224,7 @@ async def update_ride_status(
 
 @app.get("/api/rides/active")
 async def get_active_ride(user: dict = Depends(get_current_user)):
+    """Get active ride OR recently completed ride (within 2 min)"""
     query = {"status": {"$in": ["accepted", "arrived", "started"]}}
     
     if user["user_type"] == "rider":
@@ -1232,6 +1233,20 @@ async def get_active_ride(user: dict = Depends(get_current_user)):
         query["driver_id"] = user["user_id"]
     
     ride = await db.rides.find_one(query, {"_id": 0})
+    
+    # If no active ride, check recently completed (so rider can see completion screen)
+    if not ride:
+        from datetime import timedelta
+        two_min_ago = datetime.now(timezone.utc) - timedelta(minutes=2)
+        completed_query = {
+            "status": "completed",
+            "completed_at": {"$gte": two_min_ago}
+        }
+        if user["user_type"] == "rider":
+            completed_query["rider_id"] = user["user_id"]
+        elif user["user_type"] == "driver":
+            completed_query["driver_id"] = user["user_id"]
+        ride = await db.rides.find_one(completed_query, {"_id": 0}, sort=[("completed_at", -1)])
     
     if ride:
         # Get additional info
