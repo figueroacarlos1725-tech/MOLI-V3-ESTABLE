@@ -3,7 +3,7 @@ TaxiRide Clone - Complete Backend API
 Full taxi booking system with rider, driver, and admin functionality
 """
 
-from fastapi import FastAPI, HTTPException, Depends, Query, Header, WebSocket, WebSocketDisconnect, UploadFile, File
+from fastapi import FastAPI, HTTPException, Depends, Query, Header, WebSocket, WebSocketDisconnect, UploadFile, File, Body
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field, EmailStr
 from typing import Optional, List, Dict, Any
@@ -4983,30 +4983,287 @@ async def get_maps_config():
     
     return config
 
-# ======================= PLACES SEARCH (MULTI-PROVIDER) =======================
+# ======================= PLACES SEARCH (WITH CACHE & CUSTOM PLACES) =======================
+
+# --- Cache helpers ---
+async def _get_search_cache(query_normalized: str, lat: float, lng: float):
+    """Check if we have a cached search result"""
+    # Round coords to ~1km precision for cache grouping
+    lat_r = round(lat, 2)
+    lng_r = round(lng, 2)
+    cached = await db.cached_searches.find_one({
+        "query": query_normalized,
+        "lat_r": lat_r,
+        "lng_r": lng_r,
+    }, {"_id": 0})
+    if cached:
+        await db.cached_searches.update_one(
+            {"query": query_normalized, "lat_r": lat_r, "lng_r": lng_r},
+            {"$inc": {"hit_count": 1}, "$set": {"last_hit": datetime.now(timezone.utc)}}
+        )
+    return cached
+
+async def _save_search_cache(query_normalized: str, lat: float, lng: float, results: list):
+    """Save search results to cache"""
+    lat_r = round(lat, 2)
+    lng_r = round(lng, 2)
+    await db.cached_searches.update_one(
+        {"query": query_normalized, "lat_r": lat_r, "lng_r": lng_r},
+        {"$set": {
+            "query": query_normalized,
+            "lat_r": lat_r,
+            "lng_r": lng_r,
+            "results": results,
+            "hit_count": 1,
+            "created_at": datetime.now(timezone.utc),
+            "last_hit": datetime.now(timezone.utc),
+        }},
+        upsert=True
+    )
+
+async def _get_reverse_cache(lat: float, lng: float):
+    """Check reverse geocode cache (rounded to ~100m precision)"""
+    lat_r = round(lat, 3)
+    lng_r = round(lng, 3)
+    cached = await db.cached_reverse.find_one({
+        "lat_r": lat_r, "lng_r": lng_r
+    }, {"_id": 0})
+    if cached:
+        await db.cached_reverse.update_one(
+            {"lat_r": lat_r, "lng_r": lng_r},
+            {"$inc": {"hit_count": 1}}
+        )
+    return cached
+
+async def _save_reverse_cache(lat: float, lng: float, address: str):
+    """Save reverse geocode result to cache"""
+    lat_r = round(lat, 3)
+    lng_r = round(lng, 3)
+    await db.cached_reverse.update_one(
+        {"lat_r": lat_r, "lng_r": lng_r},
+        {"$set": {
+            "lat_r": lat_r,
+            "lng_r": lng_r,
+            "latitude": lat,
+            "longitude": lng,
+            "address": address,
+            "hit_count": 1,
+            "created_at": datetime.now(timezone.utc),
+        }},
+        upsert=True
+    )
+
+async def _get_custom_places(query: str, lat: float, lng: float):
+    """Search admin-defined custom places matching the query"""
+    q_lower = query.lower()
+    # Text search on custom places
+    custom = await db.custom_places.find({
+        "is_active": True,
+        "$or": [
+            {"name": {"$regex": q_lower, "$options": "i"}},
+            {"address": {"$regex": q_lower, "$options": "i"}},
+            {"keywords": {"$regex": q_lower, "$options": "i"}},
+            {"category": {"$regex": q_lower, "$options": "i"}},
+        ]
+    }, {"_id": 0}).to_list(10)
+    
+    # Sort by distance to user
+    for p in custom:
+        dist = ((p.get("latitude", 0) - lat) ** 2 + (p.get("longitude", 0) - lng) ** 2) ** 0.5
+        p["_dist"] = dist
+    
+    custom.sort(key=lambda x: x.get("_dist", 999))
+    
+    return [{
+        "id": p.get("place_id", ""),
+        "name": p.get("name", ""),
+        "address": p.get("address", ""),
+        "latitude": p.get("latitude", 0),
+        "longitude": p.get("longitude", 0),
+        "is_custom": True,
+        "category": p.get("category", ""),
+        "icon": p.get("icon", ""),
+    } for p in custom[:5]]
 
 
 @app.get("/api/places/search")
 async def places_search(q: str, lat: float = -28.4696, lng: float = -65.7852):
-    """Search places using current map provider"""
+    """Search places: custom places first, then cache, then external API"""
+    query_normalized = q.strip().lower()
+    
+    # 1. Custom places first (always checked)
+    custom_results = await _get_custom_places(q, lat, lng)
+    
+    # 2. Check cache
+    cached = await _get_search_cache(query_normalized, lat, lng)
+    if cached and cached.get("results"):
+        # Merge: custom first, then cached
+        all_results = custom_results + cached["results"]
+        # Deduplicate by name
+        seen = set()
+        unique = []
+        for r in all_results:
+            key = r.get("name", "").lower()
+            if key not in seen:
+                seen.add(key)
+                unique.append(r)
+        return {"results": unique[:8], "source": "cache"}
+    
+    # 3. Fetch from external API
     settings = await get_settings()
     provider = settings.get("map_provider", "osm")
     
-    if provider == "google":
-        return await _google_places_search(q, lat, lng)
-    else:
-        return await _nominatim_search(q, lat, lng)
+    try:
+        if provider == "google":
+            api_result = await _google_places_search(q, lat, lng)
+        else:
+            api_result = await _nominatim_search(q, lat, lng)
+        
+        api_results = api_result.get("results", [])
+        
+        # Save to cache
+        if api_results:
+            await _save_search_cache(query_normalized, lat, lng, api_results)
+        
+        # Merge: custom first, then API
+        all_results = custom_results + api_results
+        seen = set()
+        unique = []
+        for r in all_results:
+            key = r.get("name", "").lower()
+            if key not in seen:
+                seen.add(key)
+                unique.append(r)
+        
+        return {"results": unique[:8], "source": "api"}
+    except Exception as e:
+        print(f"Places search error: {e}")
+        # Return custom only if API fails
+        return {"results": custom_results, "source": "custom_only"}
+
 
 @app.get("/api/places/reverse")
 async def places_reverse(lat: float, lng: float):
-    """Reverse geocode using current map provider"""
+    """Reverse geocode with cache"""
+    # 1. Check cache first
+    cached = await _get_reverse_cache(lat, lng)
+    if cached and cached.get("address"):
+        return {"address": cached["address"], "source": "cache"}
+    
+    # 2. Fetch from external API
     settings = await get_settings()
     provider = settings.get("map_provider", "osm")
     
-    if provider == "google":
-        return await _google_reverse(lat, lng)
-    else:
-        return await _nominatim_reverse(lat, lng)
+    try:
+        if provider == "google":
+            result = await _google_reverse(lat, lng)
+        else:
+            result = await _nominatim_reverse(lat, lng)
+        
+        address = result.get("address", "Ubicación desconocida")
+        
+        # Save to cache
+        if address and address != "Ubicación desconocida":
+            await _save_reverse_cache(lat, lng, address)
+        
+        return {"address": address, "source": "api"}
+    except Exception as e:
+        print(f"Reverse geocode error: {e}")
+        return {"address": "Ubicación desconocida", "source": "error"}
+
+
+# --- Cache stats endpoint (admin) ---
+@app.get("/api/admin/cache/stats")
+async def get_cache_stats(user: dict = Depends(get_current_user)):
+    if user.get("user_type") not in ("admin", "dispatcher"):
+        raise HTTPException(403, "Solo admin")
+    
+    search_count = await db.cached_searches.count_documents({})
+    reverse_count = await db.cached_reverse.count_documents({})
+    total_hits_search = 0
+    total_hits_reverse = 0
+    
+    async for doc in db.cached_searches.find({}, {"hit_count": 1}):
+        total_hits_search += doc.get("hit_count", 0)
+    async for doc in db.cached_reverse.find({}, {"hit_count": 1}):
+        total_hits_reverse += doc.get("hit_count", 0)
+    
+    return {
+        "search_cache_entries": search_count,
+        "reverse_cache_entries": reverse_count,
+        "total_search_hits": total_hits_search,
+        "total_reverse_hits": total_hits_reverse,
+        "estimated_api_calls_saved": total_hits_search + total_hits_reverse,
+    }
+
+@app.delete("/api/admin/cache/clear")
+async def clear_cache(user: dict = Depends(get_current_user)):
+    if user.get("user_type") not in ("admin", "dispatcher"):
+        raise HTTPException(403, "Solo admin")
+    
+    r1 = await db.cached_searches.delete_many({})
+    r2 = await db.cached_reverse.delete_many({})
+    return {"cleared_searches": r1.deleted_count, "cleared_reverse": r2.deleted_count}
+
+
+# ======================= ADMIN CUSTOM PLACES =======================
+
+@app.get("/api/admin/places")
+async def get_custom_places(user: dict = Depends(get_current_user)):
+    if user.get("user_type") not in ("admin", "dispatcher"):
+        raise HTTPException(403, "Solo admin")
+    
+    places = await db.custom_places.find({}, {"_id": 0}).sort("name", 1).to_list(100)
+    return {"places": places}
+
+@app.post("/api/admin/places")
+async def create_custom_place(place: dict = Body(...), user: dict = Depends(get_current_user)):
+    if user.get("user_type") not in ("admin", "dispatcher"):
+        raise HTTPException(403, "Solo admin")
+    
+    place_id = f"custom_{uuid.uuid4().hex[:10]}"
+    doc = {
+        "place_id": place_id,
+        "name": place.get("name", ""),
+        "address": place.get("address", ""),
+        "latitude": float(place.get("latitude", 0)),
+        "longitude": float(place.get("longitude", 0)),
+        "category": place.get("category", ""),
+        "icon": place.get("icon", "📍"),
+        "keywords": place.get("keywords", ""),
+        "is_active": True,
+        "created_by": user["user_id"],
+        "created_at": datetime.now(timezone.utc),
+    }
+    await db.custom_places.insert_one(doc)
+    doc.pop("_id", None)
+    return {"status": "created", "place": doc}
+
+@app.put("/api/admin/places/{place_id}")
+async def update_custom_place(place_id: str, updates: dict = Body(...), user: dict = Depends(get_current_user)):
+    if user.get("user_type") not in ("admin", "dispatcher"):
+        raise HTTPException(403, "Solo admin")
+    
+    allowed = {"name", "address", "latitude", "longitude", "category", "icon", "keywords", "is_active"}
+    update_data = {k: v for k, v in updates.items() if k in allowed}
+    update_data["updated_at"] = datetime.now(timezone.utc)
+    
+    result = await db.custom_places.update_one({"place_id": place_id}, {"$set": update_data})
+    if result.matched_count == 0:
+        raise HTTPException(404, "Lugar no encontrado")
+    
+    return {"status": "updated"}
+
+@app.delete("/api/admin/places/{place_id}")
+async def delete_custom_place(place_id: str, user: dict = Depends(get_current_user)):
+    if user.get("user_type") not in ("admin", "dispatcher"):
+        raise HTTPException(403, "Solo admin")
+    
+    result = await db.custom_places.delete_one({"place_id": place_id})
+    if result.deleted_count == 0:
+        raise HTTPException(404, "Lugar no encontrado")
+    
+    return {"status": "deleted"}
 
 async def _google_places_search(q: str, lat: float, lng: float):
     key = os.getenv("GOOGLE_MAPS_KEY", "")

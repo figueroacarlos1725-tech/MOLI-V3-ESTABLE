@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   RefreshControl,
 } from 'react-native';
+import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '@/src/stores/authStore';
 import { apiService } from '@/src/services/api';
@@ -24,6 +25,7 @@ interface DashboardStats {
 
 export default function AdminDashboardScreen() {
   const { user } = useAuthStore();
+  const router = useRouter();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -114,6 +116,10 @@ export default function AdminDashboardScreen() {
             <TouchableOpacity style={styles.actionCard}>
               <Ionicons name="ticket" size={24} color="#FF9500" />
               <Text style={styles.actionText}>Agregar cupon</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.actionCard} onPress={() => router.push('/(admin)/places')}>
+              <Ionicons name="location" size={24} color="#34C759" />
+              <Text style={styles.actionText}>Lugares y Cache</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.actionCard}>
               <Ionicons name="bar-chart" size={24} color="#8E44AD" />
