@@ -51,6 +51,9 @@ export default function RiderHomeScreen() {
   const [selectedVehicleType, setSelectedVehicleType] = useState('economy');
   const [isLoading, setIsLoading] = useState(false);
   const [showBidsModal, setShowBidsModal] = useState(false);
+  const [dispatchStatus, setDispatchStatus] = useState<string>('');
+  const [dispatchProgress, setDispatchProgress] = useState<{index: number; total: number} | null>(null);
+  const [rideAccepted, setRideAccepted] = useState(false);
   const [isSelectingLocation, setIsSelectingLocation] = useState<'pickup' | 'dropoff' | null>(null);
   const [showSearchModal, setShowSearchModal] = useState(false);
   const [searchType, setSearchType] = useState<'pickup' | 'dropoff'>('dropoff');
@@ -79,12 +82,51 @@ export default function RiderHomeScreen() {
 
   useEffect(() => {
     if (user) {
-      const unsubscribe = socketService.on('new_bid', (data: any) => {
+      socketService.connect(user.user_id);
+
+      const unsubBid = socketService.on('new_bid', (data: any) => {
         if (data.bid) {
           addBid(data.bid);
         }
       });
-      return unsubscribe;
+
+      // Auto-dispatch system listeners
+      const unsubSearching = socketService.on('searching_driver', (data: any) => {
+        setDispatchStatus(`Buscando conductor ${data.driver_index}/${data.total_drivers}...`);
+        setDispatchProgress({ index: data.driver_index, total: data.total_drivers });
+      });
+
+      const unsubAccepted = socketService.on('ride_accepted', (data: any) => {
+        console.log('Ride accepted!', data);
+        setRideAccepted(true);
+        setDispatchStatus('¡Conductor encontrado!');
+        // Refresh active ride
+        setTimeout(() => {
+          fetchActiveRide();
+          setShowBidsModal(false);
+          setRideAccepted(false);
+          setDispatchStatus('');
+          setDispatchProgress(null);
+          clearRequest();
+        }, 1500);
+      });
+
+      const unsubNoDrivers = socketService.on('no_drivers_available', (data: any) => {
+        setDispatchStatus('No hay conductores disponibles en este momento');
+        setDispatchProgress(null);
+        setTimeout(() => {
+          setShowBidsModal(false);
+          setDispatchStatus('');
+          clearRequest();
+        }, 3000);
+      });
+
+      return () => {
+        unsubBid();
+        unsubSearching();
+        unsubAccepted();
+        unsubNoDrivers();
+      };
     }
   }, [user]);
 
@@ -472,43 +514,81 @@ export default function RiderHomeScreen() {
           </View>
         )}
 
-        {/* Tarjetas de vehículos con precios */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.vehicleTypesScroll}
-          contentContainerStyle={styles.vehicleTypesContent}
-        >
-          {(fareEstimates.length > 0 ? fareEstimates : vehicleTypes).map((type: any) => {
-            const isEstimate = !!type.estimated_fare;
-            const id = type.vehicle_type || type.id;
-            const name = type.display_name || type.name;
-            const price = type.estimated_fare;
-            const isSelected = selectedVehicleType === id;
-            const iconMap: any = { economy: 'car-outline', comfort: 'car', premium: 'car-sport', xl: 'bus' };
-            const emojiMap: any = { economy: '🚗', comfort: '🚙', premium: '🏎️', xl: '🚌' };
-            return (
-              <TouchableOpacity
-                key={id}
-                style={[styles.vehicleCard, isSelected && styles.vehicleCardSelected]}
-                onPress={() => setSelectedVehicleType(id)}
-              >
-                <Text style={styles.vehicleEmoji}>{emojiMap[id] || '🚗'}</Text>
-                <Text style={[styles.vehicleCardName, isSelected && styles.vehicleCardNameSel]}>
-                  {name}
-                </Text>
-                {isEstimate ? (
-                  <Text style={[styles.vehicleCardPrice, isSelected && styles.vehicleCardPriceSel]}>
-                    ${Math.round(price).toLocaleString()}
+        {/* Tarjetas de vehículos como LISTA VERTICAL */}
+        {(fareEstimates.length > 0 || routeInfo) && (
+          <View style={styles.vehicleListContainer}>
+            {(fareEstimates.length > 0 ? fareEstimates : vehicleTypes).map((type: any) => {
+              const isEstimate = !!type.estimated_fare;
+              const id = type.vehicle_type || type.id;
+              const name = type.display_name || type.name;
+              const price = type.estimated_fare;
+              const isSelected = selectedVehicleType === id;
+              const emojiMap: any = { economy: '🚗', comfort: '🚙', premium: '🏎️', xl: '🚌' };
+              return (
+                <TouchableOpacity
+                  key={id}
+                  style={[styles.vehicleListItem, isSelected && styles.vehicleListItemSelected]}
+                  onPress={() => setSelectedVehicleType(id)}
+                >
+                  <Text style={styles.vehicleListEmoji}>{emojiMap[id] || '🚗'}</Text>
+                  <View style={styles.vehicleListInfo}>
+                    <Text style={[styles.vehicleListName, isSelected && styles.vehicleListNameSel]}>
+                      {name}
+                    </Text>
+                    {routeInfo && (
+                      <Text style={styles.vehicleListEta}>
+                        {routeInfo.duration_min + (id === 'economy' ? 3 : id === 'comfort' ? 2 : id === 'premium' ? 1 : 4)} min
+                      </Text>
+                    )}
+                  </View>
+                  <View style={styles.vehicleListPriceWrap}>
+                    {isEstimate ? (
+                      <Text style={[styles.vehicleListPrice, isSelected && styles.vehicleListPriceSel]}>
+                        ${Math.round(price).toLocaleString()}
+                      </Text>
+                    ) : (
+                      <Text style={styles.vehicleListMult}>{type.multiplier}</Text>
+                    )}
+                    {loadingEstimate && <ActivityIndicator size="small" color="#6BBF00" style={{marginTop: 2}} />}
+                  </View>
+                  {isSelected && (
+                    <View style={styles.vehicleListCheck}>
+                      <Ionicons name="checkmark-circle" size={22} color="#6BBF00" />
+                    </View>
+                  )}
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        )}
+
+        {/* Vehicle type cards (without route - compact) */}
+        {!routeInfo && (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.vehicleTypesScroll}
+            contentContainerStyle={styles.vehicleTypesContent}
+          >
+            {vehicleTypes.map((type: any) => {
+              const isSelected = selectedVehicleType === type.id;
+              const emojiMap: any = { economy: '🚗', comfort: '🚙', premium: '🏎️', xl: '🚌' };
+              return (
+                <TouchableOpacity
+                  key={type.id}
+                  style={[styles.vehicleCard, isSelected && styles.vehicleCardSelected]}
+                  onPress={() => setSelectedVehicleType(type.id)}
+                >
+                  <Text style={styles.vehicleEmoji}>{emojiMap[type.id] || '🚗'}</Text>
+                  <Text style={[styles.vehicleCardName, isSelected && styles.vehicleCardNameSel]}>
+                    {type.name}
                   </Text>
-                ) : (
                   <Text style={styles.vehicleCardMult}>{type.multiplier}</Text>
-                )}
-                {loadingEstimate && <ActivityIndicator size="small" color="#6BBF00" style={{marginTop: 2}} />}
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        )}
 
         {/* Botón de solicitar */}
         {(() => {
@@ -635,61 +715,96 @@ export default function RiderHomeScreen() {
         </SafeAreaView>
       </Modal>
 
-      {/* Modal de ofertas */}
+      {/* Modal de despacho automático */}
       <Modal
-        visible={showBidsModal && (bids.length > 0 || !!currentRequest)}
+        visible={showBidsModal && !!currentRequest}
         animationType="slide"
         transparent={true}
       >
         <View style={styles.modalContainer}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Conductores disponibles</Text>
-              <TouchableOpacity onPress={() => setShowBidsModal(false)}>
-                <Ionicons name="close" size={24} color="#1C1C1E" />
-              </TouchableOpacity>
+              <Text style={styles.modalTitle}>
+                {rideAccepted ? '¡Conductor asignado!' : 'Buscando conductor'}
+              </Text>
+              {!rideAccepted && (
+                <TouchableOpacity onPress={() => { setShowBidsModal(false); clearRequest(); setDispatchStatus(''); setDispatchProgress(null); }}>
+                  <Ionicons name="close" size={24} color="#1C1C1E" />
+                </TouchableOpacity>
+              )}
             </View>
 
-            <ScrollView style={styles.bidsList}>
-              {bids.map((bid) => (
-                <View key={bid.bid_id} style={styles.bidCard}>
-                  <View style={styles.bidDriverInfo}>
-                    <View style={styles.bidDriverAvatar}>
-                      <Ionicons name="person" size={24} color="#007AFF" />
-                    </View>
-                    <View style={styles.bidDriverDetails}>
-                      <Text style={styles.bidDriverName}>{bid.driver_name}</Text>
-                      <View style={styles.bidRatingRow}>
-                        <Ionicons name="star" size={14} color="#FFD700" />
-                        <Text style={styles.bidRatingText}>{bid.driver_rating.toFixed(1)}</Text>
-                        <Text style={styles.bidArrivalText}>
-                          • {bid.estimated_arrival} min
-                        </Text>
-                      </View>
-                      {bid.vehicle_info && (
-                        <Text style={styles.bidVehicleText}>
-                          {bid.vehicle_info.color} {bid.vehicle_info.make} {bid.vehicle_info.model}
-                        </Text>
-                      )}
-                    </View>
+            <View style={styles.dispatchContainer}>
+              {rideAccepted ? (
+                <View style={styles.dispatchSuccess}>
+                  <View style={styles.successCircle}>
+                    <Ionicons name="checkmark" size={48} color="#fff" />
                   </View>
-                  <View style={styles.bidPriceSection}>
-                    <Text style={styles.bidPrice}>${bid.fare_amount.toFixed(2)}</Text>
-                    <Button
-                      title="Aceptar"
-                      onPress={() => handleAcceptBid(bid.bid_id)}
-                      size="small"
-                    />
-                  </View>
+                  <Text style={styles.dispatchSuccessText}>
+                    ¡Conductor encontrado!
+                  </Text>
+                  <Text style={styles.dispatchSubtext}>
+                    Tu conductor está en camino
+                  </Text>
                 </View>
-              ))}
-            </ScrollView>
+              ) : (
+                <View style={styles.dispatchSearching}>
+                  <ActivityIndicator size="large" color="#6BBF00" />
+                  <Text style={styles.dispatchSearchText}>
+                    {dispatchStatus || 'Conectando con conductores cercanos...'}
+                  </Text>
+                  {dispatchProgress && (
+                    <View style={styles.progressBarContainer}>
+                      <View style={[
+                        styles.progressBarFill,
+                        { width: `${(dispatchProgress.index / dispatchProgress.total) * 100}%` }
+                      ]} />
+                    </View>
+                  )}
+                  <Text style={styles.dispatchHint}>
+                    El sistema busca automáticamente al conductor más cercano
+                  </Text>
+                </View>
+              )}
+            </View>
 
-            {bids.length === 0 && (
-              <View style={styles.noBidsContainer}>
-                <ActivityIndicator size="large" color="#007AFF" />
-                <Text style={styles.noBidsText}>Buscando conductores cercanos...</Text>
-              </View>
+            {/* Fallback: show bids if any come in through old system */}
+            {bids.length > 0 && !rideAccepted && (
+              <ScrollView style={styles.bidsList}>
+                <Text style={styles.bidsListTitle}>Ofertas de conductores:</Text>
+                {bids.map((bid) => (
+                  <View key={bid.bid_id} style={styles.bidCard}>
+                    <View style={styles.bidDriverInfo}>
+                      <View style={styles.bidDriverAvatar}>
+                        <Ionicons name="person" size={24} color="#007AFF" />
+                      </View>
+                      <View style={styles.bidDriverDetails}>
+                        <Text style={styles.bidDriverName}>{bid.driver_name}</Text>
+                        <View style={styles.bidRatingRow}>
+                          <Ionicons name="star" size={14} color="#FFD700" />
+                          <Text style={styles.bidRatingText}>{bid.driver_rating.toFixed(1)}</Text>
+                          <Text style={styles.bidArrivalText}>
+                            {'\u00B7'} {bid.estimated_arrival} min
+                          </Text>
+                        </View>
+                        {bid.vehicle_info && (
+                          <Text style={styles.bidVehicleText}>
+                            {bid.vehicle_info.color} {bid.vehicle_info.make} {bid.vehicle_info.model}
+                          </Text>
+                        )}
+                      </View>
+                    </View>
+                    <View style={styles.bidPriceSection}>
+                      <Text style={styles.bidPrice}>${bid.fare_amount.toFixed(2)}</Text>
+                      <Button
+                        title="Aceptar"
+                        onPress={() => handleAcceptBid(bid.bid_id)}
+                        size="small"
+                      />
+                    </View>
+                  </View>
+                ))}
+              </ScrollView>
             )}
           </View>
         </View>
@@ -1278,5 +1393,126 @@ const styles = StyleSheet.create({
     color: '#EF4444',
     fontSize: 14,
     fontWeight: '600',
+  },
+  // Vertical vehicle list
+  vehicleListContainer: {
+    marginTop: 12,
+    gap: 8,
+  },
+  vehicleListItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8F8FA',
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  vehicleListItemSelected: {
+    borderColor: '#6BBF00',
+    backgroundColor: '#F0FFF0',
+  },
+  vehicleListEmoji: {
+    fontSize: 32,
+    marginRight: 14,
+  },
+  vehicleListInfo: {
+    flex: 1,
+  },
+  vehicleListName: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1C1C1E',
+  },
+  vehicleListNameSel: {
+    color: '#2D7600',
+  },
+  vehicleListEta: {
+    fontSize: 12,
+    color: '#8E8E93',
+    marginTop: 2,
+  },
+  vehicleListPriceWrap: {
+    alignItems: 'flex-end',
+    marginRight: 8,
+  },
+  vehicleListPrice: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#1C1C1E',
+  },
+  vehicleListPriceSel: {
+    color: '#6BBF00',
+  },
+  vehicleListMult: {
+    fontSize: 14,
+    color: '#8E8E93',
+    fontWeight: '600',
+  },
+  vehicleListCheck: {
+    marginLeft: 4,
+  },
+  // Dispatch searching
+  dispatchContainer: {
+    paddingHorizontal: 20,
+    paddingVertical: 32,
+  },
+  dispatchSearching: {
+    alignItems: 'center',
+  },
+  dispatchSearchText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1C1C1E',
+    marginTop: 20,
+    textAlign: 'center',
+  },
+  progressBarContainer: {
+    width: '80%',
+    height: 6,
+    backgroundColor: '#E5E5EA',
+    borderRadius: 3,
+    marginTop: 16,
+    overflow: 'hidden',
+  },
+  progressBarFill: {
+    height: '100%',
+    backgroundColor: '#6BBF00',
+    borderRadius: 3,
+  },
+  dispatchHint: {
+    fontSize: 13,
+    color: '#8E8E93',
+    marginTop: 16,
+    textAlign: 'center',
+  },
+  dispatchSuccess: {
+    alignItems: 'center',
+  },
+  successCircle: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#6BBF00',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  dispatchSuccessText: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#1C1C1E',
+    marginTop: 16,
+  },
+  dispatchSubtext: {
+    fontSize: 14,
+    color: '#8E8E93',
+    marginTop: 8,
+  },
+  bidsListTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#8E8E93',
+    paddingHorizontal: 20,
+    paddingBottom: 8,
   },
 });

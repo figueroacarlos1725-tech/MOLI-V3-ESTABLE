@@ -1,26 +1,45 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   SafeAreaView,
   TouchableOpacity,
-  Alert,
   Switch,
   Modal,
   ScrollView,
   Linking,
   Platform,
+  Vibration,
+  Animated,
+  Dimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { MapView } from '@/src/components/MapView';
 import { Button } from '@/src/components/Button';
 import { useAuthStore } from '@/src/stores/authStore';
-import { useRideStore, RideRequest } from '@/src/stores/rideStore';
+import { useRideStore } from '@/src/stores/rideStore';
 import { socketService } from '@/src/services/socket';
 import { apiService } from '@/src/services/api';
 import { getCurrentLocation, reverseGeocode } from '@/src/utils/location';
+import * as Haptics from 'expo-haptics';
+import { Audio } from 'expo-av';
+
+const COUNTDOWN_SECONDS = 8;
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+
+interface RideOffer {
+  request_id: string;
+  countdown: number;
+  pickup: any;
+  dropoff: any;
+  fare: number;
+  distance_km: number;
+  duration_min: number;
+  vehicle_type: string;
+  rider_name: string;
+}
 
 export default function DriverHomeScreen() {
   const { user } = useAuthStore();
@@ -29,137 +48,275 @@ export default function DriverHomeScreen() {
   
   const [isOnline, setIsOnline] = useState(false);
   const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null);
-  const [pendingRequests, setPendingRequests] = useState<RideRequest[]>([]);
-  const [showRequestModal, setShowRequestModal] = useState(false);
-  const [selectedRequest, setSelectedRequest] = useState<RideRequest | null>(null);
-  const [bidAmount, setBidAmount] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const locationInterval = useRef<NodeJS.Timeout | null>(null);
+  const [statusMessage, setStatusMessage] = useState('');
+  const locationInterval = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Dispatch popup state
+  const [rideOffer, setRideOffer] = useState<RideOffer | null>(null);
+  const [countdown, setCountdown] = useState(COUNTDOWN_SECONDS);
+  const [isResponding, setIsResponding] = useState(false);
+  const countdownInterval = useRef<ReturnType<typeof setInterval> | null>(null);
+  const progressAnim = useRef(new Animated.Value(1)).current;
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+  const soundRef = useRef<Audio.Sound | null>(null);
+
+  // Inline confirm for toggle
+  const [confirmOnline, setConfirmOnline] = useState(false);
+  const [confirmOffline, setConfirmOffline] = useState(false);
 
   useEffect(() => {
     initializeLocation();
     fetchActiveRide();
     
     return () => {
-      if (locationInterval.current) {
-        clearInterval(locationInterval.current);
-      }
+      if (locationInterval.current) clearInterval(locationInterval.current);
+      if (countdownInterval.current) clearInterval(countdownInterval.current);
+      stopSound();
     };
   }, []);
 
+  // Connect WebSocket and listen for offers
   useEffect(() => {
     if (user && isOnline) {
-      const unsubscribe = socketService.on('new_ride_request', (data: any) => {
-        if (data.request) {
-          setPendingRequests(prev => [data.request, ...prev]);
-        }
+      socketService.connect(user.user_id);
+
+      const unsubOffer = socketService.on('ride_offer', (data: any) => {
+        console.log('Ride offer received:', data);
+        showRideOffer(data);
+      });
+
+      const unsubExpired = socketService.on('ride_offer_expired', (data: any) => {
+        console.log('Ride offer expired:', data);
+        clearOffer();
+      });
+
+      const unsubAccepted = socketService.on('bid_accepted', (data: any) => {
+        console.log('Ride accepted confirmation:', data);
+        fetchActiveRide();
       });
       
       startLocationUpdates();
       
       return () => {
-        unsubscribe();
-        if (locationInterval.current) {
-          clearInterval(locationInterval.current);
-        }
+        unsubOffer();
+        unsubExpired();
+        unsubAccepted();
+        if (locationInterval.current) clearInterval(locationInterval.current);
       };
     }
   }, [user, isOnline]);
 
   const initializeLocation = async () => {
     const location = await getCurrentLocation();
-    if (location) {
-      setUserLocation(location);
-    }
+    if (location) setUserLocation(location);
   };
 
   const startLocationUpdates = () => {
-    if (locationInterval.current) {
-      clearInterval(locationInterval.current);
-    }
+    if (locationInterval.current) clearInterval(locationInterval.current);
     
     locationInterval.current = setInterval(async () => {
       const location = await getCurrentLocation();
       if (location && isOnline) {
         setUserLocation(location);
         socketService.sendLocation(location.latitude, location.longitude);
+        // Also update via API
+        try {
+          await apiService.put(`/drivers/location?latitude=${location.latitude}&longitude=${location.longitude}`);
+        } catch (e) { /* ignore */ }
       }
     }, 10000);
   };
 
-  const handleToggleOnline = async (value: boolean) => {
+  // ==================== SOUND & VIBRATION ====================
+  const playAlertSound = async () => {
     try {
-      await apiService.put(`/drivers/availability?is_online=${value}${userLocation ? `&latitude=${userLocation.latitude}&longitude=${userLocation.longitude}` : ''}`);
-      setIsOnline(value);
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: false,
+        playsInSilentModeIOS: true,
+        staysActiveInBackground: true,
+        shouldDuckAndroid: false,
+      });
+      // Use a simple system-like beep via expo-av
+      const { sound } = await Audio.Sound.createAsync(
+        { uri: 'https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg' },
+        { shouldPlay: true, isLooping: true, volume: 1.0 }
+      );
+      soundRef.current = sound;
+    } catch (e) {
+      console.log('Sound play error (non-critical):', e);
+    }
+  };
+
+  const stopSound = async () => {
+    try {
+      if (soundRef.current) {
+        await soundRef.current.stopAsync();
+        await soundRef.current.unloadAsync();
+        soundRef.current = null;
+      }
+    } catch (e) { /* ignore */ }
+  };
+
+  const triggerVibration = () => {
+    // Vibrate pattern: vibrate 500ms, pause 300ms, repeat
+    const pattern = [0, 500, 300, 500, 300, 500, 300, 500];
+    Vibration.vibrate(pattern, false);
+    // Also use Haptics for iOS
+    try {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+    } catch (e) { /* ignore */ }
+  };
+
+  // ==================== RIDE OFFER LOGIC ====================
+  const showRideOffer = (data: RideOffer) => {
+    // Clear any existing offer
+    clearOffer();
+    
+    setRideOffer(data);
+    setCountdown(COUNTDOWN_SECONDS);
+    
+    // Trigger alerts
+    triggerVibration();
+    playAlertSound();
+    
+    // Start countdown animation
+    progressAnim.setValue(1);
+    Animated.timing(progressAnim, {
+      toValue: 0,
+      duration: COUNTDOWN_SECONDS * 1000,
+      useNativeDriver: false,
+    }).start();
+
+    // Pulse animation for accept button
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, { toValue: 1.08, duration: 400, useNativeDriver: true }),
+        Animated.timing(pulseAnim, { toValue: 1, duration: 400, useNativeDriver: true }),
+      ])
+    ).start();
+    
+    // Start countdown timer
+    let timeLeft = COUNTDOWN_SECONDS;
+    countdownInterval.current = setInterval(() => {
+      timeLeft -= 1;
+      setCountdown(timeLeft);
       
-      if (value) {
-        Alert.alert('En linea', 'Ahora recibiras solicitudes de viaje');
-        fetchPendingRequests();
-      } else {
-        Alert.alert('Fuera de linea', 'No recibiras nuevas solicitudes');
-        setPendingRequests([]);
+      if (timeLeft <= 3 && timeLeft > 0) {
+        // Extra vibration on last 3 seconds
+        Vibration.vibrate(200);
+      }
+      
+      if (timeLeft <= 0) {
+        // Time's up - auto-reject
+        handleRejectOffer(true);
+      }
+    }, 1000);
+  };
+
+  const clearOffer = () => {
+    if (countdownInterval.current) {
+      clearInterval(countdownInterval.current);
+      countdownInterval.current = null;
+    }
+    stopSound();
+    Vibration.cancel();
+    progressAnim.stopAnimation();
+    pulseAnim.stopAnimation();
+    pulseAnim.setValue(1);
+    setRideOffer(null);
+    setCountdown(COUNTDOWN_SECONDS);
+    setIsResponding(false);
+  };
+
+  const handleAcceptOffer = async () => {
+    if (!rideOffer || isResponding) return;
+    setIsResponding(true);
+    stopSound();
+    Vibration.cancel();
+    
+    try {
+      const response = await apiService.post(
+        `/rides/${rideOffer.request_id}/driver-response?action=accept`
+      );
+      
+      if (response.status === 'accepted') {
+        setStatusMessage('¡Viaje aceptado! Dirígete al punto de recogida');
+        fetchActiveRide();
       }
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'No se pudo actualizar el estado');
-    }
-  };
-
-  const fetchPendingRequests = async () => {
-    if (!userLocation) return;
-    
-    try {
-      const response = await apiService.get(`/rides/requests/pending?latitude=${userLocation.latitude}&longitude=${userLocation.longitude}`);
-      setPendingRequests(response.requests || []);
-    } catch (error) {
-      console.error('Error obteniendo solicitudes:', error);
-    }
-  };
-
-  const handleViewRequest = (request: RideRequest) => {
-    setSelectedRequest(request);
-    setBidAmount(request.estimated_fare.toFixed(2));
-    setShowRequestModal(true);
-  };
-
-  const handleSubmitBid = async () => {
-    if (!selectedRequest || !bidAmount) return;
-    
-    const amount = parseFloat(bidAmount);
-    if (isNaN(amount) || amount <= 0) {
-      Alert.alert('Error', 'Por favor ingresa un monto valido');
-      return;
-    }
-    
-    setIsSubmitting(true);
-    try {
-      await apiService.post('/rides/bid', {
-        request_id: selectedRequest.request_id,
-        fare_amount: amount,
-        estimated_arrival: 5
-      });
-      
-      Alert.alert('Oferta enviada', 'Tu oferta fue enviada al pasajero');
-      setShowRequestModal(false);
-      setPendingRequests(prev => prev.filter(r => r.request_id !== selectedRequest.request_id));
-    } catch (error: any) {
-      Alert.alert('Error', error.message || 'No se pudo enviar la oferta');
+      console.error('Error accepting offer:', error);
+      setStatusMessage(error.message || 'Error al aceptar el viaje');
     } finally {
-      setIsSubmitting(false);
+      clearOffer();
+    }
+  };
+
+  const handleRejectOffer = async (isTimeout = false) => {
+    if (!rideOffer || isResponding) return;
+    setIsResponding(true);
+    stopSound();
+    Vibration.cancel();
+    
+    try {
+      await apiService.post(
+        `/rides/${rideOffer.request_id}/driver-response?action=reject`
+      );
+      if (!isTimeout) {
+        setStatusMessage('Oferta rechazada');
+      }
+    } catch (error: any) {
+      console.error('Error rejecting offer:', error);
+    } finally {
+      clearOffer();
+    }
+  };
+
+  // ==================== TOGGLE ONLINE ====================
+  const handleToggleOnline = async (value: boolean) => {
+    if (value) {
+      setConfirmOnline(true);
+    } else {
+      setConfirmOffline(true);
+    }
+  };
+
+  const confirmGoOnline = async () => {
+    setConfirmOnline(false);
+    try {
+      await apiService.put(
+        `/drivers/availability?is_online=true${userLocation ? `&latitude=${userLocation.latitude}&longitude=${userLocation.longitude}` : ''}`
+      );
+      setIsOnline(true);
+      setStatusMessage('Estás en línea. Esperando solicitudes...');
+    } catch (error: any) {
+      setStatusMessage(error.message || 'No se pudo conectar');
+    }
+  };
+
+  const confirmGoOffline = async () => {
+    setConfirmOffline(false);
+    try {
+      await apiService.put(
+        `/drivers/availability?is_online=false${userLocation ? `&latitude=${userLocation.latitude}&longitude=${userLocation.longitude}` : ''}`
+      );
+      setIsOnline(false);
+      setStatusMessage('Estás desconectado');
+      socketService.disconnect();
+    } catch (error: any) {
+      setStatusMessage(error.message || 'Error al desconectar');
     }
   };
 
   const handleUpdateRideStatus = async (status: string) => {
     if (!currentRide) return;
-    
     try {
       await updateRideStatus(currentRide.ride_id, status);
-      
       if (status === 'completed') {
-        Alert.alert('Viaje completado', `Ganaste $${currentRide.driver_earnings?.toFixed(2)}`);
+        setStatusMessage(`¡Viaje completado! Ganaste $${currentRide.driver_earnings?.toFixed(2) || currentRide.fare?.toFixed(2)}`);
         fetchActiveRide();
       }
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'No se pudo actualizar el estado del viaje');
+      setStatusMessage(error.message || 'Error al actualizar estado');
     }
   };
 
@@ -169,7 +326,7 @@ export default function DriverHomeScreen() {
       markers.push({
         latitude: userLocation.latitude,
         longitude: userLocation.longitude,
-        title: 'Tu ubicacion',
+        title: 'Tu ubicación',
         type: 'driver' as const,
       });
     }
@@ -190,7 +347,10 @@ export default function DriverHomeScreen() {
     return markers;
   };
 
-  // Vista de viaje activo
+  const emojiMap: Record<string, string> = { economy: '🚗', comfort: '🚙', premium: '🏎️', xl: '🚌' };
+  const nameMap: Record<string, string> = { economy: 'Económico', comfort: 'Confort', premium: 'Premium', xl: 'XL' };
+
+  // ==================== ACTIVE RIDE VIEW ====================
   if (currentRide && ['accepted', 'arrived', 'started'].includes(currentRide.status)) {
     return (
       <SafeAreaView style={styles.container}>
@@ -223,11 +383,11 @@ export default function DriverHomeScreen() {
                 </View>
               </View>
               <View style={styles.riderActions}>
-                <TouchableOpacity style={styles.actionButton}>
+                <TouchableOpacity style={styles.actionButtonSmall}>
                   <Ionicons name="call" size={22} color="#6BBF00" />
                 </TouchableOpacity>
                 <TouchableOpacity
-                  style={styles.actionButton}
+                  style={styles.actionButtonSmall}
                   onPress={() => router.push({
                     pathname: '/chat',
                     params: { rideId: currentRide.ride_id, otherName: currentRide.rider_info?.name || 'Pasajero' }
@@ -260,14 +420,12 @@ export default function DriverHomeScreen() {
           </View>
           
           <View style={styles.actionButtons}>
-            {/* Navigation buttons */}
             {currentRide.status === 'accepted' && currentRide.pickup_location && (
               <TouchableOpacity
                 style={styles.navBtn}
                 onPress={() => {
                   const lat = currentRide.pickup_location.latitude;
                   const lng = currentRide.pickup_location.longitude;
-                  const label = encodeURIComponent(currentRide.pickup_location.address || 'Recoger pasajero');
                   const url = Platform.OS === 'web'
                     ? `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`
                     : Platform.OS === 'ios'
@@ -300,25 +458,13 @@ export default function DriverHomeScreen() {
             )}
 
             {currentRide.status === 'accepted' && (
-              <Button
-                title="He llegado"
-                onPress={() => handleUpdateRideStatus('arrived')}
-                variant="secondary"
-              />
+              <Button title="He llegado" onPress={() => handleUpdateRideStatus('arrived')} variant="secondary" />
             )}
             {currentRide.status === 'arrived' && (
-              <Button
-                title="Iniciar viaje"
-                onPress={() => handleUpdateRideStatus('started')}
-                variant="secondary"
-              />
+              <Button title="Iniciar viaje" onPress={() => handleUpdateRideStatus('started')} variant="secondary" />
             )}
             {currentRide.status === 'started' && (
-              <Button
-                title="Completar viaje"
-                onPress={() => handleUpdateRideStatus('completed')}
-                variant="secondary"
-              />
+              <Button title="Completar viaje" onPress={() => handleUpdateRideStatus('completed')} variant="secondary" />
             )}
           </View>
         </View>
@@ -326,19 +472,20 @@ export default function DriverHomeScreen() {
     );
   }
 
+  // ==================== MAIN DRIVER VIEW ====================
   return (
     <SafeAreaView style={styles.container}>
-      {/* Encabezado */}
+      {/* Header */}
       <View style={styles.header}>
         <View>
           <Text style={styles.greeting}>Hola, {user?.name?.split(' ')[0] || 'Conductor'}</Text>
           <Text style={styles.subGreeting}>
-            {isOnline ? 'Listo para aceptar viajes' : 'Conectate para empezar a ganar'}
+            {isOnline ? 'Esperando solicitudes de viaje...' : 'Conéctate para empezar a ganar'}
           </Text>
         </View>
         <View style={styles.onlineToggle}>
           <Text style={[styles.onlineLabel, isOnline && styles.onlineLabelActive]}>
-            {isOnline ? 'En linea' : 'Desconectado'}
+            {isOnline ? 'En línea' : 'Desconectado'}
           </Text>
           <Switch
             value={isOnline}
@@ -349,139 +496,194 @@ export default function DriverHomeScreen() {
         </View>
       </View>
 
-      {/* Mapa */}
+      {/* Status message */}
+      {statusMessage ? (
+        <View style={styles.statusBar}>
+          <Ionicons name="information-circle" size={18} color="#007AFF" />
+          <Text style={styles.statusText}>{statusMessage}</Text>
+          <TouchableOpacity onPress={() => setStatusMessage('')}>
+            <Ionicons name="close" size={18} color="#8E8E93" />
+          </TouchableOpacity>
+        </View>
+      ) : null}
+
+      {/* Map */}
       <View style={styles.mapContainer}>
         <MapView
           initialRegion={userLocation}
-          markers={userLocation ? [{ ...userLocation, title: 'Tu ubicacion', type: 'driver' }] : []}
+          markers={userLocation ? [{ ...userLocation, title: 'Tu ubicación', type: 'driver' }] : []}
         />
       </View>
 
-      {/* Solicitudes pendientes */}
+      {/* Online status panel */}
       {isOnline && (
-        <View style={styles.requestsPanel}>
-          <View style={styles.panelHeader}>
-            <Text style={styles.panelTitle}>Solicitudes cercanas</Text>
-            <TouchableOpacity onPress={fetchPendingRequests}>
-              <Ionicons name="refresh" size={20} color="#6BBF00" />
-            </TouchableOpacity>
-          </View>
-          
-          {pendingRequests.length > 0 ? (
-            <ScrollView style={styles.requestsList} horizontal showsHorizontalScrollIndicator={false}>
-              {pendingRequests.map((request) => (
-                <TouchableOpacity
-                  key={request.request_id}
-                  style={styles.requestCard}
-                  onPress={() => handleViewRequest(request)}
-                >
-                  <View style={styles.requestHeader}>
-                    <Text style={styles.requestDistance}>
-                      {request.distance_to_pickup?.toFixed(1) || '?'} km
-                    </Text>
-                    <Text style={styles.requestFare}>
-                      ${request.estimated_fare.toFixed(2)}
-                    </Text>
-                  </View>
-                  <Text style={styles.requestPickup} numberOfLines={1}>
-                    {request.pickup_location.address || 'Recogida'}
-                  </Text>
-                  <Text style={styles.requestDropoff} numberOfLines={1}>
-                    {request.dropoff_location.address || 'Destino'}
-                  </Text>
-                  <View style={styles.requestFooter}>
-                    <Text style={styles.requestInfo}>
-                      {request.estimated_distance.toFixed(1)} km - {request.estimated_duration} min
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          ) : (
-            <View style={styles.noRequests}>
-              <Ionicons name="car-outline" size={40} color="#E5E5EA" />
-              <Text style={styles.noRequestsText}>Sin solicitudes cercanas</Text>
+        <View style={styles.waitingPanel}>
+          <View style={styles.waitingPulse}>
+            <View style={styles.pulseOuter} />
+            <View style={styles.pulseInner}>
+              <Ionicons name="radio" size={24} color="#6BBF00" />
             </View>
-          )}
+          </View>
+          <Text style={styles.waitingTitle}>Buscando viajes</Text>
+          <Text style={styles.waitingSubtitle}>
+            Recibirás solicitudes automáticas de pasajeros cercanos
+          </Text>
         </View>
       )}
 
-      {/* Modal de oferta */}
-      <Modal visible={showRequestModal} animationType="slide" transparent>
-        <View style={styles.modalContainer}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Solicitud de viaje</Text>
-              <TouchableOpacity onPress={() => setShowRequestModal(false)}>
-                <Ionicons name="close" size={24} color="#1C1C1E" />
-              </TouchableOpacity>
+      {/* ==================== RIDE OFFER POPUP ==================== */}
+      <Modal
+        visible={!!rideOffer}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => handleRejectOffer(false)}
+      >
+        <View style={styles.offerOverlay}>
+          <View style={styles.offerCard}>
+            {/* Countdown progress bar */}
+            <Animated.View
+              style={[
+                styles.countdownBar,
+                {
+                  width: progressAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: ['0%', '100%'],
+                  }),
+                  backgroundColor: countdown <= 3 ? '#FF3B30' : '#6BBF00',
+                },
+              ]}
+            />
+
+            {/* Header */}
+            <View style={styles.offerHeader}>
+              <View style={styles.offerTimerCircle}>
+                <Text style={[
+                  styles.offerTimerText,
+                  countdown <= 3 && { color: '#FF3B30' }
+                ]}>
+                  {countdown}
+                </Text>
+              </View>
+              <View style={{ flex: 1, marginLeft: 16 }}>
+                <Text style={styles.offerTitle}>¡Nuevo viaje!</Text>
+                <Text style={styles.offerSubtitle}>
+                  {rideOffer ? `${nameMap[rideOffer.vehicle_type] || rideOffer.vehicle_type}` : ''}
+                  {' · '}
+                  {rideOffer ? `${rideOffer.rider_name}` : ''}
+                </Text>
+              </View>
+              <Text style={styles.offerEmoji}>
+                {rideOffer ? (emojiMap[rideOffer.vehicle_type] || '🚗') : '🚗'}
+              </Text>
             </View>
-            
-            {selectedRequest && (
-              <>
-                <View style={styles.requestDetails}>
-                  <View style={styles.detailRow}>
-                    <Ionicons name="location" size={20} color="#6BBF00" />
-                    <Text style={styles.detailText}>
-                      {selectedRequest.pickup_location.address || 'Ubicacion de recogida'}
+
+            {/* Trip details */}
+            {rideOffer && (
+              <View style={styles.offerDetails}>
+                <View style={styles.offerDetailRow}>
+                  <View style={[styles.offerDot, { backgroundColor: '#34C759' }]} />
+                  <Text style={styles.offerDetailText} numberOfLines={1}>
+                    {rideOffer.pickup?.address || 'Punto de recogida'}
+                  </Text>
+                </View>
+                <View style={styles.offerDetailDivider} />
+                <View style={styles.offerDetailRow}>
+                  <View style={[styles.offerDot, { backgroundColor: '#FF3B30' }]} />
+                  <Text style={styles.offerDetailText} numberOfLines={1}>
+                    {rideOffer.dropoff?.address || 'Destino'}
+                  </Text>
+                </View>
+
+                <View style={styles.offerStats}>
+                  <View style={styles.offerStatItem}>
+                    <Ionicons name="cash-outline" size={20} color="#6BBF00" />
+                    <Text style={styles.offerStatValue}>
+                      ${Math.round(rideOffer.fare).toLocaleString()}
                     </Text>
+                    <Text style={styles.offerStatLabel}>Tarifa</Text>
                   </View>
-                  <View style={styles.detailRow}>
-                    <Ionicons name="flag" size={20} color="#FF3B30" />
-                    <Text style={styles.detailText}>
-                      {selectedRequest.dropoff_location.address || 'Ubicacion de destino'}
+                  <View style={styles.offerStatDivider} />
+                  <View style={styles.offerStatItem}>
+                    <Ionicons name="navigate-outline" size={20} color="#007AFF" />
+                    <Text style={styles.offerStatValue}>
+                      {rideOffer.distance_km.toFixed(1)} km
                     </Text>
+                    <Text style={styles.offerStatLabel}>Distancia</Text>
                   </View>
-                  <View style={styles.statsRow}>
-                    <View style={styles.statBox}>
-                      <Text style={styles.statValue}>{selectedRequest.estimated_distance.toFixed(1)}</Text>
-                      <Text style={styles.statLabel}>km</Text>
-                    </View>
-                    <View style={styles.statBox}>
-                      <Text style={styles.statValue}>{selectedRequest.estimated_duration}</Text>
-                      <Text style={styles.statLabel}>min</Text>
-                    </View>
-                    <View style={styles.statBox}>
-                      <Text style={styles.statValue}>${selectedRequest.estimated_fare.toFixed(0)}</Text>
-                      <Text style={styles.statLabel}>tarifa est.</Text>
-                    </View>
+                  <View style={styles.offerStatDivider} />
+                  <View style={styles.offerStatItem}>
+                    <Ionicons name="time-outline" size={20} color="#FF9500" />
+                    <Text style={styles.offerStatValue}>
+                      {rideOffer.duration_min} min
+                    </Text>
+                    <Text style={styles.offerStatLabel}>Duración</Text>
                   </View>
                 </View>
-                
-                <View style={styles.bidSection}>
-                  <Text style={styles.bidLabel}>Tu monto de oferta</Text>
-                  <View style={styles.bidInput}>
-                    <Text style={styles.currencySymbol}>$</Text>
-                    <Text style={styles.bidAmountText}>{bidAmount}</Text>
-                  </View>
-                  <View style={styles.bidButtons}>
-                    <TouchableOpacity
-                      style={styles.bidAdjustButton}
-                      onPress={() => setBidAmount((parseFloat(bidAmount) - 1).toFixed(2))}
-                    >
-                      <Ionicons name="remove" size={20} color="#6BBF00" />
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={styles.bidAdjustButton}
-                      onPress={() => setBidAmount((parseFloat(bidAmount) + 1).toFixed(2))}
-                    >
-                      <Ionicons name="add" size={20} color="#6BBF00" />
-                    </TouchableOpacity>
-                  </View>
-                </View>
-                
-                <Button
-                  title="Enviar oferta"
-                  onPress={handleSubmitBid}
-                  loading={isSubmitting}
-                  variant="secondary"
-                  style={styles.submitBidButton}
-                />
-              </>
+              </View>
             )}
+
+            {/* Action buttons */}
+            <View style={styles.offerActions}>
+              <TouchableOpacity
+                style={styles.rejectBtn}
+                onPress={() => handleRejectOffer(false)}
+                disabled={isResponding}
+              >
+                <Ionicons name="close" size={28} color="#FF3B30" />
+                <Text style={styles.rejectBtnText}>Rechazar</Text>
+              </TouchableOpacity>
+
+              <Animated.View style={{ flex: 1, transform: [{ scale: pulseAnim }] }}>
+                <TouchableOpacity
+                  style={[styles.acceptBtn, isResponding && { opacity: 0.6 }]}
+                  onPress={handleAcceptOffer}
+                  disabled={isResponding}
+                >
+                  <Ionicons name="checkmark" size={28} color="#fff" />
+                  <Text style={styles.acceptBtnText}>Aceptar</Text>
+                </TouchableOpacity>
+              </Animated.View>
+            </View>
           </View>
         </View>
       </Modal>
+
+      {/* ==================== INLINE CONFIRMATIONS ==================== */}
+      {confirmOnline && (
+        <View style={styles.confirmOverlay}>
+          <View style={styles.confirmCard}>
+            <Ionicons name="power" size={40} color="#6BBF00" />
+            <Text style={styles.confirmTitle}>¿Conectarse?</Text>
+            <Text style={styles.confirmDesc}>Comenzarás a recibir solicitudes de viaje automáticamente</Text>
+            <View style={styles.confirmActions}>
+              <TouchableOpacity style={styles.confirmCancel} onPress={() => setConfirmOnline(false)}>
+                <Text style={styles.confirmCancelText}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.confirmOk} onPress={confirmGoOnline}>
+                <Text style={styles.confirmOkText}>Conectar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      )}
+
+      {confirmOffline && (
+        <View style={styles.confirmOverlay}>
+          <View style={styles.confirmCard}>
+            <Ionicons name="power" size={40} color="#FF3B30" />
+            <Text style={styles.confirmTitle}>¿Desconectarse?</Text>
+            <Text style={styles.confirmDesc}>Dejarás de recibir solicitudes de viaje</Text>
+            <View style={styles.confirmActions}>
+              <TouchableOpacity style={styles.confirmCancel} onPress={() => setConfirmOffline(false)}>
+                <Text style={styles.confirmCancelText}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.confirmOk, { backgroundColor: '#FF3B30' }]} onPress={confirmGoOffline}>
+                <Text style={styles.confirmOkText}>Desconectar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      )}
     </SafeAreaView>
   );
 }
@@ -521,183 +723,221 @@ const styles = StyleSheet.create({
   onlineLabelActive: {
     color: '#6BBF00',
   },
+  statusBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: 20,
+    marginBottom: 8,
+    backgroundColor: '#E3F2FD',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 8,
+  },
+  statusText: {
+    flex: 1,
+    fontSize: 13,
+    color: '#1C1C1E',
+  },
   mapContainer: {
     flex: 1,
     margin: 16,
     borderRadius: 16,
     overflow: 'hidden',
   },
-  requestsPanel: {
+  // Waiting panel
+  waitingPanel: {
+    alignItems: 'center',
+    paddingVertical: 24,
+    paddingHorizontal: 20,
     backgroundColor: '#fff',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    padding: 20,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.08,
     shadowRadius: 12,
-    elevation: 8,
+    elevation: 6,
   },
-  panelHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  panelTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#1C1C1E',
-  },
-  requestsList: {
-    marginHorizontal: -20,
-    paddingHorizontal: 20,
-  },
-  requestCard: {
-    backgroundColor: '#F2F2F7',
-    borderRadius: 16,
-    padding: 16,
-    marginRight: 12,
-    width: 280,
-  },
-  requestHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-  },
-  requestDistance: {
-    fontSize: 12,
-    color: '#8E8E93',
-  },
-  requestFare: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#6BBF00',
-  },
-  requestPickup: {
-    fontSize: 14,
-    color: '#1C1C1E',
-    marginBottom: 4,
-  },
-  requestDropoff: {
-    fontSize: 14,
-    color: '#1C1C1E',
-    marginBottom: 12,
-  },
-  requestFooter: {
-    borderTopWidth: 1,
-    borderTopColor: '#E5E5EA',
-    paddingTop: 12,
-  },
-  requestInfo: {
-    fontSize: 12,
-    color: '#8E8E93',
-  },
-  noRequests: {
-    alignItems: 'center',
-    padding: 30,
-  },
-  noRequestsText: {
-    fontSize: 14,
-    color: '#8E8E93',
-    marginTop: 8,
-  },
-  modalContainer: {
-    flex: 1,
-    justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0,0,0,0.5)',
-  },
-  modalContent: {
-    backgroundColor: '#fff',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: 24,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#1C1C1E',
-  },
-  requestDetails: {
-    marginBottom: 24,
-  },
-  detailRow: {
-    flexDirection: 'row',
+  waitingPulse: {
+    width: 64,
+    height: 64,
+    justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 12,
   },
-  detailText: {
-    flex: 1,
-    fontSize: 15,
-    color: '#1C1C1E',
-    marginLeft: 12,
+  pulseOuter: {
+    position: 'absolute',
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: 'rgba(107, 191, 0, 0.15)',
   },
-  statsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginTop: 16,
-    padding: 16,
-    backgroundColor: '#F2F2F7',
-    borderRadius: 12,
-  },
-  statBox: {
-    alignItems: 'center',
-  },
-  statValue: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#1C1C1E',
-  },
-  statLabel: {
-    fontSize: 12,
-    color: '#8E8E93',
-    marginTop: 4,
-  },
-  bidSection: {
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  bidLabel: {
-    fontSize: 14,
-    color: '#8E8E93',
-    marginBottom: 12,
-  },
-  bidInput: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  currencySymbol: {
-    fontSize: 28,
-    fontWeight: '600',
-    color: '#6BBF00',
-  },
-  bidAmountText: {
-    fontSize: 42,
-    fontWeight: 'bold',
-    color: '#1C1C1E',
-  },
-  bidButtons: {
-    flexDirection: 'row',
-    gap: 16,
-  },
-  bidAdjustButton: {
+  pulseInner: {
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#F2F2F7',
+    backgroundColor: '#F0FFF0',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  submitBidButton: {
+  waitingTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#1C1C1E',
+  },
+  waitingSubtitle: {
+    fontSize: 13,
+    color: '#8E8E93',
+    textAlign: 'center',
+    marginTop: 4,
+  },
+  // Offer popup
+  offerOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0,0,0,0.6)',
+  },
+  offerCard: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    paddingTop: 0,
+    paddingHorizontal: 20,
+    paddingBottom: 36,
+    overflow: 'hidden',
+  },
+  countdownBar: {
+    height: 5,
+    borderRadius: 3,
+  },
+  offerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingTop: 20,
+    paddingBottom: 16,
+  },
+  offerTimerCircle: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#F2F2F7',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 3,
+    borderColor: '#6BBF00',
+  },
+  offerTimerText: {
+    fontSize: 24,
+    fontWeight: '900',
+    color: '#1C1C1E',
+  },
+  offerTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#1C1C1E',
+  },
+  offerSubtitle: {
+    fontSize: 14,
+    color: '#8E8E93',
+    marginTop: 2,
+  },
+  offerEmoji: {
+    fontSize: 36,
+  },
+  offerDetails: {
+    backgroundColor: '#F8F8FA',
+    borderRadius: 16,
+    padding: 16,
     marginBottom: 20,
   },
+  offerDetailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6,
+  },
+  offerDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    marginRight: 12,
+  },
+  offerDetailText: {
+    flex: 1,
+    fontSize: 14,
+    color: '#1C1C1E',
+  },
+  offerDetailDivider: {
+    width: 1,
+    height: 16,
+    backgroundColor: '#E5E5EA',
+    marginLeft: 4,
+    marginVertical: 2,
+  },
+  offerStats: {
+    flexDirection: 'row',
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#E5E5EA',
+  },
+  offerStatItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  offerStatValue: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#1C1C1E',
+    marginTop: 4,
+  },
+  offerStatLabel: {
+    fontSize: 11,
+    color: '#8E8E93',
+    marginTop: 2,
+  },
+  offerStatDivider: {
+    width: 1,
+    height: 40,
+    backgroundColor: '#E5E5EA',
+    alignSelf: 'center',
+  },
+  offerActions: {
+    flexDirection: 'row',
+    gap: 12,
+    alignItems: 'center',
+  },
+  rejectBtn: {
+    width: 80,
+    height: 64,
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: '#FF3B30',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  rejectBtnText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#FF3B30',
+    marginTop: 2,
+  },
+  acceptBtn: {
+    flex: 1,
+    height: 64,
+    borderRadius: 16,
+    backgroundColor: '#6BBF00',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 8,
+  },
+  acceptBtnText: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#fff',
+  },
+  // Active ride panel
   activeRidePanel: {
     backgroundColor: '#fff',
     borderTopLeftRadius: 24,
@@ -758,7 +998,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 8,
   },
-  actionButton: {
+  actionButtonSmall: {
     width: 40,
     height: 40,
     borderRadius: 20,
@@ -824,5 +1064,67 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 15,
     fontWeight: '700',
+  },
+  // Inline confirmations
+  confirmOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 100,
+  },
+  confirmCard: {
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    padding: 28,
+    width: '85%',
+    alignItems: 'center',
+  },
+  confirmTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#1C1C1E',
+    marginTop: 12,
+  },
+  confirmDesc: {
+    fontSize: 14,
+    color: '#8E8E93',
+    textAlign: 'center',
+    marginTop: 8,
+    lineHeight: 20,
+  },
+  confirmActions: {
+    flexDirection: 'row',
+    marginTop: 20,
+    gap: 12,
+  },
+  confirmCancel: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: '#E5E5EA',
+    alignItems: 'center',
+  },
+  confirmCancelText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#8E8E93',
+  },
+  confirmOk: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
+    backgroundColor: '#6BBF00',
+    alignItems: 'center',
+  },
+  confirmOkText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#fff',
   },
 });

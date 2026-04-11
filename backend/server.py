@@ -72,7 +72,6 @@ class ConnectionManager:
 manager = ConnectionManager()
 
 # ======================= RIDE ASSIGNMENT SYSTEM =======================
-import asyncio
 
 # Track active assignment tasks and driver response events
 assignment_events: Dict[str, asyncio.Event] = {}  # request_id -> Event (set when driver responds)
@@ -86,7 +85,6 @@ async def assign_ride_to_drivers(request_id: str, rider_id: str, sorted_drivers:
     try:
         for i, driver in enumerate(sorted_drivers):
             driver_id = driver["driver_id"]
-            driver_name = driver.get("name", "Conductor")
             now = datetime.now(timezone.utc)
             
             # Mark current offer on the request
@@ -937,6 +935,119 @@ async def submit_bid(bid: BidCreate, user: dict = Depends(get_current_user)):
         estimated_arrival=bid.estimated_arrival,
         created_at=now
     )
+
+@app.post("/api/rides/{request_id}/driver-response")
+async def driver_respond_to_offer(
+    request_id: str,
+    action: str = Query(..., description="accept or reject"),
+    user: dict = Depends(get_current_user)
+):
+    """Driver accepts or rejects an automatic dispatch offer"""
+    if user["user_type"] != "driver":
+        raise HTTPException(status_code=403, detail="Solo conductores pueden responder ofertas")
+    
+    request_doc = await db.ride_requests.find_one({"request_id": request_id}, {"_id": 0})
+    if not request_doc:
+        raise HTTPException(status_code=404, detail="Solicitud no encontrada")
+    
+    if request_doc.get("status") not in ["pending", "bidding"]:
+        raise HTTPException(status_code=400, detail="Esta solicitud ya no está disponible")
+    
+    # Verify this driver is the one being offered
+    if request_doc.get("current_offer_driver") != user["user_id"]:
+        raise HTTPException(status_code=400, detail="Esta oferta no está asignada a ti")
+    
+    if action == "accept":
+        # Create ride (similar to accept_bid logic)
+        ride_id = generate_id("ride_")
+        now = datetime.now(timezone.utc)
+        
+        settings = await get_settings()
+        fare = request_doc.get("estimated_fare", 0)
+        commission = fare * settings.get("commission_rate", 0.20)
+        driver_earnings = fare - commission
+        
+        # Get driver vehicle
+        vehicle = await db.vehicles.find_one(
+            {"driver_id": user["user_id"], "is_active": True},
+            {"_id": 0}
+        )
+        
+        ride_doc = {
+            "ride_id": ride_id,
+            "request_id": request_id,
+            "rider_id": request_doc["rider_id"],
+            "driver_id": user["user_id"],
+            "pickup_location": request_doc["pickup_location"],
+            "dropoff_location": request_doc["dropoff_location"],
+            "ride_type": request_doc.get("ride_type", "standard"),
+            "vehicle_type": request_doc.get("vehicle_type", "economy"),
+            "status": "accepted",
+            "fare": fare,
+            "commission": round(commission, 2),
+            "driver_earnings": round(driver_earnings, 2),
+            "payment_method": request_doc.get("payment_method", "cash"),
+            "payment_status": "pending",
+            "driver_location": None,
+            "vehicle_info": {
+                "make": vehicle.get("make", "") if vehicle else "",
+                "model": vehicle.get("model", "") if vehicle else "",
+                "color": vehicle.get("color", "") if vehicle else "",
+                "plate_number": vehicle.get("plate_number", "") if vehicle else "",
+                "vehicle_type": vehicle.get("vehicle_type", "economy") if vehicle else "economy",
+            } if vehicle else None,
+            "accepted_at": now,
+            "started_at": None,
+            "completed_at": None,
+            "cancelled_at": None,
+            "created_at": now
+        }
+        
+        await db.rides.insert_one(ride_doc)
+        
+        # Update request status
+        await db.ride_requests.update_one(
+            {"request_id": request_id},
+            {"$set": {"status": "accepted", "accepted_by": user["user_id"]}}
+        )
+        
+        # Mark driver unavailable
+        await db.drivers.update_one(
+            {"driver_id": user["user_id"]},
+            {"$set": {"is_available": False}}
+        )
+        
+        # Signal the assignment event so the background task knows
+        if request_id in assignment_events:
+            assignment_events[request_id].set()
+        
+        # Build response with driver/vehicle info
+        driver_info = {
+            "user_id": user["user_id"],
+            "name": user.get("name", "Conductor"),
+            "phone": user.get("phone"),
+            "rating": user.get("rating", 5.0),
+        }
+        
+        ride_response = {k: (v.isoformat() if isinstance(v, datetime) else v) for k, v in ride_doc.items() if k != "_id"}
+        ride_response["driver_info"] = driver_info
+        
+        return {
+            "status": "accepted",
+            "ride_id": ride_id,
+            "ride": ride_response
+        }
+    
+    elif action == "reject":
+        # Signal event so background task moves to the next driver
+        if request_id in assignment_events:
+            assignment_events[request_id].set()
+        
+        return {"status": "rejected", "message": "Oferta rechazada, se notificará al siguiente conductor"}
+    
+    else:
+        raise HTTPException(status_code=400, detail="Acción inválida. Usa 'accept' o 'reject'")
+
 
 @app.post("/api/rides/accept-bid/{bid_id}")
 async def accept_bid(bid_id: str, user: dict = Depends(get_current_user)):
@@ -3322,7 +3433,6 @@ async def get_maps_config():
 
 # ======================= PLACES SEARCH (MULTI-PROVIDER) =======================
 
-import httpx
 
 @app.get("/api/places/search")
 async def places_search(q: str, lat: float = -28.4696, lng: float = -65.7852):
