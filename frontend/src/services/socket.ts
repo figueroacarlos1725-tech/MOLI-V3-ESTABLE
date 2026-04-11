@@ -9,15 +9,25 @@ class SocketService {
   private userId: string | null = null;
   private listeners: Map<string, Set<(data: any) => void>> = new Map();
   private reconnectAttempts = 0;
-  private maxReconnectAttempts = 3;
+  private maxReconnectAttempts = 50;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private isConnecting = false;
+  private keepAliveTimer: ReturnType<typeof setInterval> | null = null;
 
   connect(userId: string) {
+    // Always reset reconnect counter on explicit connect call
+    this.reconnectAttempts = 0;
+
     // Don't connect if already connected or connecting
     if (this.isConnecting) return;
-    if (this.socket && this.socket.readyState === WebSocket.OPEN) return;
+    if (this.socket && this.socket.readyState === WebSocket.OPEN && this.userId === userId) return;
     if (this.socket && this.socket.readyState === WebSocket.CONNECTING) return;
+
+    // Close existing stale socket
+    if (this.socket) {
+      try { this.socket.close(); } catch(e) {}
+      this.socket = null;
+    }
 
     this.userId = userId;
     this.isConnecting = true;
@@ -30,6 +40,7 @@ class SocketService {
         console.log('WebSocket conectado');
         this.reconnectAttempts = 0;
         this.isConnecting = false;
+        this.startKeepAlive();
       };
 
       this.socket.onmessage = (event) => {
@@ -80,13 +91,50 @@ class SocketService {
     }
 
     this.reconnectAttempts++;
-    const delay = Math.min(5000 * this.reconnectAttempts, 15000);
+    // Quick reconnect: 2s, 4s, 6s... capped at 10s
+    const delay = Math.min(2000 * this.reconnectAttempts, 10000);
     
     this.reconnectTimer = setTimeout(() => {
       if (this.userId) {
+        this.isConnecting = false; // Allow reconnect
         this.connect(this.userId);
       }
     }, delay);
+  }
+
+  private startKeepAlive() {
+    this.stopKeepAlive();
+    // Send ping every 20 seconds to keep connection alive through proxy
+    this.keepAliveTimer = setInterval(() => {
+      if (this.socket && this.socket.readyState === WebSocket.OPEN) {
+        try { this.socket.send(JSON.stringify({ type: 'ping' })); } catch (e) {}
+      } else if (this.userId) {
+        // Socket died, reconnect
+        this.isConnecting = false;
+        this.reconnectAttempts = 0;
+        this.connect(this.userId);
+      }
+    }, 20000);
+  }
+
+  private stopKeepAlive() {
+    if (this.keepAliveTimer) {
+      clearInterval(this.keepAliveTimer);
+      this.keepAliveTimer = null;
+    }
+  }
+
+  // Force reconnect - call this when driver should be online but socket is dead
+  forceReconnect() {
+    if (!this.userId) return;
+    const uid = this.userId;
+    this.reconnectAttempts = 0;
+    this.isConnecting = false;
+    if (this.socket) {
+      try { this.socket.close(); } catch(e) {}
+      this.socket = null;
+    }
+    this.connect(uid);
   }
 
   disconnect() {
@@ -94,6 +142,7 @@ class SocketService {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
     }
+    this.stopKeepAlive();
     this.reconnectAttempts = this.maxReconnectAttempts; // prevent reconnect
     if (this.socket) {
       try { this.socket.close(); } catch (e) { /* ignore */ }

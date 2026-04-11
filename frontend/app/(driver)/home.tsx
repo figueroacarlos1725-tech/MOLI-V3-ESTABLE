@@ -173,13 +173,35 @@ export default function DriverHomeScreen() {
         console.log('Ride accepted confirmation:', data);
         fetchActiveRide();
       });
+
+      // Listen for ride status updates to properly reset state
+      const unsubStatus = socketService.on('ride_status_update', (data: any) => {
+        console.log('Ride status update:', data);
+        if (data.status === 'completed' || data.status === 'cancelled') {
+          // Ride ended - clean up and go back to waiting
+          fetchActiveRide();
+        }
+      });
       
       startLocationUpdates();
+
+      // Health check: ensure WebSocket stays alive + poll for active ride
+      const healthCheck = setInterval(() => {
+        if (isOnline && user) {
+          // Force reconnect if socket died
+          if (!socketService.isConnected) {
+            console.log('Health check: Socket dead, forcing reconnect');
+            socketService.forceReconnect();
+          }
+        }
+      }, 15000);
       
       return () => {
         unsubOffer();
         unsubExpired();
         unsubAccepted();
+        unsubStatus();
+        clearInterval(healthCheck);
         if (locationInterval.current) clearInterval(locationInterval.current);
       };
     }
@@ -250,10 +272,11 @@ export default function DriverHomeScreen() {
   const showRideOffer = (data: RideOffer) => {
     clearOffer();
     
+    const offerCountdown = data.countdown || COUNTDOWN_SECONDS;
     rideOfferRef.current = data;
     isRespondingRef.current = false;
     setRideOffer(data);
-    setCountdown(COUNTDOWN_SECONDS);
+    setCountdown(offerCountdown);
     
     triggerVibration();
     playAlertSound();
@@ -261,7 +284,7 @@ export default function DriverHomeScreen() {
     progressAnim.setValue(1);
     Animated.timing(progressAnim, {
       toValue: 0,
-      duration: COUNTDOWN_SECONDS * 1000,
+      duration: offerCountdown * 1000,
       useNativeDriver: false,
     }).start();
 

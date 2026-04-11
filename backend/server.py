@@ -77,13 +77,28 @@ manager = ConnectionManager()
 assignment_events: Dict[str, asyncio.Event] = {}  # request_id -> Event (set when driver responds)
 assignment_tasks: Dict[str, asyncio.Task] = {}  # request_id -> Task
 
+# Default dispatch settings (overridden by DB config)
+DEFAULT_ACCEPT_SECONDS = 8
+DEFAULT_MAX_BEFORE_ASK = 10
+
+async def get_dispatch_config():
+    """Get configurable dispatch settings from DB"""
+    settings = await get_settings()
+    return {
+        "accept_seconds": settings.get("driver_accept_seconds", DEFAULT_ACCEPT_SECONDS),
+        "max_before_ask": settings.get("max_dispatch_attempts", DEFAULT_MAX_BEFORE_ASK),
+    }
+
 async def assign_ride_to_drivers(request_id: str, rider_id: str, sorted_drivers: list, request_doc: dict):
     """Background task: offer ride to drivers in loop until one accepts or rider cancels.
-    After 10 total attempts without acceptance, asks rider if they want to continue."""
+    After configurable attempts without acceptance, asks rider if they want to continue."""
     event = asyncio.Event()
     assignment_events[request_id] = event
     
-    MAX_BEFORE_ASK = 10  # After 10 attempts, ask rider to continue
+    # Get configurable settings
+    dispatch_config = await get_dispatch_config()
+    accept_seconds = dispatch_config["accept_seconds"]
+    MAX_BEFORE_ASK = dispatch_config["max_before_ask"]
     total_attempts = 0
     
     try:
@@ -129,7 +144,7 @@ async def assign_ride_to_drivers(request_id: str, rider_id: str, sorted_drivers:
                 offer_msg = {
                     "type": "ride_offer",
                     "request_id": request_id,
-                    "countdown": 8,
+                    "countdown": accept_seconds,
                     "pickup": request_doc.get("pickup_location", {}),
                     "dropoff": request_doc.get("dropoff_location", {}),
                     "fare": request_doc.get("estimated_fare", 0),
@@ -149,10 +164,10 @@ async def assign_ride_to_drivers(request_id: str, rider_id: str, sorted_drivers:
                     "message": f"Ofreciendo viaje a conductor {total_attempts}..."
                 }, rider_id)
                 
-                # Wait 8 seconds for response
+                # Wait for configurable seconds for response
                 event.clear()
                 try:
-                    await asyncio.wait_for(event.wait(), timeout=8.0)
+                    await asyncio.wait_for(event.wait(), timeout=float(accept_seconds))
                 except asyncio.TimeoutError:
                     pass
                 
@@ -3491,6 +3506,13 @@ async def websocket_endpoint(websocket: WebSocket, user_id: str):
                         active_ride["rider_id"]
                     )
             
+            elif msg_type == "ping":
+                # Keep-alive ping, respond with pong
+                try:
+                    await websocket.send_json({"type": "pong"})
+                except Exception:
+                    pass
+            
             elif msg_type == "chat_message":
                 # Real-time chat
                 await manager.send_personal_message(
@@ -3504,11 +3526,15 @@ async def websocket_endpoint(websocket: WebSocket, user_id: str):
     
     except WebSocketDisconnect:
         manager.disconnect(user_id)
-        # Mark driver as offline if applicable
+        # DO NOT mark driver offline on WebSocket disconnect
+        # K8s proxy drops connections frequently - driver manages online state explicitly
+        # Only update last_seen timestamp
         await db.drivers.update_one(
             {"driver_id": user_id},
-            {"$set": {"is_online": False}}
+            {"$set": {"last_seen": datetime.now(timezone.utc)}}
         )
+    except Exception:
+        manager.disconnect(user_id)
 
 # ======================= HEALTH CHECK =======================
 
@@ -3519,6 +3545,38 @@ async def health_check():
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "version": "1.0.0"
     }
+
+@app.get("/api/config/dispatch")
+async def get_dispatch_config_endpoint():
+    """Get dispatch configuration"""
+    config = await get_dispatch_config()
+    return config
+
+@app.put("/api/admin/config/dispatch")
+async def update_dispatch_config(
+    driver_accept_seconds: int = Query(None),
+    max_dispatch_attempts: int = Query(None),
+    user: dict = Depends(get_current_user)
+):
+    """Update dispatch configuration (admin only)"""
+    if user["user_type"] != "admin":
+        raise HTTPException(status_code=403, detail="Solo administradores")
+    
+    update = {}
+    if driver_accept_seconds is not None:
+        update["driver_accept_seconds"] = max(5, min(30, driver_accept_seconds))
+    if max_dispatch_attempts is not None:
+        update["max_dispatch_attempts"] = max(3, min(50, max_dispatch_attempts))
+    
+    if update:
+        await db.settings.update_one(
+            {"key": "app_settings"},
+            {"$set": update},
+            upsert=True
+        )
+    
+    return {"status": "success", "updated": update}
+
 
 @app.get("/api/config/maps")
 async def get_maps_config():
