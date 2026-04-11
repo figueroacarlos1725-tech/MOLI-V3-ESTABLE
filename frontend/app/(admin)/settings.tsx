@@ -8,6 +8,9 @@ import {
   TouchableOpacity,
   TextInput,
   Alert,
+  Platform,
+  ActivityIndicator,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { apiService } from '@/src/services/api';
@@ -28,7 +31,8 @@ interface Settings {
   mercadopago_access_token?: string;
   astropay_api_key?: string;
   astropay_secret_key?: string;
-  // Cancellation & Wallet
+  firebase_server_key?: string;
+  firebase_project_id?: string;
   cancel_free_minutes?: number;
   rider_cancel_penalty?: number;
   driver_cancel_penalty?: number;
@@ -36,7 +40,12 @@ interface Settings {
   driver_block_after_cancels?: number;
   driver_block_hours?: number;
   rider_max_pending_penalties?: number;
+  min_app_version?: string;
+  update_message?: string;
 }
+
+// Track which sensitive fields the user has actually edited
+const SENSITIVE_KEYS = ['google_maps_key', 'mapbox_key', 'mercadopago_public_key', 'mercadopago_access_token', 'astropay_api_key', 'astropay_secret_key', 'firebase_server_key'];
 
 export default function AdminSettingsScreen() {
   const router = useRouter();
@@ -46,6 +55,7 @@ export default function AdminSettingsScreen() {
   const [isSaving, setIsSaving] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [formData, setFormData] = useState<Partial<Settings>>({});
+  const [editedSensitiveKeys, setEditedSensitiveKeys] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     fetchSettings();
@@ -56,6 +66,7 @@ export default function AdminSettingsScreen() {
       const response = await apiService.get('/admin/settings');
       setSettings(response);
       setFormData(response);
+      setEditedSensitiveKeys(new Set());
     } catch (error) {
       console.error('Error obteniendo configuracion:', error);
     } finally {
@@ -66,12 +77,32 @@ export default function AdminSettingsScreen() {
   const handleSaveSettings = async () => {
     setIsSaving(true);
     try {
-      await apiService.put('/admin/settings', formData);
-      Alert.alert('Exito', 'Configuracion guardada correctamente');
+      // Build payload excluding sensitive keys that weren't actually edited
+      const payload: any = {};
+      for (const [key, value] of Object.entries(formData)) {
+        if (SENSITIVE_KEYS.includes(key)) {
+          // Only include if the user actually edited this field
+          if (editedSensitiveKeys.has(key) && value && !String(value).startsWith('****')) {
+            payload[key] = value;
+          }
+        } else if (value !== undefined && value !== null) {
+          // Convert numeric fields
+          if (['base_fare', 'per_km_rate', 'per_minute_rate', 'commission_rate', 'rider_cancel_penalty', 'driver_cancel_penalty', 'driver_max_negative_balance'].includes(key)) {
+            payload[key] = parseFloat(String(value)) || 0;
+          } else if (['cancel_free_minutes', 'driver_block_after_cancels', 'driver_block_hours', 'rider_max_pending_penalties'].includes(key)) {
+            payload[key] = parseInt(String(value)) || 0;
+          } else {
+            payload[key] = value;
+          }
+        }
+      }
+
+      await apiService.put('/admin/settings', payload);
+      Alert.alert('Guardado', 'Configuracion actualizada correctamente');
       setEditMode(false);
       fetchSettings();
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'No se pudo guardar la configuracion');
+      Alert.alert('Error', error.message || 'No se pudo guardar');
     } finally {
       setIsSaving(false);
     }
@@ -80,170 +111,242 @@ export default function AdminSettingsScreen() {
   const handleLogout = () => {
     confirmAlert(
       'Cerrar sesion',
-      'Estas seguro que deseas cerrar sesion?',
+      'Estas seguro?',
       async () => {
         try {
           await logout();
-          if (typeof window !== 'undefined') {
-            window.location.href = '/';
-          } else {
-            router.replace('/');
-          }
-        } catch (e) {
-          console.error('Logout error:', e);
-        }
+          if (typeof window !== 'undefined') window.location.href = '/';
+          else router.replace('/');
+        } catch (e) {}
       },
       'Cerrar sesion'
     );
   };
 
-  const renderSettingInput = (label: string, key: keyof Settings, placeholder?: string, secureEntry?: boolean) => (
-    <View style={styles.settingRow}>
-      <Text style={styles.settingLabel}>{label}</Text>
-      {editMode ? (
-        <TextInput
-          style={styles.settingInput}
-          value={String(formData[key] || '')}
-          onChangeText={(value) => setFormData({ ...formData, [key]: value })}
-          placeholder={placeholder}
-          secureTextEntry={secureEntry}
-        />
-      ) : (
-        <Text style={styles.settingValue}>
-          {secureEntry && settings?.[key] ? '****' + String(settings[key]).slice(-4) : String(settings?.[key] || 'No configurado')}
-        </Text>
-      )}
-    </View>
-  );
+  const updateField = (key: string, value: string) => {
+    setFormData({ ...formData, [key]: value });
+    if (SENSITIVE_KEYS.includes(key)) {
+      setEditedSensitiveKeys(prev => new Set(prev).add(key));
+    }
+  };
+
+  const renderField = (label: string, key: keyof Settings, opts?: { placeholder?: string; secure?: boolean; numeric?: boolean }) => {
+    const value = editMode ? formData[key] : settings?.[key];
+    const displayValue = opts?.secure && !editMode && value
+      ? (String(value).startsWith('****') ? String(value) : '****' + String(value).slice(-4))
+      : String(value ?? '');
+    const isConfigured = value && !String(value).startsWith('****') && String(value) !== 'No configurado' && String(value) !== '';
+    const wasMasked = opts?.secure && String(value ?? '').startsWith('****');
+
+    return (
+      <View style={s.fieldRow}>
+        <View style={s.fieldLabelRow}>
+          <Text style={s.fieldLabel}>{label}</Text>
+          {opts?.secure && !editMode && (
+            <View style={[s.statusDot, { backgroundColor: isConfigured || wasMasked ? '#34C759' : '#FF3B30' }]} />
+          )}
+        </View>
+        {editMode ? (
+          <TextInput
+            style={s.fieldInput}
+            value={editedSensitiveKeys.has(key) ? String(formData[key] ?? '') : (opts?.secure && wasMasked ? '' : String(formData[key] ?? ''))}
+            onChangeText={(v) => updateField(key, v)}
+            placeholder={opts?.secure && wasMasked ? 'Dejar vacio para mantener actual' : (opts?.placeholder || '')}
+            placeholderTextColor="#666"
+            secureTextEntry={false}
+            keyboardType={opts?.numeric ? 'numeric' : 'default'}
+          />
+        ) : (
+          <Text style={s.fieldValue} numberOfLines={1}>
+            {displayValue || 'No configurado'}
+          </Text>
+        )}
+      </View>
+    );
+  };
+
+  if (isLoading) {
+    return (
+      <SafeAreaView style={s.container}>
+        <ActivityIndicator size="large" color="#A855F7" style={{ flex: 1 }} />
+      </SafeAreaView>
+    );
+  }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Ajustes</Text>
-        <TouchableOpacity
-          style={styles.editButton}
-          onPress={() => editMode ? handleSaveSettings() : setEditMode(true)}
-        >
-          {isSaving ? (
-            <Text style={styles.editButtonText}>Guardando...</Text>
-          ) : (
-            <Text style={styles.editButtonText}>{editMode ? 'Guardar' : 'Editar'}</Text>
-          )}
-        </TouchableOpacity>
-      </View>
-
-      <ScrollView showsVerticalScrollIndicator={false}>
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Configuracion de mapa</Text>
-          <View style={styles.sectionCard}>
-            <View style={styles.settingRow}>
-              <Text style={styles.settingLabel}>Proveedor de mapa</Text>
-              <View style={styles.providerSelector}>
-                {['osm', 'google', 'mapbox'].map((provider) => (
-                  <TouchableOpacity
-                    key={provider}
-                    style={[
-                      styles.providerButton,
-                      (editMode ? formData.map_provider : settings?.map_provider) === provider && styles.providerButtonActive
-                    ]}
-                    onPress={() => editMode && setFormData({ ...formData, map_provider: provider })}
-                    disabled={!editMode}
-                  >
-                    <Text style={[
-                      styles.providerButtonText,
-                      (editMode ? formData.map_provider : settings?.map_provider) === provider && styles.providerButtonTextActive
-                    ]}>
-                      {provider.toUpperCase()}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
-            {renderSettingInput('API Key de Google Maps', 'google_maps_key', 'Ingresa la API key', true)}
-            {renderSettingInput('API Key de Mapbox', 'mapbox_key', 'Ingresa la API key', true)}
-          </View>
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Configuracion de tarifas</Text>
-          <View style={styles.sectionCard}>
-            {renderSettingInput('Tarifa base ($)', 'base_fare', '2.50')}
-            {renderSettingInput('Tarifa por KM ($)', 'per_km_rate', '1.20')}
-            {renderSettingInput('Tarifa por minuto ($)', 'per_minute_rate', '0.15')}
-            {renderSettingInput('Comision (%)', 'commission_rate', '0.20')}
-            {renderSettingInput('Moneda', 'currency', 'USD')}
-          </View>
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Pasarelas de pago</Text>
-          <View style={styles.sectionCard}>
-            <Text style={styles.gatewayTitle}>MercadoPago</Text>
-            {renderSettingInput('Clave publica', 'mercadopago_public_key', 'Ingresa la clave publica', true)}
-            {renderSettingInput('Token de acceso', 'mercadopago_access_token', 'Ingresa el token', true)}
-            
-            <View style={styles.gatewayDivider} />
-            
-            <Text style={styles.gatewayTitle}>AstroPay</Text>
-            {renderSettingInput('API Key', 'astropay_api_key', 'Ingresa la API key', true)}
-            {renderSettingInput('Clave secreta', 'astropay_secret_key', 'Ingresa la clave secreta', true)}
-          </View>
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Cancelaciones y Multas</Text>
-          <View style={styles.sectionCard}>
-            {renderSettingInput('Tiempo gratis para cancelar (min)', 'cancel_free_minutes', '1')}
-            
-            <View style={styles.gatewayDivider} />
-            <Text style={styles.gatewayTitle}>Pasajero</Text>
-            {renderSettingInput('Multa por cancelacion ($)', 'rider_cancel_penalty', '500')}
-            {renderSettingInput('Max multas pendientes', 'rider_max_pending_penalties', '2')}
-            
-            <View style={styles.gatewayDivider} />
-            <Text style={styles.gatewayTitle}>Conductor</Text>
-            {renderSettingInput('Multa por cancelacion ($)', 'driver_cancel_penalty', '500')}
-            {renderSettingInput('Cancelaciones antes de bloqueo', 'driver_block_after_cancels', '3')}
-            {renderSettingInput('Horas de bloqueo (0=permanente)', 'driver_block_hours', '24')}
-            {renderSettingInput('Saldo negativo maximo ($)', 'driver_max_negative_balance', '-15000')}
-          </View>
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Cuenta</Text>
-          <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-            <Ionicons name="log-out-outline" size={20} color="#FF3B30" />
-            <Text style={styles.logoutText}>Cerrar sesion</Text>
+    <SafeAreaView style={s.container}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+        {/* Header */}
+        <View style={s.header}>
+          <TouchableOpacity style={s.backBtn} onPress={() => router.back()}>
+            <Ionicons name="arrow-back" size={20} color="#1C1C1E" />
+          </TouchableOpacity>
+          <Text style={s.title}>Ajustes</Text>
+          <TouchableOpacity
+            style={[s.editBtn, editMode && s.editBtnSave]}
+            onPress={() => editMode ? handleSaveSettings() : setEditMode(true)}
+            disabled={isSaving}
+          >
+            {isSaving ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <>
+                <Ionicons name={editMode ? 'checkmark' : 'pencil'} size={16} color="#fff" />
+                <Text style={s.editBtnText}>{editMode ? 'Guardar' : 'Editar'}</Text>
+              </>
+            )}
           </TouchableOpacity>
         </View>
 
-        <Text style={styles.versionText}>Moli Admin v1.0.0</Text>
-      </ScrollView>
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
+          {/* Maps */}
+          <View style={s.section}>
+            <View style={s.sectionHeader}>
+              <Ionicons name="map-outline" size={18} color="#A855F7" />
+              <Text style={s.sectionTitle}>Mapas</Text>
+            </View>
+            <View style={s.card}>
+              <View style={s.fieldRow}>
+                <Text style={s.fieldLabel}>Proveedor</Text>
+                <View style={s.providerRow}>
+                  {['osm', 'google', 'mapbox'].map((p) => (
+                    <TouchableOpacity
+                      key={p}
+                      style={[s.providerBtn, (editMode ? formData.map_provider : settings?.map_provider) === p && s.providerBtnActive]}
+                      onPress={() => editMode && setFormData({ ...formData, map_provider: p })}
+                      disabled={!editMode}
+                    >
+                      <Text style={[s.providerBtnText, (editMode ? formData.map_provider : settings?.map_provider) === p && s.providerBtnTextActive]}>
+                        {p.toUpperCase()}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+              {renderField('API Key Google Maps', 'google_maps_key', { placeholder: 'AIzaSy...', secure: true })}
+              {renderField('API Key Mapbox', 'mapbox_key', { placeholder: 'pk.eyJ...', secure: true })}
+            </View>
+          </View>
+
+          {/* Fares */}
+          <View style={s.section}>
+            <View style={s.sectionHeader}>
+              <Ionicons name="cash-outline" size={18} color="#FF9500" />
+              <Text style={s.sectionTitle}>Tarifas</Text>
+            </View>
+            <View style={s.card}>
+              {renderField('Tarifa base ($)', 'base_fare', { placeholder: '2.50', numeric: true })}
+              {renderField('Tarifa por KM ($)', 'per_km_rate', { placeholder: '1.20', numeric: true })}
+              {renderField('Tarifa por minuto ($)', 'per_minute_rate', { placeholder: '0.15', numeric: true })}
+              {renderField('Comision (%)', 'commission_rate', { placeholder: '0.20', numeric: true })}
+              {renderField('Moneda', 'currency', { placeholder: 'ARS' })}
+            </View>
+          </View>
+
+          {/* Payments */}
+          <View style={s.section}>
+            <View style={s.sectionHeader}>
+              <Ionicons name="card-outline" size={18} color="#007AFF" />
+              <Text style={s.sectionTitle}>Pagos</Text>
+            </View>
+            <View style={s.card}>
+              <Text style={s.cardSubtitle}>MercadoPago</Text>
+              {renderField('Clave publica', 'mercadopago_public_key', { placeholder: 'APP_USR-...', secure: true })}
+              {renderField('Token de acceso', 'mercadopago_access_token', { placeholder: 'APP_USR-...', secure: true })}
+              <View style={s.divider} />
+              <Text style={s.cardSubtitle}>AstroPay</Text>
+              {renderField('API Key', 'astropay_api_key', { placeholder: 'Ingresa API key', secure: true })}
+              {renderField('Clave secreta', 'astropay_secret_key', { placeholder: 'Ingresa clave secreta', secure: true })}
+            </View>
+          </View>
+
+          {/* Push Notifications */}
+          <View style={s.section}>
+            <View style={s.sectionHeader}>
+              <Ionicons name="notifications-outline" size={18} color="#34C759" />
+              <Text style={s.sectionTitle}>Notificaciones Push</Text>
+            </View>
+            <View style={s.card}>
+              <Text style={s.cardSubtitle}>Firebase Cloud Messaging</Text>
+              {renderField('Server Key', 'firebase_server_key', { placeholder: 'AAAA...', secure: true })}
+              {renderField('Project ID', 'firebase_project_id', { placeholder: 'my-project-12345' })}
+            </View>
+          </View>
+
+          {/* Cancellations */}
+          <View style={s.section}>
+            <View style={s.sectionHeader}>
+              <Ionicons name="close-circle-outline" size={18} color="#FF3B30" />
+              <Text style={s.sectionTitle}>Cancelaciones y Multas</Text>
+            </View>
+            <View style={s.card}>
+              {renderField('Tiempo gratis para cancelar (min)', 'cancel_free_minutes', { placeholder: '1', numeric: true })}
+              <View style={s.divider} />
+              <Text style={s.cardSubtitle}>Pasajero</Text>
+              {renderField('Multa por cancelacion ($)', 'rider_cancel_penalty', { placeholder: '500', numeric: true })}
+              {renderField('Max multas pendientes', 'rider_max_pending_penalties', { placeholder: '2', numeric: true })}
+              <View style={s.divider} />
+              <Text style={s.cardSubtitle}>Conductor</Text>
+              {renderField('Multa por cancelacion ($)', 'driver_cancel_penalty', { placeholder: '500', numeric: true })}
+              {renderField('Cancelaciones antes de bloqueo', 'driver_block_after_cancels', { placeholder: '3', numeric: true })}
+              {renderField('Horas de bloqueo (0=permanente)', 'driver_block_hours', { placeholder: '24', numeric: true })}
+              {renderField('Saldo negativo maximo ($)', 'driver_max_negative_balance', { placeholder: '-15000', numeric: true })}
+            </View>
+          </View>
+
+          {/* App Version */}
+          <View style={s.section}>
+            <View style={s.sectionHeader}>
+              <Ionicons name="phone-portrait-outline" size={18} color="#5856D6" />
+              <Text style={s.sectionTitle}>Version de la App</Text>
+            </View>
+            <View style={s.card}>
+              {renderField('Version minima requerida', 'min_app_version', { placeholder: '1.0.0' })}
+              {renderField('Mensaje de actualizacion', 'update_message', { placeholder: 'Hay una nueva version disponible...' })}
+            </View>
+          </View>
+
+          {/* Account */}
+          <View style={s.section}>
+            <TouchableOpacity style={s.logoutBtn} onPress={handleLogout}>
+              <Ionicons name="log-out-outline" size={20} color="#FF3B30" />
+              <Text style={s.logoutText}>Cerrar sesion</Text>
+            </TouchableOpacity>
+          </View>
+
+          <Text style={s.versionText}>Moli Admin v1.0.0</Text>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
+const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F2F2F7' },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#fff', paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#E5E5EA' },
-  title: { fontSize: 28, fontWeight: 'bold', color: '#1C1C1E' },
-  editButton: { paddingHorizontal: 16, paddingVertical: 8, backgroundColor: '#8E44AD', borderRadius: 20 },
-  editButtonText: { color: '#fff', fontWeight: '600' },
-  section: { padding: 16 },
-  sectionTitle: { fontSize: 14, fontWeight: '600', color: '#8E8E93', marginBottom: 8, marginLeft: 4, textTransform: 'uppercase' },
-  sectionCard: { backgroundColor: '#fff', borderRadius: 16, padding: 16 },
-  settingRow: { paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#E5E5EA' },
-  settingLabel: { fontSize: 14, color: '#8E8E93', marginBottom: 8 },
-  settingValue: { fontSize: 16, color: '#1C1C1E' },
-  settingInput: { fontSize: 16, color: '#1C1C1E', backgroundColor: '#F2F2F7', padding: 12, borderRadius: 8 },
-  providerSelector: { flexDirection: 'row', gap: 8 },
-  providerButton: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: '#F2F2F7' },
-  providerButtonActive: { backgroundColor: '#8E44AD' },
-  providerButtonText: { fontSize: 12, fontWeight: '600', color: '#8E8E93' },
-  providerButtonTextActive: { color: '#fff' },
-  gatewayTitle: { fontSize: 16, fontWeight: '600', color: '#1C1C1E', marginBottom: 8, marginTop: 8 },
-  gatewayDivider: { height: 1, backgroundColor: '#E5E5EA', marginVertical: 16 },
-  logoutButton: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 16, padding: 16 },
-  logoutText: { fontSize: 16, color: '#FF3B30', marginLeft: 12 },
-  versionText: { textAlign: 'center', fontSize: 12, color: '#8E8E93', marginVertical: 32 },
+  header: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#E5E5EA', gap: 12 },
+  backBtn: { width: 38, height: 38, borderRadius: 12, backgroundColor: '#F2F2F7', justifyContent: 'center', alignItems: 'center' },
+  title: { flex: 1, fontSize: 22, fontWeight: '800', color: '#1C1C1E' },
+  editBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 16, paddingVertical: 9, backgroundColor: '#A855F7', borderRadius: 20 },
+  editBtnSave: { backgroundColor: '#34C759' },
+  editBtnText: { color: '#fff', fontSize: 14, fontWeight: '700' },
+  section: { paddingHorizontal: 16, marginTop: 16 },
+  sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8, marginLeft: 4 },
+  sectionTitle: { fontSize: 13, fontWeight: '700', color: '#8E8E93', textTransform: 'uppercase', letterSpacing: 0.5 },
+  card: { backgroundColor: '#fff', borderRadius: 16, padding: 16 },
+  cardSubtitle: { fontSize: 15, fontWeight: '700', color: '#1C1C1E', marginBottom: 4, marginTop: 4 },
+  divider: { height: 1, backgroundColor: '#E5E5EA', marginVertical: 12 },
+  fieldRow: { paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#E5E5EA' },
+  fieldLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 },
+  fieldLabel: { fontSize: 13, color: '#8E8E93', fontWeight: '500' },
+  statusDot: { width: 8, height: 8, borderRadius: 4 },
+  fieldValue: { fontSize: 16, color: '#1C1C1E', fontWeight: '500' },
+  fieldInput: { fontSize: 16, color: '#1C1C1E', backgroundColor: '#F2F2F7', paddingHorizontal: 14, paddingVertical: 11, borderRadius: 10, borderWidth: 1, borderColor: '#E5E5EA' },
+  providerRow: { flexDirection: 'row', gap: 8 },
+  providerBtn: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: '#F2F2F7' },
+  providerBtnActive: { backgroundColor: '#A855F7' },
+  providerBtnText: { fontSize: 12, fontWeight: '700', color: '#8E8E93' },
+  providerBtnTextActive: { color: '#fff' },
+  logoutBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 16, padding: 16, gap: 12 },
+  logoutText: { fontSize: 16, color: '#FF3B30', fontWeight: '600' },
+  versionText: { textAlign: 'center', fontSize: 12, color: '#8E8E93', marginVertical: 24 },
 });

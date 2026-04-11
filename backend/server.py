@@ -413,17 +413,26 @@ class CouponCreate(BaseModel):
     expires_at: datetime
 
 class SettingsUpdate(BaseModel):
+    # Map
+    map_provider: Optional[str] = None
     google_maps_key: Optional[str] = None
     mapbox_key: Optional[str] = None
+    # Payments
     mercadopago_public_key: Optional[str] = None
     mercadopago_access_token: Optional[str] = None
     astropay_api_key: Optional[str] = None
     astropay_secret_key: Optional[str] = None
+    # Push Notifications
     firebase_config: Optional[dict] = None
+    firebase_server_key: Optional[str] = None
+    firebase_project_id: Optional[str] = None
+    expo_push_token: Optional[str] = None
+    # Fares
     base_fare: Optional[float] = None
     per_km_rate: Optional[float] = None
     per_minute_rate: Optional[float] = None
     commission_rate: Optional[float] = None
+    currency: Optional[str] = None
     # Cancellation & Wallet settings
     cancel_free_minutes: Optional[int] = None
     rider_cancel_penalty: Optional[float] = None
@@ -432,6 +441,9 @@ class SettingsUpdate(BaseModel):
     driver_block_after_cancels: Optional[int] = None
     driver_block_hours: Optional[int] = None  # 0 = permanent
     rider_max_pending_penalties: Optional[int] = None
+    # App Version
+    min_app_version: Optional[str] = None
+    update_message: Optional[str] = None
 
 # ======================= HELPER FUNCTIONS =======================
 
