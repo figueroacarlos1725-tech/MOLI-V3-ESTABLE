@@ -2,6 +2,7 @@
 from fastapi import APIRouter, HTTPException, Depends, Header, Body
 from typing import Optional
 from datetime import datetime, timezone
+import httpx
 
 from database import db
 from utils import generate_id, hash_password, verify_password, create_access_token, get_current_user

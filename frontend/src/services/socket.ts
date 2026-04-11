@@ -1,8 +1,6 @@
 import Constants from 'expo-constants';
 
-const BASE_URL = Constants.expoConfig?.extra?.backendUrl || 
-  process.env.EXPO_PUBLIC_BACKEND_URL || 
-  'https://taxify-clone.preview.emergentagent.com';
+const BASE_URL = process.env.EXPO_PUBLIC_BACKEND_URL || '';
 
 class SocketService {
   private socket: WebSocket | null = null;
