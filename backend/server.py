@@ -1406,6 +1406,9 @@ async def update_ride_status(
         if accepted_at:
             if isinstance(accepted_at, str):
                 accepted_at = datetime.fromisoformat(accepted_at.replace("Z", "+00:00"))
+            # Ensure both datetimes are timezone-aware
+            if accepted_at.tzinfo is None:
+                accepted_at = accepted_at.replace(tzinfo=timezone.utc)
             elapsed = (now - accepted_at).total_seconds() / 60.0
             is_free_cancel = elapsed <= free_minutes
         
