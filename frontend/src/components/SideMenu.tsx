@@ -46,6 +46,12 @@ export default function SideMenu({ visible, onClose, role }: SideMenuProps) {
     { icon: 'wallet', label: 'Billetera', route: '/(driver)/earnings' },
     { icon: 'document-text', label: 'Mis Documentos', route: '/(driver)/documents' },
     { icon: 'speedometer', label: 'Taxímetro', route: '/(driver)/taximeter' },
+    { icon: 'school-outline', label: 'Cómo usar la app', color: '#A855F7', onPress: async () => { 
+      const AsyncStorage = (await import('@react-native-async-storage/async-storage')).default;
+      await AsyncStorage.removeItem('tutorial_completed'); 
+      onClose(); 
+      setTimeout(() => router.replace('/(driver)/tutorial'), 200); 
+    }},
     { icon: 'person', label: 'Mi Perfil', route: '/(driver)/profile' },
     { icon: 'swap-horizontal', label: 'Viajes / Trabajos', color: '#7B2D8E', onPress: () => { onClose(); setTimeout(() => router.replace('/modules'), 200); } },
   ];

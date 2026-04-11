@@ -1509,6 +1509,22 @@ async def review_driver_document(
         "all_verified": all_approved,
     }, driver_id)
     
+    # Send push notification for verification approval
+    if all_approved:
+        await send_push_notification(
+            driver_id,
+            "¡Cuenta aprobada! 🎉",
+            "Todos tus documentos fueron verificados. Ya podés empezar a conducir y generar ingresos con Moli.",
+            data={"type": "verification_approved"}
+        )
+    elif action == "reject":
+        await send_push_notification(
+            driver_id,
+            "Documento rechazado",
+            notify_msg,
+            data={"type": "document_rejected", "doc_type": doc["doc_type"]}
+        )
+    
     return {"status": update["status"], "all_verified": all_approved}
 
 

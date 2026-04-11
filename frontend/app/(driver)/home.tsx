@@ -85,12 +85,26 @@ export default function DriverHomeScreen() {
   const [driverCancelCount, setDriverCancelCount] = useState(0);
 
   useEffect(() => {
-    // Check if tutorial has been completed
+    // Check if tutorial should show:
+    // Only show if driver is NOT verified AND hasn't completed tutorial before
     const checkTutorial = async () => {
-      const completed = await AsyncStorage.getItem('tutorial_completed');
-      if (!completed) {
+      try {
+        const completed = await AsyncStorage.getItem('tutorial_completed');
+        if (completed) return; // Already completed tutorial
+        
+        // Check verification status from API
+        const response = await apiService.get('/driver/verification-status');
+        if (response?.is_verified) {
+          // Driver is verified, skip tutorial and mark as completed
+          await AsyncStorage.setItem('tutorial_completed', 'true');
+          return;
+        }
+        
+        // Not verified and hasn't done tutorial -> show tutorial
         router.replace('/(driver)/tutorial');
-        return;
+      } catch (e) {
+        // On error, don't block - just skip tutorial check
+        console.log('Tutorial check error:', e);
       }
     };
     checkTutorial();

@@ -315,7 +315,7 @@ export default function DriverTutorialScreen() {
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0F0B15' },
+  container: { flex: 1, backgroundColor: '#7B2D8E' },
   mapContainer: { ...StyleSheet.absoluteFillObject },
   mapOverlay: {
     position: 'absolute', bottom: 0, left: 0, right: 0, height: height * 0.55,
@@ -343,9 +343,9 @@ const s = StyleSheet.create({
     paddingHorizontal: 16, paddingBottom: Platform.OS === 'ios' ? 34 : 16,
   },
   card: {
-    backgroundColor: 'rgba(15,11,21,0.95)',
+    backgroundColor: 'rgba(255,255,255,0.13)',
     borderRadius: 24, padding: 20,
-    borderWidth: 1, borderColor: 'rgba(168,85,247,0.15)',
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)',
   },
   stepIconRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 14 },
   stepIconBg: {
