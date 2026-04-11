@@ -137,6 +137,10 @@ class SocketService {
     this.connect(uid);
   }
 
+  get isConnected(): boolean {
+    return this.socket !== null && this.socket.readyState === WebSocket.OPEN;
+  }
+
   disconnect() {
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer);

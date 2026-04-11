@@ -56,7 +56,7 @@ export default function RideChatScreen() {
     // Poll for new messages every 4s (WebSocket fallback)
     const pollInterval = setInterval(async () => {
       try {
-        const response = await apiService.get(`/chat/messages/${rideId}`);
+        const response = await apiService.get(`/chat/ride/${rideId}`);
         if (response.messages) {
           setMessages(prev => {
             const newMsgs = response.messages.filter(
@@ -80,7 +80,7 @@ export default function RideChatScreen() {
 
   const loadMessages = async () => {
     try {
-      const response = await apiService.get(`/chat/messages/${rideId}`);
+      const response = await apiService.get(`/chat/ride/${rideId}`);
       setMessages(response.messages || []);
     } catch (error) {
       console.error('Error cargando mensajes:', error);

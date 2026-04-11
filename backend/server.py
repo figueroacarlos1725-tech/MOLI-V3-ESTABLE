@@ -2372,7 +2372,7 @@ async def send_chat_message(
     
     return {"status": "sent", "message_id": msg["message_id"], "message": ws_msg}
 
-@app.get("/api/chat/messages/{ride_id}")
+@app.get("/api/chat/ride/{ride_id}")
 async def get_chat_messages(
     ride_id: str,
     user: dict = Depends(get_current_user)
