@@ -196,7 +196,7 @@ export default function RiderProfileScreen() {
         </View>
 
         {/* Versión */}
-        <Text style={styles.versionText}>Molí Pasajero v1.0.0</Text>
+        <Text style={styles.versionText}>Moli Pasajero v1.0.0</Text>
       </ScrollView>
     </SafeAreaView>
   );

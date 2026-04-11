@@ -250,7 +250,7 @@ export default function JobsHomeScreen() {
         </TouchableOpacity>
 
         <View style={s.headerCenter}>
-          <Text style={s.headerTitle}>Molí Trabajos</Text>
+          <Text style={s.headerTitle}>Moli Trabajos</Text>
           <Text style={s.headerSubtitle}>
             {filteredJobs.length} trabajos disponibles
           </Text>
@@ -354,7 +354,7 @@ export default function JobsHomeScreen() {
               {/* Info pills */}
               <View style={s.infoPills}>
                 <View style={s.pill}>
-                  <Ionicons name="location-outline" size={14} color="#6BBF00" />
+                  <Ionicons name="location-outline" size={14} color="#A855F7" />
                   <Text style={s.pillText}>{selectedJob.distance}</Text>
                 </View>
                 <View style={s.pill}>
@@ -410,7 +410,7 @@ export default function JobsHomeScreen() {
 const s = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0A0A0A',
+    backgroundColor: '#0F0B15',
   },
   // Header
   header: {
@@ -453,8 +453,8 @@ const s = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.1)',
   },
   onlineToggleActive: {
-    backgroundColor: 'rgba(107,191,0,0.12)',
-    borderColor: 'rgba(107,191,0,0.3)',
+    backgroundColor: 'rgba(168,85,247,0.12)',
+    borderColor: 'rgba(168,85,247,0.3)',
   },
   onlineDot: {
     width: 8,
@@ -463,7 +463,7 @@ const s = StyleSheet.create({
     backgroundColor: '#666',
   },
   onlineDotActive: {
-    backgroundColor: '#6BBF00',
+    backgroundColor: '#A855F7',
   },
   onlineText: {
     fontSize: 12,
@@ -471,7 +471,7 @@ const s = StyleSheet.create({
     color: '#666',
   },
   onlineTextActive: {
-    color: '#6BBF00',
+    color: '#A855F7',
   },
   // Filters
   filtersContainer: {
@@ -493,8 +493,8 @@ const s = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.08)',
   },
   filterChipActive: {
-    backgroundColor: 'rgba(107,191,0,0.12)',
-    borderColor: 'rgba(107,191,0,0.3)',
+    backgroundColor: 'rgba(168,85,247,0.12)',
+    borderColor: 'rgba(168,85,247,0.3)',
   },
   filterEmoji: {
     fontSize: 14,
@@ -505,7 +505,7 @@ const s = StyleSheet.create({
     color: 'rgba(255,255,255,0.5)',
   },
   filterTextActive: {
-    color: '#6BBF00',
+    color: '#A855F7',
   },
   // Map
   mapContainer: {
@@ -609,12 +609,12 @@ const s = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: 'rgba(107,191,0,0.08)',
+    backgroundColor: 'rgba(168,85,247,0.08)',
     padding: 14,
     borderRadius: 14,
     marginBottom: 14,
     borderWidth: 1,
-    borderColor: 'rgba(107,191,0,0.15)',
+    borderColor: 'rgba(168,85,247,0.15)',
   },
   budgetLabel: {
     fontSize: 13,
@@ -624,7 +624,7 @@ const s = StyleSheet.create({
   budgetValue: {
     fontSize: 24,
     fontWeight: '900',
-    color: '#6BBF00',
+    color: '#A855F7',
   },
   jobDescription: {
     fontSize: 14,
@@ -732,7 +732,7 @@ const s = StyleSheet.create({
     gap: 6,
     paddingVertical: 16,
     borderRadius: 16,
-    backgroundColor: '#6BBF00',
+    backgroundColor: '#A855F7',
   },
   acceptText: {
     fontSize: 15,

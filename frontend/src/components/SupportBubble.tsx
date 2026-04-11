@@ -183,7 +183,7 @@ export default function SupportBubble() {
                 <Ionicons name="headset" size={18} color="#fff" />
               </View>
               <View>
-                <Text style={st.chatHeaderTitle}>Soporte Molí</Text>
+                <Text style={st.chatHeaderTitle}>Soporte Moli</Text>
                 <Text style={st.chatHeaderSub}>Asistente + Agente humano</Text>
               </View>
             </View>
@@ -245,7 +245,7 @@ const st = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#6BBF00',
+    backgroundColor: '#A855F7',
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000',
@@ -279,7 +279,7 @@ const st = StyleSheet.create({
   },
   chatClose: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center' },
   chatHeaderCenter: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 },
-  chatHeaderIcon: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#6BBF00', justifyContent: 'center', alignItems: 'center' },
+  chatHeaderIcon: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#A855F7', justifyContent: 'center', alignItems: 'center' },
   chatHeaderTitle: { fontSize: 16, fontWeight: '700', color: '#1C1C1E' },
   chatHeaderSub: { fontSize: 12, color: '#8E8E93' },
   msgList: { flex: 1 },
@@ -292,12 +292,12 @@ const st = StyleSheet.create({
   msgRowLeft: { justifyContent: 'flex-start' },
   avatar: { width: 28, height: 28, borderRadius: 14, justifyContent: 'center', alignItems: 'center', marginRight: 8 },
   avatarAI: { backgroundColor: '#007AFF' },
-  avatarAdmin: { backgroundColor: '#6BBF00' },
+  avatarAdmin: { backgroundColor: '#A855F7' },
   bubble: { maxWidth: '75%', borderRadius: 18, paddingHorizontal: 14, paddingVertical: 10 },
-  bubbleUser: { backgroundColor: '#6BBF00', borderBottomRightRadius: 4 },
+  bubbleUser: { backgroundColor: '#A855F7', borderBottomRightRadius: 4 },
   bubbleAI: { backgroundColor: '#E8E8ED', borderBottomLeftRadius: 4 },
   bubbleAdmin: { backgroundColor: '#D4F5D4', borderBottomLeftRadius: 4 },
-  adminName: { fontSize: 11, fontWeight: '700', color: '#6BBF00', marginBottom: 2 },
+  adminName: { fontSize: 11, fontWeight: '700', color: '#A855F7', marginBottom: 2 },
   msgText: { fontSize: 15, color: '#1C1C1E', lineHeight: 20 },
   msgTextUser: { color: '#fff' },
   // Input
@@ -326,7 +326,7 @@ const st = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#6BBF00',
+    backgroundColor: '#A855F7',
     justifyContent: 'center',
     alignItems: 'center',
   },

@@ -33,19 +33,19 @@ export default function WelcomeScreen() {
         <View style={styles.featuresSection}>
           <View style={styles.featureItem}>
             <View style={styles.featureIcon}>
-              <Ionicons name="location" size={22} color="#6BBF00" />
+              <Ionicons name="location" size={22} color="#A855F7" />
             </View>
             <Text style={styles.featureText}>Seguimiento en tiempo real</Text>
           </View>
           <View style={styles.featureItem}>
             <View style={styles.featureIcon}>
-              <Ionicons name="shield-checkmark" size={22} color="#6BBF00" />
+              <Ionicons name="shield-checkmark" size={22} color="#A855F7" />
             </View>
             <Text style={styles.featureText}>Viajes seguros y protegidos</Text>
           </View>
           <View style={styles.featureItem}>
             <View style={styles.featureIcon}>
-              <Ionicons name="wallet" size={22} color="#6BBF00" />
+              <Ionicons name="wallet" size={22} color="#A855F7" />
             </View>
             <Text style={styles.featureText}>Multiples opciones de pago</Text>
           </View>
@@ -105,7 +105,7 @@ const styles = StyleSheet.create({
     width: 14,
     height: 14,
     borderRadius: 7,
-    backgroundColor: '#6BBF00',
+    backgroundColor: '#A855F7',
     marginLeft: 4,
     marginTop: 20,
   },
@@ -127,7 +127,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: 'rgba(107,191,0,0.12)',
+    backgroundColor: 'rgba(168,85,247,0.12)',
     justifyContent: 'center',
     alignItems: 'center',
   },

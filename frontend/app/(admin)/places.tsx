@@ -185,7 +185,7 @@ export default function AdminPlacesScreen() {
             <View style={s.cacheCard}>
               <View style={s.cacheHeader}>
                 <View style={s.cacheIconBg}>
-                  <Ionicons name="server-outline" size={20} color="#6BBF00" />
+                  <Ionicons name="server-outline" size={20} color="#A855F7" />
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={s.cacheTitle}>Cache de Direcciones</Text>
@@ -207,7 +207,7 @@ export default function AdminPlacesScreen() {
                 </View>
                 <View style={s.cacheStatDivider} />
                 <View style={s.cacheStat}>
-                  <Text style={[s.cacheStatNum, { color: '#6BBF00' }]}>
+                  <Text style={[s.cacheStatNum, { color: '#A855F7' }]}>
                     {cacheStats.total_search_hits + cacheStats.total_reverse_hits}
                   </Text>
                   <Text style={s.cacheStatLabel}>Hits totales</Text>
@@ -318,7 +318,7 @@ export default function AdminPlacesScreen() {
           <Text style={s.sectionSub}>Aparecen primero en los resultados de búsqueda del pasajero</Text>
 
           {loading ? (
-            <ActivityIndicator size="large" color="#6BBF00" style={{ marginTop: 30 }} />
+            <ActivityIndicator size="large" color="#A855F7" style={{ marginTop: 30 }} />
           ) : places.length === 0 ? (
             <View style={s.emptyState}>
               <Ionicons name="location-outline" size={48} color="#333" />
@@ -353,7 +353,7 @@ export default function AdminPlacesScreen() {
                     <Ionicons
                       name={place.is_active ? 'eye-outline' : 'eye-off-outline'}
                       size={18}
-                      color={place.is_active ? '#6BBF00' : '#FF3B30'}
+                      color={place.is_active ? '#A855F7' : '#FF3B30'}
                     />
                   </TouchableOpacity>
                   <TouchableOpacity
@@ -381,19 +381,19 @@ export default function AdminPlacesScreen() {
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0A0A0A' },
+  container: { flex: 1, backgroundColor: '#0F0B15' },
   header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, gap: 12 },
   backBtn: { width: 38, height: 38, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.08)', justifyContent: 'center', alignItems: 'center' },
   headerCenter: { flex: 1 },
   headerTitle: { fontSize: 18, fontWeight: '800', color: '#fff' },
   headerSub: { fontSize: 12, color: 'rgba(255,255,255,0.4)', fontWeight: '500' },
-  addBtn: { width: 38, height: 38, borderRadius: 12, backgroundColor: '#6BBF00', justifyContent: 'center', alignItems: 'center' },
+  addBtn: { width: 38, height: 38, borderRadius: 12, backgroundColor: '#A855F7', justifyContent: 'center', alignItems: 'center' },
   content: { flex: 1, paddingHorizontal: 16 },
 
   // Cache
   cacheCard: { backgroundColor: '#1A1A1A', borderRadius: 16, padding: 16, marginBottom: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)' },
   cacheHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 14 },
-  cacheIconBg: { width: 40, height: 40, borderRadius: 12, backgroundColor: 'rgba(107,191,0,0.12)', justifyContent: 'center', alignItems: 'center' },
+  cacheIconBg: { width: 40, height: 40, borderRadius: 12, backgroundColor: 'rgba(168,85,247,0.12)', justifyContent: 'center', alignItems: 'center' },
   cacheTitle: { fontSize: 15, fontWeight: '700', color: '#fff' },
   cacheSub: { fontSize: 12, color: 'rgba(255,255,255,0.4)', fontWeight: '500' },
   clearCacheBtn: { width: 34, height: 34, borderRadius: 10, backgroundColor: 'rgba(255,59,48,0.1)', justifyContent: 'center', alignItems: 'center' },
@@ -404,22 +404,22 @@ const s = StyleSheet.create({
   cacheStatDivider: { width: 1, height: 30, backgroundColor: 'rgba(255,255,255,0.08)' },
 
   // Form
-  formCard: { backgroundColor: '#1A1A1A', borderRadius: 16, padding: 16, marginBottom: 16, borderWidth: 1, borderColor: 'rgba(107,191,0,0.2)' },
+  formCard: { backgroundColor: '#1A1A1A', borderRadius: 16, padding: 16, marginBottom: 16, borderWidth: 1, borderColor: 'rgba(168,85,247,0.2)' },
   formTitle: { fontSize: 16, fontWeight: '800', color: '#fff', marginBottom: 14 },
   label: { fontSize: 12, fontWeight: '600', color: 'rgba(255,255,255,0.5)', marginBottom: 6, marginTop: 10 },
   input: { backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, color: '#fff', fontSize: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
   row: { flexDirection: 'row' },
   chipRow: { flexDirection: 'row', marginBottom: 4 },
   chip: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.06)', marginRight: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
-  chipActive: { backgroundColor: 'rgba(107,191,0,0.12)', borderColor: 'rgba(107,191,0,0.3)' },
+  chipActive: { backgroundColor: 'rgba(168,85,247,0.12)', borderColor: 'rgba(168,85,247,0.3)' },
   chipText: { fontSize: 12, fontWeight: '600', color: 'rgba(255,255,255,0.5)' },
-  chipTextActive: { color: '#6BBF00' },
+  chipTextActive: { color: '#A855F7' },
   iconChip: { width: 44, height: 44, borderRadius: 12, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.06)', marginRight: 8, borderWidth: 2, borderColor: 'transparent' },
-  iconChipActive: { borderColor: '#6BBF00', backgroundColor: 'rgba(107,191,0,0.1)' },
+  iconChipActive: { borderColor: '#A855F7', backgroundColor: 'rgba(168,85,247,0.1)' },
   formActions: { flexDirection: 'row', gap: 10, marginTop: 16 },
   cancelBtn: { flex: 1, paddingVertical: 14, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.06)', alignItems: 'center' },
   cancelBtnText: { color: 'rgba(255,255,255,0.6)', fontSize: 14, fontWeight: '600' },
-  saveBtn: { flex: 2, flexDirection: 'row', paddingVertical: 14, borderRadius: 14, backgroundColor: '#6BBF00', alignItems: 'center', justifyContent: 'center', gap: 6 },
+  saveBtn: { flex: 2, flexDirection: 'row', paddingVertical: 14, borderRadius: 14, backgroundColor: '#A855F7', alignItems: 'center', justifyContent: 'center', gap: 6 },
   saveBtnText: { color: '#000', fontSize: 14, fontWeight: '800' },
 
   // Section

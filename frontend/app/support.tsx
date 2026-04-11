@@ -153,7 +153,7 @@ export default function SupportChatScreen() {
             <Ionicons
               name={item.is_ai ? 'sparkles' : 'headset'}
               size={16}
-              color={item.is_ai ? '#8E44AD' : '#6BBF00'}
+              color={item.is_ai ? '#8E44AD' : '#A855F7'}
             />
           </View>
         )}
@@ -309,7 +309,7 @@ const styles = StyleSheet.create({
   aiAvatar: { backgroundColor: '#F3E5F5' },
   dispatcherAvatar: { backgroundColor: '#E8F5E9' },
   messageBubble: { maxWidth: '75%', padding: 12, borderRadius: 16 },
-  myBubble: { backgroundColor: '#6BBF00', borderBottomRightRadius: 4 },
+  myBubble: { backgroundColor: '#A855F7', borderBottomRightRadius: 4 },
   aiBubble: { backgroundColor: '#fff', borderBottomLeftRadius: 4, borderWidth: 1, borderColor: '#E5E5EA' },
   otherBubble: { backgroundColor: '#fff', borderBottomLeftRadius: 4 },
   senderName: { fontSize: 12, fontWeight: '600', color: '#8E44AD', marginBottom: 4 },

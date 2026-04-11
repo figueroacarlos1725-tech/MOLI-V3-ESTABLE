@@ -157,7 +157,7 @@ export default function RideChatScreen() {
         </TouchableOpacity>
         <View style={styles.headerInfo}>
           <View style={styles.headerAvatar}>
-            <Ionicons name="person" size={20} color="#6BBF00" />
+            <Ionicons name="person" size={20} color="#A855F7" />
           </View>
           <View>
             <Text style={styles.headerName}>{otherName || 'Chat'}</Text>
@@ -165,7 +165,7 @@ export default function RideChatScreen() {
           </View>
         </View>
         <TouchableOpacity style={styles.callButton}>
-          <Ionicons name="call" size={22} color="#6BBF00" />
+          <Ionicons name="call" size={22} color="#A855F7" />
         </TouchableOpacity>
       </View>
 
@@ -176,7 +176,7 @@ export default function RideChatScreen() {
       >
         {isLoading ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#6BBF00" />
+            <ActivityIndicator size="large" color="#A855F7" />
           </View>
         ) : (
           <FlatList
@@ -242,7 +242,7 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   headerName: { fontSize: 16, fontWeight: '600', color: '#1C1C1E' },
-  headerStatus: { fontSize: 12, color: '#6BBF00', marginTop: 2 },
+  headerStatus: { fontSize: 12, color: '#A855F7', marginTop: 2 },
   callButton: {
     width: 44, height: 44, borderRadius: 22,
     backgroundColor: '#E8F5E9', justifyContent: 'center', alignItems: 'center',
@@ -254,9 +254,9 @@ const styles = StyleSheet.create({
   myMessageRow: { alignItems: 'flex-end' },
   otherMessageRow: { alignItems: 'flex-start' },
   messageBubble: { maxWidth: '80%', padding: 12, borderRadius: 16 },
-  myBubble: { backgroundColor: '#6BBF00', borderBottomRightRadius: 4 },
+  myBubble: { backgroundColor: '#A855F7', borderBottomRightRadius: 4 },
   otherBubble: { backgroundColor: '#fff', borderBottomLeftRadius: 4 },
-  senderName: { fontSize: 12, fontWeight: '600', color: '#6BBF00', marginBottom: 4 },
+  senderName: { fontSize: 12, fontWeight: '600', color: '#A855F7', marginBottom: 4 },
   messageText: { fontSize: 15, lineHeight: 20 },
   myMessageText: { color: '#fff' },
   otherMessageText: { color: '#1C1C1E' },
@@ -280,5 +280,5 @@ const styles = StyleSheet.create({
     backgroundColor: '#E5E5EA', justifyContent: 'center', alignItems: 'center',
     marginLeft: 8,
   },
-  sendButtonActive: { backgroundColor: '#6BBF00' },
+  sendButtonActive: { backgroundColor: '#A855F7' },
 });

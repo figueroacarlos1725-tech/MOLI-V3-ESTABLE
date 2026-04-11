@@ -100,7 +100,7 @@ export default function CancelRideModal({
                 Puedes cancelar sin cargo. Te quedan:
               </Text>
               <View style={st.timerBadge}>
-                <Ionicons name="time" size={18} color="#6BBF00" />
+                <Ionicons name="time" size={18} color="#A855F7" />
                 <Text style={st.timerText}>
                   {Math.floor(freeTimeLeft / 60)}:{String(freeTimeLeft % 60).padStart(2, '0')}
                 </Text>
@@ -194,7 +194,7 @@ const st = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 16,
   },
-  iconGreen: { backgroundColor: '#6BBF00' },
+  iconGreen: { backgroundColor: '#A855F7' },
   iconRed: { backgroundColor: '#FF9500' },
   title: {
     fontSize: 20,
@@ -223,7 +223,7 @@ const st = StyleSheet.create({
   timerText: {
     fontSize: 24,
     fontWeight: '800',
-    color: '#6BBF00',
+    color: '#A855F7',
   },
   penaltyBadge: {
     backgroundColor: '#FFF5F5',
@@ -287,7 +287,7 @@ const st = StyleSheet.create({
     alignItems: 'center',
   },
   btnKeepText: {
-    color: '#6BBF00',
+    color: '#A855F7',
     fontSize: 16,
     fontWeight: '700',
   },

@@ -596,7 +596,7 @@ export default function DriverHomeScreen() {
     return (
       <SafeAreaView style={styles.container}>
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-          <ActivityIndicator size="large" color="#6BBF00" />
+          <ActivityIndicator size="large" color="#A855F7" />
           <Text style={{ marginTop: 16, fontSize: 16, color: '#8E8E93' }}>Cargando viaje...</Text>
         </View>
       </SafeAreaView>
@@ -626,7 +626,7 @@ export default function DriverHomeScreen() {
           {currentRide.rider_info && (
             <View style={styles.riderInfo}>
               <View style={styles.riderAvatar}>
-                <Ionicons name="person" size={24} color="#6BBF00" />
+                <Ionicons name="person" size={24} color="#A855F7" />
               </View>
               <View style={styles.riderDetails}>
                 <Text style={styles.riderName}>{currentRide.rider_info.name}</Text>
@@ -637,7 +637,7 @@ export default function DriverHomeScreen() {
               </View>
               <View style={styles.riderActions}>
                 <TouchableOpacity style={styles.actionButtonSmall}>
-                  <Ionicons name="call" size={22} color="#6BBF00" />
+                  <Ionicons name="call" size={22} color="#A855F7" />
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={styles.actionButtonSmall}
@@ -763,7 +763,7 @@ export default function DriverHomeScreen() {
           <View style={styles.paymentOverlay}>
             <View style={styles.paymentCard}>
               <View style={styles.paymentHeader}>
-                <Ionicons name="cash" size={48} color="#6BBF00" />
+                <Ionicons name="cash" size={48} color="#A855F7" />
                 <Text style={styles.paymentTitle}>Cobrar al pasajero</Text>
               </View>
               
@@ -782,7 +782,7 @@ export default function DriverHomeScreen() {
                 </View>
                 <View style={styles.paymentRow}>
                   <Text style={styles.paymentDetailLabel}>Tu ganancia</Text>
-                  <Text style={[styles.paymentDetailVal, { color: '#6BBF00', fontWeight: '800' }]}>
+                  <Text style={[styles.paymentDetailVal, { color: '#A855F7', fontWeight: '800' }]}>
                     ${currentRide.driver_earnings?.toFixed(0) || currentRide.fare?.toFixed(0)}
                   </Text>
                 </View>
@@ -946,7 +946,7 @@ export default function DriverHomeScreen() {
                     inputRange: [0, 1],
                     outputRange: ['0%', '100%'],
                   }),
-                  backgroundColor: countdown <= 3 ? '#FF3B30' : '#6BBF00',
+                  backgroundColor: countdown <= 3 ? '#FF3B30' : '#A855F7',
                 },
               ]}
             />
@@ -993,7 +993,7 @@ export default function DriverHomeScreen() {
 
                 <View style={styles.offerStats}>
                   <View style={styles.offerStatItem}>
-                    <Ionicons name="cash-outline" size={20} color="#6BBF00" />
+                    <Ionicons name="cash-outline" size={20} color="#A855F7" />
                     <Text style={styles.offerStatValue}>
                       ${Math.round(rideOffer.fare).toLocaleString()}
                     </Text>
@@ -1134,7 +1134,7 @@ const styles = StyleSheet.create({
     marginRight: 6,
   },
   statusDotOnline: {
-    backgroundColor: '#6BBF00',
+    backgroundColor: '#A855F7',
   },
   statusDotOff: {
     backgroundColor: '#C7C7CC',
@@ -1145,7 +1145,7 @@ const styles = StyleSheet.create({
     color: '#8E8E93',
   },
   statusChipTextOnline: {
-    color: '#6BBF00',
+    color: '#A855F7',
   },
   // Floating status bar
   floatingStatusBar: {
@@ -1183,16 +1183,16 @@ const styles = StyleSheet.create({
     width: 160,
     height: 160,
     borderRadius: 80,
-    backgroundColor: '#6BBF00',
+    backgroundColor: '#A855F7',
   },
   goButton: {
     width: 130,
     height: 130,
     borderRadius: 65,
-    backgroundColor: '#6BBF00',
+    backgroundColor: '#A855F7',
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#6BBF00',
+    shadowColor: '#A855F7',
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.4,
     shadowRadius: 20,
@@ -1251,13 +1251,13 @@ const styles = StyleSheet.create({
     width: 50,
     height: 50,
     borderRadius: 25,
-    backgroundColor: '#6BBF00',
+    backgroundColor: '#A855F7',
   },
   onlineIconCircle: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#6BBF00',
+    backgroundColor: '#A855F7',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -1340,7 +1340,7 @@ const styles = StyleSheet.create({
   },
   paymentMethod: {
     fontSize: 14,
-    color: '#6BBF00',
+    color: '#A855F7',
     fontWeight: '600',
   },
   paymentDetails: {
@@ -1363,7 +1363,7 @@ const styles = StyleSheet.create({
     color: '#1C1C1E',
   },
   paymentConfirmBtn: {
-    backgroundColor: '#6BBF00',
+    backgroundColor: '#A855F7',
     borderRadius: 14,
     paddingVertical: 18,
     alignItems: 'center',
@@ -1416,7 +1416,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 3,
-    borderColor: '#6BBF00',
+    borderColor: '#A855F7',
   },
   offerTimerText: {
     fontSize: 24,
@@ -1517,7 +1517,7 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 64,
     borderRadius: 16,
-    backgroundColor: '#6BBF00',
+    backgroundColor: '#A855F7',
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
@@ -1551,7 +1551,7 @@ const styles = StyleSheet.create({
   rideStatusText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#6BBF00',
+    color: '#A855F7',
   },
   riderInfo: {
     flexDirection: 'row',
@@ -1615,7 +1615,7 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   pickupDot: {
-    backgroundColor: '#6BBF00',
+    backgroundColor: '#A855F7',
   },
   dropoffDot: {
     backgroundColor: '#FF3B30',
@@ -1710,7 +1710,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 14,
     borderRadius: 12,
-    backgroundColor: '#6BBF00',
+    backgroundColor: '#A855F7',
     alignItems: 'center',
   },
   confirmOkText: {

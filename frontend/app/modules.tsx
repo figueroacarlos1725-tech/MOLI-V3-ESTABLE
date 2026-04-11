@@ -89,7 +89,7 @@ export default function ModuleSelectionScreen() {
         {/* Header */}
         <Animated.View style={[s.header, headerStyle]}>
           <View style={s.logoRow}>
-            <Text style={s.logoText}>MOLÍ</Text>
+            <Text style={s.logoText}>MOLI</Text>
             <View style={s.logoDot} />
           </View>
           <Text style={s.greeting}>
@@ -100,7 +100,7 @@ export default function ModuleSelectionScreen() {
 
         {/* Module Cards */}
         <View style={s.cardsContainer}>
-          {/* Molí Viajes */}
+          {/* Moli Viajes */}
           <Animated.View style={[s.cardWrapper, card1Style]}>
             <TouchableOpacity
               style={[s.card, s.cardViajes]}
@@ -108,24 +108,24 @@ export default function ModuleSelectionScreen() {
               activeOpacity={0.85}
             >
               <View style={s.cardIconContainer}>
-                <View style={[s.cardIconBg, { backgroundColor: 'rgba(107,191,0,0.15)' }]}>
-                  <Ionicons name="car-sport" size={40} color="#6BBF00" />
+                <View style={[s.cardIconBg, { backgroundColor: 'rgba(168,85,247,0.15)' }]}>
+                  <Ionicons name="car-sport" size={40} color="#A855F7" />
                 </View>
               </View>
               <View style={s.cardContent}>
-                <Text style={s.cardTitle}>Molí Viajes</Text>
+                <Text style={s.cardTitle}>Moli Viajes</Text>
                 <Text style={s.cardDescription}>
                   Pedí un viaje o conducí{'\n'}y generá ingresos
                 </Text>
               </View>
-              <View style={[s.cardArrow, { backgroundColor: 'rgba(107,191,0,0.1)' }]}>
-                <Ionicons name="arrow-forward" size={22} color="#6BBF00" />
+              <View style={[s.cardArrow, { backgroundColor: 'rgba(168,85,247,0.1)' }]}>
+                <Ionicons name="arrow-forward" size={22} color="#A855F7" />
               </View>
-              <View style={[s.cardAccent, { backgroundColor: '#6BBF00' }]} />
+              <View style={[s.cardAccent, { backgroundColor: '#A855F7' }]} />
             </TouchableOpacity>
           </Animated.View>
 
-          {/* Molí Trabajos */}
+          {/* Moli Trabajos */}
           <Animated.View style={[s.cardWrapper, card2Style]}>
             <TouchableOpacity
               style={[s.card, s.cardTrabajos]}
@@ -138,7 +138,7 @@ export default function ModuleSelectionScreen() {
                 </View>
               </View>
               <View style={s.cardContent}>
-                <Text style={s.cardTitle}>Molí Trabajos</Text>
+                <Text style={s.cardTitle}>Moli Trabajos</Text>
                 <Text style={s.cardDescription}>
                   Contratá profesionales o{'\n'}ofrecé tus servicios
                 </Text>
@@ -155,7 +155,7 @@ export default function ModuleSelectionScreen() {
         <Animated.View style={[s.footer, footerStyle]}>
           <View style={s.footerDivider} />
           <Text style={s.footerText}>
-            Molí • Move Libre
+            Moli • Move Libre
           </Text>
         </Animated.View>
       </View>
@@ -166,7 +166,7 @@ export default function ModuleSelectionScreen() {
 const s = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0A0A0A',
+    backgroundColor: '#0F0B15',
   },
   content: {
     flex: 1,
@@ -192,7 +192,7 @@ const s = StyleSheet.create({
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: '#6BBF00',
+    backgroundColor: '#A855F7',
     marginLeft: 4,
     marginTop: -16,
   },

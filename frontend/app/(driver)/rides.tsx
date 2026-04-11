@@ -35,7 +35,7 @@ export default function DriverRidesScreen() {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'completed':
-        return '#6BBF00';
+        return '#A855F7';
       case 'cancelled':
         return '#FF3B30';
       default:
@@ -149,7 +149,7 @@ const styles = StyleSheet.create({
   title: { fontSize: 28, fontWeight: 'bold', color: '#1C1C1E' },
   filterContainer: { flexDirection: 'row', padding: 16, gap: 8 },
   filterButton: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: '#fff' },
-  filterButtonActive: { backgroundColor: '#6BBF00' },
+  filterButtonActive: { backgroundColor: '#A855F7' },
   filterText: { fontSize: 14, fontWeight: '600', color: '#8E8E93' },
   filterTextActive: { color: '#fff' },
   listContent: { padding: 16 },
@@ -162,14 +162,14 @@ const styles = StyleSheet.create({
   rideLocations: { marginBottom: 16 },
   locationRow: { flexDirection: 'row', alignItems: 'center' },
   locationDot: { width: 10, height: 10, borderRadius: 5, marginRight: 12 },
-  pickupDot: { backgroundColor: '#6BBF00' },
+  pickupDot: { backgroundColor: '#A855F7' },
   dropoffDot: { backgroundColor: '#FF3B30' },
   locationLine: { width: 2, height: 20, backgroundColor: '#E5E5EA', marginLeft: 4, marginVertical: 4 },
   locationText: { flex: 1, fontSize: 14, color: '#1C1C1E' },
   rideFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: 16, borderTopWidth: 1, borderTopColor: '#E5E5EA' },
   rideInfo: { flexDirection: 'row', alignItems: 'center' },
   earningsLabel: { fontSize: 13, color: '#8E8E93' },
-  earningsText: { fontSize: 18, fontWeight: 'bold', color: '#6BBF00' },
+  earningsText: { fontSize: 18, fontWeight: 'bold', color: '#A855F7' },
   emptyContainer: { alignItems: 'center', paddingVertical: 60 },
   emptyText: { fontSize: 18, fontWeight: '600', color: '#1C1C1E', marginTop: 16 },
   emptySubtext: { fontSize: 14, color: '#8E8E93', marginTop: 8 },

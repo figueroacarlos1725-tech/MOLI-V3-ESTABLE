@@ -504,10 +504,10 @@ export default function RiderHomeScreen() {
       <SafeAreaView style={s.container}>
         <View style={s.completedContainer}>
           <View style={s.completedIcon}>
-            <Ionicons name="checkmark-circle" size={72} color="#6BBF00" />
+            <Ionicons name="checkmark-circle" size={72} color="#A855F7" />
           </View>
           <Text style={s.completedTitle}>¡Viaje completado!</Text>
-          <Text style={s.completedSubtitle}>Gracias por viajar con Molí</Text>
+          <Text style={s.completedSubtitle}>Gracias por viajar con Moli</Text>
 
           <View style={s.completedCard}>
             <View style={s.completedRow}>
@@ -581,7 +581,7 @@ export default function RiderHomeScreen() {
                 </View>
               </View>
               <TouchableOpacity style={s.iconBtn} onPress={() => router.push({ pathname: '/chat', params: { rideId: currentRide.ride_id, otherName: currentRide.driver_info?.name || 'Conductor' } })}>
-                <Ionicons name="chatbubble-ellipses" size={22} color="#6BBF00" />
+                <Ionicons name="chatbubble-ellipses" size={22} color="#A855F7" />
               </TouchableOpacity>
               <TouchableOpacity style={s.iconBtn}><Ionicons name="call" size={22} color="#34C759" /></TouchableOpacity>
             </View>
@@ -686,7 +686,7 @@ export default function RiderHomeScreen() {
 
           {/* Search bar like Uber */}
           <TouchableOpacity style={s.searchBar} onPress={() => { setSearchType('dropoff'); setSearchModal(true); }}>
-            <View style={s.searchIcon}><Ionicons name="search" size={20} color="#6BBF00" /></View>
+            <View style={s.searchIcon}><Ionicons name="search" size={20} color="#A855F7" /></View>
             <Text style={s.searchPlaceholder}>¿A dónde vamos?</Text>
           </TouchableOpacity>
 
@@ -695,13 +695,13 @@ export default function RiderHomeScreen() {
             <View style={[s.dot, { backgroundColor: '#34C759' }]} />
             <Text style={s.originText} numberOfLines={1}>{pickupAddress || 'Mi ubicación'}</Text>
             <TouchableOpacity onPress={initLocation} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-              <Ionicons name="locate" size={18} color="#6BBF00" />
+              <Ionicons name="locate" size={18} color="#A855F7" />
             </TouchableOpacity>
           </TouchableOpacity>
 
-          {/* Molí+ Banner */}
+          {/* Moli+ Banner */}
           <TouchableOpacity style={s.moliBanner}>
-            <View style={s.moliTag}><Text style={s.moliTagText}>Molí+</Text></View>
+            <View style={s.moliTag}><Text style={s.moliTagText}>Moli+</Text></View>
             <Text style={s.moliBannerText}>Sin publicidad y beneficios exclusivos</Text>
             <Ionicons name="chevron-forward" size={18} color="#8E8E93" />
           </TouchableOpacity>
@@ -796,10 +796,10 @@ export default function RiderHomeScreen() {
                     <Text style={[s.vehicleName, sel && { color: '#2D7600' }]}>{v.display_name || nameMap[id]}</Text>
                     {eta && <Text style={s.vehicleEta}>{eta} min</Text>}
                   </View>
-                  <Text style={[s.vehiclePrice, sel && { color: '#6BBF00' }]}>
+                  <Text style={[s.vehiclePrice, sel && { color: '#A855F7' }]}>
                     {v.estimated_fare > 0 ? `$${Math.round(v.estimated_fare).toLocaleString()}` : '...'}
                   </Text>
-                  {sel && <Ionicons name="checkmark-circle" size={20} color="#6BBF00" style={{ marginLeft: 8 }} />}
+                  {sel && <Ionicons name="checkmark-circle" size={20} color="#A855F7" style={{ marginLeft: 8 }} />}
                 </TouchableOpacity>
               );
             })}
@@ -851,7 +851,7 @@ export default function RiderHomeScreen() {
             </View>
           ) : (
             <View style={s.searchingContainer}>
-              <ActivityIndicator size="large" color="#6BBF00" />
+              <ActivityIndicator size="large" color="#A855F7" />
               <Text style={s.searchingText}>{dispatchMsg || 'Buscando conductores cercanos...'}</Text>
               {dispatchProgress && (
                 <View style={s.progressBar}>
@@ -895,7 +895,7 @@ export default function RiderHomeScreen() {
               )}
             </View>
 
-            {isSearching && <ActivityIndicator style={{ marginTop: 20 }} color="#6BBF00" />}
+            {isSearching && <ActivityIndicator style={{ marginTop: 20 }} color="#A855F7" />}
 
             <ScrollView style={s.resultsList} keyboardShouldPersistTaps="handled">
               {/* Use current location option */}
@@ -911,7 +911,7 @@ export default function RiderHomeScreen() {
 
               {searchResults.map((place) => (
                 <TouchableOpacity key={place.id} style={s.resultItem} onPress={() => handleSelectPlace(place)}>
-                  <View style={s.resultIcon}><Ionicons name="location" size={20} color="#6BBF00" /></View>
+                  <View style={s.resultIcon}><Ionicons name="location" size={20} color="#A855F7" /></View>
                   <View style={{ flex: 1 }}>
                     <Text style={s.resultName} numberOfLines={1}>{place.name}</Text>
                     <Text style={s.resultAddr} numberOfLines={1}>{place.address}</Text>
@@ -982,7 +982,7 @@ const s = StyleSheet.create({
 
   vehicleList: { paddingHorizontal: 12, maxHeight: SH * 0.25 },
   vehicleItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, paddingHorizontal: 12, marginVertical: 2, borderRadius: 14, borderWidth: 2, borderColor: 'transparent' },
-  vehicleItemSel: { borderColor: '#6BBF00', backgroundColor: '#F0FFF0' },
+  vehicleItemSel: { borderColor: '#A855F7', backgroundColor: '#F0FFF0' },
   vehicleEmoji: { fontSize: 32 },
   vehicleName: { fontSize: 16, fontWeight: '700', color: '#1C1C1E' },
   vehicleEta: { fontSize: 12, color: '#8E8E93', marginTop: 2 },
@@ -999,7 +999,7 @@ const s = StyleSheet.create({
   searchingContainer: { alignItems: 'center' },
   searchingText: { fontSize: 17, fontWeight: '600', color: '#1C1C1E', marginTop: 20, textAlign: 'center' },
   progressBar: { width: '70%', height: 4, backgroundColor: '#E5E5EA', borderRadius: 2, marginTop: 16, overflow: 'hidden' },
-  progressFill: { height: '100%', backgroundColor: '#6BBF00', borderRadius: 2 },
+  progressFill: { height: '100%', backgroundColor: '#A855F7', borderRadius: 2 },
   searchingHint: { fontSize: 13, color: '#8E8E93', marginTop: 12 },
   cancelSearchBtn: { marginTop: 24, paddingVertical: 12, paddingHorizontal: 32, borderRadius: 10, borderWidth: 1.5, borderColor: '#FF3B30' },
   cancelSearchText: { color: '#FF3B30', fontSize: 15, fontWeight: '600' },
@@ -1016,7 +1016,7 @@ const s = StyleSheet.create({
   },
   cancelActiveText: { color: '#FF3B30', fontSize: 14, fontWeight: '600' },
   foundContainer: { alignItems: 'center' },
-  foundCircle: { width: 72, height: 72, borderRadius: 36, backgroundColor: '#6BBF00', justifyContent: 'center', alignItems: 'center' },
+  foundCircle: { width: 72, height: 72, borderRadius: 36, backgroundColor: '#A855F7', justifyContent: 'center', alignItems: 'center' },
   foundText: { fontSize: 20, fontWeight: '700', color: '#1C1C1E', marginTop: 16 },
   foundSub: { fontSize: 14, color: '#8E8E93', marginTop: 6 },
 
@@ -1063,7 +1063,7 @@ const s = StyleSheet.create({
   completedCard: { backgroundColor: '#F8F8FA', borderRadius: 16, padding: 20, width: '100%', marginTop: 32 },
   completedRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 10 },
   completedLabel: { fontSize: 14, color: '#8E8E93' },
-  completedFare: { fontSize: 28, fontWeight: '800', color: '#6BBF00' },
+  completedFare: { fontSize: 28, fontWeight: '800', color: '#A855F7' },
   completedValue: { fontSize: 14, fontWeight: '600', color: '#1C1C1E' },
   completedDivider: { height: 1, backgroundColor: '#E5E5EA', marginVertical: 4 },
   completedBtn: { backgroundColor: '#1C1C1E', width: '100%', paddingVertical: 18, borderRadius: 14, alignItems: 'center', marginTop: 32 },

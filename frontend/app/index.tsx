@@ -9,7 +9,7 @@ export default function Index() {
   if (isLoading) {
     return (
       <View style={styles.container}>
-        <ActivityIndicator size="large" color="#6BBF00" />
+        <ActivityIndicator size="large" color="#A855F7" />
         <Text style={styles.loadingText}>Cargando Moli...</Text>
       </View>
     );

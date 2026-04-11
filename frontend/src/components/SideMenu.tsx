@@ -113,7 +113,7 @@ export default function SideMenu({ visible, onClose, role }: SideMenuProps) {
               <Text style={styles.logoutText}>Cerrar sesión</Text>
             </TouchableOpacity>
 
-            <Text style={styles.version}>Molí v1.0</Text>
+            <Text style={styles.version}>Moli v1.0</Text>
           </SafeAreaView>
         </View>
       </View>

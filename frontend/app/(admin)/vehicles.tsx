@@ -456,7 +456,7 @@ const styles = StyleSheet.create({
   },
   mapGridLine: {
     height: 1,
-    backgroundColor: 'rgba(107,191,0,0.15)',
+    backgroundColor: 'rgba(168,85,247,0.15)',
   },
   mapPreviewMarker: {
     backgroundColor: 'rgba(255,255,255,0.85)',

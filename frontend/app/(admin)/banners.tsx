@@ -236,7 +236,7 @@ export default function BannersAdmin() {
       ) : null}
 
       {loading ? (
-        <ActivityIndicator size="large" color="#6BBF00" style={{ marginTop: 40 }} />
+        <ActivityIndicator size="large" color="#A855F7" style={{ marginTop: 40 }} />
       ) : (
         <ScrollView style={st.list} contentContainerStyle={{ paddingBottom: 40 }}>
           {banners.length === 0 && (
@@ -262,7 +262,7 @@ export default function BannersAdmin() {
               )}
               <View style={st.cardActions}>
                 <TouchableOpacity onPress={() => handleToggleActive(b)} style={st.actBtn}>
-                  <Ionicons name={b.active ? 'eye' : 'eye-off'} size={16} color={b.active ? '#6BBF00' : '#999'} />
+                  <Ionicons name={b.active ? 'eye' : 'eye-off'} size={16} color={b.active ? '#A855F7' : '#999'} />
                 </TouchableOpacity>
                 <TouchableOpacity onPress={() => openEdit(b)} style={st.actBtn}>
                   <Ionicons name="create" size={16} color="#007AFF" />
@@ -286,7 +286,7 @@ export default function BannersAdmin() {
               </TouchableOpacity>
               <Text style={st.formTitle}>{editingBanner ? 'Editar Banner' : 'Nuevo Banner'}</Text>
               <TouchableOpacity onPress={handleSave} disabled={saving}>
-                {saving ? <ActivityIndicator size="small" color="#6BBF00" /> : (
+                {saving ? <ActivityIndicator size="small" color="#A855F7" /> : (
                   <Text style={st.formSaveText}>Guardar</Text>
                 )}
               </TouchableOpacity>
@@ -352,7 +352,7 @@ export default function BannersAdmin() {
                   <TouchableOpacity style={st.uploadBtn} onPress={pickVideo}>
                     {videoUri ? (
                       <View style={[st.uploadPlaceholder, { backgroundColor: '#1C1C1E' }]}>
-                        <Ionicons name="videocam" size={32} color="#6BBF00" />
+                        <Ionicons name="videocam" size={32} color="#A855F7" />
                         <Text style={{ color: '#fff', fontSize: 13, marginTop: 4 }}>Video seleccionado</Text>
                       </View>
                     ) : (
@@ -389,7 +389,7 @@ export default function BannersAdmin() {
               {/* Active */}
               <View style={st.switchRow}>
                 <Text style={st.label}>Activo</Text>
-                <Switch value={active} onValueChange={setActive} trackColor={{ false: '#E5E5EA', true: '#6BBF00' }} />
+                <Switch value={active} onValueChange={setActive} trackColor={{ false: '#E5E5EA', true: '#A855F7' }} />
               </View>
             </ScrollView>
 
@@ -413,7 +413,7 @@ const st = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#E5E5EA' },
   backBtn: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center' },
   headerTitle: { fontSize: 17, fontWeight: '700', color: '#1C1C1E' },
-  addBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#6BBF00', justifyContent: 'center', alignItems: 'center' },
+  addBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#A855F7', justifyContent: 'center', alignItems: 'center' },
   msgBar: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#E3F2FD', paddingHorizontal: 16, paddingVertical: 10, gap: 8 },
   msgText: { flex: 1, fontSize: 13, color: '#1C1C1E' },
   list: { flex: 1, paddingHorizontal: 16, paddingTop: 12 },
@@ -423,12 +423,12 @@ const st = StyleSheet.create({
   card: { backgroundColor: '#fff', borderRadius: 14, marginBottom: 12, overflow: 'hidden' },
   cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 12, paddingTop: 12, paddingBottom: 6 },
   typeTag: { backgroundColor: '#F0FFF0', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
-  typeTagText: { fontSize: 11, fontWeight: '600', color: '#6BBF00' },
+  typeTagText: { fontSize: 11, fontWeight: '600', color: '#A855F7' },
   targetText: { fontSize: 11, fontWeight: '600', color: '#8E8E93' },
   cardImg: { width: '100%', height: 120 },
   cardTitle: { fontSize: 15, fontWeight: '700', color: '#1C1C1E', paddingHorizontal: 12, paddingTop: 8 },
   cardDesc: { fontSize: 13, color: '#636366', paddingHorizontal: 12, paddingTop: 2 },
-  ctaPreview: { marginHorizontal: 12, marginTop: 8, backgroundColor: '#6BBF00', borderRadius: 8, paddingVertical: 6, alignItems: 'center' },
+  ctaPreview: { marginHorizontal: 12, marginTop: 8, backgroundColor: '#A855F7', borderRadius: 8, paddingVertical: 6, alignItems: 'center' },
   ctaPreviewText: { color: '#fff', fontSize: 12, fontWeight: '600' },
   cardActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 4, padding: 10 },
   actBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#F2F2F7', justifyContent: 'center', alignItems: 'center' },
@@ -436,17 +436,17 @@ const st = StyleSheet.create({
   formSafe: { flex: 1, backgroundColor: '#fff' },
   formHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#E5E5EA' },
   formTitle: { fontSize: 17, fontWeight: '700', color: '#1C1C1E' },
-  formSaveText: { fontSize: 16, fontWeight: '700', color: '#6BBF00' },
+  formSaveText: { fontSize: 16, fontWeight: '700', color: '#A855F7' },
   form: { flex: 1, paddingHorizontal: 20 },
   label: { fontSize: 13, fontWeight: '600', color: '#636366', marginTop: 16, marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 },
   input: { backgroundColor: '#F2F2F7', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 12, fontSize: 15, color: '#1C1C1E', marginBottom: 4 },
   chip: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20, backgroundColor: '#F2F2F7', marginRight: 8 },
-  chipActive: { backgroundColor: '#6BBF00' },
+  chipActive: { backgroundColor: '#A855F7' },
   chipText: { fontSize: 12, fontWeight: '600', color: '#636366' },
   chipTextActive: { color: '#fff' },
   targetRow: { flexDirection: 'row', gap: 8 },
   targetChip: { flex: 1, paddingVertical: 10, borderRadius: 10, backgroundColor: '#F2F2F7', alignItems: 'center' },
-  targetChipActive: { backgroundColor: '#6BBF00' },
+  targetChipActive: { backgroundColor: '#A855F7' },
   targetChipText: { fontSize: 14, fontWeight: '600', color: '#636366' },
   uploadSection: { marginTop: 4 },
   uploadBtn: { borderRadius: 12, overflow: 'hidden', borderWidth: 2, borderColor: '#E5E5EA', borderStyle: 'dashed' },
@@ -456,6 +456,6 @@ const st = StyleSheet.create({
   removeMedia: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 8 },
   switchRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 12 },
   bottomBar: { paddingHorizontal: 20, paddingVertical: 12, borderTopWidth: 1, borderTopColor: '#E5E5EA', backgroundColor: '#fff' },
-  bottomSaveBtn: { backgroundColor: '#6BBF00', borderRadius: 14, paddingVertical: 16, alignItems: 'center' },
+  bottomSaveBtn: { backgroundColor: '#A855F7', borderRadius: 14, paddingVertical: 16, alignItems: 'center' },
   bottomSaveText: { color: '#fff', fontSize: 16, fontWeight: '700' },
 });

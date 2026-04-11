@@ -39,7 +39,7 @@ function AdminSidebar() {
   return (
     <View style={[styles.sidebar, { paddingTop: insets.top + 16 }]}>  
       <View style={styles.sidebarHeader}>
-        <Text style={styles.sidebarLogo}>Molí</Text>
+        <Text style={styles.sidebarLogo}>Moli</Text>
         <Text style={styles.sidebarSubtitle}>Admin</Text>
       </View>
       
@@ -179,7 +179,7 @@ const styles = StyleSheet.create({
   sidebarLogo: {
     fontSize: 28,
     fontWeight: '800',
-    color: '#6BBF00',
+    color: '#A855F7',
   },
   sidebarSubtitle: {
     fontSize: 12,

@@ -113,7 +113,7 @@ export default function BannerPopup({ target, enabled, intervalMs = 60000 }: Ban
 
           {/* Sponsored tag */}
           <View style={styles.sponsoredTag}>
-            <Ionicons name="megaphone" size={12} color="#6BBF00" />
+            <Ionicons name="megaphone" size={12} color="#A855F7" />
             <Text style={styles.sponsoredText}>Patrocinado</Text>
           </View>
 
@@ -234,7 +234,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#6BBF00',
+    backgroundColor: '#A855F7',
     marginHorizontal: 20,
     paddingVertical: 16,
     borderRadius: 14,
