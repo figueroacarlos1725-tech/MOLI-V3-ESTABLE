@@ -18,6 +18,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { MapView } from '@/src/components/MapView';
 import { Button } from '@/src/components/Button';
+import SideMenu from '@/src/components/SideMenu';
 import { useAuthStore } from '@/src/stores/authStore';
 import { useRideStore } from '@/src/stores/rideStore';
 import { socketService } from '@/src/services/socket';
@@ -70,6 +71,7 @@ export default function DriverHomeScreen() {
 
   // Inline confirm for disconnect only
   const [confirmOffline, setConfirmOffline] = useState(false);
+  const [sideMenuOpen, setSideMenuOpen] = useState(false);
 
   useEffect(() => {
     initializeLocation();
@@ -445,16 +447,38 @@ export default function DriverHomeScreen() {
     }
   };
 
+  // Payment confirmation modal
+  const [showPaymentConfirm, setShowPaymentConfirm] = useState(false);
+  const [paymentConfirmed, setPaymentConfirmed] = useState(false);
+
   const handleUpdateRideStatus = async (status: string) => {
     if (!currentRide) return;
+    
+    // For completion: show payment confirmation first
+    if (status === 'completed') {
+      setShowPaymentConfirm(true);
+      return;
+    }
+    
     try {
       await updateRideStatus(currentRide.ride_id, status);
-      if (status === 'completed') {
-        setStatusMessage(`¡Viaje completado! Ganaste $${currentRide.driver_earnings?.toFixed(2) || currentRide.fare?.toFixed(2)}`);
-        fetchActiveRide();
-      }
     } catch (error: any) {
       setStatusMessage(error.message || 'Error al actualizar estado');
+    }
+  };
+
+  const handleConfirmPayment = async () => {
+    if (!currentRide) return;
+    setPaymentConfirmed(true);
+    try {
+      await updateRideStatus(currentRide.ride_id, 'completed');
+      setShowPaymentConfirm(false);
+      setPaymentConfirmed(false);
+      setStatusMessage(`¡Viaje completado! Ganaste $${currentRide.driver_earnings?.toFixed(0) || currentRide.fare?.toFixed(0)}`);
+      fetchActiveRide();
+    } catch (error: any) {
+      setStatusMessage(error.message || 'Error al completar viaje');
+      setPaymentConfirmed(false);
     }
   };
 
@@ -614,10 +638,73 @@ export default function DriverHomeScreen() {
               <Button title="Iniciar viaje" onPress={() => handleUpdateRideStatus('started')} variant="secondary" />
             )}
             {currentRide.status === 'started' && (
-              <Button title="Completar viaje" onPress={() => handleUpdateRideStatus('completed')} variant="secondary" />
+              <Button title="Finalizar viaje" onPress={() => handleUpdateRideStatus('completed')} variant="secondary" />
             )}
           </View>
         </View>
+        
+        {/* Payment Confirmation Modal */}
+        <Modal visible={showPaymentConfirm} transparent animationType="slide" onRequestClose={() => setShowPaymentConfirm(false)}>
+          <View style={styles.paymentOverlay}>
+            <View style={styles.paymentCard}>
+              <View style={styles.paymentHeader}>
+                <Ionicons name="cash" size={48} color="#6BBF00" />
+                <Text style={styles.paymentTitle}>Cobrar al pasajero</Text>
+              </View>
+              
+              <View style={styles.paymentAmountBox}>
+                <Text style={styles.paymentAmountLabel}>Monto a cobrar</Text>
+                <Text style={styles.paymentAmount}>${currentRide.fare?.toFixed(0)}</Text>
+                <Text style={styles.paymentMethod}>
+                  {currentRide.payment_method === 'card' ? '💳 Pago con tarjeta' : '💵 Pago en efectivo'}
+                </Text>
+              </View>
+              
+              <View style={styles.paymentDetails}>
+                <View style={styles.paymentRow}>
+                  <Text style={styles.paymentDetailLabel}>Distancia</Text>
+                  <Text style={styles.paymentDetailVal}>{currentRide.distance?.toFixed(1)} km</Text>
+                </View>
+                <View style={styles.paymentRow}>
+                  <Text style={styles.paymentDetailLabel}>Tu ganancia</Text>
+                  <Text style={[styles.paymentDetailVal, { color: '#6BBF00', fontWeight: '800' }]}>
+                    ${currentRide.driver_earnings?.toFixed(0) || currentRide.fare?.toFixed(0)}
+                  </Text>
+                </View>
+              </View>
+
+              {currentRide.payment_method === 'card' ? (
+                <TouchableOpacity
+                  style={styles.paymentConfirmBtn}
+                  onPress={handleConfirmPayment}
+                  disabled={paymentConfirmed}
+                >
+                  {paymentConfirmed ? (
+                    <ActivityIndicator color="#fff" />
+                  ) : (
+                    <Text style={styles.paymentConfirmText}>Confirmar fin de viaje</Text>
+                  )}
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity
+                  style={styles.paymentConfirmBtn}
+                  onPress={handleConfirmPayment}
+                  disabled={paymentConfirmed}
+                >
+                  {paymentConfirmed ? (
+                    <ActivityIndicator color="#fff" />
+                  ) : (
+                    <Text style={styles.paymentConfirmText}>Confirmar pago recibido</Text>
+                  )}
+                </TouchableOpacity>
+              )}
+              
+              <TouchableOpacity style={styles.paymentCancelBtn} onPress={() => setShowPaymentConfirm(false)}>
+                <Text style={styles.paymentCancelText}>Volver</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
       </SafeAreaView>
     );
   }
@@ -636,7 +723,10 @@ export default function DriverHomeScreen() {
       {/* Floating Header */}
       <View style={styles.floatingHeader}>
         <View style={styles.floatingHeaderInner}>
-          <View style={{ flex: 1 }}>
+          <TouchableOpacity style={styles.hamburgerBtn} onPress={() => setSideMenuOpen(true)}>
+            <Ionicons name="menu" size={24} color="#1C1C1E" />
+          </TouchableOpacity>
+          <View style={{ flex: 1, marginLeft: 12 }}>
             <Text style={styles.greeting}>Hola, {user?.name?.split(' ')[0] || 'Conductor'}</Text>
             <Text style={styles.subGreeting}>
               {isOnline ? 'Esperando solicitudes...' : 'Toca GO para conectarte'}
@@ -858,6 +948,7 @@ export default function DriverHomeScreen() {
           </View>
         </View>
       </Modal>
+      <SideMenu visible={sideMenuOpen} onClose={() => setSideMenuOpen(false)} role="driver" />
     </SafeAreaView>
   );
 }
@@ -866,6 +957,14 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#fff',
+  },
+  hamburgerBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#F2F2F7',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   // Full-screen map
   fullMap: {
@@ -1081,6 +1180,92 @@ const styles = StyleSheet.create({
     margin: 16,
     borderRadius: 16,
     overflow: 'hidden',
+  },
+  // Payment confirmation modal
+  paymentOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  paymentCard: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    paddingHorizontal: 24,
+    paddingTop: 28,
+    paddingBottom: Platform.OS === 'ios' ? 40 : 28,
+  },
+  paymentHeader: {
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  paymentTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#1C1C1E',
+    marginTop: 12,
+  },
+  paymentAmountBox: {
+    backgroundColor: '#F8F8FA',
+    borderRadius: 16,
+    padding: 20,
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  paymentAmountLabel: {
+    fontSize: 14,
+    color: '#8E8E93',
+  },
+  paymentAmount: {
+    fontSize: 48,
+    fontWeight: '900',
+    color: '#1C1C1E',
+    marginVertical: 4,
+  },
+  paymentMethod: {
+    fontSize: 14,
+    color: '#6BBF00',
+    fontWeight: '600',
+  },
+  paymentDetails: {
+    marginBottom: 20,
+  },
+  paymentRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F2F2F7',
+  },
+  paymentDetailLabel: {
+    fontSize: 15,
+    color: '#8E8E93',
+  },
+  paymentDetailVal: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#1C1C1E',
+  },
+  paymentConfirmBtn: {
+    backgroundColor: '#6BBF00',
+    borderRadius: 14,
+    paddingVertical: 18,
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  paymentConfirmText: {
+    color: '#fff',
+    fontSize: 17,
+    fontWeight: '800',
+  },
+  paymentCancelBtn: {
+    alignItems: 'center',
+    paddingVertical: 12,
+  },
+  paymentCancelText: {
+    fontSize: 15,
+    color: '#8E8E93',
+    fontWeight: '600',
   },
   // Offer popup
   offerOverlay: {

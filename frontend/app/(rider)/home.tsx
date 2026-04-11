@@ -22,6 +22,7 @@ import { useAuthStore } from '@/src/stores/authStore';
 import { useRideStore } from '@/src/stores/rideStore';
 import { socketService } from '@/src/services/socket';
 import { Audio } from 'expo-av';
+import SideMenu from '@/src/components/SideMenu';
 import {
   getCurrentLocation,
   reverseGeocode,
@@ -54,6 +55,7 @@ export default function RiderHomeScreen() {
   // UI state
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const [sideMenuOpen, setSideMenuOpen] = useState(false);
   const [searchModal, setSearchModal] = useState(false);
   const [searchType, setSearchType] = useState<'pickup' | 'dropoff'>('dropoff');
   const [searchQuery, setSearchQuery] = useState('');
@@ -537,6 +539,13 @@ export default function RiderHomeScreen() {
           onMapPress={phase === 'idle' ? handleMapPress : undefined}
         />
 
+        {/* Hamburger menu button */}
+        {(phase === 'idle' || phase === 'confirm') && !currentRide && (
+          <TouchableOpacity style={s.hamburgerBtn} onPress={() => setSideMenuOpen(true)}>
+            <Ionicons name="menu" size={26} color="#1C1C1E" />
+          </TouchableOpacity>
+        )}
+
         {/* Back button when confirming */}
         {(phase === 'confirm' || phase === 'searching') && (
           <TouchableOpacity style={s.mapBackBtn} onPress={handleBackToIdle}>
@@ -577,7 +586,7 @@ export default function RiderHomeScreen() {
 
       {phase === 'confirm' && (
         <View style={s.confirmPanel}>
-          {/* Route summary */}
+          {/* Route summary - editable */}
           <View style={s.routeSummary}>
             <View style={s.routeDots}>
               <View style={[s.dot, { backgroundColor: '#34C759' }]} />
@@ -585,8 +594,14 @@ export default function RiderHomeScreen() {
               <View style={[s.dot, { backgroundColor: '#FF3B30' }]} />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={s.routeAddr} numberOfLines={1}>{pickupAddress || 'Origen'}</Text>
-              <Text style={s.routeAddr2} numberOfLines={1}>{dropoffAddress || 'Destino'}</Text>
+              <TouchableOpacity onPress={() => { setSearchType('pickup'); setSearchModal(true); }} style={s.editableAddr}>
+                <Text style={s.routeAddr} numberOfLines={1}>{pickupAddress || 'Origen'}</Text>
+                <Ionicons name="pencil" size={14} color="#8E8E93" />
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => { setSearchType('dropoff'); setSearchModal(true); }} style={s.editableAddr}>
+                <Text style={s.routeAddr2} numberOfLines={1}>{dropoffAddress || 'Destino'}</Text>
+                <Ionicons name="pencil" size={14} color="#8E8E93" />
+              </TouchableOpacity>
             </View>
             {routeInfo && (
               <View style={s.routeStats}>
@@ -744,6 +759,7 @@ export default function RiderHomeScreen() {
           </KeyboardAvoidingView>
         </SafeAreaView>
       </Modal>
+      <SideMenu visible={sideMenuOpen} onClose={() => setSideMenuOpen(false)} role="rider" />
     </SafeAreaView>
   );
 }
@@ -760,7 +776,8 @@ const s = StyleSheet.create({
 
   // ─── Map ──────────
   mapFull: { flex: 1 },
-  mapBackBtn: { position: 'absolute', top: 16, left: 16, width: 44, height: 44, borderRadius: 22, backgroundColor: '#fff', justifyContent: 'center', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.15, shadowRadius: 6, elevation: 4 },
+  mapBackBtn: { position: 'absolute', top: Platform.OS === 'ios' ? 54 : 38, left: 16, width: 44, height: 44, borderRadius: 22, backgroundColor: '#fff', justifyContent: 'center', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.15, shadowRadius: 6, elevation: 4, zIndex: 2 },
+  hamburgerBtn: { position: 'absolute', top: Platform.OS === 'ios' ? 54 : 38, left: 16, width: 44, height: 44, borderRadius: 22, backgroundColor: '#fff', justifyContent: 'center', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.15, shadowRadius: 6, elevation: 4, zIndex: 2 },
 
   // ─── Idle Bottom Panel ───
   bottomPanel: { backgroundColor: '#fff', borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: 20, paddingTop: 20, paddingBottom: 24, shadowColor: '#000', shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 8 },
@@ -781,8 +798,9 @@ const s = StyleSheet.create({
   routeSummary: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: '#F2F2F7' },
   routeDots: { alignItems: 'center', marginRight: 12 },
   dotLine: { width: 2, height: 20, backgroundColor: '#E5E5EA', marginVertical: 3 },
-  routeAddr: { fontSize: 14, fontWeight: '600', color: '#1C1C1E', marginBottom: 8 },
-  routeAddr2: { fontSize: 14, color: '#8E8E93' },
+  routeAddr: { fontSize: 14, fontWeight: '600', color: '#1C1C1E', marginBottom: 8, flex: 1 },
+  routeAddr2: { fontSize: 14, color: '#8E8E93', flex: 1 },
+  editableAddr: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 4 },
   routeStats: { alignItems: 'flex-end', marginLeft: 12 },
   routeStatVal: { fontSize: 14, fontWeight: '700', color: '#1C1C1E' },
   routeStatLabel: { fontSize: 12, color: '#8E8E93', marginTop: 2 },
