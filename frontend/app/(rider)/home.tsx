@@ -23,6 +23,7 @@ import { useRideStore } from '@/src/stores/rideStore';
 import { socketService } from '@/src/services/socket';
 import { Audio } from 'expo-av';
 import SideMenu from '@/src/components/SideMenu';
+import BannerPopup from '@/src/components/BannerPopup';
 import {
   getCurrentLocation,
   reverseGeocode,
@@ -48,6 +49,7 @@ export default function RiderHomeScreen() {
   const [dropoffLocation, setDropoffLocation] = useState<LocationCoords | null>(null);
   const [pickupAddress, setPickupAddress] = useState('');
   const [dropoffAddress, setDropoffAddress] = useState('');
+  const [stops, setStops] = useState<Array<{ location: LocationCoords; address: string }>>([]);
   const [selectedVehicle, setSelectedVehicle] = useState('economy');
   const [fareEstimates, setFareEstimates] = useState<any[]>([]);
   const [routeInfo, setRouteInfo] = useState<{ distance_km: number; duration_min: number } | null>(null);
@@ -57,7 +59,8 @@ export default function RiderHomeScreen() {
   const [errorMsg, setErrorMsg] = useState('');
   const [sideMenuOpen, setSideMenuOpen] = useState(false);
   const [searchModal, setSearchModal] = useState(false);
-  const [searchType, setSearchType] = useState<'pickup' | 'dropoff'>('dropoff');
+  const [searchType, setSearchType] = useState<'pickup' | 'dropoff' | 'stop'>('dropoff');
+  const [editingStopIndex, setEditingStopIndex] = useState(-1);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<PlaceResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -299,27 +302,47 @@ export default function RiderHomeScreen() {
   };
 
   // ─── Location select ──────────────────────
+  const recalcEstimates = (pickup: LocationCoords, dropoff: LocationCoords, currentStops: Array<{ location: LocationCoords; address: string }>) => {
+    // Calculate total distance through all waypoints
+    let totalDist = 0;
+    const allPoints = [pickup, ...currentStops.map(s => s.location), dropoff];
+    for (let i = 0; i < allPoints.length - 1; i++) {
+      totalDist += estimateDriving(allPoints[i], allPoints[i + 1]).distance_km;
+    }
+    const totalMin = Math.max(5, Math.round((totalDist / 30) * 60));
+    const est = { distance_km: totalDist, duration_min: totalMin };
+    setRouteInfo(est);
+    fetchEstimates(est.distance_km, est.duration_min);
+    estimateFetched.current = true;
+    setPhase('confirm');
+  };
+
   const handleSelectPlace = async (place: PlaceResult) => {
     estimateFetched.current = false;
+    const loc = { latitude: place.latitude, longitude: place.longitude, address: place.address };
+    
     if (searchType === 'pickup') {
-      setPickupLocation({ latitude: place.latitude, longitude: place.longitude, address: place.address });
+      setPickupLocation(loc);
       setPickupAddress(place.name);
       if (dropoffLocation) {
-        const est = estimateDriving({ latitude: place.latitude, longitude: place.longitude }, dropoffLocation);
-        setRouteInfo(est);
-        fetchEstimates(est.distance_km, est.duration_min);
-        estimateFetched.current = true;
-        setPhase('confirm');
+        recalcEstimates(loc, dropoffLocation, stops);
+      }
+    } else if (searchType === 'stop') {
+      const newStops = [...stops];
+      if (editingStopIndex >= 0 && editingStopIndex < newStops.length) {
+        newStops[editingStopIndex] = { location: loc, address: place.name };
+      } else {
+        newStops.push({ location: loc, address: place.name });
+      }
+      setStops(newStops);
+      if (pickupLocation && dropoffLocation) {
+        recalcEstimates(pickupLocation, dropoffLocation, newStops);
       }
     } else {
-      setDropoffLocation({ latitude: place.latitude, longitude: place.longitude, address: place.address });
+      setDropoffLocation(loc);
       setDropoffAddress(place.name);
       if (pickupLocation) {
-        const est = estimateDriving(pickupLocation, { latitude: place.latitude, longitude: place.longitude });
-        setRouteInfo(est);
-        fetchEstimates(est.distance_km, est.duration_min);
-        estimateFetched.current = true;
-        setPhase('confirm');
+        recalcEstimates(pickupLocation, loc, stops);
       }
     }
     setSearchModal(false);
@@ -349,13 +372,21 @@ export default function RiderHomeScreen() {
     }
     setIsLoading(true);
     try {
-      await createRideRequest({
+      const requestData: any = {
         pickup_location: { latitude: pickupLocation.latitude, longitude: pickupLocation.longitude, address: pickupAddress },
         dropoff_location: { latitude: dropoffLocation.latitude, longitude: dropoffLocation.longitude, address: dropoffAddress },
         vehicle_type: selectedVehicle,
         ride_type: 'standard',
         payment_method: 'cash',
-      });
+      };
+      if (stops.length > 0) {
+        requestData.stops = stops.map(s => ({
+          latitude: s.location.latitude,
+          longitude: s.location.longitude,
+          address: s.address,
+        }));
+      }
+      await createRideRequest(requestData);
       setPhase('searching');
     } catch (e: any) {
       showError(e.message || 'Error al solicitar viaje');
@@ -586,18 +617,61 @@ export default function RiderHomeScreen() {
 
       {phase === 'confirm' && (
         <View style={s.confirmPanel}>
-          {/* Route summary - editable */}
+          {/* Route summary - editable with stops */}
           <View style={s.routeSummary}>
             <View style={s.routeDots}>
               <View style={[s.dot, { backgroundColor: '#34C759' }]} />
+              {stops.map((_, i) => (
+                <React.Fragment key={`dot-${i}`}>
+                  <View style={s.dotLine} />
+                  <View style={[s.dot, { backgroundColor: '#007AFF' }]} />
+                </React.Fragment>
+              ))}
               <View style={s.dotLine} />
               <View style={[s.dot, { backgroundColor: '#FF3B30' }]} />
             </View>
             <View style={{ flex: 1 }}>
+              {/* Pickup */}
               <TouchableOpacity onPress={() => { setSearchType('pickup'); setSearchModal(true); }} style={s.editableAddr}>
                 <Text style={s.routeAddr} numberOfLines={1}>{pickupAddress || 'Origen'}</Text>
                 <Ionicons name="pencil" size={14} color="#8E8E93" />
               </TouchableOpacity>
+              
+              {/* Intermediate stops */}
+              {stops.map((stop, i) => (
+                <View key={`stop-${i}`} style={s.stopRow}>
+                  <TouchableOpacity
+                    onPress={() => { setSearchType('stop'); setEditingStopIndex(i); setSearchModal(true); }}
+                    style={[s.editableAddr, { flex: 1 }]}
+                  >
+                    <Text style={s.stopAddr} numberOfLines={1}>{stop.address}</Text>
+                    <Ionicons name="pencil" size={12} color="#8E8E93" />
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => {
+                      const newStops = stops.filter((_, idx) => idx !== i);
+                      setStops(newStops);
+                      if (pickupLocation && dropoffLocation) recalcEstimates(pickupLocation, dropoffLocation, newStops);
+                    }}
+                    style={s.removeStopBtn}
+                  >
+                    <Ionicons name="close-circle" size={20} color="#FF3B30" />
+                  </TouchableOpacity>
+                </View>
+              ))}
+              
+              {/* Add stop button */}
+              {stops.length < 4 && (
+                <TouchableOpacity
+                  onPress={() => { setSearchType('stop'); setEditingStopIndex(-1); setSearchModal(true); }}
+                  style={s.addStopBtn}
+                >
+                  <Ionicons name="add-circle-outline" size={18} color="#007AFF" />
+                  <Text style={s.addStopText}>Agregar parada</Text>
+                </TouchableOpacity>
+              )}
+              
+              {/* Dropoff */}
               <TouchableOpacity onPress={() => { setSearchType('dropoff'); setSearchModal(true); }} style={s.editableAddr}>
                 <Text style={s.routeAddr2} numberOfLines={1}>{dropoffAddress || 'Destino'}</Text>
                 <Ionicons name="pencil" size={14} color="#8E8E93" />
@@ -760,6 +834,7 @@ export default function RiderHomeScreen() {
         </SafeAreaView>
       </Modal>
       <SideMenu visible={sideMenuOpen} onClose={() => setSideMenuOpen(false)} role="rider" />
+      <BannerPopup target="rider" enabled={!!currentRide && currentRide.status === 'started'} intervalMs={90000} />
     </SafeAreaView>
   );
 }
@@ -801,6 +876,11 @@ const s = StyleSheet.create({
   routeAddr: { fontSize: 14, fontWeight: '600', color: '#1C1C1E', marginBottom: 8, flex: 1 },
   routeAddr2: { fontSize: 14, color: '#8E8E93', flex: 1 },
   editableAddr: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 4 },
+  stopRow: { flexDirection: 'row', alignItems: 'center', paddingLeft: 4 },
+  stopAddr: { fontSize: 13, color: '#007AFF', flex: 1 },
+  removeStopBtn: { padding: 4 },
+  addStopBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 6, paddingLeft: 4 },
+  addStopText: { fontSize: 13, color: '#007AFF', fontWeight: '600' },
   routeStats: { alignItems: 'flex-end', marginLeft: 12 },
   routeStatVal: { fontSize: 14, fontWeight: '700', color: '#1C1C1E' },
   routeStatLabel: { fontSize: 12, color: '#8E8E93', marginTop: 2 },

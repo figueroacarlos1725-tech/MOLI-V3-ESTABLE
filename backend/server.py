@@ -3,7 +3,7 @@ TaxiRide Clone - Complete Backend API
 Full taxi booking system with rider, driver, and admin functionality
 """
 
-from fastapi import FastAPI, HTTPException, Depends, Query, Header, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, Depends, Query, Header, WebSocket, WebSocketDisconnect, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field, EmailStr
 from typing import Optional, List, Dict, Any
@@ -302,6 +302,7 @@ class LocationPoint(BaseModel):
 class RideRequestCreate(BaseModel):
     pickup_location: LocationPoint
     dropoff_location: LocationPoint
+    stops: Optional[List[LocationPoint]] = None  # Up to 4 intermediate stops
     ride_type: str = "standard"  # standard, scheduled, parcel, freight, rental
     vehicle_type: str = "economy"
     scheduled_time: Optional[datetime] = None
@@ -313,6 +314,7 @@ class RideRequestResponse(BaseModel):
     rider_id: str
     pickup_location: dict
     dropoff_location: dict
+    stops: Optional[List[dict]] = None
     ride_type: str
     vehicle_type: str
     status: str  # pending, bidding, accepted, in_progress, completed, cancelled
@@ -861,13 +863,27 @@ async def create_ride_request(request: RideRequestCreate, user: dict = Depends(g
     if user["user_type"] not in ["rider", "admin"]:
         raise HTTPException(status_code=403, detail="Only riders can request rides")
     
-    # Calculate distance and fare
-    distance_km = calculate_distance(
-        request.pickup_location.latitude,
-        request.pickup_location.longitude,
-        request.dropoff_location.latitude,
-        request.dropoff_location.longitude
-    )
+    # Calculate total distance including intermediate stops
+    total_distance_km = 0.0
+    waypoints = []
+    
+    if request.stops and len(request.stops) > 0:
+        # Build full route: pickup -> stop1 -> stop2 -> ... -> dropoff
+        all_points = [request.pickup_location] + request.stops + [request.dropoff_location]
+        for i in range(len(all_points) - 1):
+            seg_dist = calculate_distance(
+                all_points[i].latitude, all_points[i].longitude,
+                all_points[i+1].latitude, all_points[i+1].longitude
+            )
+            total_distance_km += seg_dist
+        waypoints = [s.model_dump() for s in request.stops]
+    else:
+        total_distance_km = calculate_distance(
+            request.pickup_location.latitude, request.pickup_location.longitude,
+            request.dropoff_location.latitude, request.dropoff_location.longitude
+        )
+    
+    distance_km = total_distance_km
     
     # Estimate duration (average 30 km/h in city)
     duration_min = int((distance_km / 30) * 60)
@@ -884,6 +900,7 @@ async def create_ride_request(request: RideRequestCreate, user: dict = Depends(g
         "rider_id": user["user_id"],
         "pickup_location": request.pickup_location.model_dump(),
         "dropoff_location": request.dropoff_location.model_dump(),
+        "stops": waypoints,
         "ride_type": request.ride_type,
         "vehicle_type": request.vehicle_type,
         "status": "pending",
@@ -922,6 +939,7 @@ async def create_ride_request(request: RideRequestCreate, user: dict = Depends(g
         rider_id=user["user_id"],
         pickup_location=request.pickup_location.model_dump(),
         dropoff_location=request.dropoff_location.model_dump(),
+        stops=waypoints if waypoints else None,
         ride_type=request.ride_type,
         vehicle_type=request.vehicle_type,
         status="pending",
@@ -3576,6 +3594,115 @@ async def update_dispatch_config(
         )
     
     return {"status": "success", "updated": update}
+
+
+# ======================= BANNER / AD SYSTEM =======================
+
+@app.post("/api/admin/banners")
+async def create_banner(
+    title: str = Query(None),
+    description: str = Query(None),
+    banner_type: str = Query("image_text"),  # image_text, image_only, text_only, video_text, video_only
+    image_url: str = Query(None),
+    video_url: str = Query(None),
+    button_text: str = Query(None),
+    button_link: str = Query(None),
+    target: str = Query("both"),  # rider, driver, both
+    active: bool = Query(True),
+    user: dict = Depends(get_current_user)
+):
+    if user["user_type"] != "admin":
+        raise HTTPException(status_code=403, detail="Solo administradores")
+    
+    banner = {
+        "banner_id": generate_id("banner_"),
+        "title": title,
+        "description": description,
+        "banner_type": banner_type,
+        "image_url": image_url,
+        "video_url": video_url,
+        "button_text": button_text,
+        "button_link": button_link,
+        "target": target,
+        "active": active,
+        "created_at": datetime.now(timezone.utc),
+    }
+    await db.banners.insert_one(banner)
+    banner.pop("_id", None)
+    return {"status": "created", "banner": banner}
+
+@app.get("/api/admin/banners")
+async def list_banners(user: dict = Depends(get_current_user)):
+    if user["user_type"] != "admin":
+        raise HTTPException(status_code=403, detail="Solo administradores")
+    banners = await db.banners.find({}, {"_id": 0}).sort("created_at", -1).to_list(100)
+    for b in banners:
+        if isinstance(b.get("created_at"), datetime):
+            b["created_at"] = b["created_at"].isoformat()
+    return {"banners": banners}
+
+@app.put("/api/admin/banners/{banner_id}")
+async def update_banner(
+    banner_id: str,
+    title: str = Query(None),
+    description: str = Query(None),
+    banner_type: str = Query(None),
+    image_url: str = Query(None),
+    video_url: str = Query(None),
+    button_text: str = Query(None),
+    button_link: str = Query(None),
+    target: str = Query(None),
+    active: bool = Query(None),
+    user: dict = Depends(get_current_user)
+):
+    if user["user_type"] != "admin":
+        raise HTTPException(status_code=403, detail="Solo administradores")
+    update = {}
+    for field in ["title", "description", "banner_type", "image_url", "video_url", "button_text", "button_link", "target", "active"]:
+        val = locals().get(field)
+        if val is not None:
+            update[field] = val
+    if update:
+        await db.banners.update_one({"banner_id": banner_id}, {"$set": update})
+    return {"status": "updated"}
+
+@app.delete("/api/admin/banners/{banner_id}")
+async def delete_banner(banner_id: str, user: dict = Depends(get_current_user)):
+    if user["user_type"] != "admin":
+        raise HTTPException(status_code=403, detail="Solo administradores")
+    await db.banners.delete_one({"banner_id": banner_id})
+    return {"status": "deleted"}
+
+@app.get("/api/banners")
+async def get_banners_for_user(target: str = Query("both"), user: dict = Depends(get_current_user)):
+    """Get random active banners for rider or driver"""
+    pipeline = [
+        {"$match": {"active": True, "target": {"$in": [target, "both"]}}},
+        {"$sample": {"size": 3}},
+        {"$project": {"_id": 0}}
+    ]
+    banners = await db.banners.aggregate(pipeline).to_list(3)
+    for b in banners:
+        if isinstance(b.get("created_at"), datetime):
+            b["created_at"] = b["created_at"].isoformat()
+    return {"banners": banners}
+
+@app.post("/api/admin/banners/upload-image")
+async def upload_banner_image(
+    file: UploadFile = File(...),
+    user: dict = Depends(get_current_user)
+):
+    """Upload banner image, returns URL"""
+    if user["user_type"] != "admin":
+        raise HTTPException(status_code=403, detail="Solo administradores")
+    
+    import base64
+    content = await file.read()
+    b64 = base64.b64encode(content).decode()
+    ext = file.filename.split(".")[-1] if file.filename else "png"
+    data_uri = f"data:image/{ext};base64,{b64}"
+    return {"url": data_uri}
+
 
 
 @app.get("/api/config/maps")

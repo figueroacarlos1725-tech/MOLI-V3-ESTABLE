@@ -14,6 +14,7 @@ const SIDEBAR_ITEMS = [
   { name: 'trips', title: 'Viajes', icon: 'car' },
   { name: 'users', title: 'Usuarios', icon: 'people' },
   { name: 'fares', title: 'Tarifas', icon: 'cash' },
+  { name: 'banners', title: 'Publicidad', icon: 'megaphone' },
   { name: 'coupons', title: 'Cupones', icon: 'pricetag' },
   { name: 'vehicles', title: 'Vehículos', icon: 'car-sport' },
   { name: 'payments', title: 'Pagos', icon: 'card' },
@@ -108,6 +109,7 @@ export default function AdminLayout() {
             <Tabs.Screen name="trips" />
             <Tabs.Screen name="users" />
             <Tabs.Screen name="fares" />
+            <Tabs.Screen name="banners" />
             <Tabs.Screen name="coupons" />
             <Tabs.Screen name="vehicles" />
             <Tabs.Screen name="payments" />
@@ -141,6 +143,7 @@ export default function AdminLayout() {
       <Tabs.Screen name="trips" options={{ title: 'Viajes', tabBarIcon: ({ color, size }) => <Ionicons name="car" size={size} color={color} /> }} />
       <Tabs.Screen name="users" options={{ title: 'Usuarios', tabBarIcon: ({ color, size }) => <Ionicons name="people" size={size} color={color} /> }} />
       <Tabs.Screen name="fares" options={{ title: 'Tarifas', tabBarIcon: ({ color, size }) => <Ionicons name="cash" size={size} color={color} /> }} />
+      <Tabs.Screen name="banners" options={{ title: 'Publicidad', tabBarIcon: ({ color, size }) => <Ionicons name="megaphone" size={size} color={color} /> }} />
       <Tabs.Screen name="coupons" options={{ title: 'Cupones', tabBarIcon: ({ color, size }) => <Ionicons name="pricetag" size={size} color={color} /> }} />
       <Tabs.Screen name="vehicles" options={{ title: 'Vehículos', tabBarIcon: ({ color, size }) => <Ionicons name="car-sport" size={size} color={color} /> }} />
       <Tabs.Screen name="payments" options={{ title: 'Pagos', tabBarIcon: ({ color, size }) => <Ionicons name="card" size={size} color={color} /> }} />

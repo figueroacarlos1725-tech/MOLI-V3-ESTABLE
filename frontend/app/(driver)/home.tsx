@@ -19,6 +19,7 @@ import { useRouter } from 'expo-router';
 import { MapView } from '@/src/components/MapView';
 import { Button } from '@/src/components/Button';
 import SideMenu from '@/src/components/SideMenu';
+import BannerPopup from '@/src/components/BannerPopup';
 import { useAuthStore } from '@/src/stores/authStore';
 import { useRideStore } from '@/src/stores/rideStore';
 import { socketService } from '@/src/services/socket';
@@ -949,6 +950,7 @@ export default function DriverHomeScreen() {
         </View>
       </Modal>
       <SideMenu visible={sideMenuOpen} onClose={() => setSideMenuOpen(false)} role="driver" />
+      <BannerPopup target="driver" enabled={isOnline && !currentRide} intervalMs={120000} />
     </SafeAreaView>
   );
 }
