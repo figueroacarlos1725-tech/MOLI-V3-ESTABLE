@@ -165,3 +165,105 @@ class SettingsUpdate(BaseModel):
     rider_max_pending_penalties: Optional[int] = None
     min_app_version: Optional[str] = None
     update_message: Optional[str] = None
+
+
+# ─── Admin inline models ─────────────────────────────────
+
+class VehicleIconUpdate(BaseModel):
+    icon_type: str = "emoji"
+    emoji_value: Optional[str] = None
+    image_data: Optional[str] = None
+
+class AdminUserUpdate(BaseModel):
+    name: Optional[str] = None
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    user_type: Optional[str] = None
+
+class AdminCreateUser(BaseModel):
+    name: str
+    email: str
+    phone: Optional[str] = ""
+    password: str
+    user_type: str = "rider"
+
+class BalanceUpdate(BaseModel):
+    amount: float
+    operation: str = "set"
+    reason: str = ""
+
+class EstimateRequest(BaseModel):
+    distance_km: float
+    duration_min: int
+
+class BannerCreate(BaseModel):
+    title: str
+    description: str = ""
+    image_url: str = ""
+    link_url: str = ""
+    bg_color: str = "#6B21A8"
+    position: int = 0
+    is_active: bool = True
+    target_audience: str = "all"
+
+class FareUpdate(BaseModel):
+    base_fare: Optional[float] = None
+    per_km: Optional[float] = None
+    per_min: Optional[float] = None
+    min_fare: Optional[float] = None
+    multiplier: Optional[float] = None
+    dynamic_pricing: Optional[bool] = None
+    dynamic_multiplier: Optional[float] = None
+    night_surcharge: Optional[float] = None
+    night_start_hour: Optional[int] = None
+    night_end_hour: Optional[int] = None
+    day_surcharge: Optional[float] = None
+
+class AdminCouponCreate(BaseModel):
+    code: str
+    discount_type: str = "percentage"
+    discount_value: float = 10
+    max_uses: int = 100
+    min_fare: float = 0
+    max_discount: float = 0
+    valid_from: Optional[str] = None
+    valid_until: Optional[str] = None
+    active: bool = True
+
+class CommissionUpdate(BaseModel):
+    commission_type: str = "percentage"
+    commission_value: float = 15
+
+class DriverBlock(BaseModel):
+    block_type: str = "permanent"
+    block_duration: Optional[int] = None
+    reason: str = ""
+
+class PriorityUpdate(BaseModel):
+    priority: int = 0
+
+class ServiceTypesUpdate(BaseModel):
+    service_types: list = ["economy"]
+
+class ManualTripCreate(BaseModel):
+    trip_type: str = "full"
+    rider_name: str = ""
+    rider_phone: str = ""
+    rider_id: Optional[str] = None
+    pickup_address: str = ""
+    pickup_latitude: Optional[float] = None
+    pickup_longitude: Optional[float] = None
+    dropoff_address: str = ""
+    dropoff_latitude: Optional[float] = None
+    dropoff_longitude: Optional[float] = None
+    vehicle_type: str = "economy"
+    assigned_driver_id: Optional[str] = None
+    notes: str = ""
+
+class PaymentConfigUpdate(BaseModel):
+    mercadopago_enabled: Optional[bool] = None
+    mercadopago_public_key: Optional[str] = None
+    mercadopago_access_token: Optional[str] = None
+    astropay_enabled: Optional[bool] = None
+    astropay_api_key: Optional[str] = None
+    astropay_secret: Optional[str] = None

@@ -156,3 +156,36 @@ async def get_nearby_drivers(lat: float, lng: float, radius_km: float = 50, vehi
     
     nearby.sort(key=lambda x: x.get("distance_km", 999))
     return {"drivers": nearby, "count": len(nearby)}
+
+
+# ─── Shared constants ───────────────────────────────────────
+
+DEFAULT_FARES = {
+    "economy": {"base_fare": 500, "per_km": 150, "per_min": 50, "min_fare": 800, "multiplier": 1.0},
+    "comfort": {"base_fare": 700, "per_km": 200, "per_min": 70, "min_fare": 1200, "multiplier": 1.3},
+    "premium": {"base_fare": 1000, "per_km": 300, "per_min": 100, "min_fare": 1800, "multiplier": 1.8},
+    "xl": {"base_fare": 800, "per_km": 250, "per_min": 80, "min_fare": 1500, "multiplier": 1.5},
+}
+
+DISPLAY_NAMES = {
+    "economy": "Económico",
+    "comfort": "Confort",
+    "premium": "Premium",
+    "xl": "XL",
+}
+
+REQUIRED_DOCUMENTS = [
+    {"key": "license", "label": "Licencia de conducir", "description": "Foto legible de tu licencia vigente"},
+    {"key": "id_front", "label": "DNI frente", "description": "Foto del frente de tu documento de identidad"},
+    {"key": "id_back", "label": "DNI dorso", "description": "Foto del dorso de tu documento de identidad"},
+    {"key": "vehicle_registration", "label": "Tarjeta de circulación", "description": "Registro del vehículo"},
+    {"key": "insurance", "label": "Seguro del vehículo", "description": "Póliza de seguro vigente"},
+    {"key": "criminal_record", "label": "Antecedentes penales", "description": "Certificado de antecedentes penales"},
+]
+
+SUPPORT_SYSTEM_PROMPT = """Eres el asistente de soporte de Molí (Move Libre), una app de transporte tipo Uber.
+Tu trabajo es ayudar a pasajeros y conductores con sus problemas.
+Responde SIEMPRE en español. Sé amable, breve y directo.
+Si NO puedes resolver el problema (temas de pagos reales, accidentes, quejas graves, problemas técnicos complejos),
+responde EXACTAMENTE con el texto: [ESCALAR_AGENTE] al final de tu mensaje para que un agente humano atienda.
+Problemas comunes que SÍ puedes resolver: cómo usar la app, cómo solicitar viaje, cómo funciona el pago, preguntas sobre tarifas, cómo contactar conductor."""
