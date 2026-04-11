@@ -158,7 +158,7 @@ export default function AdminTripsScreen() {
                 </TouchableOpacity>
                 <TouchableOpacity style={[s.typeBtn, form.trip_type==='destination_only'&&s.typeBtnActive]} onPress={() => setForm({...form,trip_type:'destination_only'})}>
                   <Ionicons name="speedometer" size={20} color={form.trip_type==='destination_only'?'#fff':'#666'} />
-                  <Text style={[s.typeBtnText, form.trip_type==='destination_only'&&{color:'#fff'}]}>Solo destino</Text>
+                  <Text style={[s.typeBtnText, form.trip_type==='destination_only'&&{color:'#fff'}]}>Solo origen</Text>
                   <Text style={[s.typeBtnDesc, form.trip_type==='destination_only'&&{color:'#ddd'}]}>Ticketera / Taximetro</Text>
                 </TouchableOpacity>
               </View>
