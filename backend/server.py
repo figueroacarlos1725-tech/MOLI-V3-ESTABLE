@@ -1,35 +1,44 @@
 """
-TaxiRide Clone - Complete Backend API
-Full taxi booking system with rider, driver, and admin functionality
+Moli - Complete Backend API
+Taxi booking system with rider, driver, and admin functionality
 """
 
 from fastapi import FastAPI, HTTPException, Depends, Query, Header, WebSocket, WebSocketDisconnect, UploadFile, File, Body
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field, EmailStr
+from pydantic import BaseModel, EmailStr
 from typing import Optional, List, Dict, Any
 from datetime import datetime, timezone, timedelta
-from bson import ObjectId
-from motor.motor_asyncio import AsyncIOMotorClient
 import os
 import uuid
 import json
 import asyncio
 from dotenv import load_dotenv
-from passlib.context import CryptContext
-from jose import JWTError, jwt
 import httpx
 
 load_dotenv()
 
-# JWT Configuration
-SECRET_KEY = os.getenv("SECRET_KEY", "taxiride-secret-key-change-in-production")
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_DAYS = 7
+# Import shared modules
+from database import db
+from websocket_manager import manager
+from models import (
+    UserBase, UserCreate, UserLogin, UserResponse, TokenResponse,
+    VehicleCreate, VehicleResponse, LocationPoint,
+    RideRequestCreate, RideRequestResponse, BidCreate, BidResponse,
+    ChatMessageCreate, ChatMessageResponse, SupportTicketCreate,
+    WalletTransactionCreate, CouponCreate, SettingsUpdate,
+)
+from utils import (
+    generate_id, hash_password, verify_password, create_access_token,
+    get_current_user, get_settings, calculate_distance, calculate_fare,
+    get_nearby_drivers,
+)
+from notifications import (
+    send_push_notification, notify_ride_accepted, notify_driver_arrived,
+    notify_ride_completed, notify_ride_cancelled, notify_new_ride_offer,
+    notify_payment_received, notify_document_status, notify_admin_message,
+)
 
-# Password hashing
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
-app = FastAPI(title="TaxiRide API", version="1.0.0")
+app = FastAPI(title="Moli API", version="2.0.0")
 
 # CORS
 app.add_middleware(
@@ -39,37 +48,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# MongoDB
-MONGO_URL = os.getenv("MONGO_URL", "mongodb://localhost:27017")
-DB_NAME = os.getenv("DB_NAME", "test_database")
-client = AsyncIOMotorClient(MONGO_URL)
-db = client[DB_NAME]
-
-# WebSocket connections manager
-class ConnectionManager:
-    def __init__(self):
-        self.active_connections: Dict[str, WebSocket] = {}
-        self.user_rooms: Dict[str, List[str]] = {}
-    
-    async def connect(self, websocket: WebSocket, user_id: str):
-        await websocket.accept()
-        self.active_connections[user_id] = websocket
-    
-    def disconnect(self, user_id: str):
-        if user_id in self.active_connections:
-            del self.active_connections[user_id]
-    
-    async def send_personal_message(self, message: dict, user_id: str):
-        if user_id in self.active_connections:
-            await self.active_connections[user_id].send_json(message)
-    
-    async def broadcast_to_drivers(self, message: dict, driver_ids: List[str]):
-        for driver_id in driver_ids:
-            if driver_id in self.active_connections:
-                await self.active_connections[driver_id].send_json(message)
-
-manager = ConnectionManager()
 
 # ======================= RIDE ASSIGNMENT SYSTEM =======================
 
@@ -279,277 +257,8 @@ async def assign_ride_to_drivers(request_id: str, rider_id: str, sorted_drivers:
 
 # ======================= PYDANTIC MODELS =======================
 
-class UserBase(BaseModel):
-    email: EmailStr
-    name: str
-    phone: Optional[str] = None
-    profile_picture: Optional[str] = None
-
-class UserCreate(UserBase):
-    password: str
-    user_type: str = "rider"  # rider, driver, admin, dispatcher
-
-class UserLogin(BaseModel):
-    email: EmailStr
-    password: str
-
-class UserResponse(BaseModel):
-    user_id: str
-    email: str
-    name: str
-    phone: Optional[str] = None
-    profile_picture: Optional[str] = None
-    user_type: str
-    wallet_balance: float = 0.0
-    rating: float = 5.0
-    is_verified: bool = False
-    created_at: datetime
-
-class TokenResponse(BaseModel):
-    access_token: str
-    token_type: str = "bearer"
-    user: UserResponse
-
-class VehicleCreate(BaseModel):
-    make: str
-    model: str
-    year: int
-    color: str
-    plate_number: str
-    vehicle_type: str  # economy, comfort, premium, xl
-    capacity: int = 4
-
-class VehicleResponse(BaseModel):
-    vehicle_id: str
-    driver_id: str
-    make: str
-    model: str
-    year: int
-    color: str
-    plate_number: str
-    vehicle_type: str
-    capacity: int
-    is_active: bool = True
-    documents_verified: bool = False
-
-class LocationPoint(BaseModel):
-    latitude: float
-    longitude: float
-    address: Optional[str] = None
-
-class RideRequestCreate(BaseModel):
-    pickup_location: LocationPoint
-    dropoff_location: LocationPoint
-    stops: Optional[List[LocationPoint]] = None  # Up to 4 intermediate stops
-    ride_type: str = "standard"  # standard, scheduled, parcel, freight, rental
-    vehicle_type: str = "economy"
-    scheduled_time: Optional[datetime] = None
-    notes: Optional[str] = None
-    payment_method: str = "cash"  # cash, wallet, card
-
-class RideRequestResponse(BaseModel):
-    request_id: str
-    rider_id: str
-    pickup_location: dict
-    dropoff_location: dict
-    stops: Optional[List[dict]] = None
-    ride_type: str
-    vehicle_type: str
-    status: str  # pending, bidding, accepted, in_progress, completed, cancelled
-    estimated_fare: float
-    estimated_distance: float
-    estimated_duration: int
-    created_at: datetime
-    expires_at: Optional[datetime] = None
-    bids: List[dict] = []
-
-class BidCreate(BaseModel):
-    request_id: str
-    fare_amount: float
-    estimated_arrival: int  # minutes
-
-class BidResponse(BaseModel):
-    bid_id: str
-    request_id: str
-    driver_id: str
-    driver_name: str
-    driver_rating: float
-    vehicle_info: dict
-    fare_amount: float
-    estimated_arrival: int
-    created_at: datetime
-
-class ChatMessageCreate(BaseModel):
-    receiver_id: str
-    message: str
-    message_type: str = "text"  # text, image, location, system
-
-class ChatMessageResponse(BaseModel):
-    message_id: str
-    sender_id: str
-    receiver_id: str
-    message: str
-    message_type: str
-    is_read: bool = False
-    created_at: datetime
-
-class SupportTicketCreate(BaseModel):
-    subject: str
-    message: str
-    ride_id: Optional[str] = None
-
-class WalletTransactionCreate(BaseModel):
-    amount: float
-    transaction_type: str  # deposit, withdrawal, payment, refund
-    payment_method: str  # mercadopago, astropay, cash
-    description: Optional[str] = None
-
-class CouponCreate(BaseModel):
-    code: str
-    discount_type: str  # percentage, fixed
-    discount_value: float
-    min_order_amount: float = 0
-    max_uses: int = 100
-    expires_at: datetime
-
-class SettingsUpdate(BaseModel):
-    # Map
-    map_provider: Optional[str] = None
-    google_maps_key: Optional[str] = None
-    mapbox_key: Optional[str] = None
-    # Payments
-    mercadopago_public_key: Optional[str] = None
-    mercadopago_access_token: Optional[str] = None
-    astropay_api_key: Optional[str] = None
-    astropay_secret_key: Optional[str] = None
-    # Push Notifications
-    firebase_config: Optional[dict] = None
-    firebase_server_key: Optional[str] = None
-    firebase_project_id: Optional[str] = None
-    expo_push_token: Optional[str] = None
-    # Fares
-    base_fare: Optional[float] = None
-    per_km_rate: Optional[float] = None
-    per_minute_rate: Optional[float] = None
-    commission_rate: Optional[float] = None
-    currency: Optional[str] = None
-    # Cancellation & Wallet settings
-    cancel_free_minutes: Optional[int] = None
-    rider_cancel_penalty: Optional[float] = None
-    driver_cancel_penalty: Optional[float] = None
-    driver_max_negative_balance: Optional[float] = None
-    driver_block_after_cancels: Optional[int] = None
-    driver_block_hours: Optional[int] = None  # 0 = permanent
-    rider_max_pending_penalties: Optional[int] = None
-    # App Version
-    min_app_version: Optional[str] = None
-    update_message: Optional[str] = None
-
-# ======================= HELPER FUNCTIONS =======================
-
-def generate_id(prefix: str = "") -> str:
-    return f"{prefix}{uuid.uuid4().hex[:12]}"
-
-def hash_password(password: str) -> str:
-    return pwd_context.hash(password)
-
-def verify_password(plain_password: str, hashed_password: str) -> bool:
-    return pwd_context.verify(plain_password, hashed_password)
-
-def create_access_token(data: dict) -> str:
-    to_encode = data.copy()
-    expire = datetime.now(timezone.utc) + timedelta(days=ACCESS_TOKEN_EXPIRE_DAYS)
-    to_encode.update({"exp": expire})
-    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
-
-async def get_current_user(authorization: Optional[str] = Header(None)) -> dict:
-    if not authorization:
-        raise HTTPException(status_code=401, detail="Not authenticated")
-    
-    try:
-        token = authorization.replace("Bearer ", "")
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        user_id = payload.get("sub")
-        if not user_id:
-            raise HTTPException(status_code=401, detail="Invalid token")
-        
-        user = await db.users.find_one({"user_id": user_id}, {"_id": 0})
-        if not user:
-            raise HTTPException(status_code=401, detail="User not found")
-        return user
-    except JWTError:
-        raise HTTPException(status_code=401, detail="Invalid token")
-
-async def get_settings() -> dict:
-    settings = await db.settings.find_one({"setting_id": "global"}, {"_id": 0})
-    if not settings:
-        # Default settings
-        settings = {
-            "setting_id": "global",
-            "map_provider": "google",  # osm, google, mapbox
-            "base_fare": 2.50,
-            "per_km_rate": 1.20,
-            "per_minute_rate": 0.15,
-            "commission_rate": 0.20,
-            "currency": "USD",
-            "currency_symbol": "$",
-            # Cancellation & Wallet defaults
-            "cancel_free_minutes": 1,
-            "rider_cancel_penalty": 500,
-            "driver_cancel_penalty": 500,
-            "driver_max_negative_balance": -15000,
-            "driver_block_after_cancels": 3,
-            "driver_block_hours": 24,
-            "rider_max_pending_penalties": 2,
-        }
-        await db.settings.insert_one(settings)
-    # Ensure cancellation defaults exist even if settings were created before
-    defaults = {
-        "cancel_free_minutes": 1,
-        "rider_cancel_penalty": 500,
-        "driver_cancel_penalty": 500,
-        "driver_max_negative_balance": -15000,
-        "driver_block_after_cancels": 3,
-        "driver_block_hours": 24,
-        "rider_max_pending_penalties": 2,
-    }
-    for k, v in defaults.items():
-        if k not in settings:
-            settings[k] = v
-    return settings
-
-def calculate_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
-    """Calculate distance in km using Haversine formula"""
-    import math
-    R = 6371  # Earth's radius in km
-    
-    lat1_rad = math.radians(lat1)
-    lat2_rad = math.radians(lat2)
-    delta_lat = math.radians(lat2 - lat1)
-    delta_lon = math.radians(lon2 - lon1)
-    
-    a = math.sin(delta_lat/2)**2 + math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(delta_lon/2)**2
-    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
-    
-    return R * c
-
-async def calculate_fare(distance_km: float, duration_min: int, vehicle_type: str) -> float:
-    settings = await get_settings()
-    base_fare = settings.get("base_fare", 2.50)
-    per_km = settings.get("per_km_rate", 1.20)
-    per_min = settings.get("per_minute_rate", 0.15)
-    
-    # Vehicle type multipliers
-    multipliers = {
-        "economy": 1.0,
-        "comfort": 1.3,
-        "premium": 1.8,
-        "xl": 1.5
-    }
-    
-    multiplier = multipliers.get(vehicle_type, 1.0)
-    fare = (base_fare + (distance_km * per_km) + (duration_min * per_min)) * multiplier
-    return round(fare, 2)
+# Models imported from models.py
+# Helpers imported from utils.py
 
 # ======================= AUTH ENDPOINTS =======================
 
@@ -5424,6 +5133,81 @@ async def _nominatim_reverse(lat: float, lng: float):
             parts = [p for p in [street, number, city] if p]
             return {"address": ", ".join(parts) or "Ubicación desconocida"}
         return {"address": (data.get("display_name") or "Ubicación desconocida").split(",")[0]}
+
+
+# ======================= PUSH NOTIFICATIONS ENDPOINTS =======================
+
+@app.post("/api/push-token")
+async def register_push_token(data: dict = Body(...), user: dict = Depends(get_current_user)):
+    """Register Expo push token for the current user"""
+    token = data.get("token")
+    if not token:
+        raise HTTPException(400, "Token requerido")
+    
+    await db.users.update_one(
+        {"user_id": user["user_id"]},
+        {"$set": {"push_token": token}}
+    )
+    return {"status": "registered"}
+
+@app.post("/api/admin/notifications/send")
+async def admin_send_notification(data: dict = Body(...), user: dict = Depends(get_current_user)):
+    """Admin sends push notification to users"""
+    if user.get("user_type") not in ("admin", "dispatcher"):
+        raise HTTPException(403, "Solo admin")
+    
+    title = data.get("title", "Moli")
+    body = data.get("body", "")
+    target = data.get("target", "all")  # all, riders, drivers, specific
+    user_ids = data.get("user_ids", [])
+    
+    if not body:
+        raise HTTPException(400, "Mensaje requerido")
+    
+    if target == "specific" and user_ids:
+        from notifications import send_push_to_multiple
+        result = await send_push_to_multiple(user_ids, title, body)
+    elif target == "riders":
+        riders = await db.users.find(
+            {"user_type": "rider", "push_token": {"$exists": True}},
+            {"user_id": 1}
+        ).to_list(1000)
+        ids = [r["user_id"] for r in riders]
+        from notifications import send_push_to_multiple
+        result = await send_push_to_multiple(ids, title, body)
+    elif target == "drivers":
+        drivers = await db.users.find(
+            {"user_type": "driver", "push_token": {"$exists": True}},
+            {"user_id": 1}
+        ).to_list(1000)
+        ids = [d["user_id"] for d in drivers]
+        from notifications import send_push_to_multiple
+        result = await send_push_to_multiple(ids, title, body)
+    else:
+        # Send to all users with tokens
+        all_users = await db.users.find(
+            {"push_token": {"$exists": True}},
+            {"user_id": 1}
+        ).to_list(5000)
+        ids = [u["user_id"] for u in all_users]
+        from notifications import send_push_to_multiple
+        result = await send_push_to_multiple(ids, title, body)
+    
+    return result
+
+@app.get("/api/admin/notifications/logs")
+async def get_notification_logs(user: dict = Depends(get_current_user), limit: int = 50):
+    """Get recent notification logs"""
+    if user.get("user_type") not in ("admin", "dispatcher"):
+        raise HTTPException(403, "Solo admin")
+    
+    logs = await db.notification_logs.find(
+        {}, {"_id": 0}
+    ).sort("_id", -1).limit(limit).to_list(limit)
+    
+    return {"logs": logs, "count": len(logs)}
+
+
 
 if __name__ == "__main__":
     import uvicorn
