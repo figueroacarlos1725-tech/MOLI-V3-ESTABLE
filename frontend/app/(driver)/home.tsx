@@ -24,6 +24,7 @@ import { useRideStore } from '@/src/stores/rideStore';
 import { socketService } from '@/src/services/socket';
 import { apiService } from '@/src/services/api';
 import { getCurrentLocation, reverseGeocode } from '@/src/utils/location';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
 import { Audio } from 'expo-av';
 
@@ -71,15 +72,32 @@ export default function DriverHomeScreen() {
   useEffect(() => {
     initializeLocation();
     
-    // Restore active ride on mount
-    const restoreRide = async () => {
+    // Restore online state + active ride on mount
+    const restore = async () => {
       setIsLoadingRide(true);
       try {
+        // Check for active ride first
         const ride = await fetchActiveRide();
         if (ride && ['accepted', 'arrived', 'started'].includes(ride.status)) {
-          // Auto-restore online state when there's an active ride
           setIsOnline(true);
-          setStatusMessage('Viaje activo restaurado');
+          await AsyncStorage.setItem('driver_online', 'true');
+        } else {
+          // Restore saved online state
+          const savedOnline = await AsyncStorage.getItem('driver_online');
+          if (savedOnline === 'true') {
+            // Re-register as online on backend
+            const loc = await getCurrentLocation();
+            if (loc) setUserLocation(loc);
+            try {
+              await apiService.put(
+                `/drivers/availability?is_online=true${loc ? `&latitude=${loc.latitude}&longitude=${loc.longitude}` : ''}`
+              );
+              setIsOnline(true);
+            } catch (e) {
+              // If backend fails, stay offline
+              await AsyncStorage.setItem('driver_online', 'false');
+            }
+          }
         }
       } catch (e) {
         // ignore
@@ -87,7 +105,7 @@ export default function DriverHomeScreen() {
         setIsLoadingRide(false);
       }
     };
-    restoreRide();
+    restore();
     
     return () => {
       if (locationInterval.current) clearInterval(locationInterval.current);
@@ -336,6 +354,7 @@ export default function DriverHomeScreen() {
         `/drivers/availability?is_online=true${userLocation ? `&latitude=${userLocation.latitude}&longitude=${userLocation.longitude}` : ''}`
       );
       setIsOnline(true);
+      await AsyncStorage.setItem('driver_online', 'true');
       setStatusMessage('Estás en línea. Esperando solicitudes...');
     } catch (error: any) {
       setStatusMessage(error.message || 'No se pudo conectar');
@@ -349,6 +368,7 @@ export default function DriverHomeScreen() {
         `/drivers/availability?is_online=false${userLocation ? `&latitude=${userLocation.latitude}&longitude=${userLocation.longitude}` : ''}`
       );
       setIsOnline(false);
+      await AsyncStorage.setItem('driver_online', 'false');
       setStatusMessage('Estás desconectado');
       socketService.disconnect();
     } catch (error: any) {
