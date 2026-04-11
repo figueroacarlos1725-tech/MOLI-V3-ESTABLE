@@ -5,7 +5,6 @@ import {
   StyleSheet,
   SafeAreaView,
   TouchableOpacity,
-  Switch,
   Modal,
   ScrollView,
   Linking,
@@ -61,12 +60,15 @@ export default function DriverHomeScreen() {
   const countdownInterval = useRef<ReturnType<typeof setInterval> | null>(null);
   const progressAnim = useRef(new Animated.Value(1)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
+  const goButtonScale = useRef(new Animated.Value(1)).current;
+  const goButtonGlow = useRef(new Animated.Value(0)).current;
+  const onlinePulse = useRef(new Animated.Value(0)).current;
   const soundRef = useRef<Audio.Sound | null>(null);
   const rideOfferRef = useRef<RideOffer | null>(null);
   const isRespondingRef = useRef(false);
+  const [isToggling, setIsToggling] = useState(false);
 
-  // Inline confirm for toggle
-  const [confirmOnline, setConfirmOnline] = useState(false);
+  // Inline confirm for disconnect only
   const [confirmOffline, setConfirmOffline] = useState(false);
 
   useEffect(() => {
@@ -113,6 +115,44 @@ export default function DriverHomeScreen() {
       stopSound();
     };
   }, []);
+
+  // GO button breathing animation when offline
+  useEffect(() => {
+    if (!isOnline && !isLoadingRide) {
+      const breathe = Animated.loop(
+        Animated.sequence([
+          Animated.timing(goButtonScale, { toValue: 1.06, duration: 1200, useNativeDriver: true }),
+          Animated.timing(goButtonScale, { toValue: 1, duration: 1200, useNativeDriver: true }),
+        ])
+      );
+      const glow = Animated.loop(
+        Animated.sequence([
+          Animated.timing(goButtonGlow, { toValue: 1, duration: 1200, useNativeDriver: false }),
+          Animated.timing(goButtonGlow, { toValue: 0, duration: 1200, useNativeDriver: false }),
+        ])
+      );
+      breathe.start();
+      glow.start();
+      return () => { breathe.stop(); glow.stop(); };
+    } else {
+      goButtonScale.setValue(1);
+      goButtonGlow.setValue(0);
+    }
+  }, [isOnline, isLoadingRide]);
+
+  // Online pulse ring animation
+  useEffect(() => {
+    if (isOnline && !currentRide) {
+      const pulse = Animated.loop(
+        Animated.sequence([
+          Animated.timing(onlinePulse, { toValue: 1, duration: 2000, useNativeDriver: false }),
+          Animated.timing(onlinePulse, { toValue: 0, duration: 0, useNativeDriver: false }),
+        ])
+      );
+      pulse.start();
+      return () => pulse.stop();
+    }
+  }, [isOnline, currentRide]);
 
   // Connect WebSocket and listen for offers
   useEffect(() => {
@@ -340,29 +380,33 @@ export default function DriverHomeScreen() {
 
   // ==================== TOGGLE ONLINE ====================
   const handleToggleOnline = async (value: boolean) => {
+    if (isToggling) return;
     if (value) {
-      setConfirmOnline(true);
+      // Directly go online (Uber style - no confirmation needed)
+      setIsToggling(true);
+      try {
+        const loc = userLocation;
+        await apiService.put(
+          `/drivers/availability?is_online=true${loc ? `&latitude=${loc.latitude}&longitude=${loc.longitude}` : ''}`
+        );
+        setIsOnline(true);
+        await AsyncStorage.setItem('driver_online', 'true');
+        setStatusMessage('¡Estás en línea! Esperando solicitudes...');
+        // Haptic feedback
+        try { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); } catch(e) {}
+      } catch (error: any) {
+        setStatusMessage(error.message || 'No se pudo conectar');
+      } finally {
+        setIsToggling(false);
+      }
     } else {
       setConfirmOffline(true);
     }
   };
 
-  const confirmGoOnline = async () => {
-    setConfirmOnline(false);
-    try {
-      await apiService.put(
-        `/drivers/availability?is_online=true${userLocation ? `&latitude=${userLocation.latitude}&longitude=${userLocation.longitude}` : ''}`
-      );
-      setIsOnline(true);
-      await AsyncStorage.setItem('driver_online', 'true');
-      setStatusMessage('Estás en línea. Esperando solicitudes...');
-    } catch (error: any) {
-      setStatusMessage(error.message || 'No se pudo conectar');
-    }
-  };
-
   const confirmGoOffline = async () => {
     setConfirmOffline(false);
+    setIsToggling(true);
     try {
       await apiService.put(
         `/drivers/availability?is_online=false${userLocation ? `&latitude=${userLocation.latitude}&longitude=${userLocation.longitude}` : ''}`
@@ -373,6 +417,8 @@ export default function DriverHomeScreen() {
       socketService.disconnect();
     } catch (error: any) {
       setStatusMessage(error.message || 'Error al desconectar');
+    } finally {
+      setIsToggling(false);
     }
   };
 
@@ -556,30 +602,35 @@ export default function DriverHomeScreen() {
   // ==================== MAIN DRIVER VIEW ====================
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.greeting}>Hola, {user?.name?.split(' ')[0] || 'Conductor'}</Text>
-          <Text style={styles.subGreeting}>
-            {isOnline ? 'Esperando solicitudes de viaje...' : 'Conéctate para empezar a ganar'}
-          </Text>
-        </View>
-        <View style={styles.onlineToggle}>
-          <Text style={[styles.onlineLabel, isOnline && styles.onlineLabelActive]}>
-            {isOnline ? 'En línea' : 'Desconectado'}
-          </Text>
-          <Switch
-            value={isOnline}
-            onValueChange={handleToggleOnline}
-            trackColor={{ false: '#E5E5EA', true: '#6BBF00' }}
-            thumbColor="#fff"
-          />
+      {/* Full-screen Map */}
+      <View style={styles.fullMap}>
+        <MapView
+          initialRegion={userLocation}
+          markers={userLocation ? [{ ...userLocation, title: 'Tu ubicación', type: 'driver' }] : []}
+        />
+      </View>
+
+      {/* Floating Header */}
+      <View style={styles.floatingHeader}>
+        <View style={styles.floatingHeaderInner}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.greeting}>Hola, {user?.name?.split(' ')[0] || 'Conductor'}</Text>
+            <Text style={styles.subGreeting}>
+              {isOnline ? 'Esperando solicitudes...' : 'Toca GO para conectarte'}
+            </Text>
+          </View>
+          <View style={[styles.statusChip, isOnline ? styles.statusChipOnline : styles.statusChipOffline]}>
+            <View style={[styles.statusDotSmall, isOnline ? styles.statusDotOnline : styles.statusDotOff]} />
+            <Text style={[styles.statusChipText, isOnline && styles.statusChipTextOnline]}>
+              {isOnline ? 'En línea' : 'Desconectado'}
+            </Text>
+          </View>
         </View>
       </View>
 
       {/* Status message */}
       {statusMessage ? (
-        <View style={styles.statusBar}>
+        <View style={styles.floatingStatusBar}>
           <Ionicons name="information-circle" size={18} color="#007AFF" />
           <Text style={styles.statusText}>{statusMessage}</Text>
           <TouchableOpacity onPress={() => setStatusMessage('')}>
@@ -588,27 +639,64 @@ export default function DriverHomeScreen() {
         </View>
       ) : null}
 
-      {/* Map */}
-      <View style={styles.mapContainer}>
-        <MapView
-          initialRegion={userLocation}
-          markers={userLocation ? [{ ...userLocation, title: 'Tu ubicación', type: 'driver' }] : []}
-        />
-      </View>
+      {/* === OFFLINE: Central GO Button === */}
+      {!isOnline && (
+        <View style={styles.goButtonContainer} pointerEvents="box-none">
+          <Animated.View style={[styles.goButtonGlowRing, {
+            opacity: goButtonGlow.interpolate({ inputRange: [0, 1], outputRange: [0.2, 0.5] }),
+            transform: [{ scale: goButtonGlow.interpolate({ inputRange: [0, 1], outputRange: [1, 1.3] }) }],
+          }]} />
+          <Animated.View style={{ transform: [{ scale: goButtonScale }] }}>
+            <TouchableOpacity
+              style={styles.goButton}
+              onPress={() => handleToggleOnline(true)}
+              activeOpacity={0.8}
+              disabled={isToggling}
+            >
+              {isToggling ? (
+                <ActivityIndicator size="large" color="#fff" />
+              ) : (
+                <Text style={styles.goButtonText}>GO</Text>
+              )}
+            </TouchableOpacity>
+          </Animated.View>
+          <Text style={styles.goButtonHint}>Toca para conectarte</Text>
+        </View>
+      )}
 
-      {/* Online status panel */}
+      {/* === ONLINE: Bottom Panel with Searching + Disconnect === */}
       {isOnline && (
-        <View style={styles.waitingPanel}>
-          <View style={styles.waitingPulse}>
-            <View style={styles.pulseOuter} />
-            <View style={styles.pulseInner}>
-              <Ionicons name="radio" size={24} color="#6BBF00" />
+        <View style={styles.onlineBottomPanel}>
+          <View style={styles.onlinePanelContent}>
+            {/* Pulse ring indicator */}
+            <View style={styles.onlinePulseContainer}>
+              <Animated.View style={[styles.onlinePulseRing, {
+                opacity: onlinePulse.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0.6, 0, 0] }),
+                transform: [{ scale: onlinePulse.interpolate({ inputRange: [0, 1], outputRange: [1, 2.5] }) }],
+              }]} />
+              <View style={styles.onlineIconCircle}>
+                <Ionicons name="radio" size={22} color="#fff" />
+              </View>
+            </View>
+            <View style={styles.onlineTextBlock}>
+              <Text style={styles.onlineTitle}>Buscando viajes</Text>
+              <Text style={styles.onlineSubtitle}>Recibirás solicitudes automáticamente</Text>
             </View>
           </View>
-          <Text style={styles.waitingTitle}>Buscando viajes</Text>
-          <Text style={styles.waitingSubtitle}>
-            Recibirás solicitudes automáticas de pasajeros cercanos
-          </Text>
+          <TouchableOpacity
+            style={styles.disconnectBtn}
+            onPress={() => handleToggleOnline(false)}
+            disabled={isToggling}
+          >
+            {isToggling ? (
+              <ActivityIndicator size="small" color="#FF3B30" />
+            ) : (
+              <>
+                <Ionicons name="power" size={18} color="#FF3B30" />
+                <Text style={styles.disconnectBtnText}>Desconectar</Text>
+              </>
+            )}
+          </TouchableOpacity>
         </View>
       )}
 
@@ -729,26 +817,8 @@ export default function DriverHomeScreen() {
         </View>
       </Modal>
 
-      {/* ==================== INLINE CONFIRMATIONS ==================== */}
-      {confirmOnline && (
-        <View style={styles.confirmOverlay}>
-          <View style={styles.confirmCard}>
-            <Ionicons name="power" size={40} color="#6BBF00" />
-            <Text style={styles.confirmTitle}>¿Conectarse?</Text>
-            <Text style={styles.confirmDesc}>Comenzarás a recibir solicitudes de viaje automáticamente</Text>
-            <View style={styles.confirmActions}>
-              <TouchableOpacity style={styles.confirmCancel} onPress={() => setConfirmOnline(false)}>
-                <Text style={styles.confirmCancelText}>Cancelar</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.confirmOk} onPress={confirmGoOnline}>
-                <Text style={styles.confirmOkText}>Conectar</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      )}
-
-      {confirmOffline && (
+      {/* ==================== DISCONNECT CONFIRMATION ==================== */}
+      <Modal visible={confirmOffline} transparent animationType="fade" onRequestClose={() => setConfirmOffline(false)}>
         <View style={styles.confirmOverlay}>
           <View style={styles.confirmCard}>
             <Ionicons name="power" size={40} color="#FF3B30" />
@@ -764,7 +834,7 @@ export default function DriverHomeScreen() {
             </View>
           </View>
         </View>
-      )}
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -774,42 +844,81 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#fff',
   },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+  // Full-screen map
+  fullMap: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 0,
+  },
+  // Floating header
+  floatingHeader: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 10,
+    paddingTop: Platform.OS === 'ios' ? 54 : 40,
     paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingBottom: 12,
+    backgroundColor: 'rgba(255,255,255,0.92)',
+  },
+  floatingHeaderInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   greeting: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: 'bold',
     color: '#1C1C1E',
   },
   subGreeting: {
-    fontSize: 14,
+    fontSize: 13,
     color: '#8E8E93',
-    marginTop: 4,
+    marginTop: 2,
   },
-  onlineToggle: {
+  statusChip: {
     flexDirection: 'row',
     alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
   },
-  onlineLabel: {
-    fontSize: 14,
+  statusChipOnline: {
+    backgroundColor: '#E8F5E9',
+  },
+  statusChipOffline: {
+    backgroundColor: '#F2F2F7',
+  },
+  statusDotSmall: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginRight: 6,
+  },
+  statusDotOnline: {
+    backgroundColor: '#6BBF00',
+  },
+  statusDotOff: {
+    backgroundColor: '#C7C7CC',
+  },
+  statusChipText: {
+    fontSize: 13,
     fontWeight: '600',
     color: '#8E8E93',
-    marginRight: 8,
   },
-  onlineLabelActive: {
+  statusChipTextOnline: {
     color: '#6BBF00',
   },
-  statusBar: {
+  // Floating status bar
+  floatingStatusBar: {
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? 110 : 96,
+    left: 20,
+    right: 20,
+    zIndex: 10,
     flexDirection: 'row',
     alignItems: 'center',
-    marginHorizontal: 20,
-    marginBottom: 8,
-    backgroundColor: '#E3F2FD',
+    backgroundColor: 'rgba(227,242,253,0.95)',
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 10,
@@ -820,58 +929,135 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#1C1C1E',
   },
+  // GO Button (offline)
+  goButtonContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 5,
+  },
+  goButtonGlowRing: {
+    position: 'absolute',
+    width: 160,
+    height: 160,
+    borderRadius: 80,
+    backgroundColor: '#6BBF00',
+  },
+  goButton: {
+    width: 130,
+    height: 130,
+    borderRadius: 65,
+    backgroundColor: '#6BBF00',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#6BBF00',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.4,
+    shadowRadius: 20,
+    elevation: 16,
+  },
+  goButtonText: {
+    fontSize: 48,
+    fontWeight: '900',
+    color: '#fff',
+    letterSpacing: 2,
+  },
+  goButtonHint: {
+    marginTop: 20,
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#1C1C1E',
+    backgroundColor: 'rgba(255,255,255,0.85)',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    overflow: 'hidden',
+  },
+  // Online bottom panel
+  onlineBottomPanel: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    zIndex: 10,
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: Platform.OS === 'ios' ? 36 : 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 10,
+  },
+  onlinePanelContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  onlinePulseContainer: {
+    width: 50,
+    height: 50,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 14,
+  },
+  onlinePulseRing: {
+    position: 'absolute',
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: '#6BBF00',
+  },
+  onlineIconCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#6BBF00',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  onlineTextBlock: {
+    flex: 1,
+  },
+  onlineTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#1C1C1E',
+  },
+  onlineSubtitle: {
+    fontSize: 13,
+    color: '#8E8E93',
+    marginTop: 2,
+  },
+  disconnectBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 14,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: '#FF3B30',
+    backgroundColor: '#FFF5F5',
+  },
+  disconnectBtnText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#FF3B30',
+  },
+  // Map container for active ride view
   mapContainer: {
     flex: 1,
     margin: 16,
     borderRadius: 16,
     overflow: 'hidden',
-  },
-  // Waiting panel
-  waitingPanel: {
-    alignItems: 'center',
-    paddingVertical: 24,
-    paddingHorizontal: 20,
-    backgroundColor: '#fff',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 6,
-  },
-  waitingPulse: {
-    width: 64,
-    height: 64,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  pulseOuter: {
-    position: 'absolute',
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: 'rgba(107, 191, 0, 0.15)',
-  },
-  pulseInner: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#F0FFF0',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  waitingTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#1C1C1E',
-  },
-  waitingSubtitle: {
-    fontSize: 13,
-    color: '#8E8E93',
-    textAlign: 'center',
-    marginTop: 4,
   },
   // Offer popup
   offerOverlay: {
