@@ -671,7 +671,7 @@ async def get_dispatch_rides(
 
 
 @router.post("/api/dispatch/cancel/{request_id}")
-async def dispatch_cancel_ride(request_id: str, reason: str = Body("Cancelado por despacho"), user: dict = Depends(get_current_user)):
+async def dispatch_cancel_ride(request_id: str, reason: str = Query("Cancelado por despacho"), user: dict = Depends(get_current_user)):
     """Cancel a ride from dispatch"""
     if user["user_type"] not in ("admin", "dispatcher"):
         raise HTTPException(status_code=403, detail="Dispatch access required")

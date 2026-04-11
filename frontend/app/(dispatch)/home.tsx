@@ -160,7 +160,7 @@ export default function DispatchHome() {
       { text: 'No', style: 'cancel' },
       { text: 'Sí, cancelar', style: 'destructive', onPress: async () => {
         try {
-          await apiService.post(`/dispatch/cancel/${reqId}`, 'Cancelado por despacho');
+          await apiService.post(`/dispatch/cancel/${reqId}?reason=Cancelado+por+despacho`, {});
           setSelectedRide(null);
           fetchRides();
         } catch (e: any) { Alert.alert('Error', e.message); }
@@ -501,7 +501,16 @@ export default function DispatchHome() {
                   latitude={newOrder.pickup_latitude}
                   longitude={newOrder.pickup_longitude}
                   height={160}
-                  onLocationChange={(lat, lng) => setNewOrder(p => ({ ...p, pickup_latitude: lat, pickup_longitude: lng }))}
+                  onLocationChange={async (lat, lng) => {
+                    setNewOrder(p => ({ ...p, pickup_latitude: lat, pickup_longitude: lng }));
+                    // Reverse geocode to update address
+                    try {
+                      const data = await apiService.get(`/places/reverse?lat=${lat}&lng=${lng}`);
+                      if (data?.address) {
+                        setNewOrder(p => ({ ...p, pickup_address: data.address, pickup_latitude: lat, pickup_longitude: lng }));
+                      }
+                    } catch {}
+                  }}
                 />
                 <Text style={s.inputLabel}>Vehículo</Text>
                 <View style={s.vRow}>{['economy', 'comfort', 'premium', 'xl'].map(v => (<TouchableOpacity key={v} style={[s.vChip, newOrder.vehicle_type === v && s.vChipActive]} onPress={() => setNewOrder(p => ({ ...p, vehicle_type: v }))}><Text style={[s.vChipTxt, newOrder.vehicle_type === v && { color: '#fff' }]}>{v === 'economy' ? 'Eco' : v === 'comfort' ? 'Confort' : v === 'premium' ? 'Premium' : 'XL'}</Text></TouchableOpacity>))}</View>

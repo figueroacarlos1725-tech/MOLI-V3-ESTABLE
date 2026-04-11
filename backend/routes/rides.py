@@ -241,8 +241,9 @@ async def driver_respond_to_offer(
         
         now = datetime.now(timezone.utc)
         settings = await get_settings()
-        fare = request_doc.get("estimated_fare", 0) or existing_ride.get("fare", 0) if existing_ride else 0
-        commission = fare * settings.get("commission_rate", 0.20)
+        fare = request_doc.get("estimated_fare") or (existing_ride.get("fare") if existing_ride else 0) or 0
+        commission_rate = settings.get("commission_rate") or 0.20
+        commission = fare * commission_rate
         driver_earnings = fare - commission
         
         # Get driver vehicle
