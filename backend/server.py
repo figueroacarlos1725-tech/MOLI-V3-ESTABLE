@@ -3596,6 +3596,250 @@ async def update_dispatch_config(
     return {"status": "success", "updated": update}
 
 
+
+# ======================= SUPPORT CHAT + AI =======================
+from emergentintegrations.llm.chat import LlmChat, UserMessage
+
+SUPPORT_SYSTEM_PROMPT = """Eres el asistente de soporte de Molí (Move Libre), una app de transporte tipo Uber.
+Tu trabajo es ayudar a pasajeros y conductores con sus problemas.
+Responde SIEMPRE en español. Sé amable, breve y directo.
+Si NO puedes resolver el problema (temas de pagos reales, accidentes, quejas graves, problemas técnicos complejos),
+responde EXACTAMENTE con el texto: [ESCALAR_AGENTE] al final de tu mensaje para que un agente humano atienda.
+Problemas comunes que SÍ puedes resolver: cómo usar la app, cómo solicitar viaje, cómo funciona el pago, preguntas sobre tarifas, cómo contactar conductor."""
+
+@app.post("/api/support/message")
+async def support_chat_message(
+    message: str = Query(...),
+    session_id: str = Query(None),
+    user: dict = Depends(get_current_user)
+):
+    """AI support chat - handles user messages and escalates when needed"""
+    user_id = user["user_id"]
+    if not session_id:
+        session_id = f"support_{user_id}"
+    
+    # Check support hours
+    settings = await get_settings()
+    support_start = settings.get("support_hours_start", 0)  # 0 = 24/7
+    support_end = settings.get("support_hours_end", 24)
+    
+    import pytz
+    now_utc = datetime.now(timezone.utc)
+    # Default timezone Argentina
+    tz = pytz.timezone(settings.get("timezone", "America/Argentina/Buenos_Aires"))
+    now_local = now_utc.astimezone(tz)
+    current_hour = now_local.hour
+    
+    is_within_hours = support_start == 0 or (support_start <= current_hour < support_end)
+    
+    # Save user message to DB
+    msg_doc = {
+        "message_id": generate_id("smsg_"),
+        "session_id": session_id,
+        "user_id": user_id,
+        "sender": "user",
+        "message": message,
+        "created_at": now_utc,
+    }
+    await db.support_messages.insert_one(msg_doc)
+    
+    # Check if already escalated
+    escalated = await db.support_sessions.find_one({"session_id": session_id, "escalated": True})
+    
+    if escalated:
+        # Notify admin via WebSocket
+        admins = await db.users.find({"user_type": "admin"}, {"user_id": 1}).to_list(10)
+        for admin in admins:
+            await manager.send_personal_message({
+                "type": "support_message",
+                "session_id": session_id,
+                "user_id": user_id,
+                "user_name": user.get("name", "Usuario"),
+                "message": message,
+                "needs_response": True,
+            }, admin["user_id"])
+        
+        return {
+            "response": "Tu mensaje fue enviado al agente de soporte. Te responderá pronto.",
+            "escalated": True,
+            "session_id": session_id,
+        }
+    
+    # Get recent history for context
+    history = await db.support_messages.find(
+        {"session_id": session_id},
+        {"_id": 0}
+    ).sort("created_at", -1).to_list(10)
+    history.reverse()
+    
+    # Build context for AI
+    extra_context = ""
+    if not is_within_hours:
+        extra_context = f"\nNOTA: Estamos fuera de horario de atención ({support_start}:00 - {support_end}:00). Intenta resolver el problema por tu cuenta o deja tu consulta para cuando un agente esté disponible. Insiste en ayudar al usuario con lo que puedas."
+    
+    try:
+        llm_key = os.getenv("EMERGENT_LLM_KEY")
+        chat = LlmChat(
+            api_key=llm_key,
+            session_id=session_id,
+            system_message=SUPPORT_SYSTEM_PROMPT + extra_context
+        ).with_model("openai", "gpt-4.1-mini")
+        
+        # Build conversation context
+        context_msgs = []
+        for h in history[-6:]:
+            if h["sender"] == "user":
+                context_msgs.append(f"Usuario: {h['message']}")
+            else:
+                context_msgs.append(f"Asistente: {h['message']}")
+        
+        full_message = "\n".join(context_msgs[-4:]) + f"\nUsuario: {message}" if context_msgs else message
+        
+        user_msg = UserMessage(text=full_message)
+        ai_response = await chat.send_message(user_msg)
+        
+        # Check if AI wants to escalate
+        needs_escalation = "[ESCALAR_AGENTE]" in ai_response
+        clean_response = ai_response.replace("[ESCALAR_AGENTE]", "").strip()
+        
+        if needs_escalation:
+            clean_response += "\n\nHe notificado a un agente de soporte. Te contactará pronto."
+            await db.support_sessions.update_one(
+                {"session_id": session_id},
+                {"$set": {"session_id": session_id, "user_id": user_id, "escalated": True, "escalated_at": now_utc}},
+                upsert=True
+            )
+            # Notify admins
+            admins = await db.users.find({"user_type": "admin"}, {"user_id": 1}).to_list(10)
+            for admin in admins:
+                await manager.send_personal_message({
+                    "type": "support_escalation",
+                    "session_id": session_id,
+                    "user_id": user_id,
+                    "user_name": user.get("name", "Usuario"),
+                    "message": message,
+                    "ai_response": clean_response,
+                }, admin["user_id"])
+        
+        # Save AI response
+        ai_doc = {
+            "message_id": generate_id("smsg_"),
+            "session_id": session_id,
+            "user_id": user_id,
+            "sender": "ai",
+            "message": clean_response,
+            "created_at": datetime.now(timezone.utc),
+        }
+        await db.support_messages.insert_one(ai_doc)
+        
+        return {
+            "response": clean_response,
+            "escalated": needs_escalation,
+            "session_id": session_id,
+        }
+    except Exception as e:
+        return {
+            "response": f"Disculpa, tuve un problema procesando tu consulta. Por favor intenta de nuevo.",
+            "escalated": False,
+            "session_id": session_id,
+        }
+
+@app.get("/api/support/history")
+async def get_support_history(session_id: str = Query(None), user: dict = Depends(get_current_user)):
+    """Get support chat history"""
+    if not session_id:
+        session_id = f"support_{user['user_id']}"
+    msgs = await db.support_messages.find(
+        {"session_id": session_id}, {"_id": 0}
+    ).sort("created_at", 1).to_list(50)
+    for m in msgs:
+        if isinstance(m.get("created_at"), datetime):
+            m["created_at"] = m["created_at"].isoformat()
+    return {"messages": msgs, "session_id": session_id}
+
+@app.post("/api/admin/support/reply")
+async def admin_reply_to_support(
+    session_id: str = Query(...),
+    message: str = Query(...),
+    user: dict = Depends(get_current_user)
+):
+    """Admin replies to a support session - sends to user directly"""
+    if user["user_type"] != "admin":
+        raise HTTPException(status_code=403, detail="Solo administradores")
+    
+    session = await db.support_sessions.find_one({"session_id": session_id})
+    target_user_id = session["user_id"] if session else session_id.replace("support_", "")
+    
+    msg_doc = {
+        "message_id": generate_id("smsg_"),
+        "session_id": session_id,
+        "user_id": target_user_id,
+        "sender": "admin",
+        "admin_id": user["user_id"],
+        "admin_name": user.get("name", "Soporte"),
+        "message": message,
+        "created_at": datetime.now(timezone.utc),
+    }
+    await db.support_messages.insert_one(msg_doc)
+    
+    # Send via WebSocket to user
+    await manager.send_personal_message({
+        "type": "support_reply",
+        "session_id": session_id,
+        "message": message,
+        "sender_name": user.get("name", "Soporte Molí"),
+    }, target_user_id)
+    
+    return {"status": "sent"}
+
+@app.post("/api/admin/direct-message")
+async def admin_direct_message(
+    target_user_id: str = Query(...),
+    message: str = Query(...),
+    user: dict = Depends(get_current_user)
+):
+    """Admin/dispatch sends direct message to any user (driver or rider)"""
+    if user["user_type"] != "admin":
+        raise HTTPException(status_code=403, detail="Solo administradores")
+    
+    msg_doc = {
+        "message_id": generate_id("dmsg_"),
+        "sender_id": user["user_id"],
+        "sender_name": user.get("name", "Despacho"),
+        "receiver_id": target_user_id,
+        "message": message,
+        "type": "direct",
+        "created_at": datetime.now(timezone.utc),
+    }
+    await db.direct_messages.insert_one(msg_doc)
+    
+    # Send via WebSocket
+    await manager.send_personal_message({
+        "type": "direct_message",
+        "sender_name": user.get("name", "Despacho Molí"),
+        "message": message,
+        "message_id": msg_doc["message_id"],
+    }, target_user_id)
+    
+    return {"status": "sent", "message_id": msg_doc["message_id"]}
+
+@app.put("/api/admin/config/support-hours")
+async def update_support_hours(
+    start_hour: int = Query(...),
+    end_hour: int = Query(...),
+    user: dict = Depends(get_current_user)
+):
+    """Configure support hours (admin only). Set start=0, end=24 for 24/7"""
+    if user["user_type"] != "admin":
+        raise HTTPException(status_code=403, detail="Solo administradores")
+    await db.settings.update_one(
+        {"key": "app_settings"},
+        {"$set": {"support_hours_start": start_hour, "support_hours_end": end_hour}},
+        upsert=True
+    )
+    return {"status": "updated", "hours": f"{start_hour}:00 - {end_hour}:00"}
+
+
 # ======================= BANNER / AD SYSTEM =======================
 
 @app.post("/api/admin/banners")

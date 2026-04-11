@@ -3,6 +3,7 @@ import { View, ActivityIndicator, StyleSheet, Image, Text, Dimensions } from 're
 import { Stack } from 'expo-router';
 import { useAuthStore } from '@/src/stores/authStore';
 import ChatNotificationBanner from '@/src/components/ChatNotificationBanner';
+import SupportBubble from '@/src/components/SupportBubble';
 
 const { width } = Dimensions.get('window');
 
@@ -46,6 +47,7 @@ export default function RootLayout() {
         <Stack.Screen name="(admin)" />
       </Stack>
       <ChatNotificationBanner />
+      <SupportBubble />
     </View>
   );
 }

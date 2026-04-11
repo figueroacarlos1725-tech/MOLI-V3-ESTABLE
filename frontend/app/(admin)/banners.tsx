@@ -12,10 +12,14 @@ import {
   Platform,
   Switch,
   Image,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { apiService } from '@/src/services/api';
+import * as ImagePicker from 'expo-image-picker';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import Constants from 'expo-constants';
 
 interface Banner {
   banner_id: string;
@@ -31,11 +35,11 @@ interface Banner {
 }
 
 const BANNER_TYPES = [
-  { value: 'image_text', label: 'Imagen + Texto', icon: 'image' },
-  { value: 'image_only', label: 'Solo Imagen', icon: 'image-outline' },
-  { value: 'text_only', label: 'Solo Texto', icon: 'text' },
-  { value: 'video_text', label: 'Video + Texto', icon: 'videocam' },
-  { value: 'video_only', label: 'Solo Video', icon: 'videocam-outline' },
+  { value: 'image_text', label: 'Imagen + Texto', icon: 'image' as const },
+  { value: 'image_only', label: 'Solo Imagen', icon: 'image-outline' as const },
+  { value: 'text_only', label: 'Solo Texto', icon: 'text' as const },
+  { value: 'video_text', label: 'Video + Texto', icon: 'videocam' as const },
+  { value: 'video_only', label: 'Solo Video', icon: 'videocam-outline' as const },
 ];
 
 const TARGETS = [
@@ -50,13 +54,14 @@ export default function BannersAdmin() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingBanner, setEditingBanner] = useState<Banner | null>(null);
+  const [msg, setMsg] = useState('');
 
   // Form state
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [bannerType, setBannerType] = useState('image_text');
-  const [imageUrl, setImageUrl] = useState('');
-  const [videoUrl, setVideoUrl] = useState('');
+  const [imageUri, setImageUri] = useState('');
+  const [videoUri, setVideoUri] = useState('');
   const [buttonText, setButtonText] = useState('');
   const [buttonLink, setButtonLink] = useState('');
   const [target, setTarget] = useState('both');
@@ -70,15 +75,17 @@ export default function BannersAdmin() {
     try {
       const res = await apiService.get('/admin/banners');
       setBanners(res.banners || []);
-    } catch (e) { console.error(e); }
+    } catch (e: any) {
+      setMsg('Error cargando banners: ' + (e.message || ''));
+    }
     setLoading(false);
   };
 
   const resetForm = () => {
     setTitle(''); setDescription(''); setBannerType('image_text');
-    setImageUrl(''); setVideoUrl(''); setButtonText('');
+    setImageUri(''); setVideoUri(''); setButtonText('');
     setButtonLink(''); setTarget('both'); setActive(true);
-    setEditingBanner(null);
+    setEditingBanner(null); setMsg('');
   };
 
   const openCreate = () => { resetForm(); setShowForm(true); };
@@ -86,36 +93,72 @@ export default function BannersAdmin() {
   const openEdit = (b: Banner) => {
     setEditingBanner(b);
     setTitle(b.title || ''); setDescription(b.description || '');
-    setBannerType(b.banner_type); setImageUrl(b.image_url || '');
-    setVideoUrl(b.video_url || ''); setButtonText(b.button_text || '');
+    setBannerType(b.banner_type); setImageUri(b.image_url || '');
+    setVideoUri(b.video_url || ''); setButtonText(b.button_text || '');
     setButtonLink(b.button_link || ''); setTarget(b.target);
     setActive(b.active);
     setShowForm(true);
   };
 
+  const pickImage = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      quality: 0.7,
+      base64: true,
+    });
+    if (!result.canceled && result.assets[0]) {
+      const asset = result.assets[0];
+      if (asset.base64) {
+        const ext = asset.uri.split('.').pop() || 'jpg';
+        setImageUri(`data:image/${ext};base64,${asset.base64}`);
+      }
+    }
+  };
+
+  const pickVideo = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['videos'],
+      quality: 0.5,
+      base64: false,
+    });
+    if (!result.canceled && result.assets[0]) {
+      setVideoUri(result.assets[0].uri);
+    }
+  };
+
   const handleSave = async () => {
+    if (saving) return;
     setSaving(true);
+    setMsg('');
     try {
       const params = new URLSearchParams();
       if (title) params.append('title', title);
       if (description) params.append('description', description);
       params.append('banner_type', bannerType);
-      if (imageUrl) params.append('image_url', imageUrl);
-      if (videoUrl) params.append('video_url', videoUrl);
+      if (imageUri) params.append('image_url', imageUri);
+      if (videoUri) params.append('video_url', videoUri);
       if (buttonText) params.append('button_text', buttonText);
       if (buttonLink) params.append('button_link', buttonLink);
       params.append('target', target);
       params.append('active', String(active));
 
+      const url = editingBanner
+        ? `/admin/banners/${editingBanner.banner_id}?${params.toString()}`
+        : `/admin/banners?${params.toString()}`;
+
       if (editingBanner) {
-        await apiService.put(`/admin/banners/${editingBanner.banner_id}?${params.toString()}`);
+        await apiService.put(url);
       } else {
-        await apiService.post(`/admin/banners?${params.toString()}`);
+        await apiService.post(url);
       }
       setShowForm(false);
       resetForm();
       loadBanners();
-    } catch (e) { console.error(e); }
+      setMsg(editingBanner ? 'Banner actualizado' : 'Banner creado');
+    } catch (e: any) {
+      setMsg('Error: ' + (e.message || 'No se pudo guardar'));
+    }
     setSaving(false);
   };
 
@@ -123,86 +166,72 @@ export default function BannersAdmin() {
     try {
       await apiService.delete(`/admin/banners/${bannerId}`);
       loadBanners();
-    } catch (e) { console.error(e); }
+    } catch (e: any) {
+      setMsg('Error eliminando: ' + (e.message || ''));
+    }
   };
 
   const handleToggleActive = async (b: Banner) => {
     try {
       await apiService.put(`/admin/banners/${b.banner_id}?active=${!b.active}`);
       loadBanners();
-    } catch (e) { console.error(e); }
-  };
-
-  const getTypeIcon = (type: string) => {
-    const t = BANNER_TYPES.find(bt => bt.value === type);
-    return t?.icon || 'help-circle';
+    } catch (e) { /* silent */ }
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={st.container}>
       {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={24} color="#1C1C1E" />
+      <View style={st.header}>
+        <TouchableOpacity onPress={() => router.back()} style={st.backBtn}>
+          <Ionicons name="arrow-back" size={22} color="#1C1C1E" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Banners Publicitarios</Text>
-        <TouchableOpacity style={styles.addBtn} onPress={openCreate}>
-          <Ionicons name="add" size={24} color="#fff" />
+        <Text style={st.headerTitle}>Banners Publicitarios</Text>
+        <TouchableOpacity style={st.addBtn} onPress={openCreate}>
+          <Ionicons name="add" size={22} color="#fff" />
         </TouchableOpacity>
       </View>
+
+      {msg ? (
+        <View style={st.msgBar}>
+          <Text style={st.msgText}>{msg}</Text>
+          <TouchableOpacity onPress={() => setMsg('')}><Ionicons name="close" size={16} color="#636366" /></TouchableOpacity>
+        </View>
+      ) : null}
 
       {loading ? (
         <ActivityIndicator size="large" color="#6BBF00" style={{ marginTop: 40 }} />
       ) : (
-        <ScrollView style={styles.list} contentContainerStyle={{ paddingBottom: 40 }}>
+        <ScrollView style={st.list} contentContainerStyle={{ paddingBottom: 40 }}>
           {banners.length === 0 && (
-            <View style={styles.emptyState}>
+            <View style={st.empty}>
               <Ionicons name="megaphone-outline" size={48} color="#C7C7CC" />
-              <Text style={styles.emptyText}>No hay banners creados</Text>
-              <Text style={styles.emptySubtext}>Crea tu primer banner publicitario</Text>
+              <Text style={st.emptyTitle}>Sin banners</Text>
+              <Text style={st.emptySub}>Toca + para crear el primero</Text>
             </View>
           )}
           {banners.map(b => (
-            <View key={b.banner_id} style={[styles.bannerCard, !b.active && styles.bannerInactive]}>
-              <View style={styles.bannerTop}>
-                <View style={styles.bannerTypeTag}>
-                  <Ionicons name={getTypeIcon(b.banner_type) as any} size={14} color="#6BBF00" />
-                  <Text style={styles.bannerTypeText}>{BANNER_TYPES.find(t => t.value === b.banner_type)?.label}</Text>
+            <View key={b.banner_id} style={[st.card, !b.active && { opacity: 0.5 }]}>
+              <View style={st.cardTop}>
+                <View style={st.typeTag}>
+                  <Text style={st.typeTagText}>{BANNER_TYPES.find(t => t.value === b.banner_type)?.label}</Text>
                 </View>
-                <View style={[styles.targetTag, b.target === 'driver' ? { backgroundColor: '#E3F2FD' } : b.target === 'rider' ? { backgroundColor: '#FFF3E0' } : {}]}>
-                  <Text style={styles.targetText}>
-                    {TARGETS.find(t => t.value === b.target)?.label}
-                  </Text>
-                </View>
+                <Text style={st.targetText}>{TARGETS.find(t => t.value === b.target)?.label}</Text>
               </View>
-
-              {b.image_url && (
-                <Image source={{ uri: b.image_url }} style={styles.bannerPreview} resizeMode="cover" />
-              )}
-
-              {b.title && <Text style={styles.bannerTitle}>{b.title}</Text>}
-              {b.description && <Text style={styles.bannerDesc} numberOfLines={2}>{b.description}</Text>}
-              
+              {b.image_url && <Image source={{ uri: b.image_url }} style={st.cardImg} resizeMode="cover" />}
+              {b.title && <Text style={st.cardTitle}>{b.title}</Text>}
+              {b.description && <Text style={st.cardDesc} numberOfLines={2}>{b.description}</Text>}
               {b.button_text && (
-                <View style={styles.btnPreview}>
-                  <Text style={styles.btnPreviewText}>{b.button_text}</Text>
-                </View>
+                <View style={st.ctaPreview}><Text style={st.ctaPreviewText}>{b.button_text}</Text></View>
               )}
-
-              <View style={styles.bannerActions}>
-                <TouchableOpacity onPress={() => handleToggleActive(b)} style={styles.actionBtn}>
-                  <Ionicons name={b.active ? 'eye' : 'eye-off'} size={18} color={b.active ? '#6BBF00' : '#8E8E93'} />
-                  <Text style={[styles.actionText, !b.active && { color: '#8E8E93' }]}>
-                    {b.active ? 'Activo' : 'Inactivo'}
-                  </Text>
+              <View style={st.cardActions}>
+                <TouchableOpacity onPress={() => handleToggleActive(b)} style={st.actBtn}>
+                  <Ionicons name={b.active ? 'eye' : 'eye-off'} size={16} color={b.active ? '#6BBF00' : '#999'} />
                 </TouchableOpacity>
-                <TouchableOpacity onPress={() => openEdit(b)} style={styles.actionBtn}>
-                  <Ionicons name="create" size={18} color="#007AFF" />
-                  <Text style={[styles.actionText, { color: '#007AFF' }]}>Editar</Text>
+                <TouchableOpacity onPress={() => openEdit(b)} style={st.actBtn}>
+                  <Ionicons name="create" size={16} color="#007AFF" />
                 </TouchableOpacity>
-                <TouchableOpacity onPress={() => handleDelete(b.banner_id)} style={styles.actionBtn}>
-                  <Ionicons name="trash" size={18} color="#FF3B30" />
-                  <Text style={[styles.actionText, { color: '#FF3B30' }]}>Eliminar</Text>
+                <TouchableOpacity onPress={() => handleDelete(b.banner_id)} style={st.actBtn}>
+                  <Ionicons name="trash" size={16} color="#FF3B30" />
                 </TouchableOpacity>
               </View>
             </View>
@@ -210,139 +239,186 @@ export default function BannersAdmin() {
         </ScrollView>
       )}
 
-      {/* Create/Edit Form Modal */}
+      {/* Form Modal */}
       <Modal visible={showForm} animationType="slide" onRequestClose={() => setShowForm(false)}>
-        <SafeAreaView style={styles.formContainer}>
-          <View style={styles.formHeader}>
-            <TouchableOpacity onPress={() => setShowForm(false)}>
-              <Ionicons name="close" size={24} color="#1C1C1E" />
-            </TouchableOpacity>
-            <Text style={styles.formTitle}>{editingBanner ? 'Editar Banner' : 'Nuevo Banner'}</Text>
-            <View style={{ width: 24 }} />
-          </View>
-
-          <ScrollView style={styles.form} contentContainerStyle={{ paddingBottom: 40 }}>
-            {/* Banner Type */}
-            <Text style={styles.label}>Tipo de banner</Text>
-            <View style={styles.typeGrid}>
-              {BANNER_TYPES.map(t => (
-                <TouchableOpacity
-                  key={t.value}
-                  style={[styles.typeOption, bannerType === t.value && styles.typeSelected]}
-                  onPress={() => setBannerType(t.value)}
-                >
-                  <Ionicons name={t.icon as any} size={20} color={bannerType === t.value ? '#6BBF00' : '#8E8E93'} />
-                  <Text style={[styles.typeLabel, bannerType === t.value && { color: '#6BBF00' }]}>{t.label}</Text>
-                </TouchableOpacity>
-              ))}
+        <SafeAreaView style={st.formSafe}>
+          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+            <View style={st.formHeader}>
+              <TouchableOpacity onPress={() => setShowForm(false)}>
+                <Ionicons name="close" size={24} color="#1C1C1E" />
+              </TouchableOpacity>
+              <Text style={st.formTitle}>{editingBanner ? 'Editar Banner' : 'Nuevo Banner'}</Text>
+              <TouchableOpacity onPress={handleSave} disabled={saving}>
+                {saving ? <ActivityIndicator size="small" color="#6BBF00" /> : (
+                  <Text style={st.formSaveText}>Guardar</Text>
+                )}
+              </TouchableOpacity>
             </View>
 
-            {/* Target */}
-            <Text style={styles.label}>Audiencia</Text>
-            <View style={styles.targetGrid}>
-              {TARGETS.map(t => (
-                <TouchableOpacity
-                  key={t.value}
-                  style={[styles.targetOption, target === t.value && styles.targetSelected]}
-                  onPress={() => setTarget(t.value)}
-                >
-                  <Text style={[styles.targetOptText, target === t.value && { color: '#fff' }]}>{t.label}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
+            <ScrollView style={st.form} contentContainerStyle={{ paddingBottom: 60 }} keyboardShouldPersistTaps="handled">
+              {/* Type selector */}
+              <Text style={st.label}>Tipo</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }}>
+                {BANNER_TYPES.map(t => (
+                  <TouchableOpacity
+                    key={t.value}
+                    style={[st.chip, bannerType === t.value && st.chipActive]}
+                    onPress={() => setBannerType(t.value)}
+                  >
+                    <Ionicons name={t.icon} size={16} color={bannerType === t.value ? '#fff' : '#636366'} />
+                    <Text style={[st.chipText, bannerType === t.value && st.chipTextActive]}>{t.label}</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
 
-            {/* Title */}
-            {bannerType !== 'image_only' && bannerType !== 'video_only' && (
-              <>
-                <Text style={styles.label}>Título</Text>
-                <TextInput style={styles.input} value={title} onChangeText={setTitle} placeholder="Título del banner" />
-                <Text style={styles.label}>Descripción</Text>
-                <TextInput style={[styles.input, { height: 80 }]} value={description} onChangeText={setDescription} placeholder="Texto descriptivo" multiline />
-              </>
-            )}
+              {/* Target */}
+              <Text style={st.label}>Audiencia</Text>
+              <View style={st.targetRow}>
+                {TARGETS.map(t => (
+                  <TouchableOpacity
+                    key={t.value}
+                    style={[st.targetChip, target === t.value && st.targetChipActive]}
+                    onPress={() => setTarget(t.value)}
+                  >
+                    <Text style={[st.targetChipText, target === t.value && { color: '#fff' }]}>{t.label}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
 
-            {/* Image URL */}
-            {bannerType.includes('image') && (
-              <>
-                <Text style={styles.label}>URL de imagen</Text>
-                <TextInput style={styles.input} value={imageUrl} onChangeText={setImageUrl} placeholder="https://..." autoCapitalize="none" />
-                {imageUrl ? <Image source={{ uri: imageUrl }} style={styles.imagePreview} resizeMode="cover" /> : null}
-              </>
-            )}
-
-            {/* Video URL */}
-            {bannerType.includes('video') && (
-              <>
-                <Text style={styles.label}>URL de video</Text>
-                <TextInput style={styles.input} value={videoUrl} onChangeText={setVideoUrl} placeholder="https://..." autoCapitalize="none" />
-              </>
-            )}
-
-            {/* CTA Button */}
-            <Text style={styles.label}>Botón (opcional)</Text>
-            <TextInput style={styles.input} value={buttonText} onChangeText={setButtonText} placeholder="Texto del botón (ej: Ver más)" />
-            <TextInput style={styles.input} value={buttonLink} onChangeText={setButtonLink} placeholder="URL del botón (https://...)" autoCapitalize="none" />
-
-            {/* Active toggle */}
-            <View style={styles.switchRow}>
-              <Text style={styles.label}>Activo</Text>
-              <Switch value={active} onValueChange={setActive} trackColor={{ false: '#E5E5EA', true: '#6BBF00' }} />
-            </View>
-
-            {/* Save */}
-            <TouchableOpacity style={styles.saveBtn} onPress={handleSave} disabled={saving}>
-              {saving ? <ActivityIndicator color="#fff" /> : (
-                <Text style={styles.saveBtnText}>{editingBanner ? 'Guardar cambios' : 'Crear banner'}</Text>
+              {/* Image upload */}
+              {bannerType.includes('image') && (
+                <View style={st.uploadSection}>
+                  <Text style={st.label}>Imagen</Text>
+                  <TouchableOpacity style={st.uploadBtn} onPress={pickImage}>
+                    {imageUri ? (
+                      <Image source={{ uri: imageUri }} style={st.uploadPreview} resizeMode="cover" />
+                    ) : (
+                      <View style={st.uploadPlaceholder}>
+                        <Ionicons name="cloud-upload" size={32} color="#C7C7CC" />
+                        <Text style={st.uploadText}>Tocar para subir imagen</Text>
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                  {imageUri ? (
+                    <TouchableOpacity onPress={() => setImageUri('')} style={st.removeMedia}>
+                      <Ionicons name="trash-outline" size={16} color="#FF3B30" />
+                      <Text style={{ color: '#FF3B30', fontSize: 13 }}>Quitar imagen</Text>
+                    </TouchableOpacity>
+                  ) : null}
+                </View>
               )}
-            </TouchableOpacity>
-          </ScrollView>
+
+              {/* Video upload */}
+              {bannerType.includes('video') && (
+                <View style={st.uploadSection}>
+                  <Text style={st.label}>Video</Text>
+                  <TouchableOpacity style={st.uploadBtn} onPress={pickVideo}>
+                    {videoUri ? (
+                      <View style={[st.uploadPlaceholder, { backgroundColor: '#1C1C1E' }]}>
+                        <Ionicons name="videocam" size={32} color="#6BBF00" />
+                        <Text style={{ color: '#fff', fontSize: 13, marginTop: 4 }}>Video seleccionado</Text>
+                      </View>
+                    ) : (
+                      <View style={st.uploadPlaceholder}>
+                        <Ionicons name="videocam-outline" size={32} color="#C7C7CC" />
+                        <Text style={st.uploadText}>Tocar para subir video</Text>
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                  {videoUri ? (
+                    <TouchableOpacity onPress={() => setVideoUri('')} style={st.removeMedia}>
+                      <Ionicons name="trash-outline" size={16} color="#FF3B30" />
+                      <Text style={{ color: '#FF3B30', fontSize: 13 }}>Quitar video</Text>
+                    </TouchableOpacity>
+                  ) : null}
+                </View>
+              )}
+
+              {/* Title & Description */}
+              {!bannerType.endsWith('_only') && (
+                <>
+                  <Text style={st.label}>Título</Text>
+                  <TextInput style={st.input} value={title} onChangeText={setTitle} placeholder="Ej: Lubricentro Express" placeholderTextColor="#C7C7CC" />
+                  <Text style={st.label}>Descripción</Text>
+                  <TextInput style={[st.input, { height: 80, textAlignVertical: 'top' }]} value={description} onChangeText={setDescription} placeholder="Texto del anuncio..." placeholderTextColor="#C7C7CC" multiline />
+                </>
+              )}
+
+              {/* CTA Button */}
+              <Text style={st.label}>Botón de acción (opcional)</Text>
+              <TextInput style={st.input} value={buttonText} onChangeText={setButtonText} placeholder="Texto (ej: Ver ofertas)" placeholderTextColor="#C7C7CC" />
+              <TextInput style={st.input} value={buttonLink} onChangeText={setButtonLink} placeholder="Link (https://...)" placeholderTextColor="#C7C7CC" autoCapitalize="none" />
+
+              {/* Active */}
+              <View style={st.switchRow}>
+                <Text style={st.label}>Activo</Text>
+                <Switch value={active} onValueChange={setActive} trackColor={{ false: '#E5E5EA', true: '#6BBF00' }} />
+              </View>
+            </ScrollView>
+
+            {/* Bottom save button (always visible) */}
+            <View style={st.bottomBar}>
+              <TouchableOpacity style={st.bottomSaveBtn} onPress={handleSave} disabled={saving}>
+                {saving ? <ActivityIndicator color="#fff" /> : (
+                  <Text style={st.bottomSaveText}>{editingBanner ? 'Guardar cambios' : 'Crear banner'}</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </KeyboardAvoidingView>
         </SafeAreaView>
       </Modal>
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
+const st = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F2F2F7' },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 16, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#E5E5EA' },
-  headerTitle: { fontSize: 18, fontWeight: '700', color: '#1C1C1E' },
-  addBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#6BBF00', justifyContent: 'center', alignItems: 'center' },
-  list: { flex: 1, paddingHorizontal: 16, paddingTop: 16 },
-  emptyState: { alignItems: 'center', paddingTop: 60 },
-  emptyText: { fontSize: 18, fontWeight: '700', color: '#1C1C1E', marginTop: 12 },
-  emptySubtext: { fontSize: 14, color: '#8E8E93', marginTop: 4 },
-  bannerCard: { backgroundColor: '#fff', borderRadius: 16, marginBottom: 16, overflow: 'hidden' },
-  bannerInactive: { opacity: 0.6 },
-  bannerTop: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 14, paddingTop: 14, paddingBottom: 8 },
-  bannerTypeTag: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#F0FFF0', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
-  bannerTypeText: { fontSize: 11, fontWeight: '600', color: '#6BBF00' },
-  targetTag: { backgroundColor: '#F2F2F7', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
-  targetText: { fontSize: 11, fontWeight: '600', color: '#636366' },
-  bannerPreview: { width: '100%', height: 120 },
-  bannerTitle: { fontSize: 16, fontWeight: '700', color: '#1C1C1E', paddingHorizontal: 14, paddingTop: 10 },
-  bannerDesc: { fontSize: 13, color: '#636366', paddingHorizontal: 14, paddingTop: 4 },
-  btnPreview: { marginHorizontal: 14, marginTop: 10, backgroundColor: '#6BBF00', borderRadius: 8, paddingVertical: 8, alignItems: 'center' },
-  btnPreviewText: { color: '#fff', fontSize: 13, fontWeight: '600' },
-  bannerActions: { flexDirection: 'row', justifyContent: 'space-around', paddingVertical: 12, borderTopWidth: 1, borderTopColor: '#F2F2F7', marginTop: 10 },
-  actionBtn: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  actionText: { fontSize: 13, fontWeight: '600', color: '#6BBF00' },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#E5E5EA' },
+  backBtn: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center' },
+  headerTitle: { fontSize: 17, fontWeight: '700', color: '#1C1C1E' },
+  addBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#6BBF00', justifyContent: 'center', alignItems: 'center' },
+  msgBar: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#E3F2FD', paddingHorizontal: 16, paddingVertical: 10, gap: 8 },
+  msgText: { flex: 1, fontSize: 13, color: '#1C1C1E' },
+  list: { flex: 1, paddingHorizontal: 16, paddingTop: 12 },
+  empty: { alignItems: 'center', paddingTop: 60 },
+  emptyTitle: { fontSize: 18, fontWeight: '700', color: '#1C1C1E', marginTop: 12 },
+  emptySub: { fontSize: 14, color: '#8E8E93', marginTop: 4 },
+  card: { backgroundColor: '#fff', borderRadius: 14, marginBottom: 12, overflow: 'hidden' },
+  cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 12, paddingTop: 12, paddingBottom: 6 },
+  typeTag: { backgroundColor: '#F0FFF0', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
+  typeTagText: { fontSize: 11, fontWeight: '600', color: '#6BBF00' },
+  targetText: { fontSize: 11, fontWeight: '600', color: '#8E8E93' },
+  cardImg: { width: '100%', height: 120 },
+  cardTitle: { fontSize: 15, fontWeight: '700', color: '#1C1C1E', paddingHorizontal: 12, paddingTop: 8 },
+  cardDesc: { fontSize: 13, color: '#636366', paddingHorizontal: 12, paddingTop: 2 },
+  ctaPreview: { marginHorizontal: 12, marginTop: 8, backgroundColor: '#6BBF00', borderRadius: 8, paddingVertical: 6, alignItems: 'center' },
+  ctaPreviewText: { color: '#fff', fontSize: 12, fontWeight: '600' },
+  cardActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 4, padding: 10 },
+  actBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#F2F2F7', justifyContent: 'center', alignItems: 'center' },
   // Form
-  formContainer: { flex: 1, backgroundColor: '#fff' },
-  formHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#E5E5EA' },
-  formTitle: { fontSize: 18, fontWeight: '700', color: '#1C1C1E' },
-  form: { flex: 1, paddingHorizontal: 20, paddingTop: 20 },
-  label: { fontSize: 14, fontWeight: '600', color: '#1C1C1E', marginBottom: 8, marginTop: 16 },
-  input: { backgroundColor: '#F2F2F7', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, fontSize: 15, color: '#1C1C1E', marginBottom: 4 },
-  typeGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  typeOption: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 10, backgroundColor: '#F2F2F7', borderWidth: 2, borderColor: 'transparent' },
-  typeSelected: { borderColor: '#6BBF00', backgroundColor: '#F0FFF0' },
-  typeLabel: { fontSize: 12, fontWeight: '600', color: '#8E8E93' },
-  targetGrid: { flexDirection: 'row', gap: 8 },
-  targetOption: { flex: 1, paddingVertical: 10, borderRadius: 10, backgroundColor: '#F2F2F7', alignItems: 'center', borderWidth: 2, borderColor: 'transparent' },
-  targetSelected: { backgroundColor: '#6BBF00', borderColor: '#6BBF00' },
-  targetOptText: { fontSize: 14, fontWeight: '600', color: '#636366' },
-  imagePreview: { width: '100%', height: 150, borderRadius: 12, marginTop: 8 },
-  switchRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 16 },
-  saveBtn: { backgroundColor: '#6BBF00', borderRadius: 14, paddingVertical: 16, alignItems: 'center', marginTop: 24 },
-  saveBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  formSafe: { flex: 1, backgroundColor: '#fff' },
+  formHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#E5E5EA' },
+  formTitle: { fontSize: 17, fontWeight: '700', color: '#1C1C1E' },
+  formSaveText: { fontSize: 16, fontWeight: '700', color: '#6BBF00' },
+  form: { flex: 1, paddingHorizontal: 20 },
+  label: { fontSize: 13, fontWeight: '600', color: '#636366', marginTop: 16, marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 },
+  input: { backgroundColor: '#F2F2F7', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 12, fontSize: 15, color: '#1C1C1E', marginBottom: 4 },
+  chip: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20, backgroundColor: '#F2F2F7', marginRight: 8 },
+  chipActive: { backgroundColor: '#6BBF00' },
+  chipText: { fontSize: 12, fontWeight: '600', color: '#636366' },
+  chipTextActive: { color: '#fff' },
+  targetRow: { flexDirection: 'row', gap: 8 },
+  targetChip: { flex: 1, paddingVertical: 10, borderRadius: 10, backgroundColor: '#F2F2F7', alignItems: 'center' },
+  targetChipActive: { backgroundColor: '#6BBF00' },
+  targetChipText: { fontSize: 14, fontWeight: '600', color: '#636366' },
+  uploadSection: { marginTop: 4 },
+  uploadBtn: { borderRadius: 12, overflow: 'hidden', borderWidth: 2, borderColor: '#E5E5EA', borderStyle: 'dashed' },
+  uploadPlaceholder: { height: 140, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F8F8FA' },
+  uploadText: { fontSize: 14, color: '#8E8E93', marginTop: 8 },
+  uploadPreview: { width: '100%', height: 180 },
+  removeMedia: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 8 },
+  switchRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 12 },
+  bottomBar: { paddingHorizontal: 20, paddingVertical: 12, borderTopWidth: 1, borderTopColor: '#E5E5EA', backgroundColor: '#fff' },
+  bottomSaveBtn: { backgroundColor: '#6BBF00', borderRadius: 14, paddingVertical: 16, alignItems: 'center' },
+  bottomSaveText: { color: '#fff', fontSize: 16, fontWeight: '700' },
 });
