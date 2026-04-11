@@ -37,10 +37,12 @@ export default function RootLayout() {
     <View style={{ flex: 1 }}>
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="index" />
+        <Stack.Screen name="modules" />
         <Stack.Screen name="(auth)" />
         <Stack.Screen name="(rider)" />
         <Stack.Screen name="(driver)" />
         <Stack.Screen name="(admin)" />
+        <Stack.Screen name="(jobs)" />
       </Stack>
       <ChatNotificationBanner />
       <SupportBubble />

@@ -19,17 +19,13 @@ export default function Index() {
     return <Redirect href="/(auth)/welcome" />;
   }
 
-  // Redirect based on user type
-  switch (user?.user_type) {
-    case 'driver':
-      return <Redirect href="/(driver)/home" />;
-    case 'admin':
-    case 'dispatcher':
-      return <Redirect href="/(admin)/dashboard" />;
-    case 'rider':
-    default:
-      return <Redirect href="/(rider)/home" />;
+  // Admin/dispatcher go directly to dashboard
+  if (user?.user_type === 'admin' || user?.user_type === 'dispatcher') {
+    return <Redirect href="/(admin)/dashboard" />;
   }
+
+  // Everyone else goes to module selection
+  return <Redirect href="/modules" />;
 }
 
 const styles = StyleSheet.create({
