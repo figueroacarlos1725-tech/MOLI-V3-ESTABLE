@@ -163,7 +163,7 @@ export default function AnimatedSplash({ onFinish }: AnimatedSplashProps) {
 const st = StyleSheet.create({
   container: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: '#0F0B15',
+    backgroundColor: '#7B2D8E',
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 9999,
@@ -173,20 +173,20 @@ const st = StyleSheet.create({
     width: 200,
     height: 200,
     borderRadius: 100,
-    backgroundColor: '#7B2D8E',
+    backgroundColor: 'rgba(255,255,255,0.15)',
   },
   particle: {
     position: 'absolute',
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#A855F7',
+    backgroundColor: 'rgba(255,255,255,0.7)',
   },
   particleSm: {
     width: 5,
     height: 5,
     borderRadius: 2.5,
-    backgroundColor: '#C084FC',
+    backgroundColor: 'rgba(255,255,255,0.5)',
   },
   logoContainer: {
     alignItems: 'center',
@@ -204,13 +204,13 @@ const st = StyleSheet.create({
     width: 16,
     height: 16,
     borderRadius: 8,
-    backgroundColor: '#A855F7',
+    backgroundColor: '#FFFFFF',
     marginBottom: 16,
     marginLeft: 2,
   },
   line: {
     height: 2,
-    backgroundColor: '#7B2D8E',
+    backgroundColor: 'rgba(255,255,255,0.4)',
     marginTop: 20,
     borderRadius: 1,
   },
@@ -220,7 +220,7 @@ const st = StyleSheet.create({
   sloganText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#A855F7',
+    color: '#FFFFFF',
     letterSpacing: 6,
     textAlign: 'center',
   },

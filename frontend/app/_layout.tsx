@@ -55,6 +55,6 @@ export default function RootLayout() {
 const styles = StyleSheet.create({
   splashContainer: {
     flex: 1,
-    backgroundColor: '#0F0B15',
+    backgroundColor: '#7B2D8E',
   },
 });

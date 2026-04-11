@@ -108,8 +108,8 @@ export default function ModuleSelectionScreen() {
               activeOpacity={0.85}
             >
               <View style={s.cardIconContainer}>
-                <View style={[s.cardIconBg, { backgroundColor: 'rgba(168,85,247,0.15)' }]}>
-                  <Ionicons name="car-sport" size={40} color="#A855F7" />
+                <View style={[s.cardIconBg, { backgroundColor: 'rgba(123,45,142,0.3)' }]}>
+                  <Ionicons name="car-sport" size={40} color="#D8A8E8" />
                 </View>
               </View>
               <View style={s.cardContent}>
@@ -118,8 +118,8 @@ export default function ModuleSelectionScreen() {
                   Pedí un viaje o conducí{'\n'}y generá ingresos
                 </Text>
               </View>
-              <View style={[s.cardArrow, { backgroundColor: 'rgba(168,85,247,0.1)' }]}>
-                <Ionicons name="arrow-forward" size={22} color="#A855F7" />
+              <View style={[s.cardArrow, { backgroundColor: 'rgba(123,45,142,0.3)' }]}>
+                <Ionicons name="arrow-forward" size={22} color="#D8A8E8" />
               </View>
               <View style={[s.cardAccent, { backgroundColor: '#A855F7' }]} />
             </TouchableOpacity>
@@ -133,8 +133,8 @@ export default function ModuleSelectionScreen() {
               activeOpacity={0.85}
             >
               <View style={s.cardIconContainer}>
-                <View style={[s.cardIconBg, { backgroundColor: 'rgba(0,122,255,0.12)' }]}>
-                  <Ionicons name="construct" size={40} color="#007AFF" />
+                <View style={[s.cardIconBg, { backgroundColor: 'rgba(0,122,255,0.2)' }]}>
+                  <Ionicons name="construct" size={40} color="#66B2FF" />
                 </View>
               </View>
               <View style={s.cardContent}>
@@ -143,8 +143,8 @@ export default function ModuleSelectionScreen() {
                   Contratá profesionales o{'\n'}ofrecé tus servicios
                 </Text>
               </View>
-              <View style={[s.cardArrow, { backgroundColor: 'rgba(0,122,255,0.08)' }]}>
-                <Ionicons name="arrow-forward" size={22} color="#007AFF" />
+              <View style={[s.cardArrow, { backgroundColor: 'rgba(0,122,255,0.15)' }]}>
+                <Ionicons name="arrow-forward" size={22} color="#66B2FF" />
               </View>
               <View style={[s.cardAccent, { backgroundColor: '#007AFF' }]} />
             </TouchableOpacity>
@@ -166,7 +166,7 @@ export default function ModuleSelectionScreen() {
 const s = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0F0B15',
+    backgroundColor: '#7B2D8E',
   },
   content: {
     flex: 1,
@@ -192,7 +192,7 @@ const s = StyleSheet.create({
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: '#A855F7',
+    backgroundColor: '#fff',
     marginLeft: 4,
     marginTop: -16,
   },
@@ -204,7 +204,7 @@ const s = StyleSheet.create({
   },
   subtitle: {
     fontSize: 16,
-    color: 'rgba(255,255,255,0.5)',
+    color: 'rgba(255,255,255,0.7)',
     fontWeight: '500',
   },
   cardsContainer: {
@@ -214,12 +214,11 @@ const s = StyleSheet.create({
   card: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#1A1A1A',
+    backgroundColor: '#111111',
     borderRadius: 20,
     padding: 20,
     overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
+    borderWidth: 0,
   },
   cardViajes: {},
   cardTrabajos: {},
@@ -244,7 +243,7 @@ const s = StyleSheet.create({
   },
   cardDescription: {
     fontSize: 13,
-    color: 'rgba(255,255,255,0.45)',
+    color: 'rgba(255,255,255,0.55)',
     lineHeight: 18,
     fontWeight: '500',
   },
@@ -272,13 +271,13 @@ const s = StyleSheet.create({
   footerDivider: {
     width: 40,
     height: 3,
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: 'rgba(255,255,255,0.25)',
     borderRadius: 2,
     marginBottom: 16,
   },
   footerText: {
     fontSize: 13,
-    color: 'rgba(255,255,255,0.25)',
+    color: 'rgba(255,255,255,0.5)',
     fontWeight: '600',
     letterSpacing: 1,
   },
