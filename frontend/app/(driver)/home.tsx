@@ -13,6 +13,7 @@ import {
   Vibration,
   Animated,
   Dimensions,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -47,6 +48,7 @@ export default function DriverHomeScreen() {
   const { currentRide, fetchActiveRide, updateRideStatus } = useRideStore();
   
   const [isOnline, setIsOnline] = useState(false);
+  const [isLoadingRide, setIsLoadingRide] = useState(true);
   const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   const [statusMessage, setStatusMessage] = useState('');
   const locationInterval = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -66,7 +68,24 @@ export default function DriverHomeScreen() {
 
   useEffect(() => {
     initializeLocation();
-    fetchActiveRide();
+    
+    // Restore active ride on mount
+    const restoreRide = async () => {
+      setIsLoadingRide(true);
+      try {
+        const ride = await fetchActiveRide();
+        if (ride && ['accepted', 'arrived', 'started'].includes(ride.status)) {
+          // Auto-restore online state when there's an active ride
+          setIsOnline(true);
+          setStatusMessage('Viaje activo restaurado');
+        }
+      } catch (e) {
+        // ignore
+      } finally {
+        setIsLoadingRide(false);
+      }
+    };
+    restoreRide();
     
     return () => {
       if (locationInterval.current) clearInterval(locationInterval.current);
@@ -349,6 +368,18 @@ export default function DriverHomeScreen() {
 
   const emojiMap: Record<string, string> = { economy: '🚗', comfort: '🚙', premium: '🏎️', xl: '🚌' };
   const nameMap: Record<string, string> = { economy: 'Económico', comfort: 'Confort', premium: 'Premium', xl: 'XL' };
+
+  // ==================== LOADING STATE ====================
+  if (isLoadingRide) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <ActivityIndicator size="large" color="#6BBF00" />
+          <Text style={{ marginTop: 16, fontSize: 16, color: '#8E8E93' }}>Cargando viaje...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   // ==================== ACTIVE RIDE VIEW ====================
   if (currentRide && ['accepted', 'arrived', 'started'].includes(currentRide.status)) {

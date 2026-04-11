@@ -72,8 +72,11 @@ export default function RiderHomeScreen() {
   // ─── Init ─────────────────────────────────
   useEffect(() => {
     initLocation();
-    fetchActiveRide().then(() => {
-      // Check if there's an active ride
+    // Restore active ride on mount (important for app reopen)
+    fetchActiveRide().then((ride) => {
+      if (ride && ['accepted', 'arrived', 'started'].includes(ride.status)) {
+        setPhase('active');
+      }
     });
     fetchBanners();
   }, []);
