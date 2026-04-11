@@ -1,15 +1,15 @@
 import React, { useEffect, useState } from 'react';
-import { View, ActivityIndicator, StyleSheet, Image, Text, Dimensions } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { Stack } from 'expo-router';
 import { useAuthStore } from '@/src/stores/authStore';
 import ChatNotificationBanner from '@/src/components/ChatNotificationBanner';
 import SupportBubble from '@/src/components/SupportBubble';
-
-const { width } = Dimensions.get('window');
+import AnimatedSplash from '@/src/components/AnimatedSplash';
 
 export default function RootLayout() {
   const { isLoading, loadStoredAuth } = useAuthStore();
   const [appReady, setAppReady] = useState(false);
+  const [splashDone, setSplashDone] = useState(false);
 
   useEffect(() => {
     const init = async () => {
@@ -24,15 +24,11 @@ export default function RootLayout() {
     init();
   }, []);
 
-  if (!appReady || isLoading) {
+  // Show animated splash until both app is ready AND splash animation is done
+  if (!appReady || isLoading || !splashDone) {
     return (
       <View style={styles.splashContainer}>
-        <Image
-          source={require('../assets/images/moli-splash.png')}
-          style={styles.splashImage}
-          resizeMode="contain"
-        />
-        <ActivityIndicator size="large" color="#6BBF00" style={styles.loader} />
+        <AnimatedSplash onFinish={() => setSplashDone(true)} />
       </View>
     );
   }
@@ -55,15 +51,6 @@ export default function RootLayout() {
 const styles = StyleSheet.create({
   splashContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#0D0D0D',
-  },
-  splashImage: {
-    width: width * 0.55,
-    height: width * 0.45,
-  },
-  loader: {
-    marginTop: 32,
+    backgroundColor: '#0A0A0A',
   },
 });

@@ -5,51 +5,25 @@ import {
   StyleSheet,
   TouchableOpacity,
   SafeAreaView,
-  Image,
   Dimensions,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Button } from '@/src/components/Button';
-import * as WebBrowser from 'expo-web-browser';
-import { useAuthStore } from '@/src/stores/authStore';
 
 const { width } = Dimensions.get('window');
 
 export default function WelcomeScreen() {
   const router = useRouter();
-  const { socialLogin } = useAuthStore();
-
-  const handleGoogleLogin = async () => {
-    try {
-      const redirectUrl = 'https://taxify-clone.preview.emergentagent.com/(auth)/callback';
-      const authUrl = `https://auth.emergentagent.com/?redirect=${encodeURIComponent(redirectUrl)}`;
-      
-      const result = await WebBrowser.openAuthSessionAsync(authUrl, redirectUrl);
-      
-      if (result.type === 'success' && result.url) {
-        const url = result.url;
-        const sessionIdMatch = url.match(/session_id=([^&]+)/);
-        if (sessionIdMatch) {
-          await socialLogin(sessionIdMatch[1]);
-          router.replace('/');
-        }
-      }
-    } catch (error) {
-      console.error('Error de login con Google:', error);
-    }
-  };
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
         <View style={styles.heroSection}>
-          <View style={styles.logoImageContainer}>
-            <Image
-              source={require('../../assets/images/moli-splash.png')}
-              style={styles.logoImage}
-              resizeMode="contain"
-            />
+          {/* Logo text styled */}
+          <View style={styles.logoContainer}>
+            <Text style={styles.logoText}>MOLI</Text>
+            <View style={styles.logoDot} />
           </View>
           <Text style={styles.subtitle}>
             Tu viaje confiable, en cualquier momento y lugar
@@ -58,30 +32,28 @@ export default function WelcomeScreen() {
 
         <View style={styles.featuresSection}>
           <View style={styles.featureItem}>
-            <Ionicons name="location" size={24} color="#6BBF00" />
+            <View style={styles.featureIcon}>
+              <Ionicons name="location" size={22} color="#6BBF00" />
+            </View>
             <Text style={styles.featureText}>Seguimiento en tiempo real</Text>
           </View>
           <View style={styles.featureItem}>
-            <Ionicons name="shield-checkmark" size={24} color="#6BBF00" />
+            <View style={styles.featureIcon}>
+              <Ionicons name="shield-checkmark" size={22} color="#6BBF00" />
+            </View>
             <Text style={styles.featureText}>Viajes seguros y protegidos</Text>
           </View>
           <View style={styles.featureItem}>
-            <Ionicons name="wallet" size={24} color="#6BBF00" />
+            <View style={styles.featureIcon}>
+              <Ionicons name="wallet" size={22} color="#6BBF00" />
+            </View>
             <Text style={styles.featureText}>Multiples opciones de pago</Text>
           </View>
         </View>
 
         <View style={styles.buttonsSection}>
           <Button
-            title="Continuar con Google"
-            onPress={handleGoogleLogin}
-            variant="outline"
-            icon={<Ionicons name="logo-google" size={20} color="#6BBF00" />}
-            style={styles.googleButton}
-          />
-
-          <Button
-            title="Iniciar sesion con Email"
+            title="Iniciar sesion"
             onPress={() => router.push('/(auth)/login')}
             variant="primary"
             style={styles.button}
@@ -116,20 +88,26 @@ const styles = StyleSheet.create({
   },
   heroSection: {
     alignItems: 'center',
-    marginTop: 20,
+    marginTop: 40,
   },
-  logoImageContainer: {
-    width: 250,
-    height: 200,
-    marginBottom: 16,
-    overflow: 'hidden',
+  logoContainer: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 16,
+    marginBottom: 16,
   },
-  logoImage: {
-    width: 250,
-    height: 200,
+  logoText: {
+    fontSize: 64,
+    fontWeight: '900',
+    color: '#FFFFFF',
+    letterSpacing: 8,
+  },
+  logoDot: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: '#6BBF00',
+    marginLeft: 4,
+    marginTop: 20,
   },
   subtitle: {
     fontSize: 16,
@@ -142,20 +120,25 @@ const styles = StyleSheet.create({
   featureItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 18,
     paddingHorizontal: 20,
+  },
+  featureIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(107,191,0,0.12)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   featureText: {
     fontSize: 16,
     color: '#FFFFFF',
     marginLeft: 16,
+    fontWeight: '500',
   },
   buttonsSection: {
     gap: 12,
-  },
-  googleButton: {
-    marginBottom: 8,
-    borderColor: '#6BBF00',
   },
   button: {
     width: '100%',
