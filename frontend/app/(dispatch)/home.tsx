@@ -10,6 +10,10 @@ import {
   Platform,
   Dimensions,
   RefreshControl,
+  Modal,
+  TextInput,
+  Alert,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -54,6 +58,50 @@ export default function DispatchHome() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [counts, setCounts] = useState({ new: 0, active: 0, completed: 0, cancelled: 0 });
+  const [showNewOrder, setShowNewOrder] = useState(false);
+  const [newOrder, setNewOrder] = useState({
+    rider_name: '', rider_phone: '', pickup_address: '', dropoff_address: '',
+    vehicle_type: 'economy', notes: '',
+    pickup_latitude: -28.4696, pickup_longitude: -65.7852,
+    dropoff_latitude: -28.4750, dropoff_longitude: -65.7900,
+  });
+  const [creating, setCreating] = useState(false);
+
+  const handleCreateOrder = async () => {
+    if (!newOrder.rider_name && !newOrder.rider_phone) {
+      Alert.alert('Error', 'Ingresá nombre o teléfono del pasajero');
+      return;
+    }
+    setCreating(true);
+    try {
+      const data = await apiService.post('/admin/trips/manual', {
+        trip_type: 'full',
+        rider_name: newOrder.rider_name || 'Cliente telefónico',
+        rider_phone: newOrder.rider_phone,
+        pickup_address: newOrder.pickup_address || 'Dirección de recogida',
+        dropoff_address: newOrder.dropoff_address || 'Destino',
+        pickup_latitude: newOrder.pickup_latitude,
+        pickup_longitude: newOrder.pickup_longitude,
+        dropoff_latitude: newOrder.dropoff_latitude,
+        dropoff_longitude: newOrder.dropoff_longitude,
+        vehicle_type: newOrder.vehicle_type,
+        notes: newOrder.notes,
+      });
+      Alert.alert('Pedido creado', data?.message || 'Buscando conductor...');
+      setShowNewOrder(false);
+      setNewOrder({
+        rider_name: '', rider_phone: '', pickup_address: '', dropoff_address: '',
+        vehicle_type: 'economy', notes: '',
+        pickup_latitude: -28.4696, pickup_longitude: -65.7852,
+        dropoff_latitude: -28.4750, dropoff_longitude: -65.7900,
+      });
+      fetchRides('new');
+    } catch (e: any) {
+      Alert.alert('Error', e.message || 'No se pudo crear el pedido');
+    } finally {
+      setCreating(false);
+    }
+  };
 
   const fetchRides = useCallback(async (tab?: TabKey) => {
     try {
@@ -188,7 +236,7 @@ export default function DispatchHome() {
         <View style={s.headerActions}>
           <TouchableOpacity
             style={s.newOrderBtn}
-            onPress={() => router.push('/(admin)/trips' as any)}
+            onPress={() => setShowNewOrder(true)}
           >
             <Ionicons name="add-circle" size={18} color="#fff" />
             <Text style={s.newOrderBtnText}>Nuevo pedido</Text>
@@ -274,6 +322,101 @@ export default function DispatchHome() {
           <Text style={[s.bottomBarBtnText, { color: '#FF3B30' }]}>Salir</Text>
         </TouchableOpacity>
       </View>
+      {/* New Order Modal */}
+      <Modal visible={showNewOrder} animationType="slide" transparent>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+          <View style={s.modalOverlay}>
+            <View style={s.modalContent}>
+              <View style={s.modalHeader}>
+                <Text style={s.modalTitle}>Nuevo Pedido</Text>
+                <TouchableOpacity onPress={() => setShowNewOrder(false)}>
+                  <Ionicons name="close-circle" size={28} color="#8E8E93" />
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView style={s.modalBody} showsVerticalScrollIndicator={false}>
+                <Text style={s.inputLabel}>Nombre del pasajero</Text>
+                <TextInput
+                  style={s.input}
+                  value={newOrder.rider_name}
+                  onChangeText={(t) => setNewOrder({ ...newOrder, rider_name: t })}
+                  placeholder="Juan Pérez"
+                  placeholderTextColor="#C7C7CC"
+                />
+
+                <Text style={s.inputLabel}>Teléfono</Text>
+                <TextInput
+                  style={s.input}
+                  value={newOrder.rider_phone}
+                  onChangeText={(t) => setNewOrder({ ...newOrder, rider_phone: t })}
+                  placeholder="3834123456"
+                  placeholderTextColor="#C7C7CC"
+                  keyboardType="phone-pad"
+                />
+
+                <Text style={s.inputLabel}>Dirección de recogida</Text>
+                <TextInput
+                  style={s.input}
+                  value={newOrder.pickup_address}
+                  onChangeText={(t) => setNewOrder({ ...newOrder, pickup_address: t })}
+                  placeholder="Av. Güemes 450, Catamarca"
+                  placeholderTextColor="#C7C7CC"
+                />
+
+                <Text style={s.inputLabel}>Dirección de destino</Text>
+                <TextInput
+                  style={s.input}
+                  value={newOrder.dropoff_address}
+                  onChangeText={(t) => setNewOrder({ ...newOrder, dropoff_address: t })}
+                  placeholder="Terminal de Ómnibus"
+                  placeholderTextColor="#C7C7CC"
+                />
+
+                <Text style={s.inputLabel}>Tipo de vehículo</Text>
+                <View style={s.vehicleRow}>
+                  {['economy', 'comfort', 'premium', 'xl'].map((vt) => (
+                    <TouchableOpacity
+                      key={vt}
+                      style={[s.vehicleChip, newOrder.vehicle_type === vt && s.vehicleChipActive]}
+                      onPress={() => setNewOrder({ ...newOrder, vehicle_type: vt })}
+                    >
+                      <Text style={[s.vehicleChipText, newOrder.vehicle_type === vt && s.vehicleChipTextActive]}>
+                        {vt === 'economy' ? 'Eco' : vt === 'comfort' ? 'Confort' : vt === 'premium' ? 'Premium' : 'XL'}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                <Text style={s.inputLabel}>Notas (opcional)</Text>
+                <TextInput
+                  style={[s.input, { height: 60, textAlignVertical: 'top' }]}
+                  value={newOrder.notes}
+                  onChangeText={(t) => setNewOrder({ ...newOrder, notes: t })}
+                  placeholder="Notas para el conductor..."
+                  placeholderTextColor="#C7C7CC"
+                  multiline
+                />
+              </ScrollView>
+
+              <TouchableOpacity
+                style={[s.createBtn, creating && { opacity: 0.6 }]}
+                onPress={handleCreateOrder}
+                disabled={creating}
+              >
+                {creating ? (
+                  <ActivityIndicator color="#fff" size="small" />
+                ) : (
+                  <>
+                    <Ionicons name="send" size={18} color="#fff" />
+                    <Text style={s.createBtnText}>Crear y buscar conductor</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
     </SafeAreaView>
   );
 }
@@ -348,4 +491,38 @@ const s = StyleSheet.create({
   },
   bottomBarBtn: { alignItems: 'center', gap: 2, paddingVertical: 4, paddingHorizontal: 12 },
   bottomBarBtnText: { fontSize: 11, color: '#636366', fontWeight: '600' },
+  // Modal styles
+  modalOverlay: {
+    flex: 1, backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center', alignItems: 'center', padding: 20,
+  },
+  modalContent: {
+    backgroundColor: '#fff', borderRadius: 20, width: '100%', maxWidth: 420,
+    maxHeight: '90%', overflow: 'hidden',
+  },
+  modalHeader: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#E5E5EA',
+  },
+  modalTitle: { fontSize: 20, fontWeight: '800', color: '#1C1C1E' },
+  modalBody: { paddingHorizontal: 20, paddingVertical: 16 },
+  inputLabel: { fontSize: 13, fontWeight: '700', color: '#636366', marginBottom: 6, marginTop: 12 },
+  input: {
+    backgroundColor: '#F2F2F7', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12,
+    fontSize: 15, color: '#1C1C1E', borderWidth: 1, borderColor: '#E5E5EA',
+  },
+  vehicleRow: { flexDirection: 'row', gap: 8, marginTop: 4 },
+  vehicleChip: {
+    paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20,
+    backgroundColor: '#F2F2F7', borderWidth: 1, borderColor: '#E5E5EA',
+  },
+  vehicleChipActive: { backgroundColor: '#7B2D8E', borderColor: '#7B2D8E' },
+  vehicleChipText: { fontSize: 13, fontWeight: '600', color: '#636366' },
+  vehicleChipTextActive: { color: '#fff' },
+  createBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    backgroundColor: '#7B2D8E', marginHorizontal: 20, marginVertical: 16,
+    paddingVertical: 14, borderRadius: 14,
+  },
+  createBtnText: { color: '#fff', fontSize: 15, fontWeight: '800' },
 });

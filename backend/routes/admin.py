@@ -1183,8 +1183,8 @@ async def admin_create_manual_trip(
     data: ManualTripCreate,
     user: dict = Depends(get_current_user)
 ):
-    if user["user_type"] != "admin":
-        raise HTTPException(status_code=403, detail="Admin access required")
+    if user["user_type"] not in ("admin", "dispatcher"):
+        raise HTTPException(status_code=403, detail="Dispatch access required")
     
     ride_id = f"ride_{uuid.uuid4().hex[:12]}"
     
@@ -1240,6 +1240,57 @@ async def admin_create_manual_trip(
     
     await db.rides.insert_one(ride)
     del ride["_id"]
+    
+    # If no driver assigned, create a ride_request and trigger dispatch
+    if not data.assigned_driver_id:
+        import asyncio
+        from dispatch import assign_ride_to_drivers, assignment_tasks
+        
+        request_id = f"req_{uuid.uuid4().hex[:12]}"
+        ride_request = {
+            "request_id": request_id,
+            "rider_id": ride["rider_id"],
+            "rider_name": data.rider_name,
+            "rider_phone": data.rider_phone,
+            "pickup_location": ride["pickup_location"],
+            "dropoff_location": ride["dropoff_location"],
+            "vehicle_type": data.vehicle_type,
+            "estimated_fare": ride.get("fare", 0),
+            "status": "searching",
+            "is_manual": True,
+            "source": "dispatch",
+            "created_at": datetime.now(timezone.utc),
+            "expires_at": datetime.now(timezone.utc) + timedelta(minutes=10),
+        }
+        await db.ride_requests.insert_one(ride_request)
+        
+        # Update ride with request_id
+        await db.rides.update_one(
+            {"ride_id": ride_id},
+            {"$set": {"request_id": request_id, "status": "searching"}}
+        )
+        ride["request_id"] = request_id
+        ride["status"] = "searching"
+        
+        # Get nearby drivers and trigger dispatch
+        from utils import get_nearby_drivers
+        pickup_lat = data.pickup_latitude or -28.4696
+        pickup_lng = data.pickup_longitude or -65.7852
+        
+        result = await get_nearby_drivers(pickup_lat, pickup_lng, radius_km=50, vehicle_type=data.vehicle_type)
+        sorted_drivers = result.get("drivers", [])
+        
+        # Start dispatch in background
+        task = asyncio.create_task(
+            assign_ride_to_drivers(request_id, ride["rider_id"], sorted_drivers, ride_request)
+        )
+        assignment_tasks[request_id] = task
+    elif data.assigned_driver_id:
+        # Notify the assigned driver via WebSocket
+        await manager.send_personal_message({
+            "type": "ride_assigned",
+            "ride": ride,
+        }, data.assigned_driver_id)
     
     # Audit
     await db.audit_log.insert_one({
