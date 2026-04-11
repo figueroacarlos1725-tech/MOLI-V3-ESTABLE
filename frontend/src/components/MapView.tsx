@@ -333,6 +333,7 @@ function WebMapView({ initialRegion, markers = [], showRoute = false, onMapPress
 
   useEffect(() => {
     if (Platform.OS !== 'web') return;
+    let routeInfoHandled = false;
     const handleMessage = (event: MessageEvent) => {
       try {
         const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
@@ -342,7 +343,8 @@ function WebMapView({ initialRegion, markers = [], showRoute = false, onMapPress
         if (data.type === 'markerDrag' && onMarkerDrag) {
           onMarkerDrag(data.markerType, { latitude: data.latitude, longitude: data.longitude });
         }
-        if (data.type === 'routeInfo' && onRouteInfo) {
+        if (data.type === 'routeInfo' && onRouteInfo && !routeInfoHandled) {
+          routeInfoHandled = true;
           onRouteInfo({ distance_km: data.distance_km, duration_min: data.duration_min });
         }
       } catch (e) {
@@ -353,8 +355,13 @@ function WebMapView({ initialRegion, markers = [], showRoute = false, onMapPress
     return () => window.removeEventListener('message', handleMessage);
   }, [onMapPress, onMarkerDrag, onRouteInfo]);
 
+  // Only update markers when content actually changes (deep compare via JSON)
+  const prevMarkersJson = useRef(JSON.stringify(markers));
   useEffect(() => {
     if (Platform.OS !== 'web' || !iframeRef.current) return;
+    const json = JSON.stringify(markers);
+    if (json === prevMarkersJson.current) return;
+    prevMarkersJson.current = json;
     try {
       const win = iframeRef.current.contentWindow as any;
       if (win && win.updateMarkers) {
@@ -381,15 +388,21 @@ function NativeMapView({ initialRegion, markers = [], showRoute = false, onMapPr
   const WebView = require('react-native-webview').WebView;
   const webViewRef = useRef<any>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const routeInfoSent = useRef(false);
+  const lastMarkersJson = useRef('');
 
   const lat = initialRegion?.latitude || DEFAULT_LAT;
   const lng = initialRegion?.longitude || DEFAULT_LNG;
 
-  const mapHtml = (mapProvider === 'google' && googleKey)
-    ? generateGoogleHtml(lat, lng, markers, showRoute, !!onMapPress, googleKey, vehicleIcons)
-    : generateLeafletHtml(lat, lng, markers, showRoute, !!onMapPress, vehicleIcons);
+  // Memoize mapHtml to prevent WebView from reloading on every render
+  const markersJson = JSON.stringify(markers);
+  const mapHtml = React.useMemo(() => {
+    return (mapProvider === 'google' && googleKey)
+      ? generateGoogleHtml(lat, lng, markers, showRoute, !!onMapPress, googleKey, vehicleIcons)
+      : generateLeafletHtml(lat, lng, markers, showRoute, !!onMapPress, vehicleIcons);
+  }, [mapProvider, googleKey, lat.toFixed(3), lng.toFixed(3), showRoute, !!onMapPress, vehicleIcons.length]);
 
-  const handleMessage = (event: any) => {
+  const handleMessage = useCallback((event: any) => {
     try {
       const data = JSON.parse(event.nativeEvent.data);
       if (data.type === 'mapPress' && onMapPress) {
@@ -397,21 +410,30 @@ function NativeMapView({ initialRegion, markers = [], showRoute = false, onMapPr
       } else if (data.type === 'markerDrag' && onMarkerDrag) {
         onMarkerDrag(data.markerType || data.markerId, { latitude: data.latitude, longitude: data.longitude });
       } else if (data.type === 'routeInfo' && onRouteInfo) {
-        onRouteInfo({ distance_km: data.distance_km, duration_min: data.duration_min });
+        // Only send routeInfo ONCE per unique route
+        if (!routeInfoSent.current) {
+          routeInfoSent.current = true;
+          onRouteInfo({ distance_km: data.distance_km, duration_min: data.duration_min });
+        }
       }
     } catch (error) {
-      console.error('Error parsing map message:', error);
+      // Silently ignore
     }
-  };
+  }, [onMapPress, onMarkerDrag, onRouteInfo]);
 
+  // Only inject markers when they actually change content
   useEffect(() => {
-    if (webViewRef.current && markers.length > 0) {
-      webViewRef.current.injectJavaScript(`
-        if(window.updateMarkers){window.updateMarkers(${JSON.stringify(markers)})}
-        true;
-      `);
+    if (markersJson !== lastMarkersJson.current) {
+      lastMarkersJson.current = markersJson;
+      routeInfoSent.current = false; // Reset so new route can report back
+      if (webViewRef.current && markers.length > 0) {
+        webViewRef.current.injectJavaScript(`
+          if(window.updateMarkers){window.updateMarkers(${markersJson})}
+          true;
+        `);
+      }
     }
-  }, [markers]);
+  }, [markersJson]);
 
   return (
     <View style={[styles.container, style]}>

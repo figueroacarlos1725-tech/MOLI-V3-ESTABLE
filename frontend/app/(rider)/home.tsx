@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -11,13 +11,14 @@ import {
   TextInput,
   KeyboardAvoidingView,
   Platform,
+  Dimensions,
+  Animated,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { MapView } from '@/src/components/MapView';
-import { Button } from '@/src/components/Button';
 import { useAuthStore } from '@/src/stores/authStore';
-import { useRideStore, Bid } from '@/src/stores/rideStore';
+import { useRideStore } from '@/src/stores/rideStore';
 import { socketService } from '@/src/services/socket';
 import {
   getCurrentLocation,
@@ -28,1523 +29,620 @@ import {
   PlaceResult,
 } from '@/src/utils/location';
 
+const { width: SW, height: SH } = Dimensions.get('window');
+
+type Phase = 'idle' | 'destination' | 'confirm' | 'searching' | 'active';
+
 export default function RiderHomeScreen() {
   const { user } = useAuthStore();
   const router = useRouter();
-  const {
-    currentRequest,
-    currentRide,
-    bids,
-    createRideRequest,
-    acceptBid,
-    fetchActiveRide,
-    addBid,
-    clearRequest,
-  } = useRideStore();
+  const { currentRequest, currentRide, bids, createRideRequest, acceptBid, fetchActiveRide, addBid, clearRequest } = useRideStore();
 
+  // Core state
+  const [phase, setPhase] = useState<Phase>('idle');
   const [userLocation, setUserLocation] = useState<LocationCoords | null>(null);
   const [pickupLocation, setPickupLocation] = useState<LocationCoords | null>(null);
   const [dropoffLocation, setDropoffLocation] = useState<LocationCoords | null>(null);
   const [pickupAddress, setPickupAddress] = useState('');
   const [dropoffAddress, setDropoffAddress] = useState('');
-  const [selectedVehicleType, setSelectedVehicleType] = useState('economy');
+  const [selectedVehicle, setSelectedVehicle] = useState('economy');
+  const [fareEstimates, setFareEstimates] = useState<any[]>([]);
+  const [routeInfo, setRouteInfo] = useState<{ distance_km: number; duration_min: number } | null>(null);
+
+  // UI state
   const [isLoading, setIsLoading] = useState(false);
-  const [showBidsModal, setShowBidsModal] = useState(false);
-  const [dispatchStatus, setDispatchStatus] = useState<string>('');
-  const [dispatchProgress, setDispatchProgress] = useState<{index: number; total: number} | null>(null);
-  const [rideAccepted, setRideAccepted] = useState(false);
-  const [isSelectingLocation, setIsSelectingLocation] = useState<'pickup' | 'dropoff' | null>(null);
-  const [showSearchModal, setShowSearchModal] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
+  const [searchModal, setSearchModal] = useState(false);
   const [searchType, setSearchType] = useState<'pickup' | 'dropoff'>('dropoff');
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<PlaceResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
-  const [fareEstimates, setFareEstimates] = useState<any[]>([]);
-  const [routeInfo, setRouteInfo] = useState<{distance_km: number; duration_min: number} | null>(null);
-  const [loadingEstimate, setLoadingEstimate] = useState(false);
+
+  // Dispatch
+  const [dispatchMsg, setDispatchMsg] = useState('');
+  const [dispatchProgress, setDispatchProgress] = useState<{ i: number; t: number } | null>(null);
+  const [driverFound, setDriverFound] = useState(false);
+
+  // Banners
   const [banners, setBanners] = useState<any[]>([]);
-  const [isPremium, setIsPremium] = useState(false);
-  const [bannerIndex, setBannerIndex] = useState(0);
-  const [errorMessage, setErrorMessage] = useState('');
 
-  const vehicleTypes = [
-    { id: 'economy', name: 'Económico', icon: 'car-outline', multiplier: '1x' },
-    { id: 'comfort', name: 'Confort', icon: 'car', multiplier: '1.3x' },
-    { id: 'premium', name: 'Premium', icon: 'car-sport', multiplier: '1.8x' },
-    { id: 'xl', name: 'XL', icon: 'bus', multiplier: '1.5x' },
-  ];
+  // Refs to prevent loops
+  const estimateFetched = useRef(false);
 
+  // ─── Init ─────────────────────────────────
   useEffect(() => {
-    initializeLocation();
-    fetchActiveRide();
+    initLocation();
+    fetchActiveRide().then(() => {
+      // Check if there's an active ride
+    });
     fetchBanners();
   }, []);
 
+  // Detect active ride → switch phase
   useEffect(() => {
-    if (user) {
-      socketService.connect(user.user_id);
-
-      const unsubBid = socketService.on('new_bid', (data: any) => {
-        if (data.bid) {
-          addBid(data.bid);
-        }
-      });
-
-      // Auto-dispatch system listeners
-      const unsubSearching = socketService.on('searching_driver', (data: any) => {
-        setDispatchStatus(`Buscando conductor ${data.driver_index}/${data.total_drivers}...`);
-        setDispatchProgress({ index: data.driver_index, total: data.total_drivers });
-      });
-
-      const unsubAccepted = socketService.on('ride_accepted', (data: any) => {
-        console.log('Ride accepted!', data);
-        setRideAccepted(true);
-        setDispatchStatus('¡Conductor encontrado!');
-        // Refresh active ride
-        setTimeout(() => {
-          fetchActiveRide();
-          setShowBidsModal(false);
-          setRideAccepted(false);
-          setDispatchStatus('');
-          setDispatchProgress(null);
-          clearRequest();
-        }, 1500);
-      });
-
-      const unsubNoDrivers = socketService.on('no_drivers_available', (data: any) => {
-        setDispatchStatus('No hay conductores disponibles en este momento');
-        setDispatchProgress(null);
-        setTimeout(() => {
-          setShowBidsModal(false);
-          setDispatchStatus('');
-          clearRequest();
-        }, 3000);
-      });
-
-      return () => {
-        unsubBid();
-        unsubSearching();
-        unsubAccepted();
-        unsubNoDrivers();
-      };
+    if (currentRide && ['accepted', 'arrived', 'started'].includes(currentRide.status)) {
+      setPhase('active');
     }
+  }, [currentRide]);
+
+  // ─── WebSocket ────────────────────────────
+  useEffect(() => {
+    if (!user) return;
+    socketService.connect(user.user_id);
+
+    const unsub1 = socketService.on('new_bid', (d: any) => { if (d.bid) addBid(d.bid); });
+    const unsub2 = socketService.on('searching_driver', (d: any) => {
+      setDispatchMsg(`Buscando conductor ${d.driver_index}/${d.total_drivers}...`);
+      setDispatchProgress({ i: d.driver_index, t: d.total_drivers });
+    });
+    const unsub3 = socketService.on('ride_accepted', () => {
+      setDriverFound(true);
+      setDispatchMsg('¡Conductor encontrado!');
+      setTimeout(() => {
+        fetchActiveRide();
+        setPhase('active');
+        resetDispatch();
+      }, 1500);
+    });
+    const unsub4 = socketService.on('no_drivers_available', () => {
+      setDispatchMsg('No hay conductores disponibles');
+      setTimeout(() => {
+        setPhase('confirm');
+        resetDispatch();
+        clearRequest();
+      }, 3000);
+    });
+
+    return () => { unsub1(); unsub2(); unsub3(); unsub4(); };
   }, [user]);
 
+  // ─── Search debounce ──────────────────────
   useEffect(() => {
-    if (bids.length > 0 && currentRequest) {
-      setShowBidsModal(true);
-    }
-  }, [bids, currentRequest]);
-
-  const initializeLocation = async () => {
-    const location = await getCurrentLocation();
-    if (location) {
-      setUserLocation(location);
-      setPickupLocation(location);
-      const address = await reverseGeocode(location.latitude, location.longitude);
-      setPickupAddress(address);
-    }
-  };
-
-  const handleMapPress = async (coords: { latitude: number; longitude: number }) => {
-    const address = await reverseGeocode(coords.latitude, coords.longitude);
-    
-    if (isSelectingLocation === 'pickup') {
-      setPickupLocation({ ...coords, address });
-      setPickupAddress(address);
-    } else if (isSelectingLocation === 'dropoff') {
-      setDropoffLocation({ ...coords, address });
-      setDropoffAddress(address);
-    }
-    setIsSelectingLocation(null);
-  };
-
-  // Debounced search for places
-  useEffect(() => {
-    if (searchQuery.length < 2) {
-      setSearchResults([]);
-      return;
-    }
-    const timer = setTimeout(async () => {
-      setIsSearching(true);
+    if (searchQuery.length < 2) { setSearchResults([]); return; }
+    setIsSearching(true);
+    const t = setTimeout(async () => {
       const results = await searchPlaces(searchQuery, userLocation || undefined);
       setSearchResults(results);
       setIsSearching(false);
     }, 400);
-    return () => clearTimeout(timer);
+    return () => clearTimeout(t);
   }, [searchQuery]);
 
-  const openSearch = (type: 'pickup' | 'dropoff') => {
-    setSearchType(type);
-    setSearchQuery('');
-    setSearchResults([]);
-    setShowSearchModal(true);
-  };
-
-  const handleSearchSelect = (place: PlaceResult) => {
-    if (searchType === 'pickup') {
-      setPickupLocation({ latitude: place.latitude, longitude: place.longitude, address: place.address });
-      setPickupAddress(place.name);
-      // If dropoff exists, recalculate estimate
-      if (dropoffLocation) {
-        const est = estimateDriving({ latitude: place.latitude, longitude: place.longitude }, dropoffLocation);
-        setRouteInfo(est);
-        fetchEstimates(est.distance_km, est.duration_min);
-      }
-    } else {
-      setDropoffLocation({ latitude: place.latitude, longitude: place.longitude, address: place.address });
-      setDropoffAddress(place.name);
-      // Calculate estimate immediately
-      if (pickupLocation) {
-        const est = estimateDriving(pickupLocation, { latitude: place.latitude, longitude: place.longitude });
-        setRouteInfo(est);
-        fetchEstimates(est.distance_km, est.duration_min);
-      }
-    }
-    setShowSearchModal(false);
-    setSearchQuery('');
-    setSearchResults([]);
-  };
-
-  const handleSelectOnMap = () => {
-    setShowSearchModal(false);
-    setSearchQuery('');
-    setIsSelectingLocation(searchType);
-  };
-
-  const handleMarkerDrag = async (markerType: string, coords: { latitude: number; longitude: number }) => {
-    const address = await reverseGeocode(coords.latitude, coords.longitude);
-    if (markerType === 'pickup') {
-      setPickupLocation({ ...coords, address });
-      setPickupAddress(address);
-    } else if (markerType === 'dropoff') {
-      setDropoffLocation({ ...coords, address });
-      setDropoffAddress(address);
+  // ─── Helpers ──────────────────────────────
+  const initLocation = async () => {
+    const loc = await getCurrentLocation();
+    if (loc) {
+      setUserLocation(loc);
+      setPickupLocation(loc);
+      const addr = await reverseGeocode(loc.latitude, loc.longitude);
+      setPickupAddress(addr);
     }
   };
 
-  const fetchEstimates = async (distance_km: number, duration_min: number) => {
-    setLoadingEstimate(true);
-    try {
-      const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || '';
-      const resp = await fetch(`${backendUrl}/api/rides/estimate`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ distance_km, duration_min }),
-      });
-      const data = await resp.json();
-      if (data.estimates) {
-        setFareEstimates(data.estimates);
-        if (data.estimates.length > 0 && !data.estimates.find((e: any) => e.vehicle_type === selectedVehicleType)) {
-          setSelectedVehicleType(data.estimates[0].vehicle_type);
-        }
-      }
-    } catch (err) {
-      console.error('Error fetching estimates:', err);
-    } finally {
-      setLoadingEstimate(false);
-    }
+  const resetDispatch = () => {
+    setDispatchMsg('');
+    setDispatchProgress(null);
+    setDriverFound(false);
+  };
+
+  const showError = (msg: string) => {
+    setErrorMsg(msg);
+    setTimeout(() => setErrorMsg(''), 4000);
   };
 
   const fetchBanners = async () => {
     try {
-      const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || '';
-      const resp = await fetch(`${backendUrl}/api/banners`);
-      const data = await resp.json();
-      if (data.banners) setBanners(data.banners);
-    } catch (err) {
-      console.error('Error fetching banners:', err);
+      const url = process.env.EXPO_PUBLIC_BACKEND_URL || '';
+      const r = await fetch(`${url}/api/banners`);
+      const d = await r.json();
+      if (d.banners) setBanners(d.banners);
+    } catch (e) { /* ignore */ }
+  };
+
+  const fetchEstimates = async (dist: number, dur: number) => {
+    try {
+      const url = process.env.EXPO_PUBLIC_BACKEND_URL || '';
+      const r = await fetch(`${url}/api/rides/estimate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ distance_km: dist, duration_min: dur }),
+      });
+      const d = await r.json();
+      if (d.estimates) {
+        setFareEstimates(d.estimates);
+        if (d.estimates.length > 0 && !d.estimates.find((e: any) => e.vehicle_type === selectedVehicle)) {
+          setSelectedVehicle(d.estimates[0].vehicle_type);
+        }
+      }
+    } catch (e) { /* ignore */ }
+  };
+
+  // ─── Location select ──────────────────────
+  const handleSelectPlace = async (place: PlaceResult) => {
+    estimateFetched.current = false;
+    if (searchType === 'pickup') {
+      setPickupLocation({ latitude: place.latitude, longitude: place.longitude, address: place.address });
+      setPickupAddress(place.name);
+      if (dropoffLocation) {
+        const est = estimateDriving({ latitude: place.latitude, longitude: place.longitude }, dropoffLocation);
+        setRouteInfo(est);
+        fetchEstimates(est.distance_km, est.duration_min);
+        estimateFetched.current = true;
+        setPhase('confirm');
+      }
+    } else {
+      setDropoffLocation({ latitude: place.latitude, longitude: place.longitude, address: place.address });
+      setDropoffAddress(place.name);
+      if (pickupLocation) {
+        const est = estimateDriving(pickupLocation, { latitude: place.latitude, longitude: place.longitude });
+        setRouteInfo(est);
+        fetchEstimates(est.distance_km, est.duration_min);
+        estimateFetched.current = true;
+        setPhase('confirm');
+      }
+    }
+    setSearchModal(false);
+    setSearchQuery('');
+    setSearchResults([]);
+  };
+
+  const handleMapPress = async (coords: { latitude: number; longitude: number }) => {
+    const addr = await reverseGeocode(coords.latitude, coords.longitude);
+    if (!dropoffLocation) {
+      setDropoffLocation({ ...coords, address: addr });
+      setDropoffAddress(addr);
+      if (pickupLocation) {
+        const est = estimateDriving(pickupLocation, coords);
+        setRouteInfo(est);
+        fetchEstimates(est.distance_km, est.duration_min);
+        setPhase('confirm');
+      }
     }
   };
 
-  const handleRouteInfo = (info: { distance_km: number; duration_min: number }) => {
-    setRouteInfo(info);
-    fetchEstimates(info.distance_km, info.duration_min);
-  };
-
+  // ─── Request ride ─────────────────────────
   const handleRequestRide = async () => {
     if (!pickupLocation || !dropoffLocation) {
-      setErrorMessage('Por favor selecciona las ubicaciones de recogida y destino');
-      setTimeout(() => setErrorMessage(''), 4000);
+      showError('Selecciona origen y destino');
       return;
     }
-
     setIsLoading(true);
-    setErrorMessage('');
     try {
       await createRideRequest({
-        pickup_location: {
-          latitude: pickupLocation.latitude,
-          longitude: pickupLocation.longitude,
-          address: pickupAddress,
-        },
-        dropoff_location: {
-          latitude: dropoffLocation.latitude,
-          longitude: dropoffLocation.longitude,
-          address: dropoffAddress,
-        },
-        vehicle_type: selectedVehicleType,
+        pickup_location: { latitude: pickupLocation.latitude, longitude: pickupLocation.longitude, address: pickupAddress },
+        dropoff_location: { latitude: dropoffLocation.latitude, longitude: dropoffLocation.longitude, address: dropoffAddress },
+        vehicle_type: selectedVehicle,
         ride_type: 'standard',
         payment_method: 'cash',
       });
-      setShowBidsModal(true);
-    } catch (error: any) {
-      setErrorMessage(error.message || 'No se pudo solicitar el viaje');
-      setTimeout(() => setErrorMessage(''), 4000);
+      setPhase('searching');
+    } catch (e: any) {
+      showError(e.message || 'Error al solicitar viaje');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleAcceptBid = async (bidId: string) => {
-    try {
-      await acceptBid(bidId);
-      setShowBidsModal(false);
-      fetchActiveRide();
-    } catch (error: any) {
-      setErrorMessage(error.message || 'No se pudo aceptar la oferta');
-      setTimeout(() => setErrorMessage(''), 4000);
-    }
+  const handleCancelSearch = () => {
+    clearRequest();
+    resetDispatch();
+    setPhase('confirm');
   };
 
-  const getMapMarkers = () => {
-    const markers = [];
-    if (pickupLocation) {
-      markers.push({
-        latitude: pickupLocation.latitude,
-        longitude: pickupLocation.longitude,
-        title: 'Recogida',
-        type: 'pickup' as const,
-        draggable: true,
-      });
-    }
-    if (dropoffLocation) {
-      markers.push({
-        latitude: dropoffLocation.latitude,
-        longitude: dropoffLocation.longitude,
-        title: 'Destino',
-        type: 'dropoff' as const,
-      });
-    }
-    if (currentRide?.driver_location) {
-      markers.push({
-        latitude: currentRide.driver_location.latitude,
-        longitude: currentRide.driver_location.longitude,
-        title: 'Conductor',
-        type: 'driver' as const,
-      });
-    }
-    return markers;
+  const handleBackToIdle = () => {
+    setDropoffLocation(null);
+    setDropoffAddress('');
+    setRouteInfo(null);
+    setFareEstimates([]);
+    estimateFetched.current = false;
+    clearRequest();
+    setPhase('idle');
   };
 
-  // Vista de viaje activo
-  if (currentRide && ['accepted', 'arrived', 'started'].includes(currentRide.status)) {
+  // ─── Memoized markers (prevents re-render loop) ───
+  const markers = useMemo(() => {
+    const m: any[] = [];
+    if (pickupLocation) m.push({ latitude: pickupLocation.latitude, longitude: pickupLocation.longitude, title: 'Recogida', type: 'pickup' as const, draggable: true });
+    if (dropoffLocation) m.push({ latitude: dropoffLocation.latitude, longitude: dropoffLocation.longitude, title: 'Destino', type: 'dropoff' as const });
+    if (currentRide?.driver_location) m.push({ latitude: currentRide.driver_location.latitude, longitude: currentRide.driver_location.longitude, title: 'Conductor', type: 'driver' as const });
+    return m;
+  }, [pickupLocation?.latitude, pickupLocation?.longitude, dropoffLocation?.latitude, dropoffLocation?.longitude, currentRide?.driver_location?.latitude]);
+
+  const emojiMap: Record<string, string> = { economy: '🚗', comfort: '🚙', premium: '🏎️', xl: '🚌' };
+  const nameMap: Record<string, string> = { economy: 'Económico', comfort: 'Confort', premium: 'Premium', xl: 'XL' };
+  const selectedFare = fareEstimates.find((e: any) => e.vehicle_type === selectedVehicle);
+
+  // ═══════════════════════════════════════════
+  // PHASE: ACTIVE RIDE
+  // ═══════════════════════════════════════════
+  if (phase === 'active' && currentRide) {
+    const statusLabels: Record<string, string> = {
+      accepted: 'Tu conductor está en camino',
+      arrived: 'Tu conductor ha llegado',
+      started: 'Viaje en curso',
+    };
     return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.mapContainer}>
-          <MapView
-            initialRegion={pickupLocation ? {
-              latitude: pickupLocation.latitude,
-              longitude: pickupLocation.longitude,
-            } : undefined}
-            markers={getMapMarkers()}
-            showRoute={true}
-          />
+      <SafeAreaView style={s.container}>
+        <View style={s.mapFull}>
+          <MapView initialRegion={pickupLocation || undefined} markers={markers} showRoute={true} />
         </View>
-        
-        <View style={styles.activeRideCard}>
-          <View style={styles.rideStatusHeader}>
-            <View style={[styles.statusBadge, styles[`status_${currentRide.status}`]]}>
-              <Text style={styles.statusText}>
-                {currentRide.status === 'accepted' ? 'Conductor en camino' :
-                 currentRide.status === 'arrived' ? 'Conductor ha llegado' : 'En viaje'}
-              </Text>
-            </View>
+        <View style={s.activeCard}>
+          <View style={s.activeStatusBadge}>
+            <View style={[s.statusDot, currentRide.status === 'arrived' ? { backgroundColor: '#FF9500' } : currentRide.status === 'started' ? { backgroundColor: '#007AFF' } : { backgroundColor: '#34C759' }]} />
+            <Text style={s.activeStatusText}>{statusLabels[currentRide.status] || currentRide.status}</Text>
           </View>
-          
           {currentRide.driver_info && (
-            <View style={styles.driverInfo}>
-              <View style={styles.driverAvatar}>
-                <Ionicons name="person" size={32} color="#6BBF00" />
-              </View>
-              <View style={styles.driverDetails}>
-                <Text style={styles.driverName}>{currentRide.driver_info.name}</Text>
-                <View style={styles.ratingRow}>
-                  <Ionicons name="star" size={16} color="#FFD700" />
-                  <Text style={styles.ratingText}>{currentRide.driver_info.rating?.toFixed(1)}</Text>
+            <View style={s.driverRow}>
+              <View style={s.driverAvatar}><Ionicons name="person" size={28} color="#fff" /></View>
+              <View style={{ flex: 1, marginLeft: 12 }}>
+                <Text style={s.driverName}>{currentRide.driver_info.name}</Text>
+                <View style={s.ratingRow}>
+                  <Ionicons name="star" size={14} color="#FFD700" />
+                  <Text style={s.ratingVal}>{(currentRide.driver_info.rating || 5).toFixed(1)}</Text>
                 </View>
               </View>
-              <View style={styles.driverActions}>
-                <TouchableOpacity style={styles.actionButton}>
-                  <Ionicons name="call" size={24} color="#34C759" />
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.actionButton}
-                  onPress={() => router.push({
-                    pathname: '/chat',
-                    params: { rideId: currentRide.ride_id, otherName: currentRide.driver_info?.name || 'Conductor' }
-                  })}
-                >
-                  <Ionicons name="chatbubble" size={24} color="#6BBF00" />
-                </TouchableOpacity>
-              </View>
+              <TouchableOpacity style={s.iconBtn} onPress={() => router.push({ pathname: '/chat', params: { rideId: currentRide.ride_id, otherName: currentRide.driver_info?.name || 'Conductor' } })}>
+                <Ionicons name="chatbubble-ellipses" size={22} color="#6BBF00" />
+              </TouchableOpacity>
+              <TouchableOpacity style={s.iconBtn}><Ionicons name="call" size={22} color="#34C759" /></TouchableOpacity>
             </View>
           )}
-          
           {currentRide.vehicle_info && (
-            <View style={styles.vehicleInfo}>
-              <Text style={styles.vehicleText}>
-                {currentRide.vehicle_info.color} {currentRide.vehicle_info.make} {currentRide.vehicle_info.model}
-              </Text>
-              <Text style={styles.plateText}>{currentRide.vehicle_info.plate_number}</Text>
+            <View style={s.vehicleRow}>
+              <Text style={s.vehiclePlate}>{currentRide.vehicle_info.plate_number}</Text>
+              <Text style={s.vehicleDesc}>{currentRide.vehicle_info.color} {currentRide.vehicle_info.make} {currentRide.vehicle_info.model}</Text>
             </View>
           )}
-          
-          <View style={styles.fareInfo}>
-            <Text style={styles.fareLabel}>Tarifa</Text>
-            <Text style={styles.fareAmount}>${currentRide.fare?.toFixed(2)}</Text>
+          <View style={s.fareRow}>
+            <Text style={s.fareLabel}>Tarifa estimada</Text>
+            <Text style={s.fareVal}>${currentRide.fare?.toFixed(0)}</Text>
           </View>
         </View>
       </SafeAreaView>
     );
   }
 
+  // ═══════════════════════════════════════════
+  // MAIN RIDER VIEW
+  // ═══════════════════════════════════════════
   return (
-    <SafeAreaView style={styles.container}>
-      {/* Error message banner */}
-      {errorMessage ? (
-        <View style={styles.errorBanner}>
-          <Ionicons name="alert-circle" size={18} color="#FF3B30" />
-          <Text style={styles.errorBannerText}>{errorMessage}</Text>
-          <TouchableOpacity onPress={() => setErrorMessage('')}>
-            <Ionicons name="close" size={18} color="#8E8E93" />
-          </TouchableOpacity>
+    <SafeAreaView style={s.container}>
+      {/* Error banner */}
+      {errorMsg ? (
+        <View style={s.errorBanner}>
+          <Ionicons name="alert-circle" size={16} color="#FF3B30" />
+          <Text style={s.errorText}>{errorMsg}</Text>
+          <TouchableOpacity onPress={() => setErrorMsg('')}><Ionicons name="close" size={16} color="#999" /></TouchableOpacity>
         </View>
       ) : null}
 
-      {/* Encabezado */}
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.greeting}>Hola, {user?.name?.split(' ')[0] || 'Pasajero'}</Text>
-          <Text style={styles.subGreeting}>¿A dónde vamos?</Text>
-        </View>
-        <TouchableOpacity style={styles.notificationButton}>
-          <Ionicons name="notifications-outline" size={24} color="#1C1C1E" />
-        </TouchableOpacity>
-      </View>
-
-      {/* Mapa */}
-      <View style={styles.mapContainer}>
+      {/* Map */}
+      <View style={s.mapFull}>
         <MapView
-          initialRegion={userLocation ? {
-            latitude: userLocation.latitude,
-            longitude: userLocation.longitude,
-          } : undefined}
-          markers={getMapMarkers()}
-          showRoute={pickupLocation && dropoffLocation ? true : false}
-          onMapPress={isSelectingLocation ? handleMapPress : undefined}
-          onMarkerDrag={handleMarkerDrag}
-          onRouteInfo={handleRouteInfo}
+          initialRegion={userLocation || undefined}
+          markers={markers}
+          showRoute={!!pickupLocation && !!dropoffLocation}
+          onMapPress={phase === 'idle' ? handleMapPress : undefined}
         />
-        
-        {isSelectingLocation && (
-          <View style={styles.selectingOverlay}>
-            <Text style={styles.selectingText}>
-              Toca en el mapa para seleccionar {isSelectingLocation === 'pickup' ? 'el punto de recogida' : 'el destino'}
-            </Text>
-            <Button
-              title="Cancelar"
-              onPress={() => setIsSelectingLocation(null)}
-              variant="outline"
-              size="small"
-            />
-          </View>
+
+        {/* Back button when confirming */}
+        {(phase === 'confirm' || phase === 'searching') && (
+          <TouchableOpacity style={s.mapBackBtn} onPress={handleBackToIdle}>
+            <Ionicons name="arrow-back" size={24} color="#1C1C1E" />
+          </TouchableOpacity>
         )}
       </View>
 
-      {/* Panel de reserva estilo Cabify */}
-      <View style={styles.bookingPanel}>
-        {/* Inputs de ubicación */}
-        <View style={styles.locationInputs}>
-          <TouchableOpacity
-            style={styles.locationInput}
-            onPress={() => openSearch('pickup')}
-          >
-            <View style={[styles.locationDot, styles.pickupDot]} />
-            <Text style={pickupAddress ? styles.locationText : styles.placeholderText} numberOfLines={1}>
-              {pickupAddress || 'Punto de recogida'}
-            </Text>
-            <TouchableOpacity onPress={initializeLocation} hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}>
-              <Ionicons name="locate" size={20} color="#6BBF00" />
+      {/* ═══ Bottom Panel ═══ */}
+      {phase === 'idle' && (
+        <View style={s.bottomPanel}>
+          {/* Greeting */}
+          <Text style={s.greeting}>Hola, {user?.name?.split(' ')[0] || 'Pasajero'}</Text>
+
+          {/* Search bar like Uber */}
+          <TouchableOpacity style={s.searchBar} onPress={() => { setSearchType('dropoff'); setSearchModal(true); }}>
+            <View style={s.searchIcon}><Ionicons name="search" size={20} color="#6BBF00" /></View>
+            <Text style={s.searchPlaceholder}>¿A dónde vamos?</Text>
+          </TouchableOpacity>
+
+          {/* Origin row */}
+          <TouchableOpacity style={s.originRow} onPress={() => { setSearchType('pickup'); setSearchModal(true); }}>
+            <View style={[s.dot, { backgroundColor: '#34C759' }]} />
+            <Text style={s.originText} numberOfLines={1}>{pickupAddress || 'Mi ubicación'}</Text>
+            <TouchableOpacity onPress={initLocation} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+              <Ionicons name="locate" size={18} color="#6BBF00" />
             </TouchableOpacity>
           </TouchableOpacity>
-          
-          <View style={styles.locationDivider} />
-          
-          <TouchableOpacity
-            style={styles.locationInput}
-            onPress={() => openSearch('dropoff')}
-          >
-            <View style={[styles.locationDot, styles.dropoffDot]} />
-            <Text style={dropoffAddress ? styles.locationText : styles.placeholderText} numberOfLines={1}>
-              {dropoffAddress || '¿A dónde vas?'}
-            </Text>
-            <Ionicons name="search" size={20} color="#8E8E93" />
+
+          {/* Molí+ Banner */}
+          <TouchableOpacity style={s.moliBanner}>
+            <View style={s.moliTag}><Text style={s.moliTagText}>Molí+</Text></View>
+            <Text style={s.moliBannerText}>Sin publicidad y beneficios exclusivos</Text>
+            <Ionicons name="chevron-forward" size={18} color="#8E8E93" />
           </TouchableOpacity>
         </View>
+      )}
 
-        {/* Banner publicitario */}
-        {!isPremium && banners.length > 0 && (
-          <TouchableOpacity style={[styles.bannerCard, { backgroundColor: banners[bannerIndex % banners.length]?.bg_color || '#6B21A8' }]}>
-            <View style={styles.bannerContent}>
-              <Text style={[styles.bannerTitle, { color: banners[bannerIndex % banners.length]?.text_color || '#fff' }]} numberOfLines={1}>
-                {banners[bannerIndex % banners.length]?.title}
-              </Text>
-              <Text style={[styles.bannerDesc, { color: banners[bannerIndex % banners.length]?.text_color || '#fff' }]} numberOfLines={1}>
-                {banners[bannerIndex % banners.length]?.description}
-              </Text>
+      {phase === 'confirm' && (
+        <View style={s.confirmPanel}>
+          {/* Route summary */}
+          <View style={s.routeSummary}>
+            <View style={s.routeDots}>
+              <View style={[s.dot, { backgroundColor: '#34C759' }]} />
+              <View style={s.dotLine} />
+              <View style={[s.dot, { backgroundColor: '#FF3B30' }]} />
             </View>
-            <Ionicons name="chevron-forward" size={20} color={banners[bannerIndex % banners.length]?.text_color || '#fff'} />
-          </TouchableOpacity>
-        )}
-
-        {/* Promo Molí+ si no hay banners */}
-        {!isPremium && banners.length === 0 && (
-          <TouchableOpacity style={styles.moliPlusCard}>
-            <View style={styles.moliPlusBadge}>
-              <Text style={styles.moliPlusBadgeText}>Molí+</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={s.routeAddr} numberOfLines={1}>{pickupAddress || 'Origen'}</Text>
+              <Text style={s.routeAddr2} numberOfLines={1}>{dropoffAddress || 'Destino'}</Text>
             </View>
-            <Text style={styles.moliPlusText}>Sin publicidad y beneficios exclusivos</Text>
-            <Ionicons name="chevron-forward" size={18} color="#6B21A8" />
-          </TouchableOpacity>
-        )}
-
-        {/* Info de ruta + estimaciones */}
-        {routeInfo && fareEstimates.length > 0 && (
-          <View style={styles.routeInfoBar}>
-            <Ionicons name="navigate" size={16} color="#6BBF00" />
-            <Text style={styles.routeInfoText}>
-              {routeInfo.distance_km.toFixed(1)} km · {routeInfo.duration_min} min
-            </Text>
+            {routeInfo && (
+              <View style={s.routeStats}>
+                <Text style={s.routeStatVal}>{routeInfo.distance_km.toFixed(1)} km</Text>
+                <Text style={s.routeStatLabel}>{routeInfo.duration_min} min</Text>
+              </View>
+            )}
           </View>
-        )}
 
-        {/* Tarjetas de vehículos como LISTA VERTICAL */}
-        {(fareEstimates.length > 0 || routeInfo) && (
-          <View style={styles.vehicleListContainer}>
-            {(fareEstimates.length > 0 ? fareEstimates : vehicleTypes).map((type: any) => {
-              const isEstimate = !!type.estimated_fare;
-              const id = type.vehicle_type || type.id;
-              const name = type.display_name || type.name;
-              const price = type.estimated_fare;
-              const isSelected = selectedVehicleType === id;
-              const emojiMap: any = { economy: '🚗', comfort: '🚙', premium: '🏎️', xl: '🚌' };
+          {/* Vehicle list */}
+          <ScrollView style={s.vehicleList} showsVerticalScrollIndicator={false}>
+            {(fareEstimates.length > 0 ? fareEstimates : [
+              { vehicle_type: 'economy', display_name: 'Económico', estimated_fare: 0 },
+              { vehicle_type: 'comfort', display_name: 'Confort', estimated_fare: 0 },
+              { vehicle_type: 'premium', display_name: 'Premium', estimated_fare: 0 },
+              { vehicle_type: 'xl', display_name: 'XL', estimated_fare: 0 },
+            ]).map((v: any) => {
+              const id = v.vehicle_type;
+              const sel = selectedVehicle === id;
+              const eta = routeInfo ? routeInfo.duration_min + (id === 'economy' ? 3 : id === 'comfort' ? 2 : id === 'premium' ? 1 : 5) : null;
               return (
-                <TouchableOpacity
-                  key={id}
-                  style={[styles.vehicleListItem, isSelected && styles.vehicleListItemSelected]}
-                  onPress={() => setSelectedVehicleType(id)}
-                >
-                  <Text style={styles.vehicleListEmoji}>{emojiMap[id] || '🚗'}</Text>
-                  <View style={styles.vehicleListInfo}>
-                    <Text style={[styles.vehicleListName, isSelected && styles.vehicleListNameSel]}>
-                      {name}
-                    </Text>
-                    {routeInfo && (
-                      <Text style={styles.vehicleListEta}>
-                        {routeInfo.duration_min + (id === 'economy' ? 3 : id === 'comfort' ? 2 : id === 'premium' ? 1 : 4)} min
-                      </Text>
-                    )}
+                <TouchableOpacity key={id} style={[s.vehicleItem, sel && s.vehicleItemSel]} onPress={() => setSelectedVehicle(id)}>
+                  <Text style={s.vehicleEmoji}>{emojiMap[id] || '🚗'}</Text>
+                  <View style={{ flex: 1, marginLeft: 12 }}>
+                    <Text style={[s.vehicleName, sel && { color: '#2D7600' }]}>{v.display_name || nameMap[id]}</Text>
+                    {eta && <Text style={s.vehicleEta}>{eta} min</Text>}
                   </View>
-                  <View style={styles.vehicleListPriceWrap}>
-                    {isEstimate ? (
-                      <Text style={[styles.vehicleListPrice, isSelected && styles.vehicleListPriceSel]}>
-                        ${Math.round(price).toLocaleString()}
-                      </Text>
-                    ) : (
-                      <Text style={styles.vehicleListMult}>{type.multiplier}</Text>
-                    )}
-                    {loadingEstimate && <ActivityIndicator size="small" color="#6BBF00" style={{marginTop: 2}} />}
-                  </View>
-                  {isSelected && (
-                    <View style={styles.vehicleListCheck}>
-                      <Ionicons name="checkmark-circle" size={22} color="#6BBF00" />
-                    </View>
-                  )}
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        )}
-
-        {/* Vehicle type cards (without route - compact) */}
-        {!routeInfo && (
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={styles.vehicleTypesScroll}
-            contentContainerStyle={styles.vehicleTypesContent}
-          >
-            {vehicleTypes.map((type: any) => {
-              const isSelected = selectedVehicleType === type.id;
-              const emojiMap: any = { economy: '🚗', comfort: '🚙', premium: '🏎️', xl: '🚌' };
-              return (
-                <TouchableOpacity
-                  key={type.id}
-                  style={[styles.vehicleCard, isSelected && styles.vehicleCardSelected]}
-                  onPress={() => setSelectedVehicleType(type.id)}
-                >
-                  <Text style={styles.vehicleEmoji}>{emojiMap[type.id] || '🚗'}</Text>
-                  <Text style={[styles.vehicleCardName, isSelected && styles.vehicleCardNameSel]}>
-                    {type.name}
+                  <Text style={[s.vehiclePrice, sel && { color: '#6BBF00' }]}>
+                    {v.estimated_fare > 0 ? `$${Math.round(v.estimated_fare).toLocaleString()}` : '...'}
                   </Text>
-                  <Text style={styles.vehicleCardMult}>{type.multiplier}</Text>
+                  {sel && <Ionicons name="checkmark-circle" size={20} color="#6BBF00" style={{ marginLeft: 8 }} />}
                 </TouchableOpacity>
               );
             })}
           </ScrollView>
-        )}
 
-        {/* Botón de solicitar */}
-        {(() => {
-          const selected = fareEstimates.find((e: any) => e.vehicle_type === selectedVehicleType);
-          const priceLabel = selected ? ` · $${Math.round(selected.estimated_fare).toLocaleString()}` : '';
-          const typeName = selected?.display_name || vehicleTypes.find(v => v.id === selectedVehicleType)?.name || '';
-          return (
-            <TouchableOpacity
-              style={[
-                styles.requestBtn,
-                (!pickupLocation || !dropoffLocation || isLoading || !!currentRequest) && styles.requestBtnDisabled
-              ]}
-              onPress={handleRequestRide}
-              disabled={!pickupLocation || !dropoffLocation || isLoading || !!currentRequest}
-            >
-              {isLoading ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <Text style={styles.requestBtnText}>
-                  {currentRequest ? 'Buscando conductores...' : `Solicitar ${typeName}${priceLabel}`}
-                </Text>
-              )}
-            </TouchableOpacity>
-          );
-        })()}
+          {/* Payment method */}
+          <View style={s.payRow}>
+            <Ionicons name="cash-outline" size={20} color="#34C759" />
+            <Text style={s.payText}>Efectivo</Text>
+            <Ionicons name="chevron-forward" size={16} color="#8E8E93" />
+          </View>
 
-        {currentRequest && (
+          {/* Confirm button */}
           <TouchableOpacity
-            style={styles.cancelBtn}
-            onPress={() => { clearRequest(); setShowBidsModal(false); }}
+            style={[s.confirmBtn, isLoading && { opacity: 0.6 }]}
+            onPress={handleRequestRide}
+            disabled={isLoading}
           >
-            <Text style={styles.cancelBtnText}>Cancelar solicitud</Text>
+            {isLoading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={s.confirmBtnText}>
+                Confirmar {nameMap[selectedVehicle]}{selectedFare ? ` · $${Math.round(selectedFare.estimated_fare).toLocaleString()}` : ''}
+              </Text>
+            )}
           </TouchableOpacity>
-        )}
-      </View>
+        </View>
+      )}
 
-      {/* Modal de búsqueda de ubicación */}
-      <Modal visible={showSearchModal} animationType="slide">
-        <SafeAreaView style={styles.searchModal}>
-          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{flex: 1}}>
-            <View style={styles.searchHeader}>
-              <TouchableOpacity onPress={() => { setShowSearchModal(false); setSearchQuery(''); }} style={styles.searchBackBtn}>
+      {phase === 'searching' && (
+        <View style={s.searchingPanel}>
+          {driverFound ? (
+            <View style={s.foundContainer}>
+              <View style={s.foundCircle}><Ionicons name="checkmark" size={40} color="#fff" /></View>
+              <Text style={s.foundText}>¡Conductor encontrado!</Text>
+              <Text style={s.foundSub}>Preparando tu viaje...</Text>
+            </View>
+          ) : (
+            <View style={s.searchingContainer}>
+              <ActivityIndicator size="large" color="#6BBF00" />
+              <Text style={s.searchingText}>{dispatchMsg || 'Buscando conductores cercanos...'}</Text>
+              {dispatchProgress && (
+                <View style={s.progressBar}>
+                  <View style={[s.progressFill, { width: `${(dispatchProgress.i / dispatchProgress.t) * 100}%` }]} />
+                </View>
+              )}
+              <Text style={s.searchingHint}>Esto puede tardar unos segundos</Text>
+              <TouchableOpacity style={s.cancelSearchBtn} onPress={handleCancelSearch}>
+                <Text style={s.cancelSearchText}>Cancelar búsqueda</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
+      )}
+
+      {/* ═══ Search Modal ═══ */}
+      <Modal visible={searchModal} animationType="slide">
+        <SafeAreaView style={s.modalContainer}>
+          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+            <View style={s.modalHeader}>
+              <TouchableOpacity onPress={() => { setSearchModal(false); setSearchQuery(''); }} style={s.modalBack}>
                 <Ionicons name="arrow-back" size={24} color="#1C1C1E" />
               </TouchableOpacity>
-              <Text style={styles.searchTitle}>
-                {searchType === 'pickup' ? 'Punto de recogida' : '¿A dónde vas?'}
-              </Text>
-              <View style={{width: 40}} />
+              <Text style={s.modalTitle}>{searchType === 'pickup' ? 'Punto de recogida' : '¿A dónde vas?'}</Text>
             </View>
 
-            <View style={styles.searchInputWrap}>
-              <View style={styles.searchInputContainer}>
-                <Ionicons name="search" size={20} color="#8E8E93" />
-                <TextInput
-                  style={styles.searchInput}
-                  placeholder={searchType === 'pickup' ? 'Buscar dirección de recogida...' : 'Buscar dirección, lugar...'}
-                  placeholderTextColor="#8E8E93"
-                  value={searchQuery}
-                  onChangeText={setSearchQuery}
-                  autoFocus
-                  returnKeyType="search"
-                />
-                {searchQuery.length > 0 && (
-                  <TouchableOpacity onPress={() => setSearchQuery('')}>
-                    <Ionicons name="close-circle" size={20} color="#C7C7CC" />
-                  </TouchableOpacity>
-                )}
-              </View>
+            <View style={s.searchInputWrap}>
+              <Ionicons name="search" size={20} color="#8E8E93" />
+              <TextInput
+                style={s.searchInput}
+                placeholder="Buscar dirección..."
+                placeholderTextColor="#8E8E93"
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                autoFocus
+              />
+              {searchQuery.length > 0 && (
+                <TouchableOpacity onPress={() => setSearchQuery('')}>
+                  <Ionicons name="close-circle" size={20} color="#C7C7CC" />
+                </TouchableOpacity>
+              )}
             </View>
 
-            <ScrollView style={styles.searchResultsList} keyboardShouldPersistTaps="handled">
+            {isSearching && <ActivityIndicator style={{ marginTop: 20 }} color="#6BBF00" />}
+
+            <ScrollView style={s.resultsList} keyboardShouldPersistTaps="handled">
+              {/* Use current location option */}
               {searchType === 'pickup' && (
-                <TouchableOpacity style={styles.searchResultItem} onPress={() => { initializeLocation(); setShowSearchModal(false); }}>
-                  <View style={[styles.searchResultIcon, {backgroundColor: '#E8F5E9'}]}>
-                    <Ionicons name="navigate" size={20} color="#6BBF00" />
-                  </View>
-                  <View style={styles.searchResultTextWrap}>
-                    <Text style={styles.searchResultName}>Mi ubicación actual</Text>
-                    <Text style={styles.searchResultAddr}>Usar GPS</Text>
+                <TouchableOpacity style={s.resultItem} onPress={() => { initLocation(); setSearchModal(false); }}>
+                  <View style={[s.resultIcon, { backgroundColor: '#E8F5E9' }]}><Ionicons name="locate" size={20} color="#34C759" /></View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={s.resultName}>Mi ubicación actual</Text>
+                    <Text style={s.resultAddr}>Usar GPS</Text>
                   </View>
                 </TouchableOpacity>
               )}
 
-              <TouchableOpacity style={styles.searchResultItem} onPress={handleSelectOnMap}>
-                <View style={[styles.searchResultIcon, {backgroundColor: '#FFF3E0'}]}>
-                  <Ionicons name="map" size={20} color="#FF9800" />
-                </View>
-                <View style={styles.searchResultTextWrap}>
-                  <Text style={styles.searchResultName}>Seleccionar en el mapa</Text>
-                  <Text style={styles.searchResultAddr}>Toca un punto en el mapa</Text>
-                </View>
-              </TouchableOpacity>
-
-              {(searchResults.length > 0 || isSearching) && <View style={styles.searchDivider} />}
-
               {searchResults.map((place) => (
-                <TouchableOpacity key={place.id} style={styles.searchResultItem} onPress={() => handleSearchSelect(place)}>
-                  <View style={styles.searchResultIcon}>
-                    <Ionicons name="location" size={20} color="#007AFF" />
-                  </View>
-                  <View style={styles.searchResultTextWrap}>
-                    <Text style={styles.searchResultName} numberOfLines={1}>{place.name}</Text>
-                    <Text style={styles.searchResultAddr} numberOfLines={1}>{place.address}</Text>
+                <TouchableOpacity key={place.id} style={s.resultItem} onPress={() => handleSelectPlace(place)}>
+                  <View style={s.resultIcon}><Ionicons name="location" size={20} color="#6BBF00" /></View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={s.resultName} numberOfLines={1}>{place.name}</Text>
+                    <Text style={s.resultAddr} numberOfLines={1}>{place.address}</Text>
                   </View>
                 </TouchableOpacity>
               ))}
 
-              {isSearching && (
-                <View style={styles.searchLoading}>
-                  <ActivityIndicator color="#6BBF00" />
-                  <Text style={styles.searchLoadingText}>Buscando...</Text>
-                </View>
-              )}
-
-              {!isSearching && searchQuery.length >= 2 && searchResults.length === 0 && (
-                <Text style={styles.noResults}>No se encontraron resultados</Text>
-              )}
-
-              {searchQuery.length < 2 && !isSearching && (
-                <Text style={styles.searchHint}>Escribe al menos 2 caracteres para buscar</Text>
+              {searchQuery.length >= 2 && !isSearching && searchResults.length === 0 && (
+                <Text style={s.noResults}>No se encontraron resultados</Text>
               )}
             </ScrollView>
           </KeyboardAvoidingView>
         </SafeAreaView>
       </Modal>
-
-      {/* Modal de despacho automático */}
-      <Modal
-        visible={showBidsModal && !!currentRequest}
-        animationType="slide"
-        transparent={true}
-      >
-        <View style={styles.modalContainer}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>
-                {rideAccepted ? '¡Conductor asignado!' : 'Buscando conductor'}
-              </Text>
-              {!rideAccepted && (
-                <TouchableOpacity onPress={() => { setShowBidsModal(false); clearRequest(); setDispatchStatus(''); setDispatchProgress(null); }}>
-                  <Ionicons name="close" size={24} color="#1C1C1E" />
-                </TouchableOpacity>
-              )}
-            </View>
-
-            <View style={styles.dispatchContainer}>
-              {rideAccepted ? (
-                <View style={styles.dispatchSuccess}>
-                  <View style={styles.successCircle}>
-                    <Ionicons name="checkmark" size={48} color="#fff" />
-                  </View>
-                  <Text style={styles.dispatchSuccessText}>
-                    ¡Conductor encontrado!
-                  </Text>
-                  <Text style={styles.dispatchSubtext}>
-                    Tu conductor está en camino
-                  </Text>
-                </View>
-              ) : (
-                <View style={styles.dispatchSearching}>
-                  <ActivityIndicator size="large" color="#6BBF00" />
-                  <Text style={styles.dispatchSearchText}>
-                    {dispatchStatus || 'Conectando con conductores cercanos...'}
-                  </Text>
-                  {dispatchProgress && (
-                    <View style={styles.progressBarContainer}>
-                      <View style={[
-                        styles.progressBarFill,
-                        { width: `${(dispatchProgress.index / dispatchProgress.total) * 100}%` }
-                      ]} />
-                    </View>
-                  )}
-                  <Text style={styles.dispatchHint}>
-                    El sistema busca automáticamente al conductor más cercano
-                  </Text>
-                </View>
-              )}
-            </View>
-
-            {/* Fallback: show bids if any come in through old system */}
-            {bids.length > 0 && !rideAccepted && (
-              <ScrollView style={styles.bidsList}>
-                <Text style={styles.bidsListTitle}>Ofertas de conductores:</Text>
-                {bids.map((bid) => (
-                  <View key={bid.bid_id} style={styles.bidCard}>
-                    <View style={styles.bidDriverInfo}>
-                      <View style={styles.bidDriverAvatar}>
-                        <Ionicons name="person" size={24} color="#007AFF" />
-                      </View>
-                      <View style={styles.bidDriverDetails}>
-                        <Text style={styles.bidDriverName}>{bid.driver_name}</Text>
-                        <View style={styles.bidRatingRow}>
-                          <Ionicons name="star" size={14} color="#FFD700" />
-                          <Text style={styles.bidRatingText}>{bid.driver_rating.toFixed(1)}</Text>
-                          <Text style={styles.bidArrivalText}>
-                            {'\u00B7'} {bid.estimated_arrival} min
-                          </Text>
-                        </View>
-                        {bid.vehicle_info && (
-                          <Text style={styles.bidVehicleText}>
-                            {bid.vehicle_info.color} {bid.vehicle_info.make} {bid.vehicle_info.model}
-                          </Text>
-                        )}
-                      </View>
-                    </View>
-                    <View style={styles.bidPriceSection}>
-                      <Text style={styles.bidPrice}>${bid.fare_amount.toFixed(2)}</Text>
-                      <Button
-                        title="Aceptar"
-                        onPress={() => handleAcceptBid(bid.bid_id)}
-                        size="small"
-                      />
-                    </View>
-                  </View>
-                ))}
-              </ScrollView>
-            )}
-          </View>
-        </View>
-      </Modal>
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-  },
-  greeting: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#1C1C1E',
-  },
-  subGreeting: {
-    fontSize: 14,
-    color: '#8E8E93',
-    marginTop: 4,
-  },
-  notificationButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#F2F2F7',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  mapContainer: {
-    flex: 1,
-    margin: 16,
-    borderRadius: 16,
-    overflow: 'hidden',
-  },
-  selectingOverlay: {
-    position: 'absolute',
-    top: 16,
-    left: 16,
-    right: 16,
-    backgroundColor: 'rgba(0,0,0,0.8)',
-    borderRadius: 12,
-    padding: 16,
-    alignItems: 'center',
-  },
-  selectingText: {
-    color: '#fff',
-    fontSize: 14,
-    marginBottom: 12,
-    textAlign: 'center',
-  },
-  bookingPanel: {
-    backgroundColor: '#fff',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 32,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 8,
-  },
-  locationInputs: {
-    backgroundColor: '#F2F2F7',
-    borderRadius: 16,
-    padding: 4,
-  },
-  locationInput: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-  },
-  locationDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    marginRight: 12,
-  },
-  pickupDot: {
-    backgroundColor: '#34C759',
-  },
-  dropoffDot: {
-    backgroundColor: '#FF3B30',
-  },
-  locationText: {
-    flex: 1,
-    fontSize: 15,
-    color: '#1C1C1E',
-  },
-  placeholderText: {
-    flex: 1,
-    fontSize: 15,
-    color: '#8E8E93',
-  },
-  locationDivider: {
-    height: 1,
-    backgroundColor: '#E5E5EA',
-    marginLeft: 40,
-  },
-  vehicleTypesScroll: {
-    marginTop: 20,
-  },
-  vehicleTypesContent: {
-    paddingRight: 20,
-    gap: 12,
-  },
-  vehicleTypeCard: {
-    alignItems: 'center',
-    padding: 16,
-    borderRadius: 16,
-    backgroundColor: '#F2F2F7',
-    minWidth: 80,
-  },
-  vehicleTypeCardSelected: {
-    backgroundColor: '#E8F5E9',
-    borderWidth: 2,
-    borderColor: '#6BBF00',
-  },
-  vehicleTypeName: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#8E8E93',
-    marginTop: 8,
-  },
-  vehicleTypeNameSelected: {
-    color: '#6BBF00',
-  },
-  vehicleTypeMultiplier: {
-    fontSize: 10,
-    color: '#8E8E93',
-    marginTop: 4,
-  },
-  requestButton: {
-    marginTop: 20,
-  },
-  cancelButton: {
-    marginTop: 12,
-  },
-  modalContainer: {
-    flex: 1,
-    justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0,0,0,0.5)',
-  },
-  modalContent: {
-    backgroundColor: '#fff',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    maxHeight: '70%',
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E5EA',
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#1C1C1E',
-  },
-  bidsList: {
-    padding: 20,
-  },
-  bidCard: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
-    backgroundColor: '#F2F2F7',
-    borderRadius: 16,
-    marginBottom: 12,
-  },
-  bidDriverInfo: {
-    flexDirection: 'row',
-    flex: 1,
-  },
-  bidDriverAvatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#E3F2FD',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  bidDriverDetails: {
-    flex: 1,
-  },
-  bidDriverName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1C1C1E',
-  },
-  bidRatingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 4,
-  },
-  bidRatingText: {
-    fontSize: 13,
-    color: '#1C1C1E',
-    marginLeft: 4,
-  },
-  bidArrivalText: {
-    fontSize: 13,
-    color: '#8E8E93',
-    marginLeft: 8,
-  },
-  bidVehicleText: {
-    fontSize: 12,
-    color: '#8E8E93',
-    marginTop: 4,
-  },
-  bidPriceSection: {
-    alignItems: 'flex-end',
-  },
-  bidPrice: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#1C1C1E',
-    marginBottom: 8,
-  },
-  noBidsContainer: {
-    padding: 40,
-    alignItems: 'center',
-  },
-  noBidsText: {
-    marginTop: 16,
-    fontSize: 16,
-    color: '#8E8E93',
-  },
-  activeRideCard: {
-    backgroundColor: '#fff',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 8,
-  },
-  rideStatusHeader: {
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  statusBadge: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-  },
-  status_accepted: {
-    backgroundColor: '#FFF3E0',
-  },
-  status_arrived: {
-    backgroundColor: '#E8F5E9',
-  },
-  status_started: {
-    backgroundColor: '#E3F2FD',
-  },
-  statusText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#1C1C1E',
-  },
-  driverInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  driverAvatar: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#E3F2FD',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  driverDetails: {
-    flex: 1,
-    marginLeft: 16,
-  },
-  driverName: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#1C1C1E',
-  },
-  ratingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 4,
-  },
-  ratingText: {
-    fontSize: 14,
-    color: '#1C1C1E',
-    marginLeft: 4,
-  },
-  driverActions: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  actionButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#F2F2F7',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  vehicleInfo: {
-    backgroundColor: '#F2F2F7',
-    padding: 12,
-    borderRadius: 12,
-    marginBottom: 16,
-  },
-  vehicleText: {
-    fontSize: 14,
-    color: '#1C1C1E',
-  },
-  plateText: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#007AFF',
-    marginTop: 4,
-  },
-  fareInfo: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#E5E5EA',
-  },
-  fareLabel: {
-    fontSize: 16,
-    color: '#8E8E93',
-  },
-  fareAmount: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#1C1C1E',
-  },
-  // Search modal styles
-  searchModal: {
-    flex: 1,
-    backgroundColor: '#fff',
-  },
-  searchHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E5EA',
-  },
-  searchBackBtn: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  searchTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#1C1C1E',
-  },
-  searchInputWrap: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: '#fff',
-  },
-  searchInputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F2F2F7',
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: 16,
-    color: '#1C1C1E',
-    marginLeft: 10,
-    padding: 0,
-  },
-  searchResultsList: {
-    flex: 1,
-  },
-  searchResultItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-  },
-  searchResultIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#F2F2F7',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 14,
-  },
-  searchResultTextWrap: {
-    flex: 1,
-  },
-  searchResultName: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#1C1C1E',
-  },
-  searchResultAddr: {
-    fontSize: 13,
-    color: '#8E8E93',
-    marginTop: 2,
-  },
-  searchDivider: {
-    height: 1,
-    backgroundColor: '#E5E5EA',
-    marginHorizontal: 16,
-    marginVertical: 4,
-  },
-  searchLoading: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 24,
-    gap: 10,
-  },
-  searchLoadingText: {
-    fontSize: 14,
-    color: '#8E8E93',
-  },
-  noResults: {
-    textAlign: 'center',
-    color: '#8E8E93',
-    fontSize: 14,
-    paddingVertical: 24,
-  },
-  searchHint: {
-    textAlign: 'center',
-    color: '#C7C7CC',
-    fontSize: 13,
-    paddingVertical: 24,
-  },
-  // Banner & Molí+
-  bannerCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 10,
-  },
-  bannerContent: {
-    flex: 1,
-  },
-  bannerTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  bannerDesc: {
-    fontSize: 12,
-    marginTop: 2,
-    opacity: 0.85,
-  },
-  moliPlusCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F3E8FF',
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 10,
-  },
-  moliPlusBadge: {
-    backgroundColor: '#6B21A8',
-    borderRadius: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    marginRight: 10,
-  },
-  moliPlusBadgeText: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: '800',
-  },
-  moliPlusText: {
-    flex: 1,
-    fontSize: 13,
-    color: '#6B21A8',
-    fontWeight: '500',
-  },
-  // Route info
-  routeInfoBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: 8,
-    paddingHorizontal: 2,
-  },
-  routeInfoText: {
-    fontSize: 13,
-    color: '#6BBF00',
-    fontWeight: '600',
-  },
-  // Vehicle cards
-  vehicleCard: {
-    backgroundColor: '#F2F2F7',
-    borderRadius: 14,
-    padding: 12,
-    marginRight: 10,
-    width: 90,
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: 'transparent',
-  },
-  vehicleCardSelected: {
-    borderColor: '#6BBF00',
-    backgroundColor: '#F0FFF0',
-  },
-  vehicleEmoji: {
-    fontSize: 28,
-    marginBottom: 4,
-  },
-  vehicleCardName: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#666',
-    marginBottom: 2,
-  },
-  vehicleCardNameSel: {
-    color: '#1C1C1E',
-  },
-  vehicleCardPrice: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#1C1C1E',
-  },
-  vehicleCardPriceSel: {
-    color: '#6BBF00',
-  },
-  vehicleCardMult: {
-    fontSize: 12,
-    color: '#8E8E93',
-    fontWeight: '500',
-  },
-  // Request button
-  requestBtn: {
-    backgroundColor: '#6BBF00',
-    borderRadius: 14,
-    paddingVertical: 16,
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  requestBtnDisabled: {
-    backgroundColor: '#C7C7CC',
-  },
-  requestBtnText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  cancelBtn: {
-    borderWidth: 1.5,
-    borderColor: '#EF4444',
-    borderRadius: 14,
-    paddingVertical: 12,
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  cancelBtnText: {
-    color: '#EF4444',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  // Vertical vehicle list
-  vehicleListContainer: {
-    marginTop: 12,
-    gap: 8,
-  },
-  vehicleListItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F8F8FA',
-    borderRadius: 14,
-    padding: 14,
-    borderWidth: 2,
-    borderColor: 'transparent',
-  },
-  vehicleListItemSelected: {
-    borderColor: '#6BBF00',
-    backgroundColor: '#F0FFF0',
-  },
-  vehicleListEmoji: {
-    fontSize: 32,
-    marginRight: 14,
-  },
-  vehicleListInfo: {
-    flex: 1,
-  },
-  vehicleListName: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#1C1C1E',
-  },
-  vehicleListNameSel: {
-    color: '#2D7600',
-  },
-  vehicleListEta: {
-    fontSize: 12,
-    color: '#8E8E93',
-    marginTop: 2,
-  },
-  vehicleListPriceWrap: {
-    alignItems: 'flex-end',
-    marginRight: 8,
-  },
-  vehicleListPrice: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#1C1C1E',
-  },
-  vehicleListPriceSel: {
-    color: '#6BBF00',
-  },
-  vehicleListMult: {
-    fontSize: 14,
-    color: '#8E8E93',
-    fontWeight: '600',
-  },
-  vehicleListCheck: {
-    marginLeft: 4,
-  },
-  // Dispatch searching
-  dispatchContainer: {
-    paddingHorizontal: 20,
-    paddingVertical: 32,
-  },
-  dispatchSearching: {
-    alignItems: 'center',
-  },
-  dispatchSearchText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1C1C1E',
-    marginTop: 20,
-    textAlign: 'center',
-  },
-  progressBarContainer: {
-    width: '80%',
-    height: 6,
-    backgroundColor: '#E5E5EA',
-    borderRadius: 3,
-    marginTop: 16,
-    overflow: 'hidden',
-  },
-  progressBarFill: {
-    height: '100%',
-    backgroundColor: '#6BBF00',
-    borderRadius: 3,
-  },
-  dispatchHint: {
-    fontSize: 13,
-    color: '#8E8E93',
-    marginTop: 16,
-    textAlign: 'center',
-  },
-  dispatchSuccess: {
-    alignItems: 'center',
-  },
-  successCircle: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: '#6BBF00',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  dispatchSuccessText: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#1C1C1E',
-    marginTop: 16,
-  },
-  dispatchSubtext: {
-    fontSize: 14,
-    color: '#8E8E93',
-    marginTop: 8,
-  },
-  bidsListTitle: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#8E8E93',
-    paddingHorizontal: 20,
-    paddingBottom: 8,
-  },
-  errorBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFF0F0',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    marginHorizontal: 16,
-    marginTop: 4,
-    borderRadius: 10,
-    gap: 8,
-  },
-  errorBannerText: {
-    flex: 1,
-    fontSize: 13,
-    color: '#FF3B30',
-    fontWeight: '500',
-  },
+// ═══════════════════════════════════════════════
+// STYLES
+// ═══════════════════════════════════════════════
+const s = StyleSheet.create({
+  container: { flex: 1, backgroundColor: '#fff' },
+
+  // ─── Error ────────
+  errorBanner: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF0F0', marginHorizontal: 16, marginTop: 4, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 10, gap: 8 },
+  errorText: { flex: 1, fontSize: 13, color: '#FF3B30', fontWeight: '500' },
+
+  // ─── Map ──────────
+  mapFull: { flex: 1 },
+  mapBackBtn: { position: 'absolute', top: 16, left: 16, width: 44, height: 44, borderRadius: 22, backgroundColor: '#fff', justifyContent: 'center', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.15, shadowRadius: 6, elevation: 4 },
+
+  // ─── Idle Bottom Panel ───
+  bottomPanel: { backgroundColor: '#fff', borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: 20, paddingTop: 20, paddingBottom: 24, shadowColor: '#000', shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 8 },
+  greeting: { fontSize: 22, fontWeight: '700', color: '#1C1C1E', marginBottom: 16 },
+  searchBar: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F2F2F7', borderRadius: 14, paddingHorizontal: 16, paddingVertical: 16, marginBottom: 12 },
+  searchIcon: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#E8F5E9', justifyContent: 'center', alignItems: 'center', marginRight: 12 },
+  searchPlaceholder: { flex: 1, fontSize: 16, color: '#8E8E93' },
+  originRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 4, gap: 12 },
+  dot: { width: 10, height: 10, borderRadius: 5 },
+  originText: { flex: 1, fontSize: 14, color: '#1C1C1E' },
+  moliBanner: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F8F4FF', borderRadius: 12, padding: 12, marginTop: 8 },
+  moliTag: { backgroundColor: '#7C3AED', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, marginRight: 10 },
+  moliTagText: { color: '#fff', fontSize: 11, fontWeight: '700' },
+  moliBannerText: { flex: 1, fontSize: 13, color: '#5B21B6' },
+
+  // ─── Confirm Panel ───
+  confirmPanel: { backgroundColor: '#fff', borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingTop: 16, paddingBottom: 24, maxHeight: SH * 0.55, shadowColor: '#000', shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 8 },
+  routeSummary: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: '#F2F2F7' },
+  routeDots: { alignItems: 'center', marginRight: 12 },
+  dotLine: { width: 2, height: 20, backgroundColor: '#E5E5EA', marginVertical: 3 },
+  routeAddr: { fontSize: 14, fontWeight: '600', color: '#1C1C1E', marginBottom: 8 },
+  routeAddr2: { fontSize: 14, color: '#8E8E93' },
+  routeStats: { alignItems: 'flex-end', marginLeft: 12 },
+  routeStatVal: { fontSize: 14, fontWeight: '700', color: '#1C1C1E' },
+  routeStatLabel: { fontSize: 12, color: '#8E8E93', marginTop: 2 },
+
+  vehicleList: { paddingHorizontal: 12, maxHeight: SH * 0.25 },
+  vehicleItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, paddingHorizontal: 12, marginVertical: 2, borderRadius: 14, borderWidth: 2, borderColor: 'transparent' },
+  vehicleItemSel: { borderColor: '#6BBF00', backgroundColor: '#F0FFF0' },
+  vehicleEmoji: { fontSize: 32 },
+  vehicleName: { fontSize: 16, fontWeight: '700', color: '#1C1C1E' },
+  vehicleEta: { fontSize: 12, color: '#8E8E93', marginTop: 2 },
+  vehiclePrice: { fontSize: 18, fontWeight: '800', color: '#1C1C1E' },
+
+  payRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 12, gap: 10, borderTopWidth: 1, borderTopColor: '#F2F2F7' },
+  payText: { flex: 1, fontSize: 14, fontWeight: '600', color: '#1C1C1E' },
+
+  confirmBtn: { backgroundColor: '#1C1C1E', marginHorizontal: 20, paddingVertical: 18, borderRadius: 14, alignItems: 'center' },
+  confirmBtnText: { color: '#fff', fontSize: 17, fontWeight: '700' },
+
+  // ─── Searching Panel ───
+  searchingPanel: { backgroundColor: '#fff', borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingVertical: 40, paddingHorizontal: 20, shadowColor: '#000', shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 8 },
+  searchingContainer: { alignItems: 'center' },
+  searchingText: { fontSize: 17, fontWeight: '600', color: '#1C1C1E', marginTop: 20, textAlign: 'center' },
+  progressBar: { width: '70%', height: 4, backgroundColor: '#E5E5EA', borderRadius: 2, marginTop: 16, overflow: 'hidden' },
+  progressFill: { height: '100%', backgroundColor: '#6BBF00', borderRadius: 2 },
+  searchingHint: { fontSize: 13, color: '#8E8E93', marginTop: 12 },
+  cancelSearchBtn: { marginTop: 24, paddingVertical: 12, paddingHorizontal: 32, borderRadius: 10, borderWidth: 1.5, borderColor: '#FF3B30' },
+  cancelSearchText: { color: '#FF3B30', fontSize: 15, fontWeight: '600' },
+  foundContainer: { alignItems: 'center' },
+  foundCircle: { width: 72, height: 72, borderRadius: 36, backgroundColor: '#6BBF00', justifyContent: 'center', alignItems: 'center' },
+  foundText: { fontSize: 20, fontWeight: '700', color: '#1C1C1E', marginTop: 16 },
+  foundSub: { fontSize: 14, color: '#8E8E93', marginTop: 6 },
+
+  // ─── Active Ride ───
+  activeCard: { backgroundColor: '#fff', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, shadowColor: '#000', shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.1, shadowRadius: 12, elevation: 8 },
+  activeStatusBadge: { flexDirection: 'row', alignItems: 'center', alignSelf: 'center', backgroundColor: '#F2F2F7', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, marginBottom: 16, gap: 8 },
+  statusDot: { width: 8, height: 8, borderRadius: 4 },
+  activeStatusText: { fontSize: 14, fontWeight: '600', color: '#1C1C1E' },
+
+  driverRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
+  driverAvatar: { width: 48, height: 48, borderRadius: 24, backgroundColor: '#1C1C1E', justifyContent: 'center', alignItems: 'center' },
+  driverName: { fontSize: 17, fontWeight: '700', color: '#1C1C1E' },
+  ratingRow: { flexDirection: 'row', alignItems: 'center', marginTop: 4, gap: 4 },
+  ratingVal: { fontSize: 13, color: '#1C1C1E' },
+  iconBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#F2F2F7', justifyContent: 'center', alignItems: 'center', marginLeft: 8 },
+
+  vehicleRow: { backgroundColor: '#F2F2F7', borderRadius: 12, padding: 12, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  vehiclePlate: { fontSize: 18, fontWeight: '800', color: '#1C1C1E', letterSpacing: 1 },
+  vehicleDesc: { fontSize: 13, color: '#8E8E93' },
+
+  fareRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  fareLabel: { fontSize: 14, color: '#8E8E93' },
+  fareVal: { fontSize: 24, fontWeight: '800', color: '#1C1C1E' },
+
+  // ─── Search Modal ───
+  modalContainer: { flex: 1, backgroundColor: '#fff' },
+  modalHeader: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, gap: 12 },
+  modalBack: { width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center' },
+  modalTitle: { fontSize: 18, fontWeight: '700', color: '#1C1C1E' },
+  searchInputWrap: { flexDirection: 'row', alignItems: 'center', marginHorizontal: 16, backgroundColor: '#F2F2F7', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, gap: 10 },
+  searchInput: { flex: 1, fontSize: 16, color: '#1C1C1E' },
+  resultsList: { flex: 1, marginTop: 8 },
+  resultItem: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, gap: 12 },
+  resultIcon: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#F2F2F7', justifyContent: 'center', alignItems: 'center' },
+  resultName: { fontSize: 15, fontWeight: '600', color: '#1C1C1E' },
+  resultAddr: { fontSize: 13, color: '#8E8E93', marginTop: 2 },
+  noResults: { textAlign: 'center', marginTop: 40, fontSize: 15, color: '#8E8E93' },
 });
