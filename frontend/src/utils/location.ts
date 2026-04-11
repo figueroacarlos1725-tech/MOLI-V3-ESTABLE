@@ -122,3 +122,40 @@ export function formatDuration(minutes: number): string {
   const mins = Math.round(minutes % 60);
   return `${hours}h ${mins}m`;
 }
+
+export interface PlaceResult {
+  id: string;
+  name: string;
+  address: string;
+  latitude: number;
+  longitude: number;
+}
+
+export async function searchPlaces(
+  query: string,
+  proximity?: { latitude: number; longitude: number }
+): Promise<PlaceResult[]> {
+  const mapboxToken = process.env.EXPO_PUBLIC_MAPBOX_TOKEN || '';
+  if (!mapboxToken || !query.trim() || query.length < 2) return [];
+
+  try {
+    const proxParam = proximity
+      ? `&proximity=${proximity.longitude},${proximity.latitude}`
+      : '&proximity=-65.7852,-28.4696';
+    const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?access_token=${mapboxToken}&country=ar&language=es&limit=6&types=address,poi,place,neighborhood,locality${proxParam}`;
+
+    const response = await fetch(url);
+    const data = await response.json();
+
+    return (data.features || []).map((f: any) => ({
+      id: f.id,
+      name: f.text,
+      address: f.place_name,
+      latitude: f.center[1],
+      longitude: f.center[0],
+    }));
+  } catch (error) {
+    console.error('Error searching places:', error);
+    return [];
+  }
+}

@@ -14,6 +14,7 @@ interface MarkerProps {
   title?: string;
   type?: 'pickup' | 'dropoff' | 'driver' | 'user';
   vehicleType?: string; // economy, comfort, premium, xl
+  draggable?: boolean;
 }
 
 interface MapViewProps {
@@ -70,7 +71,7 @@ html,body{width:100%;height:100%;overflow:hidden}
 .marker-user{width:20px;height:20px;border-radius:50%;background:rgba(107,191,0,0.3);border:3px solid #6BBF00;animation:pulse 2s infinite}
 .marker-driver{font-size:28px;text-align:center;line-height:32px;filter:drop-shadow(1px 1px 3px rgba(0,0,0,0.4));cursor:pointer}
 .marker-driver-img{width:40px;height:40px;object-fit:contain;filter:drop-shadow(1px 1px 3px rgba(0,0,0,0.4));cursor:pointer}
-.marker-pickup{width:16px;height:16px;border-radius:50%;background:#6BBF00;border:3px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.3)}
+.marker-pickup{width:22px;height:22px;border-radius:50%;background:#6BBF00;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.4);cursor:grab}
 .marker-dropoff{width:16px;height:16px;border-radius:50%;background:#FF3B30;border:3px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.3)}
 .mapboxgl-ctrl-attrib{font-size:9px!important}
 @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(107,191,0,0.4)}70%{box-shadow:0 0 0 14px rgba(107,191,0,0)}100%{box-shadow:0 0 0 0 rgba(107,191,0,0)}}
@@ -145,13 +146,14 @@ function setMarkers(arr){
   var bounds=new mapboxgl.LngLatBounds();
   arr.forEach(function(m){
     var el=createMarkerEl(m.type||'user',m.vehicleType);
-    var marker=new mapboxgl.Marker({element:el})
+    var marker=new mapboxgl.Marker({element:el,draggable:m.draggable||false})
       .setLngLat([m.longitude,m.latitude])
       .addTo(map);
     if(m.title){
       marker.setPopup(new mapboxgl.Popup({offset:25,closeButton:false})
         .setHTML('<div class="popup-content">'+m.title+'</div>'));
     }
+    if(m.draggable){marker.on('dragend',function(){var ll=marker.getLngLat();var msg=JSON.stringify({type:'markerDrag',markerType:m.type||'',latitude:ll.lat,longitude:ll.lng});try{window.ReactNativeWebView&&window.ReactNativeWebView.postMessage(msg)}catch(x){}try{window.parent.postMessage(msg,'*')}catch(x){}});}
     currentMarkers.push(marker);
     bounds.extend([m.longitude,m.latitude]);
   });
@@ -160,7 +162,9 @@ function setMarkers(arr){
     map.fitBounds(bounds,{padding:{top:60,bottom:60,left:40,right:40},maxZoom:15});
   }
 
-  if(${showRoute ? 'true' : 'false'}&&arr.length>=2){
+  var hasPickup=arr.some(function(m){return m.type==='pickup'});
+  var hasDropoff=arr.some(function(m){return m.type==='dropoff'});
+  if(hasPickup&&hasDropoff){
     drawRoute(arr);
   }
 }
@@ -237,7 +241,7 @@ if(navigator.geolocation){
 </html>`;
 }
 
-function WebMapView({ initialRegion, markers = [], showRoute = false, onMapPress, style, vehicleIcons = [] }: MapViewProps & { vehicleIcons: VehicleIconConfig[] }) {
+function WebMapView({ initialRegion, markers = [], showRoute = false, onMapPress, onMarkerDrag, style, vehicleIcons = [] }: MapViewProps & { vehicleIcons: VehicleIconConfig[] }) {
   const containerRef = useRef<View>(null);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -291,6 +295,9 @@ function WebMapView({ initialRegion, markers = [], showRoute = false, onMapPress
         if (data.type === 'mapPress' && onMapPress) {
           onMapPress({ latitude: data.latitude, longitude: data.longitude });
         }
+        if (data.type === 'markerDrag' && onMarkerDrag) {
+          onMarkerDrag(data.markerType, { latitude: data.latitude, longitude: data.longitude });
+        }
       } catch (e) {
         // Ignore non-JSON messages
       }
@@ -340,7 +347,7 @@ function NativeMapView({ initialRegion, markers = [], showRoute = false, onMapPr
       if (data.type === 'mapPress' && onMapPress) {
         onMapPress({ latitude: data.latitude, longitude: data.longitude });
       } else if (data.type === 'markerDrag' && onMarkerDrag) {
-        onMarkerDrag(data.markerId, { latitude: data.latitude, longitude: data.longitude });
+        onMarkerDrag(data.markerType || data.markerId, { latitude: data.latitude, longitude: data.longitude });
       }
     } catch (error) {
       console.error('Error parsing map message:', error);

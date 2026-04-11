@@ -9,6 +9,9 @@ import {
   Modal,
   Alert,
   ActivityIndicator,
+  TextInput,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -20,7 +23,9 @@ import { socketService } from '@/src/services/socket';
 import {
   getCurrentLocation,
   reverseGeocode,
+  searchPlaces,
   LocationCoords,
+  PlaceResult,
 } from '@/src/utils/location';
 
 export default function RiderHomeScreen() {
@@ -46,6 +51,11 @@ export default function RiderHomeScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [showBidsModal, setShowBidsModal] = useState(false);
   const [isSelectingLocation, setIsSelectingLocation] = useState<'pickup' | 'dropoff' | null>(null);
+  const [showSearchModal, setShowSearchModal] = useState(false);
+  const [searchType, setSearchType] = useState<'pickup' | 'dropoff'>('dropoff');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<PlaceResult[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
 
   const vehicleTypes = [
     { id: 'economy', name: 'Económico', icon: 'car-outline', multiplier: '1x' },
@@ -99,6 +109,58 @@ export default function RiderHomeScreen() {
     setIsSelectingLocation(null);
   };
 
+  // Debounced search for places
+  useEffect(() => {
+    if (searchQuery.length < 2) {
+      setSearchResults([]);
+      return;
+    }
+    const timer = setTimeout(async () => {
+      setIsSearching(true);
+      const results = await searchPlaces(searchQuery, userLocation || undefined);
+      setSearchResults(results);
+      setIsSearching(false);
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  const openSearch = (type: 'pickup' | 'dropoff') => {
+    setSearchType(type);
+    setSearchQuery('');
+    setSearchResults([]);
+    setShowSearchModal(true);
+  };
+
+  const handleSearchSelect = (place: PlaceResult) => {
+    if (searchType === 'pickup') {
+      setPickupLocation({ latitude: place.latitude, longitude: place.longitude, address: place.address });
+      setPickupAddress(place.name);
+    } else {
+      setDropoffLocation({ latitude: place.latitude, longitude: place.longitude, address: place.address });
+      setDropoffAddress(place.name);
+    }
+    setShowSearchModal(false);
+    setSearchQuery('');
+    setSearchResults([]);
+  };
+
+  const handleSelectOnMap = () => {
+    setShowSearchModal(false);
+    setSearchQuery('');
+    setIsSelectingLocation(searchType);
+  };
+
+  const handleMarkerDrag = async (markerType: string, coords: { latitude: number; longitude: number }) => {
+    const address = await reverseGeocode(coords.latitude, coords.longitude);
+    if (markerType === 'pickup') {
+      setPickupLocation({ ...coords, address });
+      setPickupAddress(address);
+    } else if (markerType === 'dropoff') {
+      setDropoffLocation({ ...coords, address });
+      setDropoffAddress(address);
+    }
+  };
+
   const handleRequestRide = async () => {
     if (!pickupLocation || !dropoffLocation) {
       Alert.alert('Error', 'Por favor selecciona las ubicaciones de recogida y destino');
@@ -148,6 +210,7 @@ export default function RiderHomeScreen() {
         longitude: pickupLocation.longitude,
         title: 'Recogida',
         type: 'pickup' as const,
+        draggable: true,
       });
     }
     if (dropoffLocation) {
@@ -264,6 +327,7 @@ export default function RiderHomeScreen() {
           markers={getMapMarkers()}
           showRoute={pickupLocation && dropoffLocation ? true : false}
           onMapPress={isSelectingLocation ? handleMapPress : undefined}
+          onMarkerDrag={handleMarkerDrag}
         />
         
         {isSelectingLocation && (
@@ -287,23 +351,25 @@ export default function RiderHomeScreen() {
         <View style={styles.locationInputs}>
           <TouchableOpacity
             style={styles.locationInput}
-            onPress={() => setIsSelectingLocation('pickup')}
+            onPress={() => openSearch('pickup')}
           >
             <View style={[styles.locationDot, styles.pickupDot]} />
-            <Text style={pickupAddress ? styles.locationText : styles.placeholderText}>
+            <Text style={pickupAddress ? styles.locationText : styles.placeholderText} numberOfLines={1}>
               {pickupAddress || 'Selecciona punto de recogida'}
             </Text>
-            <Ionicons name="locate" size={20} color="#8E8E93" />
+            <TouchableOpacity onPress={initializeLocation} hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}>
+              <Ionicons name="locate" size={20} color="#6BBF00" />
+            </TouchableOpacity>
           </TouchableOpacity>
           
           <View style={styles.locationDivider} />
           
           <TouchableOpacity
             style={styles.locationInput}
-            onPress={() => setIsSelectingLocation('dropoff')}
+            onPress={() => openSearch('dropoff')}
           >
             <View style={[styles.locationDot, styles.dropoffDot]} />
-            <Text style={dropoffAddress ? styles.locationText : styles.placeholderText}>
+            <Text style={dropoffAddress ? styles.locationText : styles.placeholderText} numberOfLines={1}>
               {dropoffAddress || '¿A dónde vas?'}
             </Text>
             <Ionicons name="search" size={20} color="#8E8E93" />
@@ -363,6 +429,96 @@ export default function RiderHomeScreen() {
           />
         )}
       </View>
+
+      {/* Modal de búsqueda de ubicación */}
+      <Modal visible={showSearchModal} animationType="slide">
+        <SafeAreaView style={styles.searchModal}>
+          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{flex: 1}}>
+            <View style={styles.searchHeader}>
+              <TouchableOpacity onPress={() => { setShowSearchModal(false); setSearchQuery(''); }} style={styles.searchBackBtn}>
+                <Ionicons name="arrow-back" size={24} color="#1C1C1E" />
+              </TouchableOpacity>
+              <Text style={styles.searchTitle}>
+                {searchType === 'pickup' ? 'Punto de recogida' : '¿A dónde vas?'}
+              </Text>
+              <View style={{width: 40}} />
+            </View>
+
+            <View style={styles.searchInputWrap}>
+              <View style={styles.searchInputContainer}>
+                <Ionicons name="search" size={20} color="#8E8E93" />
+                <TextInput
+                  style={styles.searchInput}
+                  placeholder={searchType === 'pickup' ? 'Buscar dirección de recogida...' : 'Buscar dirección, lugar...'}
+                  placeholderTextColor="#8E8E93"
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                  autoFocus
+                  returnKeyType="search"
+                />
+                {searchQuery.length > 0 && (
+                  <TouchableOpacity onPress={() => setSearchQuery('')}>
+                    <Ionicons name="close-circle" size={20} color="#C7C7CC" />
+                  </TouchableOpacity>
+                )}
+              </View>
+            </View>
+
+            <ScrollView style={styles.searchResultsList} keyboardShouldPersistTaps="handled">
+              {searchType === 'pickup' && (
+                <TouchableOpacity style={styles.searchResultItem} onPress={() => { initializeLocation(); setShowSearchModal(false); }}>
+                  <View style={[styles.searchResultIcon, {backgroundColor: '#E8F5E9'}]}>
+                    <Ionicons name="navigate" size={20} color="#6BBF00" />
+                  </View>
+                  <View style={styles.searchResultTextWrap}>
+                    <Text style={styles.searchResultName}>Mi ubicación actual</Text>
+                    <Text style={styles.searchResultAddr}>Usar GPS</Text>
+                  </View>
+                </TouchableOpacity>
+              )}
+
+              <TouchableOpacity style={styles.searchResultItem} onPress={handleSelectOnMap}>
+                <View style={[styles.searchResultIcon, {backgroundColor: '#FFF3E0'}]}>
+                  <Ionicons name="map" size={20} color="#FF9800" />
+                </View>
+                <View style={styles.searchResultTextWrap}>
+                  <Text style={styles.searchResultName}>Seleccionar en el mapa</Text>
+                  <Text style={styles.searchResultAddr}>Toca un punto en el mapa</Text>
+                </View>
+              </TouchableOpacity>
+
+              {(searchResults.length > 0 || isSearching) && <View style={styles.searchDivider} />}
+
+              {searchResults.map((place) => (
+                <TouchableOpacity key={place.id} style={styles.searchResultItem} onPress={() => handleSearchSelect(place)}>
+                  <View style={styles.searchResultIcon}>
+                    <Ionicons name="location" size={20} color="#007AFF" />
+                  </View>
+                  <View style={styles.searchResultTextWrap}>
+                    <Text style={styles.searchResultName} numberOfLines={1}>{place.name}</Text>
+                    <Text style={styles.searchResultAddr} numberOfLines={1}>{place.address}</Text>
+                  </View>
+                </TouchableOpacity>
+              ))}
+
+              {isSearching && (
+                <View style={styles.searchLoading}>
+                  <ActivityIndicator color="#6BBF00" />
+                  <Text style={styles.searchLoadingText}>Buscando...</Text>
+                </View>
+              )}
+
+              {!isSearching && searchQuery.length >= 2 && searchResults.length === 0 && (
+                <Text style={styles.noResults}>No se encontraron resultados</Text>
+              )}
+
+              {searchQuery.length < 2 && !isSearching && (
+                <Text style={styles.searchHint}>Escribe al menos 2 caracteres para buscar</Text>
+              )}
+            </ScrollView>
+          </KeyboardAvoidingView>
+        </SafeAreaView>
+      </Modal>
 
       {/* Modal de ofertas */}
       <Modal
@@ -773,5 +929,110 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
     color: '#1C1C1E',
+  },
+  // Search modal styles
+  searchModal: {
+    flex: 1,
+    backgroundColor: '#fff',
+  },
+  searchHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E5EA',
+  },
+  searchBackBtn: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  searchTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1C1C1E',
+  },
+  searchInputWrap: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: '#fff',
+  },
+  searchInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F2F2F7',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 16,
+    color: '#1C1C1E',
+    marginLeft: 10,
+    padding: 0,
+  },
+  searchResultsList: {
+    flex: 1,
+  },
+  searchResultItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+  },
+  searchResultIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#F2F2F7',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 14,
+  },
+  searchResultTextWrap: {
+    flex: 1,
+  },
+  searchResultName: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#1C1C1E',
+  },
+  searchResultAddr: {
+    fontSize: 13,
+    color: '#8E8E93',
+    marginTop: 2,
+  },
+  searchDivider: {
+    height: 1,
+    backgroundColor: '#E5E5EA',
+    marginHorizontal: 16,
+    marginVertical: 4,
+  },
+  searchLoading: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 24,
+    gap: 10,
+  },
+  searchLoadingText: {
+    fontSize: 14,
+    color: '#8E8E93',
+  },
+  noResults: {
+    textAlign: 'center',
+    color: '#8E8E93',
+    fontSize: 14,
+    paddingVertical: 24,
+  },
+  searchHint: {
+    textAlign: 'center',
+    color: '#C7C7CC',
+    fontSize: 13,
+    paddingVertical: 24,
   },
 });
