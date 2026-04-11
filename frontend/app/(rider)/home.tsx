@@ -13,6 +13,7 @@ import {
   Platform,
   Dimensions,
   Animated,
+  Vibration,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -20,6 +21,7 @@ import { MapView } from '@/src/components/MapView';
 import { useAuthStore } from '@/src/stores/authStore';
 import { useRideStore } from '@/src/stores/rideStore';
 import { socketService } from '@/src/services/socket';
+import { Audio } from 'expo-av';
 import {
   getCurrentLocation,
   reverseGeocode,
@@ -68,6 +70,36 @@ export default function RiderHomeScreen() {
 
   // Refs to prevent loops
   const estimateFetched = useRef(false);
+  const lastRideStatus = useRef<string>('');
+
+  // ─── Sounds ───────────────────────────────
+  const playSound = async (type: 'accepted' | 'arrived' | 'completed') => {
+    try {
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: false,
+        playsInSilentModeIOS: true,
+        staysActiveInBackground: false,
+        shouldDuckAndroid: false,
+      });
+      const urls: Record<string, string> = {
+        accepted: 'https://actions.google.com/sounds/v1/alerts/notification_simple-01.ogg',
+        arrived: 'https://actions.google.com/sounds/v1/alerts/notification_simple-02.ogg',
+        completed: 'https://actions.google.com/sounds/v1/alerts/notification_high-intensity.ogg',
+      };
+      const { sound } = await Audio.Sound.createAsync(
+        { uri: urls[type] },
+        { shouldPlay: true, volume: 1.0 }
+      );
+      // Auto-unload after playing
+      sound.setOnPlaybackStatusUpdate((status: any) => {
+        if (status.didJustFinish) {
+          sound.unloadAsync();
+        }
+      });
+    } catch (e) {
+      // Sound is non-critical, ignore errors
+    }
+  };
 
   // ─── Init ─────────────────────────────────
   useEffect(() => {
@@ -99,20 +131,33 @@ export default function RiderHomeScreen() {
           clearInterval(pollInterval);
           return;
         }
-        if (ride.status === 'completed') {
-          // Show completed briefly then auto-return to idle
-          setPhase('completed');
-          clearInterval(pollInterval);
-          setTimeout(() => {
+        
+        // Detect status transitions and play sounds
+        const newStatus = ride.status;
+        const prevStatus = lastRideStatus.current;
+        
+        if (newStatus !== prevStatus) {
+          lastRideStatus.current = newStatus;
+          
+          if (newStatus === 'accepted' && prevStatus !== 'accepted') {
+            playSound('accepted');
+            Vibration.vibrate([0, 300, 200, 300]);
+          } else if (newStatus === 'arrived' && prevStatus !== 'arrived') {
+            playSound('arrived');
+            Vibration.vibrate([0, 500, 200, 500]);
+          } else if (newStatus === 'completed') {
+            playSound('completed');
+            Vibration.vibrate([0, 300, 150, 300, 150, 300]);
+            setPhase('completed');
+            clearInterval(pollInterval);
+            setTimeout(() => { handleFinishRide(); }, 4000);
+            return;
+          } else if (newStatus === 'cancelled') {
+            showError('El viaje fue cancelado');
             handleFinishRide();
-          }, 4000);
-          return;
-        }
-        if (ride.status === 'cancelled') {
-          showError('El viaje fue cancelado');
-          handleFinishRide();
-          clearInterval(pollInterval);
-          return;
+            clearInterval(pollInterval);
+            return;
+          }
         }
       } catch (e) {
         // silently retry
@@ -135,9 +180,12 @@ export default function RiderHomeScreen() {
     const unsub3 = socketService.on('ride_accepted', () => {
       setDriverFound(true);
       setDispatchMsg('¡Conductor encontrado!');
+      playSound('accepted');
+      Vibration.vibrate([0, 300, 200, 300]);
       setTimeout(() => {
         fetchActiveRide();
         setPhase('active');
+        lastRideStatus.current = 'accepted';
         resetDispatch();
       }, 1500);
     });
@@ -163,6 +211,9 @@ export default function RiderHomeScreen() {
         if (ride && ['accepted', 'arrived', 'started'].includes(ride.status)) {
           setDriverFound(true);
           setDispatchMsg('¡Conductor encontrado!');
+          playSound('accepted');
+          Vibration.vibrate([0, 300, 200, 300]);
+          lastRideStatus.current = ride.status;
           setTimeout(() => {
             setPhase('active');
             resetDispatch();
