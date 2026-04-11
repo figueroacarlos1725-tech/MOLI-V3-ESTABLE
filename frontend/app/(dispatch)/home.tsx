@@ -8,6 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAuthStore } from '@/src/stores/authStore';
 import { apiService } from '@/src/services/api';
+import DispatchMapPicker from '@/src/components/DispatchMapPicker';
 
 const { width, height } = Dimensions.get('window');
 const DARK = '#1A1D23';
@@ -494,6 +495,14 @@ export default function DispatchHome() {
                 </View>
                 {newOrder.trip_type === 'full' && (<><Text style={s.inputLabel}>Destino</Text><View style={{ zIndex: 10 }}><View style={s.inputRow}><Ionicons name="flag" size={16} color={RED} /><TextInput style={s.inputFlex} value={newOrder.dropoff_address} onChangeText={onDropoffTextChange} placeholder="Buscar destino..." placeholderTextColor="#555" />{searchingDropoff && <ActivityIndicator size="small" color={ACCENT_LIGHT} />}</View>{dropoffSuggestions.length > 0 && (<View style={s.sugBox}>{dropoffSuggestions.map((it, i) => (<TouchableOpacity key={i} style={s.sugItem} onPress={() => selectSuggestion(it, 'dropoff')}><Ionicons name="flag-outline" size={14} color={RED} /><View style={{ flex: 1 }}><Text style={s.sugName} numberOfLines={1}>{it.name}</Text><Text style={s.sugAddr} numberOfLines={1}>{it.address}</Text></View></TouchableOpacity>))}</View>)}</View></>)}
                 {newOrder.trip_type === 'taximeter' && (<View style={s.taxiBanner}><Ionicons name="speedometer" size={18} color={ORANGE} /><Text style={s.taxiBannerTxt}>Sin destino. Taxímetro se activa al iniciar viaje.</Text></View>)}
+                {/* OSM Map with draggable pin */}
+                <Text style={s.inputLabel}>Ubicación en mapa (arrastrá el pin)</Text>
+                <DispatchMapPicker
+                  latitude={newOrder.pickup_latitude}
+                  longitude={newOrder.pickup_longitude}
+                  height={160}
+                  onLocationChange={(lat, lng) => setNewOrder(p => ({ ...p, pickup_latitude: lat, pickup_longitude: lng }))}
+                />
                 <Text style={s.inputLabel}>Vehículo</Text>
                 <View style={s.vRow}>{['economy', 'comfort', 'premium', 'xl'].map(v => (<TouchableOpacity key={v} style={[s.vChip, newOrder.vehicle_type === v && s.vChipActive]} onPress={() => setNewOrder(p => ({ ...p, vehicle_type: v }))}><Text style={[s.vChipTxt, newOrder.vehicle_type === v && { color: '#fff' }]}>{v === 'economy' ? 'Eco' : v === 'comfort' ? 'Confort' : v === 'premium' ? 'Premium' : 'XL'}</Text></TouchableOpacity>))}</View>
                 <Text style={s.inputLabel}>Notas</Text>

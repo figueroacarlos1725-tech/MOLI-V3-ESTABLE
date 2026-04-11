@@ -119,7 +119,7 @@ async def assign_ride_to_drivers(request_id: str, rider_id: str, sorted_drivers:
                 # Send offer to driver via WebSocket
                 # SECURITY: Only send approximate location, not exact addresses
                 pickup_loc = request_doc.get("pickup_location", {})
-                dropoff_loc = request_doc.get("dropoff_location", {})
+                dropoff_loc = request_doc.get("dropoff_location") or {}
                 offer_msg = {
                     "type": "ride_offer",
                     "request_id": request_id,
@@ -127,18 +127,17 @@ async def assign_ride_to_drivers(request_id: str, rider_id: str, sorted_drivers:
                     "pickup": {
                         "latitude": pickup_loc.get("latitude", 0),
                         "longitude": pickup_loc.get("longitude", 0),
-                        # No address - only visible after acceptance
                     },
                     "dropoff": {
-                        "latitude": dropoff_loc.get("latitude", 0),
-                        "longitude": dropoff_loc.get("longitude", 0),
-                        # No address - only visible after acceptance
-                    },
+                        "latitude": dropoff_loc.get("latitude", 0) if dropoff_loc else 0,
+                        "longitude": dropoff_loc.get("longitude", 0) if dropoff_loc else 0,
+                    } if dropoff_loc else None,
                     "fare": request_doc.get("estimated_fare", 0),
                     "distance_km": request_doc.get("estimated_distance", 0),
                     "duration_min": request_doc.get("estimated_duration", 0),
                     "vehicle_type": request_doc.get("vehicle_type", "economy"),
                     "rider_name": "Pasajero",
+                    "is_taximeter": dropoff_loc is None or not dropoff_loc,
                 }
                 await manager.send_personal_message(offer_msg, driver_id)
 

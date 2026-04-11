@@ -41,7 +41,7 @@ async def update_availability(
     if is_online:
         try:
             pending_requests = await db.ride_requests.find({
-                "status": "pending",
+                "status": {"$in": ["pending", "searching"]},
                 "expires_at": {"$gt": datetime.now(timezone.utc)}
             }, {"_id": 0}).to_list(20)
             
