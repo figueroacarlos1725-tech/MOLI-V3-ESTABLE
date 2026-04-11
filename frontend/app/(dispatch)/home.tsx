@@ -61,37 +61,103 @@ export default function DispatchHome() {
   const [showNewOrder, setShowNewOrder] = useState(false);
   const [newOrder, setNewOrder] = useState({
     rider_name: '', rider_phone: '', pickup_address: '', dropoff_address: '',
-    vehicle_type: 'economy', notes: '',
+    vehicle_type: 'economy', notes: '', trip_type: 'full' as 'full' | 'taximeter',
     pickup_latitude: -28.4696, pickup_longitude: -65.7852,
     dropoff_latitude: -28.4750, dropoff_longitude: -65.7900,
   });
   const [creating, setCreating] = useState(false);
+  const [pickupSuggestions, setPickupSuggestions] = useState<any[]>([]);
+  const [dropoffSuggestions, setDropoffSuggestions] = useState<any[]>([]);
+  const [searchingPickup, setSearchingPickup] = useState(false);
+  const [searchingDropoff, setSearchingDropoff] = useState(false);
+
+  // Debounced address search
+  const searchAddress = useCallback(async (query: string, type: 'pickup' | 'dropoff') => {
+    if (query.length < 3) {
+      type === 'pickup' ? setPickupSuggestions([]) : setDropoffSuggestions([]);
+      return;
+    }
+    type === 'pickup' ? setSearchingPickup(true) : setSearchingDropoff(true);
+    try {
+      const data = await apiService.get(`/places/search?q=${encodeURIComponent(query)}&lat=-28.4696&lng=-65.7852`);
+      const results = data?.results || [];
+      type === 'pickup' ? setPickupSuggestions(results) : setDropoffSuggestions(results);
+    } catch { }
+    type === 'pickup' ? setSearchingPickup(false) : setSearchingDropoff(false);
+  }, []);
+
+  // Debounce timer refs
+  const pickupTimerRef = React.useRef<any>(null);
+  const dropoffTimerRef = React.useRef<any>(null);
+
+  const onPickupTextChange = (text: string) => {
+    setNewOrder(prev => ({ ...prev, pickup_address: text }));
+    if (pickupTimerRef.current) clearTimeout(pickupTimerRef.current);
+    pickupTimerRef.current = setTimeout(() => searchAddress(text, 'pickup'), 400);
+  };
+
+  const onDropoffTextChange = (text: string) => {
+    setNewOrder(prev => ({ ...prev, dropoff_address: text }));
+    if (dropoffTimerRef.current) clearTimeout(dropoffTimerRef.current);
+    dropoffTimerRef.current = setTimeout(() => searchAddress(text, 'dropoff'), 400);
+  };
+
+  const selectSuggestion = (item: any, type: 'pickup' | 'dropoff') => {
+    if (type === 'pickup') {
+      setNewOrder(prev => ({
+        ...prev,
+        pickup_address: item.address || item.name,
+        pickup_latitude: item.latitude,
+        pickup_longitude: item.longitude,
+      }));
+      setPickupSuggestions([]);
+    } else {
+      setNewOrder(prev => ({
+        ...prev,
+        dropoff_address: item.address || item.name,
+        dropoff_latitude: item.latitude,
+        dropoff_longitude: item.longitude,
+      }));
+      setDropoffSuggestions([]);
+    }
+  };
 
   const handleCreateOrder = async () => {
     if (!newOrder.rider_name && !newOrder.rider_phone) {
       Alert.alert('Error', 'Ingresá nombre o teléfono del pasajero');
       return;
     }
+    if (!newOrder.pickup_address) {
+      Alert.alert('Error', 'Ingresá la dirección de recogida');
+      return;
+    }
     setCreating(true);
     try {
-      const data = await apiService.post('/admin/trips/manual', {
-        trip_type: 'full',
+      const isTaximeter = newOrder.trip_type === 'taximeter';
+      const payload: any = {
+        trip_type: isTaximeter ? 'destination_only' : 'full',
         rider_name: newOrder.rider_name || 'Cliente telefónico',
         rider_phone: newOrder.rider_phone,
-        pickup_address: newOrder.pickup_address || 'Dirección de recogida',
-        dropoff_address: newOrder.dropoff_address || 'Destino',
+        pickup_address: newOrder.pickup_address,
         pickup_latitude: newOrder.pickup_latitude,
         pickup_longitude: newOrder.pickup_longitude,
-        dropoff_latitude: newOrder.dropoff_latitude,
-        dropoff_longitude: newOrder.dropoff_longitude,
         vehicle_type: newOrder.vehicle_type,
-        notes: newOrder.notes,
-      });
-      Alert.alert('Pedido creado', data?.message || 'Buscando conductor...');
+        notes: newOrder.notes + (isTaximeter ? ' [TAXÍMETRO]' : ''),
+      };
+      if (!isTaximeter && newOrder.dropoff_address) {
+        payload.dropoff_address = newOrder.dropoff_address;
+        payload.dropoff_latitude = newOrder.dropoff_latitude;
+        payload.dropoff_longitude = newOrder.dropoff_longitude;
+      }
+      const data = await apiService.post('/admin/trips/manual', payload);
+      Alert.alert(
+        isTaximeter ? 'Viaje de taxímetro creado' : 'Pedido creado',
+        data?.message || 'Buscando conductor...'
+      );
       setShowNewOrder(false);
       setNewOrder({
         rider_name: '', rider_phone: '', pickup_address: '', dropoff_address: '',
-        vehicle_type: 'economy', notes: '',
+        vehicle_type: 'economy', notes: '', trip_type: 'full',
         pickup_latitude: -28.4696, pickup_longitude: -65.7852,
         dropoff_latitude: -28.4750, dropoff_longitude: -65.7900,
       });
@@ -329,17 +395,35 @@ export default function DispatchHome() {
             <View style={s.modalContent}>
               <View style={s.modalHeader}>
                 <Text style={s.modalTitle}>Nuevo Pedido</Text>
-                <TouchableOpacity onPress={() => setShowNewOrder(false)}>
+                <TouchableOpacity onPress={() => { setShowNewOrder(false); setPickupSuggestions([]); setDropoffSuggestions([]); }}>
                   <Ionicons name="close-circle" size={28} color="#8E8E93" />
                 </TouchableOpacity>
               </View>
 
-              <ScrollView style={s.modalBody} showsVerticalScrollIndicator={false}>
+              <ScrollView style={s.modalBody} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+                {/* Trip type toggle */}
+                <View style={s.tripTypeRow}>
+                  <TouchableOpacity
+                    style={[s.tripTypeBtn, newOrder.trip_type === 'full' && s.tripTypeBtnActive]}
+                    onPress={() => setNewOrder(prev => ({ ...prev, trip_type: 'full' }))}
+                  >
+                    <Ionicons name="navigate" size={16} color={newOrder.trip_type === 'full' ? '#fff' : '#636366'} />
+                    <Text style={[s.tripTypeBtnText, newOrder.trip_type === 'full' && { color: '#fff' }]}>Con destino</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[s.tripTypeBtn, newOrder.trip_type === 'taximeter' && s.tripTypeBtnActiveTaxi]}
+                    onPress={() => setNewOrder(prev => ({ ...prev, trip_type: 'taximeter' }))}
+                  >
+                    <Ionicons name="speedometer" size={16} color={newOrder.trip_type === 'taximeter' ? '#fff' : '#636366'} />
+                    <Text style={[s.tripTypeBtnText, newOrder.trip_type === 'taximeter' && { color: '#fff' }]}>Taxímetro</Text>
+                  </TouchableOpacity>
+                </View>
+
                 <Text style={s.inputLabel}>Nombre del pasajero</Text>
                 <TextInput
                   style={s.input}
                   value={newOrder.rider_name}
-                  onChangeText={(t) => setNewOrder({ ...newOrder, rider_name: t })}
+                  onChangeText={(t) => setNewOrder(prev => ({ ...prev, rider_name: t }))}
                   placeholder="Juan Pérez"
                   placeholderTextColor="#C7C7CC"
                 />
@@ -348,29 +432,82 @@ export default function DispatchHome() {
                 <TextInput
                   style={s.input}
                   value={newOrder.rider_phone}
-                  onChangeText={(t) => setNewOrder({ ...newOrder, rider_phone: t })}
+                  onChangeText={(t) => setNewOrder(prev => ({ ...prev, rider_phone: t }))}
                   placeholder="3834123456"
                   placeholderTextColor="#C7C7CC"
                   keyboardType="phone-pad"
                 />
 
+                {/* Pickup with autocomplete */}
                 <Text style={s.inputLabel}>Dirección de recogida</Text>
-                <TextInput
-                  style={s.input}
-                  value={newOrder.pickup_address}
-                  onChangeText={(t) => setNewOrder({ ...newOrder, pickup_address: t })}
-                  placeholder="Av. Güemes 450, Catamarca"
-                  placeholderTextColor="#C7C7CC"
-                />
+                <View style={{ position: 'relative', zIndex: 20 }}>
+                  <View style={s.inputWithIcon}>
+                    <Ionicons name="location" size={18} color="#34C759" />
+                    <TextInput
+                      style={s.inputFlex}
+                      value={newOrder.pickup_address}
+                      onChangeText={onPickupTextChange}
+                      placeholder="Buscar dirección..."
+                      placeholderTextColor="#C7C7CC"
+                    />
+                    {searchingPickup && <ActivityIndicator size="small" color="#7B2D8E" />}
+                  </View>
+                  {pickupSuggestions.length > 0 && (
+                    <View style={s.suggestionsBox}>
+                      {pickupSuggestions.map((item, i) => (
+                        <TouchableOpacity key={i} style={s.suggestionItem} onPress={() => selectSuggestion(item, 'pickup')}>
+                          <Ionicons name="location-outline" size={16} color="#7B2D8E" />
+                          <View style={{ flex: 1 }}>
+                            <Text style={s.suggestionName} numberOfLines={1}>{item.name}</Text>
+                            <Text style={s.suggestionAddr} numberOfLines={1}>{item.address}</Text>
+                          </View>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  )}
+                </View>
 
-                <Text style={s.inputLabel}>Dirección de destino</Text>
-                <TextInput
-                  style={s.input}
-                  value={newOrder.dropoff_address}
-                  onChangeText={(t) => setNewOrder({ ...newOrder, dropoff_address: t })}
-                  placeholder="Terminal de Ómnibus"
-                  placeholderTextColor="#C7C7CC"
-                />
+                {/* Dropoff with autocomplete - only for full trips */}
+                {newOrder.trip_type === 'full' && (
+                  <>
+                    <Text style={s.inputLabel}>Dirección de destino</Text>
+                    <View style={{ position: 'relative', zIndex: 10 }}>
+                      <View style={s.inputWithIcon}>
+                        <Ionicons name="flag" size={18} color="#FF3B30" />
+                        <TextInput
+                          style={s.inputFlex}
+                          value={newOrder.dropoff_address}
+                          onChangeText={onDropoffTextChange}
+                          placeholder="Buscar destino..."
+                          placeholderTextColor="#C7C7CC"
+                        />
+                        {searchingDropoff && <ActivityIndicator size="small" color="#7B2D8E" />}
+                      </View>
+                      {dropoffSuggestions.length > 0 && (
+                        <View style={s.suggestionsBox}>
+                          {dropoffSuggestions.map((item, i) => (
+                            <TouchableOpacity key={i} style={s.suggestionItem} onPress={() => selectSuggestion(item, 'dropoff')}>
+                              <Ionicons name="flag-outline" size={16} color="#FF3B30" />
+                              <View style={{ flex: 1 }}>
+                                <Text style={s.suggestionName} numberOfLines={1}>{item.name}</Text>
+                                <Text style={s.suggestionAddr} numberOfLines={1}>{item.address}</Text>
+                              </View>
+                            </TouchableOpacity>
+                          ))}
+                        </View>
+                      )}
+                    </View>
+                  </>
+                )}
+
+                {newOrder.trip_type === 'taximeter' && (
+                  <View style={s.taxiBanner}>
+                    <Ionicons name="speedometer" size={20} color="#FF9500" />
+                    <Text style={s.taxiBannerText}>
+                      Sin destino fijo. Se activa el taxímetro al iniciar el viaje. Cobra por distancia + tiempo de espera.
+                    </Text>
+                  </View>
+                )}
 
                 <Text style={s.inputLabel}>Tipo de vehículo</Text>
                 <View style={s.vehicleRow}>
@@ -378,7 +515,7 @@ export default function DispatchHome() {
                     <TouchableOpacity
                       key={vt}
                       style={[s.vehicleChip, newOrder.vehicle_type === vt && s.vehicleChipActive]}
-                      onPress={() => setNewOrder({ ...newOrder, vehicle_type: vt })}
+                      onPress={() => setNewOrder(prev => ({ ...prev, vehicle_type: vt }))}
                     >
                       <Text style={[s.vehicleChipText, newOrder.vehicle_type === vt && s.vehicleChipTextActive]}>
                         {vt === 'economy' ? 'Eco' : vt === 'comfort' ? 'Confort' : vt === 'premium' ? 'Premium' : 'XL'}
@@ -391,7 +528,7 @@ export default function DispatchHome() {
                 <TextInput
                   style={[s.input, { height: 60, textAlignVertical: 'top' }]}
                   value={newOrder.notes}
-                  onChangeText={(t) => setNewOrder({ ...newOrder, notes: t })}
+                  onChangeText={(t) => setNewOrder(prev => ({ ...prev, notes: t }))}
                   placeholder="Notas para el conductor..."
                   placeholderTextColor="#C7C7CC"
                   multiline
@@ -407,8 +544,10 @@ export default function DispatchHome() {
                   <ActivityIndicator color="#fff" size="small" />
                 ) : (
                   <>
-                    <Ionicons name="send" size={18} color="#fff" />
-                    <Text style={s.createBtnText}>Crear y buscar conductor</Text>
+                    <Ionicons name={newOrder.trip_type === 'taximeter' ? 'speedometer' : 'send'} size={18} color="#fff" />
+                    <Text style={s.createBtnText}>
+                      {newOrder.trip_type === 'taximeter' ? 'Crear viaje taxímetro' : 'Crear y buscar conductor'}
+                    </Text>
                   </>
                 )}
               </TouchableOpacity>
@@ -525,4 +664,39 @@ const s = StyleSheet.create({
     paddingVertical: 14, borderRadius: 14,
   },
   createBtnText: { color: '#fff', fontSize: 15, fontWeight: '800' },
+  // Autocomplete & trip type styles
+  tripTypeRow: { flexDirection: 'row', gap: 8, marginBottom: 8 },
+  tripTypeBtn: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    paddingVertical: 10, borderRadius: 12, backgroundColor: '#F2F2F7',
+    borderWidth: 1, borderColor: '#E5E5EA',
+  },
+  tripTypeBtnActive: { backgroundColor: '#7B2D8E', borderColor: '#7B2D8E' },
+  tripTypeBtnActiveTaxi: { backgroundColor: '#FF9500', borderColor: '#FF9500' },
+  tripTypeBtnText: { fontSize: 13, fontWeight: '700', color: '#636366' },
+  inputWithIcon: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: '#F2F2F7', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10,
+    borderWidth: 1, borderColor: '#E5E5EA',
+  },
+  inputFlex: { flex: 1, fontSize: 15, color: '#1C1C1E' },
+  suggestionsBox: {
+    position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 100,
+    backgroundColor: '#fff', borderRadius: 12, marginTop: 4,
+    borderWidth: 1, borderColor: '#E5E5EA',
+    maxHeight: 200,
+  },
+  suggestionItem: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    paddingHorizontal: 12, paddingVertical: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#E5E5EA',
+  },
+  suggestionName: { fontSize: 14, fontWeight: '600', color: '#1C1C1E' },
+  suggestionAddr: { fontSize: 12, color: '#8E8E93' },
+  taxiBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    backgroundColor: '#FFF8EE', borderRadius: 12, padding: 12, marginTop: 12,
+    borderWidth: 1, borderColor: 'rgba(255,149,0,0.3)',
+  },
+  taxiBannerText: { flex: 1, fontSize: 12, color: '#996600', lineHeight: 17, fontWeight: '500' },
 });
