@@ -61,6 +61,8 @@ export default function DriverHomeScreen() {
   const progressAnim = useRef(new Animated.Value(1)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const soundRef = useRef<Audio.Sound | null>(null);
+  const rideOfferRef = useRef<RideOffer | null>(null);
+  const isRespondingRef = useRef(false);
 
   // Inline confirm for toggle
   const [confirmOnline, setConfirmOnline] = useState(false);
@@ -188,17 +190,16 @@ export default function DriverHomeScreen() {
 
   // ==================== RIDE OFFER LOGIC ====================
   const showRideOffer = (data: RideOffer) => {
-    // Clear any existing offer
     clearOffer();
     
+    rideOfferRef.current = data;
+    isRespondingRef.current = false;
     setRideOffer(data);
     setCountdown(COUNTDOWN_SECONDS);
     
-    // Trigger alerts
     triggerVibration();
     playAlertSound();
     
-    // Start countdown animation
     progressAnim.setValue(1);
     Animated.timing(progressAnim, {
       toValue: 0,
@@ -206,7 +207,6 @@ export default function DriverHomeScreen() {
       useNativeDriver: false,
     }).start();
 
-    // Pulse animation for accept button
     Animated.loop(
       Animated.sequence([
         Animated.timing(pulseAnim, { toValue: 1.08, duration: 400, useNativeDriver: true }),
@@ -214,22 +214,37 @@ export default function DriverHomeScreen() {
       ])
     ).start();
     
-    // Start countdown timer
     let timeLeft = COUNTDOWN_SECONDS;
     countdownInterval.current = setInterval(() => {
       timeLeft -= 1;
       setCountdown(timeLeft);
       
       if (timeLeft <= 3 && timeLeft > 0) {
-        // Extra vibration on last 3 seconds
         Vibration.vibrate(200);
       }
       
       if (timeLeft <= 0) {
-        // Time's up - auto-reject
-        handleRejectOffer(true);
+        // STOP interval immediately
+        if (countdownInterval.current) {
+          clearInterval(countdownInterval.current);
+          countdownInterval.current = null;
+        }
+        // Auto-reject using ref (avoids stale closure)
+        autoRejectOffer();
       }
     }, 1000);
+  };
+
+  const autoRejectOffer = async () => {
+    const offer = rideOfferRef.current;
+    if (!offer || isRespondingRef.current) return;
+    isRespondingRef.current = true;
+    stopSound();
+    Vibration.cancel();
+    try {
+      await apiService.post(`/rides/${offer.request_id}/driver-response?action=reject`);
+    } catch (e) { /* ignore */ }
+    clearOffer();
   };
 
   const clearOffer = () => {
@@ -242,20 +257,29 @@ export default function DriverHomeScreen() {
     progressAnim.stopAnimation();
     pulseAnim.stopAnimation();
     pulseAnim.setValue(1);
+    rideOfferRef.current = null;
+    isRespondingRef.current = false;
     setRideOffer(null);
     setCountdown(COUNTDOWN_SECONDS);
     setIsResponding(false);
   };
 
   const handleAcceptOffer = async () => {
-    if (!rideOffer || isResponding) return;
+    const offer = rideOfferRef.current;
+    if (!offer || isRespondingRef.current) return;
+    isRespondingRef.current = true;
     setIsResponding(true);
     stopSound();
     Vibration.cancel();
+    // Stop countdown
+    if (countdownInterval.current) {
+      clearInterval(countdownInterval.current);
+      countdownInterval.current = null;
+    }
     
     try {
       const response = await apiService.post(
-        `/rides/${rideOffer.request_id}/driver-response?action=accept`
+        `/rides/${offer.request_id}/driver-response?action=accept`
       );
       
       if (response.status === 'accepted') {
@@ -263,7 +287,6 @@ export default function DriverHomeScreen() {
         fetchActiveRide();
       }
     } catch (error: any) {
-      console.error('Error accepting offer:', error);
       setStatusMessage(error.message || 'Error al aceptar el viaje');
     } finally {
       clearOffer();
@@ -271,14 +294,21 @@ export default function DriverHomeScreen() {
   };
 
   const handleRejectOffer = async (isTimeout = false) => {
-    if (!rideOffer || isResponding) return;
+    const offer = rideOfferRef.current;
+    if (!offer || isRespondingRef.current) return;
+    isRespondingRef.current = true;
     setIsResponding(true);
     stopSound();
     Vibration.cancel();
+    // Stop countdown
+    if (countdownInterval.current) {
+      clearInterval(countdownInterval.current);
+      countdownInterval.current = null;
+    }
     
     try {
       await apiService.post(
-        `/rides/${rideOffer.request_id}/driver-response?action=reject`
+        `/rides/${offer.request_id}/driver-response?action=reject`
       );
       if (!isTimeout) {
         setStatusMessage('Oferta rechazada');
