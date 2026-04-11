@@ -40,21 +40,21 @@ html,body,#map{width:100%;height:100%}
 .job-pin{
   display:flex;align-items:center;justify-content:center;
   width:44px;height:44px;border-radius:14px;
-  background:#1A1A1A;border:2px solid rgba(255,255,255,0.15);
-  box-shadow:0 4px 12px rgba(0,0,0,0.5);
+  background:#fff;border:2px solid rgba(123,45,142,0.3);
+  box-shadow:0 4px 12px rgba(0,0,0,0.15);
   font-size:22px;cursor:pointer;
   transition:transform 0.2s,box-shadow 0.2s;
   position:relative;
 }
-.job-pin:hover{transform:scale(1.15);box-shadow:0 6px 16px rgba(0,0,0,0.7)}
-.job-pin.pintura{border-color:rgba(255,149,0,0.5);background:linear-gradient(135deg,#1A1A1A,#2A1F0A)}
-.job-pin.plomeria{border-color:rgba(0,122,255,0.5);background:linear-gradient(135deg,#1A1A1A,#0A1525)}
-.job-pin.electricidad{border-color:rgba(255,204,0,0.5);background:linear-gradient(135deg,#1A1A1A,#252008)}
-.job-pin.limpieza{border-color:rgba(52,199,89,0.5);background:linear-gradient(135deg,#1A1A1A,#0A1F0D)}
-.job-pin.construccion{border-color:rgba(175,82,50,0.5);background:linear-gradient(135deg,#1A1A1A,#1F120A)}
-.job-pin.mudanzas{border-color:rgba(88,86,214,0.5);background:linear-gradient(135deg,#1A1A1A,#12112A)}
-.job-pin.carpinteria{border-color:rgba(162,132,94,0.5);background:linear-gradient(135deg,#1A1A1A,#1A150D)}
-.job-pin.jardineria{border-color:rgba(0,200,83,0.5);background:linear-gradient(135deg,#1A1A1A,#0A1A0B)}
+.job-pin:hover{transform:scale(1.15);box-shadow:0 6px 16px rgba(0,0,0,0.25)}
+.job-pin.pintura{border-color:rgba(255,149,0,0.5);background:linear-gradient(135deg,#fff,#FFF3E0)}
+.job-pin.plomeria{border-color:rgba(0,122,255,0.5);background:linear-gradient(135deg,#fff,#E3F2FD)}
+.job-pin.electricidad{border-color:rgba(255,204,0,0.5);background:linear-gradient(135deg,#fff,#FFFDE7)}
+.job-pin.limpieza{border-color:rgba(52,199,89,0.5);background:linear-gradient(135deg,#fff,#E8F5E9)}
+.job-pin.construccion{border-color:rgba(175,82,50,0.5);background:linear-gradient(135deg,#fff,#EFEBE9)}
+.job-pin.mudanzas{border-color:rgba(88,86,214,0.5);background:linear-gradient(135deg,#fff,#EDE7F6)}
+.job-pin.carpinteria{border-color:rgba(162,132,94,0.5);background:linear-gradient(135deg,#fff,#F5F0EB)}
+.job-pin.jardineria{border-color:rgba(0,200,83,0.5);background:linear-gradient(135deg,#fff,#E8F5E9)}
 .job-budget{
   position:absolute;bottom:-10px;left:50%;transform:translateX(-50%);
   background:#A855F7;color:#000;font-size:9px;font-weight:800;
@@ -72,14 +72,14 @@ html,body,#map{width:100%;height:100%}
 }
 .m-user{width:16px;height:16px;border-radius:50%;background:#007AFF;border:3px solid #fff;box-shadow:0 0 10px rgba(0,122,255,0.6)}
 .leaflet-control-attribution{font-size:10px!important;opacity:0.5}
-.leaflet-popup-content-wrapper{background:#1A1A1A;color:#fff;border-radius:12px;border:1px solid rgba(255,255,255,0.1)}
-.leaflet-popup-tip{background:#1A1A1A}
+.leaflet-popup-content-wrapper{background:#fff;color:#333;border-radius:12px;border:1px solid rgba(0,0,0,0.1)}
+.leaflet-popup-tip{background:#fff}
 </style></head><body><div id="map"></div>
 <script>
 var map=L.map('map',{zoomControl:true}).setView([${lat},${lng}],14);
-L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
   maxZoom:19,
-  attribution:'© <a href="https://carto.com/">CARTO</a>'
+  attribution:'© <a href="https://openstreetmap.org/">OSM</a>'
 }).addTo(map);
 
 function sendMsg(obj){
@@ -189,7 +189,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   fallback: {
-    backgroundColor: '#1A1A1A',
+    backgroundColor: '#F2F2F7',
     justifyContent: 'center',
     alignItems: 'center',
   },

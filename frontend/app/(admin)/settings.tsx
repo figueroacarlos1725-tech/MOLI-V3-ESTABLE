@@ -42,6 +42,7 @@ interface Settings {
   rider_max_pending_penalties?: number;
   min_app_version?: string;
   update_message?: string;
+  trabajos_mode?: string;
 }
 
 // Track which sensitive fields the user has actually edited
@@ -291,6 +292,40 @@ export default function AdminSettingsScreen() {
               {renderField('Cancelaciones antes de bloqueo', 'driver_block_after_cancels', { placeholder: '3', numeric: true })}
               {renderField('Horas de bloqueo (0=permanente)', 'driver_block_hours', { placeholder: '24', numeric: true })}
               {renderField('Saldo negativo maximo ($)', 'driver_max_negative_balance', { placeholder: '-15000', numeric: true })}
+            </View>
+          </View>
+
+          {/* Moli Trabajos */}
+          <View style={s.section}>
+            <View style={s.sectionHeader}>
+              <Ionicons name="construct-outline" size={18} color="#007AFF" />
+              <Text style={s.sectionTitle}>Moli Trabajos</Text>
+            </View>
+            <View style={s.card}>
+              <View style={s.fieldRow}>
+                <Text style={s.fieldLabel}>Modo del módulo</Text>
+                <View style={s.providerRow}>
+                  {[{ key: 'mvp', label: 'MVP (Demo)' }, { key: 'real', label: 'Real' }].map((m) => (
+                    <TouchableOpacity
+                      key={m.key}
+                      style={[s.providerBtn, (editMode ? formData.trabajos_mode : settings?.trabajos_mode) === m.key && s.providerBtnActive]}
+                      onPress={() => editMode && setFormData({ ...formData, trabajos_mode: m.key })}
+                      disabled={!editMode}
+                    >
+                      <Text style={[s.providerBtnText, (editMode ? formData.trabajos_mode : settings?.trabajos_mode) === m.key && s.providerBtnTextActive]}>
+                        {m.label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+              <View style={{ paddingVertical: 8 }}>
+                <Text style={{ fontSize: 12, color: '#8E8E93', lineHeight: 17 }}>
+                  {(editMode ? formData.trabajos_mode : settings?.trabajos_mode) === 'real'
+                    ? 'Modo Real: Los usuarios pueden publicar y aceptar trabajos reales.'
+                    : 'Modo MVP: Se muestran trabajos de ejemplo para demostración.'}
+                </Text>
+              </View>
             </View>
           </View>
 

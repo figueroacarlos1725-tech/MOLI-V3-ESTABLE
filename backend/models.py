@@ -165,6 +165,7 @@ class SettingsUpdate(BaseModel):
     rider_max_pending_penalties: Optional[int] = None
     min_app_version: Optional[str] = None
     update_message: Optional[str] = None
+    trabajos_mode: Optional[str] = None
 
 
 # ─── Admin inline models ─────────────────────────────────

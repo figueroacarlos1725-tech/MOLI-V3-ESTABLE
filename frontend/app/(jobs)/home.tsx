@@ -410,7 +410,7 @@ export default function JobsHomeScreen() {
 const s = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0F0B15',
+    backgroundColor: '#F2F2F7',
   },
   // Header
   header: {
@@ -419,12 +419,13 @@ const s = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 10,
     gap: 12,
+    backgroundColor: '#fff',
   },
   backBtn: {
     width: 38,
     height: 38,
     borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: '#F2F2F7',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -434,11 +435,11 @@ const s = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#fff',
+    color: '#1C1C1E',
   },
   headerSubtitle: {
     fontSize: 12,
-    color: 'rgba(255,255,255,0.4)',
+    color: '#8E8E93',
     fontWeight: '500',
   },
   onlineToggle: {
@@ -448,34 +449,37 @@ const s = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    backgroundColor: '#F2F2F7',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
+    borderColor: '#E5E5EA',
   },
   onlineToggleActive: {
-    backgroundColor: 'rgba(168,85,247,0.12)',
-    borderColor: 'rgba(168,85,247,0.3)',
+    backgroundColor: 'rgba(123,45,142,0.1)',
+    borderColor: 'rgba(123,45,142,0.3)',
   },
   onlineDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#666',
+    backgroundColor: '#C7C7CC',
   },
   onlineDotActive: {
-    backgroundColor: '#A855F7',
+    backgroundColor: '#7B2D8E',
   },
   onlineText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#666',
+    color: '#8E8E93',
   },
   onlineTextActive: {
-    color: '#A855F7',
+    color: '#7B2D8E',
   },
   // Filters
   filtersContainer: {
     paddingVertical: 4,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E5EA',
   },
   filtersScroll: {
     paddingHorizontal: 16,
@@ -488,13 +492,13 @@ const s = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 7,
     borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    backgroundColor: '#F2F2F7',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderColor: '#E5E5EA',
   },
   filterChipActive: {
-    backgroundColor: 'rgba(168,85,247,0.12)',
-    borderColor: 'rgba(168,85,247,0.3)',
+    backgroundColor: 'rgba(123,45,142,0.1)',
+    borderColor: 'rgba(123,45,142,0.3)',
   },
   filterEmoji: {
     fontSize: 14,
@@ -502,10 +506,10 @@ const s = StyleSheet.create({
   filterText: {
     fontSize: 12,
     fontWeight: '600',
-    color: 'rgba(255,255,255,0.5)',
+    color: '#8E8E93',
   },
   filterTextActive: {
-    color: '#A855F7',
+    color: '#7B2D8E',
   },
   // Map
   mapContainer: {
@@ -527,7 +531,7 @@ const s = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: 'rgba(26,26,26,0.92)',
+    backgroundColor: 'rgba(255,255,255,0.95)',
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 12,
@@ -550,13 +554,13 @@ const s = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: '#1A1A1A',
+    backgroundColor: '#fff',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     maxHeight: height * 0.7,
     borderWidth: 1,
     borderBottomWidth: 0,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderColor: '#E5E5EA',
   },
   sheetHandle: {
     alignItems: 'center',
@@ -566,7 +570,7 @@ const s = StyleSheet.create({
     width: 36,
     height: 4,
     borderRadius: 2,
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    backgroundColor: '#C7C7CC',
   },
   sheetScroll: {
     paddingHorizontal: 20,
@@ -596,13 +600,13 @@ const s = StyleSheet.create({
   },
   postedAgo: {
     fontSize: 12,
-    color: 'rgba(255,255,255,0.35)',
+    color: '#8E8E93',
     fontWeight: '500',
   },
   jobTitle: {
     fontSize: 22,
     fontWeight: '900',
-    color: '#fff',
+    color: '#1C1C1E',
     marginBottom: 12,
   },
   budgetRow: {
@@ -618,7 +622,7 @@ const s = StyleSheet.create({
   },
   budgetLabel: {
     fontSize: 13,
-    color: 'rgba(255,255,255,0.5)',
+    color: '#8E8E93',
     fontWeight: '500',
   },
   budgetValue: {
@@ -628,7 +632,7 @@ const s = StyleSheet.create({
   },
   jobDescription: {
     fontSize: 14,
-    color: 'rgba(255,255,255,0.6)',
+    color: '#636366',
     lineHeight: 21,
     marginBottom: 14,
   },
@@ -645,31 +649,31 @@ const s = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 10,
-    backgroundColor: 'rgba(255,255,255,0.04)',
+    backgroundColor: '#F2F2F7',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderColor: '#E5E5EA',
   },
   pillText: {
     fontSize: 12,
-    color: 'rgba(255,255,255,0.6)',
+    color: '#636366',
     fontWeight: '500',
   },
   // Client
   clientCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.04)',
+    backgroundColor: '#F2F2F7',
     padding: 12,
     borderRadius: 14,
     marginBottom: 20,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
+    borderColor: '#E5E5EA',
   },
   clientAvatar: {
     width: 44,
     height: 44,
     borderRadius: 14,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: '#E5E5EA',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -680,7 +684,7 @@ const s = StyleSheet.create({
   clientName: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#fff',
+    color: '#1C1C1E',
     marginBottom: 2,
   },
   clientRatingRow: {
