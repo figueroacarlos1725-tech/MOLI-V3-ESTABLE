@@ -94,8 +94,10 @@ export const useRideStore = create<RideState>((set, get) => ({
     try {
       const response = await apiService.get('/rides/active');
       set({ currentRide: response.ride });
+      return response.ride;
     } catch (error) {
       console.error('Error fetching active ride:', error);
+      return null;
     }
   },
 

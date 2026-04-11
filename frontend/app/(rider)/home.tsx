@@ -116,6 +116,30 @@ export default function RiderHomeScreen() {
     return () => { unsub1(); unsub2(); unsub3(); unsub4(); };
   }, [user]);
 
+  // ─── Polling fallback when searching ──────
+  useEffect(() => {
+    if (phase !== 'searching') return;
+    
+    const pollInterval = setInterval(async () => {
+      try {
+        const ride = await fetchActiveRide();
+        if (ride && ['accepted', 'arrived', 'started'].includes(ride.status)) {
+          setDriverFound(true);
+          setDispatchMsg('¡Conductor encontrado!');
+          setTimeout(() => {
+            setPhase('active');
+            resetDispatch();
+          }, 1200);
+          clearInterval(pollInterval);
+        }
+      } catch (e) {
+        // Silently retry
+      }
+    }, 3000);
+
+    return () => clearInterval(pollInterval);
+  }, [phase]);
+
   // ─── Search debounce ──────────────────────
   useEffect(() => {
     if (searchQuery.length < 2) { setSearchResults([]); return; }

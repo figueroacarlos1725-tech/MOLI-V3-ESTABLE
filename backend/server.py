@@ -1021,6 +1021,23 @@ async def driver_respond_to_offer(
         if request_id in assignment_events:
             assignment_events[request_id].set()
         
+        # ALSO directly notify rider via WebSocket (don't rely only on background task)
+        rider_id = request_doc["rider_id"]
+        try:
+            ride_data = {k: (v.isoformat() if isinstance(v, datetime) else v) for k, v in ride_doc.items() if k != "_id"}
+            await manager.send_personal_message({
+                "type": "ride_accepted",
+                "ride": ride_data,
+                "driver": {
+                    "user_id": user["user_id"],
+                    "name": user.get("name", "Conductor"),
+                    "phone": user.get("phone"),
+                    "rating": user.get("rating", 5.0),
+                }
+            }, rider_id)
+        except Exception as e:
+            print(f"Could not notify rider {rider_id} via WS: {e}")
+        
         # Build response with driver/vehicle info
         driver_info = {
             "user_id": user["user_id"],
