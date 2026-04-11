@@ -3205,19 +3205,142 @@ async def get_maps_config():
     
     config = {
         "provider": settings.get("map_provider", "osm"),
+        "google_key": os.getenv("GOOGLE_MAPS_KEY", "") if settings.get("map_provider") == "google" else "",
         "osm": {
             "tile_url": "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
             "attribution": "© OpenStreetMap contributors"
         }
     }
     
-    # Only include API keys if configured
-    if settings.get("google_maps_key"):
-        config["google"] = {"available": True}
-    if settings.get("mapbox_key"):
-        config["mapbox"] = {"available": True}
+    if os.getenv("GOOGLE_MAPS_KEY"):
+        config["google_available"] = True
+    if os.getenv("MAPBOX_TOKEN") or settings.get("mapbox_key"):
+        config["mapbox_available"] = True
     
     return config
+
+# ======================= PLACES SEARCH (MULTI-PROVIDER) =======================
+
+import httpx
+
+@app.get("/api/places/search")
+async def places_search(q: str, lat: float = -28.4696, lng: float = -65.7852):
+    """Search places using current map provider"""
+    settings = await get_settings()
+    provider = settings.get("map_provider", "osm")
+    
+    if provider == "google":
+        return await _google_places_search(q, lat, lng)
+    else:
+        return await _nominatim_search(q, lat, lng)
+
+@app.get("/api/places/reverse")
+async def places_reverse(lat: float, lng: float):
+    """Reverse geocode using current map provider"""
+    settings = await get_settings()
+    provider = settings.get("map_provider", "osm")
+    
+    if provider == "google":
+        return await _google_reverse(lat, lng)
+    else:
+        return await _nominatim_reverse(lat, lng)
+
+async def _google_places_search(q: str, lat: float, lng: float):
+    key = os.getenv("GOOGLE_MAPS_KEY", "")
+    if not key:
+        return {"results": []}
+    
+    async with httpx.AsyncClient(timeout=8) as client:
+        # Use Text Search for simplicity (returns coords directly)
+        url = f"https://maps.googleapis.com/maps/api/place/textsearch/json?query={q}&key={key}&language=es&region=ar&location={lat},{lng}&radius=100000"
+        resp = await client.get(url)
+        data = resp.json()
+        
+        results = []
+        for p in (data.get("results") or [])[:6]:
+            loc = p.get("geometry", {}).get("location", {})
+            results.append({
+                "id": p.get("place_id", ""),
+                "name": p.get("name", ""),
+                "address": p.get("formatted_address", ""),
+                "latitude": loc.get("lat", 0),
+                "longitude": loc.get("lng", 0),
+            })
+        return {"results": results}
+
+async def _nominatim_search(q: str, lat: float, lng: float):
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            # Catamarca bbox first
+            url = f"https://nominatim.openstreetmap.org/search?format=json&q={q}&countrycodes=ar&limit=5&accept-language=es&viewbox=-68.5,-25.5,-64.5,-30.0&bounded=1"
+            resp = await client.get(url, headers={"User-Agent": "MoliApp/1.0"})
+            local = resp.json() if resp.status_code == 200 else []
+            
+            results = []
+            ids = set()
+            for f in (local or []):
+                ids.add(str(f.get("place_id")))
+                results.append({
+                    "id": str(f.get("place_id")),
+                    "name": (f.get("display_name") or "").split(",")[0],
+                    "address": f.get("display_name", ""),
+                    "latitude": float(f.get("lat", 0)),
+                    "longitude": float(f.get("lon", 0)),
+                })
+            
+            if len(results) < 3:
+                url2 = f"https://nominatim.openstreetmap.org/search?format=json&q={q}&countrycodes=ar&limit=4&accept-language=es"
+                resp2 = await client.get(url2, headers={"User-Agent": "MoliApp/1.0"})
+                broad = resp2.json() if resp2.status_code == 200 else []
+                for f in (broad or []):
+                    pid = str(f.get("place_id"))
+                    if pid not in ids:
+                        results.append({
+                            "id": pid,
+                            "name": (f.get("display_name") or "").split(",")[0],
+                            "address": f.get("display_name", ""),
+                            "latitude": float(f.get("lat", 0)),
+                            "longitude": float(f.get("lon", 0)),
+                        })
+            
+            return {"results": results[:6]}
+    except Exception as e:
+        print(f"Nominatim search error: {e}")
+        return {"results": []}
+
+async def _google_reverse(lat: float, lng: float):
+    key = os.getenv("GOOGLE_MAPS_KEY", "")
+    if not key:
+        return {"address": "Ubicación desconocida"}
+    
+    async with httpx.AsyncClient(timeout=8) as client:
+        url = f"https://maps.googleapis.com/maps/api/geocode/json?latlng={lat},{lng}&key={key}&language=es"
+        resp = await client.get(url)
+        data = resp.json()
+        
+        if data.get("results"):
+            r = data["results"][0]
+            addr = r.get("formatted_address", "Ubicación desconocida")
+            # Shorten: take first 2 parts
+            parts = addr.split(",")
+            short = ", ".join(p.strip() for p in parts[:2]) if len(parts) > 2 else addr
+            return {"address": short}
+        return {"address": "Ubicación desconocida"}
+
+async def _nominatim_reverse(lat: float, lng: float):
+    async with httpx.AsyncClient(timeout=8) as client:
+        url = f"https://nominatim.openstreetmap.org/reverse?format=json&lat={lat}&lon={lng}&accept-language=es&zoom=18"
+        resp = await client.get(url, headers={"User-Agent": "MoliApp/1.0"})
+        data = resp.json()
+        
+        if data.get("address"):
+            a = data["address"]
+            street = a.get("road") or a.get("pedestrian") or ""
+            number = a.get("house_number") or ""
+            city = a.get("city") or a.get("town") or a.get("village") or ""
+            parts = [p for p in [street, number, city] if p]
+            return {"address": ", ".join(parts) or "Ubicación desconocida"}
+        return {"address": (data.get("display_name") or "Ubicación desconocida").split(",")[0]}
 
 if __name__ == "__main__":
     import uvicorn

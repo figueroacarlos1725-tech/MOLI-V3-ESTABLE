@@ -166,7 +166,128 @@ if(initM.length>0)setMarkers(initM);
 <\/script></body></html>`;
 }
 
-function WebMapView({ initialRegion, markers = [], showRoute = false, onMapPress, onMarkerDrag, onRouteInfo, style, vehicleIcons = [] }: MapViewProps & { vehicleIcons: VehicleIconConfig[] }) {
+function generateGoogleHtml(
+  lat: number,
+  lng: number,
+  markers: MarkerProps[],
+  showRoute: boolean,
+  enableClick: boolean,
+  googleKey: string,
+  vehicleIcons: VehicleIconConfig[] = []
+) {
+  const iconsMap: Record<string, { type: string; emoji: string; image: string }> = {};
+  vehicleIcons.forEach(ic => {
+    iconsMap[ic.vehicle_type] = { type: ic.icon_type, emoji: ic.emoji_value || '🚗', image: ic.image_data || '' };
+  });
+  const iconsJson = JSON.stringify(iconsMap);
+  const markersJson = JSON.stringify(markers);
+
+  return `<!DOCTYPE html>
+<html><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<style>*{margin:0;padding:0}html,body,#map{width:100%;height:100%}</style>
+</head><body><div id="map"></div>
+<script>
+var vicMap=${iconsJson};
+var map,directionsRenderer,currentMarkers=[];
+
+function sendMsg(obj){
+  var s=JSON.stringify(obj);
+  try{window.ReactNativeWebView&&window.ReactNativeWebView.postMessage(s)}catch(x){}
+  try{window.parent.postMessage(s,'*')}catch(x){}
+}
+
+function getMarkerIcon(type,vt){
+  var emojiMap={'economy':'🚗','comfort':'🚙','premium':'🏎️','xl':'🚌'};
+  if(type==='pickup')return{path:google.maps.SymbolPath.CIRCLE,scale:11,fillColor:'#6BBF00',fillOpacity:1,strokeColor:'#fff',strokeWeight:3};
+  if(type==='dropoff')return{path:google.maps.SymbolPath.CIRCLE,scale:8,fillColor:'#EF4444',fillOpacity:1,strokeColor:'#fff',strokeWeight:3};
+  if(type==='user')return{path:google.maps.SymbolPath.CIRCLE,scale:7,fillColor:'#007AFF',fillOpacity:1,strokeColor:'#fff',strokeWeight:2};
+  return null;
+}
+
+function clearAll(){
+  currentMarkers.forEach(function(m){m.setMap(null)});
+  currentMarkers=[];
+  if(directionsRenderer)directionsRenderer.setMap(null);
+}
+
+function setMarkers(arr){
+  clearAll();
+  if(!arr||arr.length===0)return;
+  var bounds=new google.maps.LatLngBounds();
+  arr.forEach(function(m){
+    var opts={position:{lat:m.latitude,lng:m.longitude},map:map,draggable:m.draggable||false};
+    if(m.type==='driver'){
+      var emoji='🚗';var v=m.vehicleType||'economy';
+      if(vicMap[v]&&vicMap[v].emoji)emoji=vicMap[v].emoji;
+      else if(emojiMap[v])emoji=emojiMap[v];
+      opts.label={text:emoji,fontSize:'20px'};
+      opts.icon={path:google.maps.SymbolPath.CIRCLE,scale:18,fillColor:'#fff',fillOpacity:1,strokeColor:'#ddd',strokeWeight:1};
+    }else{
+      var ic=getMarkerIcon(m.type);
+      if(ic)opts.icon=ic;
+    }
+    var mk=new google.maps.Marker(opts);
+    if(m.title){var iw=new google.maps.InfoWindow({content:'<b style="font:600 13px sans-serif">'+m.title+'</b>'});mk.addListener('click',function(){iw.open(map,mk)});}
+    if(m.draggable){
+      mk.addListener('dragend',function(){
+        var pos=mk.getPosition();
+        sendMsg({type:'markerDrag',markerType:m.type||'',latitude:pos.lat(),longitude:pos.lng()});
+      });
+    }
+    currentMarkers.push(mk);
+    bounds.extend(opts.position);
+  });
+  if(arr.length>1)map.fitBounds(bounds,{top:60,bottom:60,left:40,right:40});
+  else if(arr.length===1)map.setCenter({lat:arr[0].latitude,lng:arr[0].longitude});
+  var hasP=arr.some(function(m){return m.type==='pickup'});
+  var hasD=arr.some(function(m){return m.type==='dropoff'});
+  if(hasP&&hasD)drawRoute(arr);
+}
+
+var emojiMap={'economy':'🚗','comfort':'🚙','premium':'🏎️','xl':'🚌'};
+
+function drawRoute(arr){
+  var p=arr.find(function(m){return m.type==='pickup'});
+  var d=arr.find(function(m){return m.type==='dropoff'});
+  if(!p||!d)return;
+  var ds=new google.maps.DirectionsService();
+  if(!directionsRenderer)directionsRenderer=new google.maps.DirectionsRenderer({suppressMarkers:true,polylineOptions:{strokeColor:'#6BBF00',strokeWeight:5,strokeOpacity:0.85}});
+  directionsRenderer.setMap(map);
+  ds.route({origin:{lat:p.latitude,lng:p.longitude},destination:{lat:d.latitude,lng:d.longitude},travelMode:'DRIVING'},function(result,status){
+    if(status==='OK'){
+      directionsRenderer.setDirections(result);
+      var leg=result.routes[0].legs[0];
+      sendMsg({type:'routeInfo',distance_km:leg.distance.value/1000,duration_min:Math.ceil(leg.duration.value/60)});
+    }
+  });
+}
+
+function initMap(){
+  map=new google.maps.Map(document.getElementById('map'),{
+    center:{lat:${lat},lng:${lng}},zoom:14,
+    disableDefaultUI:false,zoomControl:true,mapTypeControl:false,streetViewControl:false,fullscreenControl:false,
+    styles:[{featureType:'poi',stylers:[{visibility:'simplified'}]}]
+  });
+  ${enableClick ? `map.addListener('click',function(e){
+    sendMsg({type:'mapPress',latitude:e.latLng.lat(),longitude:e.latLng.lng()});
+  });` : ''}
+  window.updateMarkers=function(arr){setMarkers(arr)};
+  var initM=${markersJson};
+  if(initM.length>0)setMarkers(initM);
+  if(navigator.geolocation){
+    navigator.geolocation.getCurrentPosition(function(p){
+      map.setCenter({lat:p.coords.latitude,lng:p.coords.longitude});
+      sendMsg({type:'locationDetected',latitude:p.coords.latitude,longitude:p.coords.longitude});
+    },function(){},{enableHighAccuracy:false,timeout:8000});
+  }
+}
+<\/script>
+<script src="https://maps.googleapis.com/maps/api/js?key=${googleKey}&libraries=places&callback=initMap" async defer><\/script>
+</body></html>`;
+}
+
+function WebMapView({ initialRegion, markers = [], showRoute = false, onMapPress, onMarkerDrag, onRouteInfo, style, vehicleIcons = [], mapProvider = 'osm', googleKey = '' }: MapViewProps & { vehicleIcons: VehicleIconConfig[]; mapProvider?: string; googleKey?: string }) {
   const containerRef = useRef<View>(null);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -191,7 +312,9 @@ function WebMapView({ initialRegion, markers = [], showRoute = false, onMapPress
       iframe.allow = 'geolocation';
       iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-popups');
 
-      const html = generateLeafletHtml(lat, lng, markersRef.current, showRoute, !!onMapPress, vehicleIcons);
+      const html = mapProvider === 'google' && googleKey
+        ? generateGoogleHtml(lat, lng, markersRef.current, showRoute, !!onMapPress, googleKey, vehicleIcons)
+        : generateLeafletHtml(lat, lng, markersRef.current, showRoute, !!onMapPress, vehicleIcons);
       iframe.srcdoc = html;
       iframeRef.current = iframe;
 
@@ -254,7 +377,7 @@ function WebMapView({ initialRegion, markers = [], showRoute = false, onMapPress
   );
 }
 
-function NativeMapView({ initialRegion, markers = [], showRoute = false, onMapPress, onMarkerDrag, onRouteInfo, style, vehicleIcons = [] }: MapViewProps & { vehicleIcons: VehicleIconConfig[] }) {
+function NativeMapView({ initialRegion, markers = [], showRoute = false, onMapPress, onMarkerDrag, onRouteInfo, style, vehicleIcons = [], mapProvider = 'osm', googleKey = '' }: MapViewProps & { vehicleIcons: VehicleIconConfig[]; mapProvider?: string; googleKey?: string }) {
   const WebView = require('react-native-webview').WebView;
   const webViewRef = useRef<any>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -262,7 +385,9 @@ function NativeMapView({ initialRegion, markers = [], showRoute = false, onMapPr
   const lat = initialRegion?.latitude || DEFAULT_LAT;
   const lng = initialRegion?.longitude || DEFAULT_LNG;
 
-  const mapHtml = generateLeafletHtml(lat, lng, markers, showRoute, !!onMapPress, vehicleIcons);
+  const mapHtml = (mapProvider === 'google' && googleKey)
+    ? generateGoogleHtml(lat, lng, markers, showRoute, !!onMapPress, googleKey, vehicleIcons)
+    : generateLeafletHtml(lat, lng, markers, showRoute, !!onMapPress, vehicleIcons);
 
   const handleMessage = (event: any) => {
     try {
@@ -335,19 +460,39 @@ async function fetchVehicleIcons(): Promise<VehicleIconConfig[]> {
   return iconsFetchPromise;
 }
 
+// Map config cache
+let cachedMapConfig: { provider: string; google_key: string } | null = null;
+
+async function fetchMapConfig(): Promise<{ provider: string; google_key: string }> {
+  if (cachedMapConfig) return cachedMapConfig;
+  try {
+    const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || '';
+    const resp = await fetch(`${backendUrl}/api/config/maps`);
+    const data = await resp.json();
+    cachedMapConfig = { provider: data.provider || 'osm', google_key: data.google_key || '' };
+    return cachedMapConfig;
+  } catch {
+    return { provider: 'osm', google_key: '' };
+  }
+}
+
 export function MapView(props: MapViewProps) {
   const [vehicleIcons, setVehicleIcons] = useState<VehicleIconConfig[]>(cachedVehicleIcons);
+  const [mapConfig, setMapConfig] = useState(cachedMapConfig || { provider: 'osm', google_key: '' });
 
   useEffect(() => {
     fetchVehicleIcons().then(icons => {
       if (icons.length > 0) setVehicleIcons(icons);
     });
+    fetchMapConfig().then(config => {
+      setMapConfig(config);
+    });
   }, []);
 
   if (Platform.OS === 'web') {
-    return <WebMapView {...props} vehicleIcons={vehicleIcons} />;
+    return <WebMapView {...props} vehicleIcons={vehicleIcons} mapProvider={mapConfig.provider} googleKey={mapConfig.google_key} />;
   }
-  return <NativeMapView {...props} vehicleIcons={vehicleIcons} />;
+  return <NativeMapView {...props} vehicleIcons={vehicleIcons} mapProvider={mapConfig.provider} googleKey={mapConfig.google_key} />;
 }
 
 const styles = StyleSheet.create({

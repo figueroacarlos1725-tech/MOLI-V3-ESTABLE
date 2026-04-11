@@ -46,27 +46,17 @@ export async function getCurrentLocation(): Promise<LocationCoords | null> {
 }
 
 export async function reverseGeocode(latitude: number, longitude: number): Promise<string> {
-  // Use Nominatim (OSM) for reverse geocoding - free, no API key
+  // Use backend multi-provider reverse geocode
   try {
-    const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&accept-language=es&zoom=18`;
-    const response = await fetch(url, {
-      headers: { 'User-Agent': 'MoliApp/1.0' }
-    });
+    const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || '';
+    const url = `${backendUrl}/api/places/reverse?lat=${latitude}&lng=${longitude}`;
+    const response = await fetch(url);
     const data = await response.json();
-    if (data.address) {
-      const a = data.address;
-      const street = a.road || a.pedestrian || a.footway || '';
-      const number = a.house_number || '';
-      const city = a.city || a.town || a.village || a.municipality || '';
-      const parts = [street, number, city].filter(Boolean);
-      return parts.join(', ') || data.display_name?.split(',').slice(0, 2).join(',') || 'Ubicación desconocida';
+    if (data.address && data.address !== 'Ubicación desconocida') {
+      return data.address;
     }
-    if (data.display_name) {
-      return data.display_name.split(',').slice(0, 2).join(',').trim();
-    }
-    return 'Ubicación desconocida';
   } catch (e) {
-    console.log('Nominatim geocoding failed, trying Expo fallback');
+    console.log('Backend reverse geocode failed, trying fallback');
   }
 
   // Fallback to Expo geocoding
@@ -150,43 +140,20 @@ export async function searchPlaces(
   if (!query.trim() || query.length < 2) return [];
 
   try {
-    // First search within Catamarca region using Nominatim (OSM)
-    const catamarcaViewbox = '&viewbox=-68.5,-25.5,-64.5,-30.0&bounded=1';
-    const urlLocal = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=ar&limit=5&accept-language=es${catamarcaViewbox}`;
-
-    const respLocal = await fetch(urlLocal, {
-      headers: { 'User-Agent': 'MoliApp/1.0' }
-    });
-    const dataLocal = await respLocal.json();
-    const localResults: PlaceResult[] = (dataLocal || []).map((f: any) => ({
-      id: String(f.place_id),
-      name: f.display_name.split(',')[0],
-      address: f.display_name,
-      latitude: parseFloat(f.lat),
-      longitude: parseFloat(f.lon),
+    const lat = proximity?.latitude || -28.4696;
+    const lng = proximity?.longitude || -65.7852;
+    const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || '';
+    const url = `${backendUrl}/api/places/search?q=${encodeURIComponent(query)}&lat=${lat}&lng=${lng}`;
+    
+    const response = await fetch(url);
+    const data = await response.json();
+    return (data.results || []).map((r: any) => ({
+      id: r.id || String(Math.random()),
+      name: r.name,
+      address: r.address,
+      latitude: r.latitude,
+      longitude: r.longitude,
     }));
-
-    // If less than 3 local results, search broader Argentina
-    let broadResults: PlaceResult[] = [];
-    if (localResults.length < 3) {
-      const urlBroad = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=ar&limit=4&accept-language=es`;
-      const respBroad = await fetch(urlBroad, {
-        headers: { 'User-Agent': 'MoliApp/1.0' }
-      });
-      const dataBroad = await respBroad.json();
-      const existingIds = new Set(localResults.map(r => r.id));
-      broadResults = (dataBroad || [])
-        .filter((f: any) => !existingIds.has(String(f.place_id)))
-        .map((f: any) => ({
-          id: String(f.place_id),
-          name: f.display_name.split(',')[0],
-          address: f.display_name,
-          latitude: parseFloat(f.lat),
-          longitude: parseFloat(f.lon),
-        }));
-    }
-
-    return [...localResults, ...broadResults].slice(0, 6);
   } catch (error) {
     console.error('Error searching places:', error);
     return [];
