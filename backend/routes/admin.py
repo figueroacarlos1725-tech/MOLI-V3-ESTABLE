@@ -515,6 +515,29 @@ async def admin_create_user(data: AdminCreateUser, user: dict = Depends(get_curr
             "created_at": datetime.now(timezone.utc).isoformat()
         })
     
+    # If dispatcher, create default permissions
+    if data.user_type == "dispatcher":
+        default_permissions = {
+            "create_rides": True,
+            "view_live_map": True,
+            "edit_rides": True,
+            "cancel_rides": True,
+            "view_drivers": True,
+            "edit_drivers": False,
+            "create_drivers": False,
+            "block_drivers": False,
+            "add_driver_balance": False,
+            "remove_driver_balance": False,
+            "view_realtime_rides": True,
+            "view_completed_rides": True,
+            "view_statistics": False,
+            "manage_clients": False,
+        }
+        await db.users.update_one(
+            {"user_id": new_user_id},
+            {"$set": {"dispatcher_permissions": default_permissions}}
+        )
+    
     # Audit log
     await db.audit_log.insert_one({
         "action": "user_create",
@@ -528,6 +551,123 @@ async def admin_create_user(data: AdminCreateUser, user: dict = Depends(get_curr
     del new_user["password"]
     del new_user["_id"]
     return {"status": "success", "user": new_user}
+
+
+
+@router.get("/api/admin/dispatchers")
+async def get_dispatchers(user: dict = Depends(get_current_user)):
+    """List all dispatcher users with their permissions"""
+    if user["user_type"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    dispatchers = await db.users.find(
+        {"user_type": "dispatcher"},
+        {"_id": 0, "password": 0}
+    ).to_list(100)
+    
+    return {"dispatchers": dispatchers}
+
+
+@router.put("/api/admin/dispatchers/{user_id}/permissions")
+async def update_dispatcher_permissions(
+    user_id: str,
+    permissions: dict = Body(...),
+    user: dict = Depends(get_current_user)
+):
+    """Update dispatcher permissions (admin only)"""
+    if user["user_type"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    target = await db.users.find_one({"user_id": user_id})
+    if not target or target.get("user_type") != "dispatcher":
+        raise HTTPException(status_code=404, detail="Dispatcher not found")
+    
+    valid_permissions = [
+        "create_rides", "view_live_map", "edit_rides", "cancel_rides",
+        "view_drivers", "edit_drivers", "create_drivers", "block_drivers",
+        "add_driver_balance", "remove_driver_balance", "view_realtime_rides",
+        "view_completed_rides", "view_statistics", "manage_clients",
+    ]
+    
+    clean = {k: bool(v) for k, v in permissions.items() if k in valid_permissions}
+    
+    await db.users.update_one(
+        {"user_id": user_id},
+        {"$set": {"dispatcher_permissions": clean}}
+    )
+    
+    return {"status": "success", "permissions": clean}
+
+
+@router.get("/api/dispatch/rides")
+async def get_dispatch_rides(
+    tab: str = Query("new"),
+    user: dict = Depends(get_current_user)
+):
+    """Get rides for dispatch dashboard. Tabs: new, active, completed, cancelled"""
+    if user["user_type"] not in ("admin", "dispatcher"):
+        raise HTTPException(status_code=403, detail="Dispatch access required")
+    
+    if tab == "new":
+        # Rides being dispatched (pending/searching)
+        rides = await db.ride_requests.find(
+            {"status": {"$in": ["pending", "searching"]}},
+            {"_id": 0}
+        ).sort("created_at", -1).to_list(50)
+        
+        # Also get active offers info
+        for ride in rides:
+            ride_doc = await db.rides.find_one(
+                {"request_id": ride.get("request_id")},
+                {"_id": 0}
+            )
+            if ride_doc:
+                ride["ride"] = ride_doc
+        
+        return {"rides": rides, "count": len(rides)}
+    
+    elif tab == "active":
+        # Rides in progress
+        rides = await db.rides.find(
+            {"status": {"$in": ["accepted", "arrived", "started"]}},
+            {"_id": 0}
+        ).sort("created_at", -1).to_list(50)
+        
+        # Enrich with driver info
+        for ride in rides:
+            if ride.get("driver_id"):
+                driver = await db.users.find_one(
+                    {"user_id": ride["driver_id"]},
+                    {"_id": 0, "password": 0}
+                )
+                if driver:
+                    ride["driver_name"] = driver.get("name", "")
+                    ride["driver_phone"] = driver.get("phone", "")
+        
+        return {"rides": rides, "count": len(rides)}
+    
+    elif tab == "completed":
+        rides = await db.rides.find(
+            {"status": "completed"},
+            {"_id": 0}
+        ).sort("completed_at", -1).to_list(100)
+        return {"rides": rides, "count": len(rides)}
+    
+    elif tab == "cancelled":
+        rides = await db.rides.find(
+            {"status": "cancelled"},
+            {"_id": 0}
+        ).sort("cancelled_at", -1).to_list(100)
+        
+        # Also include cancelled requests without rides
+        cancelled_requests = await db.ride_requests.find(
+            {"status": "cancelled"},
+            {"_id": 0}
+        ).sort("created_at", -1).to_list(50)
+        
+        return {"rides": rides, "requests": cancelled_requests, "count": len(rides) + len(cancelled_requests)}
+    
+    return {"rides": [], "count": 0}
 
 
 @router.put("/api/admin/users/{user_id}/balance")

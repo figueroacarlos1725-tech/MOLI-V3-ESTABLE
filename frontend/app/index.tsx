@@ -19,9 +19,9 @@ export default function Index() {
     return <Redirect href="/(auth)/welcome" />;
   }
 
-  // Admin/dispatcher go directly to dashboard
+  // Admin/dispatcher go directly to dispatch dashboard
   if (user?.user_type === 'admin' || user?.user_type === 'dispatcher') {
-    return <Redirect href="/(admin)/dashboard" />;
+    return <Redirect href="/(dispatch)/home" />;
   }
 
   // Everyone else goes to module selection
