@@ -25,6 +25,7 @@ from routes.admin import router as admin_router
 from routes.places import router as places_router
 from routes.push import router as push_router
 from routes.misc import router as misc_router
+from routes.navigation import router as navigation_router
 
 app = FastAPI(title="Moli API", version="2.0.0")
 
@@ -49,6 +50,7 @@ app.include_router(admin_router)
 app.include_router(places_router)
 app.include_router(push_router)
 app.include_router(misc_router)
+app.include_router(navigation_router)
 
 
 # ======================= STARTUP =======================

@@ -32,6 +32,7 @@ import { Audio } from 'expo-av';
 import DriverBlockedModal from '@/src/components/DriverBlockedModal';
 import CancelRideModal from '@/src/components/CancelRideModal';
 import Taximeter from '@/src/components/Taximeter';
+import NavigationView from '@/src/components/NavigationView';
 
 const COUNTDOWN_SECONDS = 8;
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -85,6 +86,7 @@ export default function DriverHomeScreen() {
   const [cancelConfig, setCancelConfig] = useState<any>(null);
   const [fareConfig, setFareConfig] = useState<any>(null);
   const [taximeterFare, setTaximeterFare] = useState(0);
+  const [showNavigation, setShowNavigation] = useState(false);
   const [driverCancelCount, setDriverCancelCount] = useState(0);
 
   useEffect(() => {
@@ -731,16 +733,7 @@ export default function DriverHomeScreen() {
             {currentRide.status === 'accepted' && currentRide.pickup_location && (
               <TouchableOpacity
                 style={styles.navBtn}
-                onPress={() => {
-                  const lat = currentRide.pickup_location.latitude;
-                  const lng = currentRide.pickup_location.longitude;
-                  const url = Platform.OS === 'web'
-                    ? `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`
-                    : Platform.OS === 'ios'
-                      ? `maps://app?daddr=${lat},${lng}&dirflg=d`
-                      : `google.navigation:q=${lat},${lng}`;
-                  Linking.openURL(url);
-                }}
+                onPress={() => setShowNavigation(true)}
               >
                 <Ionicons name="navigate" size={20} color="#fff" />
                 <Text style={styles.navBtnText}>Navegar al origen</Text>
@@ -749,20 +742,31 @@ export default function DriverHomeScreen() {
             {currentRide.status === 'started' && currentRide.dropoff_location && (
               <TouchableOpacity
                 style={styles.navBtn}
-                onPress={() => {
-                  const lat = currentRide.dropoff_location.latitude;
-                  const lng = currentRide.dropoff_location.longitude;
-                  const url = Platform.OS === 'web'
-                    ? `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`
-                    : Platform.OS === 'ios'
-                      ? `maps://app?daddr=${lat},${lng}&dirflg=d`
-                      : `google.navigation:q=${lat},${lng}`;
-                  Linking.openURL(url);
-                }}
+                onPress={() => setShowNavigation(true)}
               >
                 <Ionicons name="navigate" size={20} color="#fff" />
                 <Text style={styles.navBtnText}>Navegar al destino</Text>
               </TouchableOpacity>
+            )}
+
+            {/* In-app navigation view */}
+            {showNavigation && currentRide.pickup_location && (
+              <NavigationView
+                originLat={driverLocation?.latitude || currentRide.pickup_location.latitude}
+                originLng={driverLocation?.longitude || currentRide.pickup_location.longitude}
+                destLat={
+                  currentRide.status === 'accepted'
+                    ? currentRide.pickup_location.latitude
+                    : (currentRide.dropoff_location?.latitude || currentRide.pickup_location.latitude)
+                }
+                destLng={
+                  currentRide.status === 'accepted'
+                    ? currentRide.pickup_location.longitude
+                    : (currentRide.dropoff_location?.longitude || currentRide.pickup_location.longitude)
+                }
+                height={280}
+                onClose={() => setShowNavigation(false)}
+              />
             )}
 
             {currentRide.status === 'accepted' && (
