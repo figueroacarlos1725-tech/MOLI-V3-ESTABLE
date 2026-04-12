@@ -83,9 +83,16 @@ async def places_reverse(lat: float, lng: float):
     provider = settings.get("map_provider", "osm")
     
     try:
+        # Try Google first, fallback to Nominatim
+        result = None
         if provider == "google":
-            result = await google_reverse(lat, lng)
-        else:
+            try:
+                result = await google_reverse(lat, lng)
+            except Exception:
+                pass
+        
+        # If Google failed or returned unknown, try Nominatim
+        if not result or result.get("address") == "Ubicación desconocida":
             result = await nominatim_reverse(lat, lng)
         
         address = result.get("address", "Ubicación desconocida")

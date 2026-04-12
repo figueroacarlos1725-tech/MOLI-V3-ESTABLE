@@ -31,6 +31,7 @@ import { Audio } from 'expo-av';
 
 import DriverBlockedModal from '@/src/components/DriverBlockedModal';
 import CancelRideModal from '@/src/components/CancelRideModal';
+import Taximeter from '@/src/components/Taximeter';
 
 const COUNTDOWN_SECONDS = 8;
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -82,6 +83,8 @@ export default function DriverHomeScreen() {
   const [blockInfo, setBlockInfo] = useState<any>(null);
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [cancelConfig, setCancelConfig] = useState<any>(null);
+  const [fareConfig, setFareConfig] = useState<any>(null);
+  const [taximeterFare, setTaximeterFare] = useState(0);
   const [driverCancelCount, setDriverCancelCount] = useState(0);
 
   useEffect(() => {
@@ -152,16 +155,21 @@ export default function DriverHomeScreen() {
     // Check block status and load cancel config
     const checkBlockAndConfig = async () => {
       try {
-        const [blockRes, configRes, walletRes] = await Promise.all([
+        const [blockRes, configRes, walletRes, faresRes] = await Promise.all([
           apiService.get('/driver/block-status'),
           apiService.get('/cancellation/config'),
           apiService.get('/wallet/status'),
+          apiService.get('/fares'),
         ]);
         if (blockRes.is_blocked) {
           setDriverBlocked(true);
           setBlockInfo(blockRes);
         }
         setCancelConfig(configRes);
+        if (faresRes?.fares) {
+          const ecoFare = faresRes.fares.find((f: any) => f.vehicle_type === 'economy') || faresRes.fares[0];
+          if (ecoFare) setFareConfig(ecoFare);
+        }
         if (walletRes.cancel_count_30d !== undefined) {
           setDriverCancelCount(walletRes.cancel_count_30d);
         }
@@ -700,8 +708,24 @@ export default function DriverHomeScreen() {
           
           <View style={styles.fareRow}>
             <Text style={styles.fareLabel}>Tarifa</Text>
-            <Text style={styles.fareAmount}>${currentRide.fare?.toFixed(2)}</Text>
+            <Text style={styles.fareAmount}>${currentRide.fare?.toFixed(2) || '0'}</Text>
           </View>
+
+          {/* Taximeter for taximeter rides when started */}
+          {currentRide.status === 'started' && (currentRide.is_taximeter || currentRide.is_ticketera || !currentRide.dropoff_location) && (
+            <Taximeter
+              config={{
+                base_fare: fareConfig?.base_fare || currentRide.fare || 500,
+                per_km: fareConfig?.per_km || 150,
+                per_wait_min: fareConfig?.per_min || 50,
+                currency: '$',
+              }}
+              isActive={true}
+              onFareUpdate={(newFare, dist, wait) => {
+                setTaximeterFare(newFare);
+              }}
+            />
+          )}
           
           <View style={styles.actionButtons}>
             {currentRide.status === 'accepted' && currentRide.pickup_location && (
