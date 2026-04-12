@@ -479,6 +479,9 @@ async def accept_bid(bid_id: str, user: dict = Depends(get_current_user)):
 async def update_ride_status(
     ride_id: str,
     status: str,  # arrived, started, completed, cancelled
+    taximeter_fare: float = Query(None),
+    taximeter_distance: float = Query(None),
+    taximeter_wait: float = Query(None),
     user: dict = Depends(get_current_user)
 ):
     ride = await db.rides.find_one({"ride_id": ride_id}, {"_id": 0})
@@ -498,6 +501,21 @@ async def update_ride_status(
     elif status == "completed":
         update_data["completed_at"] = now
         update_data["payment_status"] = "completed"
+        
+        # If taximeter fare provided, use it instead of the pre-calculated fare
+        if taximeter_fare and taximeter_fare > 0:
+            settings = await get_settings()
+            commission_rate = settings.get("commission_rate") or 0.20
+            commission = taximeter_fare * commission_rate
+            driver_earnings = taximeter_fare - commission
+            update_data["fare"] = round(taximeter_fare, 2)
+            update_data["commission"] = round(commission, 2)
+            update_data["driver_earnings"] = round(driver_earnings, 2)
+            update_data["taximeter_data"] = {
+                "fare": round(taximeter_fare, 2),
+                "distance_km": round(taximeter_distance or 0, 2),
+                "wait_minutes": round((taximeter_wait or 0) / 60, 1),
+            }
         
         # Check if rider has pending penalties -> add to fare
         settings = await get_settings()

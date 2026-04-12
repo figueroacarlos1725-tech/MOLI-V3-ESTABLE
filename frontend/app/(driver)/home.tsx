@@ -552,14 +552,25 @@ export default function DriverHomeScreen() {
     if (!currentRide) return;
     setPaymentConfirmed(true);
     try {
-      const response = await updateRideStatus(currentRide.ride_id, 'completed');
+      // Send taximeter data if applicable
+      const isTaximeter = currentRide.is_taximeter || currentRide.is_ticketera || !currentRide.dropoff_location;
+      const extra = isTaximeter && taximeterFare > 0 ? {
+        taximeter_fare: taximeterFare,
+        taximeter_distance: 0,
+        taximeter_wait: 0,
+      } : undefined;
+      
+      const response = await updateRideStatus(currentRide.ride_id, 'completed', extra);
       setShowPaymentConfirm(false);
       setPaymentConfirmed(false);
-      let msg = `¡Viaje completado! Ganaste $${currentRide.driver_earnings?.toFixed(0) || currentRide.fare?.toFixed(0)}`;
+      setShowNavigation(false);
+      const finalFare = isTaximeter && taximeterFare > 0 ? taximeterFare : (currentRide.driver_earnings || currentRide.fare || 0);
+      let msg = `¡Viaje completado! Cobrar $${Math.round(finalFare)}`;
       if (response?.penalty_surcharge) {
         msg += ` (incluye $${response.penalty_surcharge} en multas del pasajero)`;
       }
       setStatusMessage(msg);
+      setTaximeterFare(0);
       fetchActiveRide();
     } catch (error: any) {
       setStatusMessage(error.message || 'Error al completar viaje');
@@ -752,8 +763,8 @@ export default function DriverHomeScreen() {
             {/* In-app navigation view */}
             {showNavigation && currentRide.pickup_location && (
               <NavigationView
-                originLat={driverLocation?.latitude || currentRide.pickup_location.latitude}
-                originLng={driverLocation?.longitude || currentRide.pickup_location.longitude}
+                originLat={userLocation?.latitude || currentRide.pickup_location.latitude}
+                originLng={userLocation?.longitude || currentRide.pickup_location.longitude}
                 destLat={
                   currentRide.status === 'accepted'
                     ? currentRide.pickup_location.latitude

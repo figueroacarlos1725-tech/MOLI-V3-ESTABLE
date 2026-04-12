@@ -140,9 +140,13 @@ export const useRideStore = create<RideState>((set, get) => ({
     }
   },
 
-  updateRideStatus: async (rideId, status) => {
+  updateRideStatus: async (rideId, status, extra?: { taximeter_fare?: number; taximeter_distance?: number; taximeter_wait?: number }) => {
     try {
-      const response = await apiService.put(`/rides/${rideId}/status?status=${status}`);
+      let url = `/rides/${rideId}/status?status=${status}`;
+      if (extra?.taximeter_fare) url += `&taximeter_fare=${extra.taximeter_fare}`;
+      if (extra?.taximeter_distance) url += `&taximeter_distance=${extra.taximeter_distance}`;
+      if (extra?.taximeter_wait) url += `&taximeter_wait=${extra.taximeter_wait}`;
+      const response = await apiService.put(url);
       const currentRide = get().currentRide;
       if (currentRide && currentRide.ride_id === rideId) {
         set({ currentRide: { ...currentRide, status } });
