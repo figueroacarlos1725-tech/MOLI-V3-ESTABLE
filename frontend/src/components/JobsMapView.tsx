@@ -176,11 +176,31 @@ export default function JobsMapView({ initialRegion, jobs, onJobPress, style }: 
     );
   }
 
-  // For native, would use react-native-webview
-  return (
-    <View style={[styles.container, styles.fallback, style]}>
-    </View>
-  );
+  // For native, use WebView
+  const html = generateJobsMapHtml(lat, lng, jobs);
+  try {
+    const { WebView } = require('react-native-webview');
+    return (
+      <View style={[styles.container, style]}>
+        <WebView
+          source={{ html }}
+          style={{ flex: 1, backgroundColor: 'transparent' }}
+          onMessage={(event: any) => {
+            try {
+              handleMessage({ data: event.nativeEvent.data } as any);
+            } catch {}
+          }}
+          javaScriptEnabled
+          originWhitelist={['*']}
+        />
+      </View>
+    );
+  } catch {
+    return (
+      <View style={[styles.container, styles.fallback, style]}>
+      </View>
+    );
+  }
 }
 
 const styles = StyleSheet.create({

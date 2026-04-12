@@ -599,18 +599,22 @@ export default function DriverHomeScreen() {
       });
     }
     if (currentRide) {
-      markers.push({
-        latitude: currentRide.pickup_location.latitude,
-        longitude: currentRide.pickup_location.longitude,
-        title: 'Recogida',
-        type: 'pickup' as const,
-      });
-      markers.push({
-        latitude: currentRide.dropoff_location.latitude,
-        longitude: currentRide.dropoff_location.longitude,
-        title: 'Destino',
-        type: 'dropoff' as const,
-      });
+      if (currentRide.pickup_location) {
+        markers.push({
+          latitude: currentRide.pickup_location.latitude,
+          longitude: currentRide.pickup_location.longitude,
+          title: 'Recogida',
+          type: 'pickup' as const,
+        });
+      }
+      if (currentRide.dropoff_location && currentRide.dropoff_location.latitude) {
+        markers.push({
+          latitude: currentRide.dropoff_location.latitude,
+          longitude: currentRide.dropoff_location.longitude,
+          title: 'Destino',
+          type: 'dropoff' as const,
+        });
+      }
     }
     return markers;
   };
@@ -689,7 +693,7 @@ export default function DriverHomeScreen() {
             <View style={styles.locationRow}>
               <View style={[styles.locationDot, styles.dropoffDot]} />
               <Text style={styles.locationText} numberOfLines={1}>
-                {currentRide.dropoff_location.address || 'Destino'}
+                {currentRide.dropoff_location?.address || (currentRide.is_taximeter ? 'Viaje con taxímetro' : 'Destino')}
               </Text>
             </View>
           </View>
