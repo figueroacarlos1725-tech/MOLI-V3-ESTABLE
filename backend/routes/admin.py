@@ -1314,14 +1314,16 @@ async def admin_create_manual_trip(
     ride_id = f"ride_{uuid.uuid4().hex[:12]}"
     
     # Calculate fare for full trips
-    fare = 0
+    fare_config = await db.fare_config.find_one({"vehicle_type": data.vehicle_type}, {"_id": 0})
+    if not fare_config:
+        fare_config = DEFAULT_FARES.get(data.vehicle_type, DEFAULT_FARES["economy"])
+    
+    base_fare = fare_config.get("base_fare", 500)
+    min_fare = fare_config.get("min_fare", 800)
+    fare = base_fare  # Minimum fare is always the base fare
+    
     if data.trip_type == "full" and data.pickup_latitude and data.dropoff_latitude:
         # Calculate distance and estimated fare
-        fare_config = await db.fare_config.find_one({"vehicle_type": data.vehicle_type}, {"_id": 0})
-        if not fare_config:
-            fare_config = DEFAULT_FARES.get(data.vehicle_type, DEFAULT_FARES["economy"])
-        
-        # Haversine distance
         import math
         R = 6371
         lat1, lat2 = math.radians(data.pickup_latitude), math.radians(data.dropoff_latitude)
@@ -1330,10 +1332,8 @@ async def admin_create_manual_trip(
         a = math.sin(dlat/2)**2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlng/2)**2
         distance_km = R * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
         
-        base = fare_config.get("base_fare", 500)
         per_km = fare_config.get("per_km", 150)
-        min_fare = fare_config.get("min_fare", 800)
-        fare = max(base + (distance_km * per_km), min_fare)
+        fare = max(base_fare + (distance_km * per_km), min_fare)
     
     ride = {
         "ride_id": ride_id,

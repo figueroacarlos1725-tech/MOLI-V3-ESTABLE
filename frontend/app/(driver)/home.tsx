@@ -552,10 +552,20 @@ export default function DriverHomeScreen() {
     if (!currentRide) return;
     setPaymentConfirmed(true);
     try {
-      // Send taximeter data if applicable
       const isTaximeter = currentRide.is_taximeter || currentRide.is_ticketera || !currentRide.dropoff_location;
-      const extra = isTaximeter && taximeterFare > 0 ? {
-        taximeter_fare: taximeterFare,
+      const baseFare = fareConfig?.base_fare || 500;
+      
+      // For taximeter: use taximeterFare, minimum is base_fare
+      // For normal: use currentRide.fare
+      let finalFare: number;
+      if (isTaximeter) {
+        finalFare = taximeterFare > 0 ? taximeterFare : baseFare;
+      } else {
+        finalFare = currentRide.fare || baseFare;
+      }
+      
+      const extra = isTaximeter ? {
+        taximeter_fare: finalFare,
         taximeter_distance: 0,
         taximeter_wait: 0,
       } : undefined;
@@ -564,7 +574,7 @@ export default function DriverHomeScreen() {
       setShowPaymentConfirm(false);
       setPaymentConfirmed(false);
       setShowNavigation(false);
-      const finalFare = isTaximeter && taximeterFare > 0 ? taximeterFare : (currentRide.driver_earnings || currentRide.fare || 0);
+      
       let msg = `¡Viaje completado! Cobrar $${Math.round(finalFare)}`;
       if (response?.penalty_surcharge) {
         msg += ` (incluye $${response.penalty_surcharge} en multas del pasajero)`;
@@ -721,7 +731,14 @@ export default function DriverHomeScreen() {
           
           <View style={styles.fareRow}>
             <Text style={styles.fareLabel}>Tarifa</Text>
-            <Text style={styles.fareAmount}>${currentRide.fare?.toFixed(2) || '0'}</Text>
+            <Text style={styles.fareAmount}>
+              ${(() => {
+                const isTaxi = currentRide.is_taximeter || currentRide.is_ticketera || !currentRide.dropoff_location;
+                if (isTaxi && taximeterFare > 0) return Math.round(taximeterFare);
+                if (isTaxi) return Math.round(fareConfig?.base_fare || currentRide.fare || 500);
+                return Math.round(currentRide.fare || 0);
+              })()}
+            </Text>
           </View>
 
           {/* Taximeter for taximeter rides when started */}
@@ -839,7 +856,13 @@ export default function DriverHomeScreen() {
               
               <View style={styles.paymentAmountBox}>
                 <Text style={styles.paymentAmountLabel}>Monto a cobrar</Text>
-                <Text style={styles.paymentAmount}>${currentRide.fare?.toFixed(0)}</Text>
+                <Text style={styles.paymentAmount}>
+                  ${(() => {
+                    const isTaxi = currentRide.is_taximeter || currentRide.is_ticketera || !currentRide.dropoff_location;
+                    const fare = isTaxi && taximeterFare > 0 ? taximeterFare : (currentRide.fare || fareConfig?.base_fare || 500);
+                    return Math.round(fare);
+                  })()}
+                </Text>
                 <Text style={styles.paymentMethod}>
                   {currentRide.payment_method === 'card' ? '💳 Pago con tarjeta' : '💵 Pago en efectivo'}
                 </Text>
@@ -848,12 +871,17 @@ export default function DriverHomeScreen() {
               <View style={styles.paymentDetails}>
                 <View style={styles.paymentRow}>
                   <Text style={styles.paymentDetailLabel}>Distancia</Text>
-                  <Text style={styles.paymentDetailVal}>{currentRide.distance?.toFixed(1)} km</Text>
+                  <Text style={styles.paymentDetailVal}>{currentRide.distance?.toFixed(1) || '0'} km</Text>
                 </View>
                 <View style={styles.paymentRow}>
                   <Text style={styles.paymentDetailLabel}>Tu ganancia</Text>
                   <Text style={[styles.paymentDetailVal, { color: '#A855F7', fontWeight: '800' }]}>
-                    ${currentRide.driver_earnings?.toFixed(0) || currentRide.fare?.toFixed(0)}
+                    ${(() => {
+                      const isTaxi = currentRide.is_taximeter || currentRide.is_ticketera || !currentRide.dropoff_location;
+                      const fare = isTaxi && taximeterFare > 0 ? taximeterFare : (currentRide.fare || fareConfig?.base_fare || 500);
+                      const commission = fare * 0.20;
+                      return Math.round(fare - commission);
+                    })()}
                   </Text>
                 </View>
               </View>
