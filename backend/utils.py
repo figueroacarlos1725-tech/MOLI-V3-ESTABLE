@@ -105,19 +105,23 @@ def calculate_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> fl
 
 
 async def calculate_fare(distance_km: float, duration_min: int, vehicle_type: str) -> float:
-    settings = await get_settings()
-    base_fare = settings.get("base_fare", 2.50)
-    per_km = settings.get("per_km_rate", 1.20)
-    per_min = settings.get("per_minute_rate", 0.15)
-    multipliers = {
-        "economy": 1.0,
-        "comfort": 1.3,
-        "premium": 1.8,
-        "xl": 1.5
-    }
-    multiplier = multipliers.get(vehicle_type, 1.0)
-    fare = (base_fare + (distance_km * per_km) + (duration_min * per_min)) * multiplier
-    return round(fare, 2)
+    """Calculate fare using fare_config collection (same as /rides/estimate).
+    This ensures rider preview and ride request use the exact same calculation.
+    """
+    # Try to get vehicle-specific fare config first
+    fare = await db.fare_config.find_one({"vehicle_type": vehicle_type}, {"_id": 0})
+    if not fare:
+        fare = DEFAULT_FARES.get(vehicle_type, DEFAULT_FARES.get("economy", {}))
+    
+    base = fare.get("base_fare", 500)
+    per_km = fare.get("per_km", 150)
+    per_min = fare.get("per_min", 50)
+    min_fare = fare.get("min_fare", 800)
+    
+    price = base + (distance_km * per_km) + (duration_min * per_min)
+    price = max(price, min_fare)
+    
+    return round(price, 2)
 
 
 async def get_nearby_drivers(lat: float, lng: float, radius_km: float = 50, vehicle_type: str = None) -> dict:
