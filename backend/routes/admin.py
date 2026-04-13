@@ -390,7 +390,12 @@ async def admin_list_users(
     # Enrich with balance info
     for u in users:
         balance = await db.user_balances.find_one({"user_id": u["user_id"]}, {"_id": 0})
-        u["balance"] = balance.get("amount", 0.0) if balance else 0.0
+        wallet_bal = u.get("wallet_balance", 0.0)
+        bal_amount = balance.get("amount", 0.0) if balance else 0.0
+        # Sync: prefer users.wallet_balance as source of truth
+        actual_balance = wallet_bal if wallet_bal != 0 else bal_amount
+        u["balance"] = actual_balance
+        u["wallet_balance"] = actual_balance
         u["debt"] = balance.get("debt", 0.0) if balance else 0.0
         # Driver status
         if u["user_type"] == "driver":
@@ -819,6 +824,22 @@ async def admin_update_balance(
         {"$set": {"amount": new_amount, "updated_at": datetime.now(timezone.utc).isoformat()}},
         upsert=True
     )
+    
+    # Sync with users.wallet_balance
+    await db.users.update_one(
+        {"user_id": user_id},
+        {"$set": {"wallet_balance": new_amount}}
+    )
+    
+    # Record transaction
+    await db.wallet_transactions.insert_one({
+        "user_id": user_id,
+        "type": "admin_" + update.operation,
+        "amount": update.amount if update.operation == "add" else -update.amount,
+        "balance_after": new_amount,
+        "description": update.reason or f"Ajuste por admin ({update.operation})",
+        "created_at": datetime.now(timezone.utc),
+    })
     
     await db.audit_log.insert_one({
         "action": "balance_update",
