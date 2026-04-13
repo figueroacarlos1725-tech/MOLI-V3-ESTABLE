@@ -140,8 +140,13 @@ export default function DriverHomeScreen() {
                 `/drivers/availability?is_online=true${loc ? `&latitude=${loc.latitude}&longitude=${loc.longitude}` : ''}`
               );
               setIsOnline(true);
-            } catch (e) {
-              // If backend fails, stay offline
+            } catch (e: any) {
+              // Check if blocked
+              const detail = e?.detail;
+              if (detail && typeof detail === 'object' && detail.error === 'driver_blocked') {
+                setDriverBlocked(true);
+                setBlockInfo(detail);
+              }
               await AsyncStorage.setItem('driver_online', 'false');
             }
           }
@@ -179,9 +184,28 @@ export default function DriverHomeScreen() {
     };
     checkBlockAndConfig();
     
+    // Periodic block status re-check (every 30s) — ensures persistence across reconnects
+    const blockCheckInterval = setInterval(async () => {
+      try {
+        const blockRes = await apiService.get('/driver/block-status');
+        if (blockRes.is_blocked) {
+          setDriverBlocked(true);
+          setBlockInfo(blockRes);
+          setIsOnline(false);
+        } else {
+          // If was blocked but now unblocked (e.g., admin unblocked or time expired)
+          if (driverBlocked) {
+            setDriverBlocked(false);
+            setBlockInfo(null);
+          }
+        }
+      } catch (e) { /* silent */ }
+    }, 30000);
+    
     return () => {
       if (locationInterval.current) clearInterval(locationInterval.current);
       if (countdownInterval.current) clearInterval(countdownInterval.current);
+      clearInterval(blockCheckInterval);
       stopSound();
     };
   }, []);
@@ -501,7 +525,17 @@ export default function DriverHomeScreen() {
         // Haptic feedback
         try { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); } catch(e) {}
       } catch (error: any) {
-        setStatusMessage(error.message || 'No se pudo conectar');
+        // Check if blocked by backend
+        const detail = error?.detail;
+        if (detail && typeof detail === 'object' && detail.error === 'driver_blocked') {
+          setDriverBlocked(true);
+          setBlockInfo(detail);
+          setIsOnline(false);
+          await AsyncStorage.setItem('driver_online', 'false');
+          setStatusMessage('Cuenta bloqueada');
+        } else {
+          setStatusMessage(error.message || 'No se pudo conectar');
+        }
       } finally {
         setIsToggling(false);
       }
@@ -832,15 +866,15 @@ export default function DriverHomeScreen() {
         <DriverBlockedModal
           visible={driverBlocked}
           reason={blockInfo?.reason || 'negative_balance'}
-          message={blockInfo?.message || 'Tu cuenta ha sido bloqueada.'}
+          message={blockInfo?.message || 'Tu cuenta ha sido bloqueada. No puedes recibir viajes hasta regularizar tu situación.'}
           balance={blockInfo?.balance ?? user?.wallet_balance ?? 0}
           blockedUntil={blockInfo?.blocked_until || null}
           onChatSupport={() => {
-            setDriverBlocked(false);
-            // Open support bubble by navigating
+            // Navigate to support but keep modal persistent (don't dismiss)
+            router.push('/(driver)/support');
           }}
           onRechargeWallet={() => {
-            setDriverBlocked(false);
+            // Navigate to wallet/earnings but keep modal persistent (don't dismiss)
             router.push('/(driver)/earnings');
           }}
         />

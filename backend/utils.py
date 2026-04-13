@@ -220,6 +220,18 @@ async def set_wallet_balance(user_id: str, new_amount: float) -> float:
     return new_amount
 
 
+def normalize_commission_rate(rate) -> float:
+    """Normalize commission rate: if > 1, treat as percentage (e.g., 15 → 0.15).
+    If <= 1, treat as decimal (e.g., 0.15 → 0.15).
+    """
+    if rate is None:
+        return 0.20
+    rate = float(rate)
+    if rate > 1:
+        return rate / 100.0
+    return rate
+
+
 SUPPORT_SYSTEM_PROMPT = """Eres el asistente de soporte de Molí (Move Libre), una app de transporte tipo Uber.
 Tu trabajo es ayudar a pasajeros y conductores con sus problemas.
 Responde SIEMPRE en español. Sé amable, breve y directo.

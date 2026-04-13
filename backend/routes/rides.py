@@ -11,7 +11,7 @@ from websocket_manager import manager
 from utils import (
     generate_id, get_current_user, get_settings, calculate_distance,
     calculate_fare, get_nearby_drivers, DEFAULT_FARES, DISPLAY_NAMES,
-    adjust_wallet_balance,
+    adjust_wallet_balance, normalize_commission_rate,
 )
 from models import (
     RideRequestCreate, RideRequestResponse, BidCreate, BidResponse, EstimateRequest,
@@ -243,7 +243,7 @@ async def driver_respond_to_offer(
         now = datetime.now(timezone.utc)
         settings = await get_settings()
         fare = request_doc.get("estimated_fare") or (existing_ride.get("fare") if existing_ride else 0) or 0
-        commission_rate = settings.get("commission_rate") or 0.20
+        commission_rate = normalize_commission_rate(settings.get("commission_rate"))
         commission = fare * commission_rate
         driver_earnings = fare - commission
         
@@ -400,7 +400,7 @@ async def accept_bid(bid_id: str, user: dict = Depends(get_current_user)):
     now = datetime.now(timezone.utc)
     
     settings = await get_settings()
-    commission = bid["fare_amount"] * settings.get("commission_rate", 0.20)
+    commission = bid["fare_amount"] * normalize_commission_rate(settings.get("commission_rate"))
     driver_earnings = bid["fare_amount"] - commission
     
     ride_doc = {
@@ -506,7 +506,7 @@ async def update_ride_status(
         # If taximeter fare provided, use it instead of the pre-calculated fare
         if taximeter_fare and taximeter_fare > 0:
             settings = await get_settings()
-            commission_rate = settings.get("commission_rate") or 0.20
+            commission_rate = normalize_commission_rate(settings.get("commission_rate"))
             commission = taximeter_fare * commission_rate
             driver_earnings = taximeter_fare - commission
             update_data["fare"] = round(taximeter_fare, 2)
@@ -528,7 +528,7 @@ async def update_ride_status(
         if total_penalty > 0:
             # Add penalty to fare
             new_fare = ride.get("fare", 0) + total_penalty
-            new_commission = new_fare * settings.get("commission_rate", 0.20)
+            new_commission = new_fare * normalize_commission_rate(settings.get("commission_rate"))
             new_driver_earnings = new_fare - new_commission
             update_data["fare"] = round(new_fare, 2)
             update_data["commission"] = round(new_commission, 2)
@@ -560,7 +560,7 @@ async def update_ride_status(
         # Determine payment method
         payment_method = ride.get("payment_method", "cash")
         final_fare = update_data.get("fare", ride.get("fare", 0))
-        commission_rate = settings.get("commission_rate", 0.20)
+        commission_rate = normalize_commission_rate(settings.get("commission_rate"))
         final_commission = round(final_fare * commission_rate, 2)
         final_driver_earnings = round(final_fare - final_commission, 2)
         update_data["commission"] = final_commission

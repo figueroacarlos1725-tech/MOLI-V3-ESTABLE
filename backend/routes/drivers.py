@@ -22,6 +22,38 @@ async def update_availability(
     if user["user_type"] != "driver":
         raise HTTPException(status_code=403, detail="Only drivers can update availability")
     
+    # BLOCK CHECK: Prevent blocked drivers from going online
+    if is_online:
+        driver_doc = await db.drivers.find_one({"driver_id": user["user_id"]}, {"_id": 0})
+        if driver_doc and driver_doc.get("is_blocked"):
+            # Check if time-based block expired
+            blocked_until = driver_doc.get("blocked_until")
+            block_expired = False
+            if blocked_until:
+                if isinstance(blocked_until, str):
+                    blocked_until = datetime.fromisoformat(blocked_until.replace("Z", "+00:00"))
+                if isinstance(blocked_until, datetime) and blocked_until <= datetime.now(timezone.utc):
+                    # Block expired, unblock
+                    await db.drivers.update_one(
+                        {"driver_id": user["user_id"]},
+                        {"$set": {"is_blocked": False, "block_reason": None, "blocked_at": None, "blocked_until": None}}
+                    )
+                    block_expired = True
+            
+            if not block_expired:
+                reason = driver_doc.get("block_reason", "unknown")
+                msg = "Tu saldo es muy negativo. Recarga para continuar trabajando." if reason == "negative_balance" else "Tu cuenta está bloqueada por cancelaciones excesivas."
+                raise HTTPException(
+                    status_code=403,
+                    detail={
+                        "error": "driver_blocked",
+                        "reason": reason,
+                        "message": msg,
+                        "blocked_until": blocked_until.isoformat() if isinstance(blocked_until, datetime) else str(blocked_until) if blocked_until else None,
+                        "balance": user.get("wallet_balance", 0),
+                    }
+                )
+    
     update_data = {
         "is_online": is_online,
         "is_available": is_online,
