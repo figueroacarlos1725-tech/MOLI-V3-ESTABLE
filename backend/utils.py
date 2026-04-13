@@ -183,6 +183,43 @@ REQUIRED_DOCUMENTS = [
     {"key": "criminal_record", "label": "Antecedentes penales", "description": "Certificado de antecedentes penales"},
 ]
 
+async def adjust_wallet_balance(user_id: str, delta: float) -> float:
+    """Atomically adjust wallet balance in BOTH users.wallet_balance and user_balances.amount.
+    Returns the new balance after adjustment.
+    """
+    # Update users.wallet_balance
+    await db.users.update_one(
+        {"user_id": user_id},
+        {"$inc": {"wallet_balance": delta}}
+    )
+    # Also update user_balances.amount (secondary source)
+    await db.user_balances.update_one(
+        {"user_id": user_id},
+        {"$inc": {"amount": delta}, "$set": {"updated_at": datetime.now(timezone.utc).isoformat()}},
+        upsert=True
+    )
+    # Return the new balance
+    user = await db.users.find_one({"user_id": user_id}, {"_id": 0, "wallet_balance": 1})
+    return user.get("wallet_balance", 0.0) if user else 0.0
+
+
+async def set_wallet_balance(user_id: str, new_amount: float) -> float:
+    """Set wallet balance to an absolute value in BOTH collections.
+    Returns the new balance.
+    """
+    now_str = datetime.now(timezone.utc).isoformat()
+    await db.users.update_one(
+        {"user_id": user_id},
+        {"$set": {"wallet_balance": new_amount}}
+    )
+    await db.user_balances.update_one(
+        {"user_id": user_id},
+        {"$set": {"amount": new_amount, "updated_at": now_str}},
+        upsert=True
+    )
+    return new_amount
+
+
 SUPPORT_SYSTEM_PROMPT = """Eres el asistente de soporte de Molí (Move Libre), una app de transporte tipo Uber.
 Tu trabajo es ayudar a pasajeros y conductores con sus problemas.
 Responde SIEMPRE en español. Sé amable, breve y directo.

@@ -5,7 +5,7 @@ from datetime import datetime, timezone, timedelta
 import uuid
 
 from database import db
-from utils import generate_id, get_current_user, get_settings
+from utils import generate_id, get_current_user, get_settings, adjust_wallet_balance
 from models import CouponCreate
 
 router = APIRouter()
@@ -260,11 +260,8 @@ async def wallet_payment_callback(
             {"$set": {"status": "completed", "external_payment_id": payment_id}}
         )
         
-        # Add to wallet
-        await db.users.update_one(
-            {"user_id": transaction["user_id"]},
-            {"$inc": {"wallet_balance": transaction["amount"]}}
-        )
+        # Add to wallet (sync both collections)
+        await adjust_wallet_balance(transaction["user_id"], transaction["amount"])
         
         return {"status": "success", "message": "Funds added to wallet"}
     

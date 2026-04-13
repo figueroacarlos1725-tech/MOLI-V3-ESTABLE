@@ -11,7 +11,7 @@ from database import db
 from websocket_manager import manager
 from utils import (
     generate_id, hash_password, get_current_user, get_settings, calculate_distance,
-    DEFAULT_FARES, REQUIRED_DOCUMENTS,
+    DEFAULT_FARES, REQUIRED_DOCUMENTS, adjust_wallet_balance, set_wallet_balance,
 )
 from models import (
     SettingsUpdate, VehicleIconUpdate, AdminUserUpdate, AdminCreateUser,
@@ -417,9 +417,12 @@ async def admin_get_user(user_id: str, user: dict = Depends(get_current_user)):
     if not target:
         raise HTTPException(status_code=404, detail="User not found")
     
-    balance = await db.user_balances.find_one({"user_id": user_id}, {"_id": 0})
-    target["balance"] = balance.get("amount", 0.0) if balance else 0.0
-    target["debt"] = balance.get("debt", 0.0) if balance else 0.0
+    # Use users.wallet_balance as primary source; fallback to user_balances
+    balance_doc = await db.user_balances.find_one({"user_id": user_id}, {"_id": 0})
+    wallet_bal = target.get("wallet_balance", 0.0)
+    target["balance"] = wallet_bal
+    target["wallet_balance"] = wallet_bal
+    target["debt"] = balance_doc.get("debt", 0.0) if balance_doc else 0.0
     
     if target["user_type"] == "driver":
         driver = await db.drivers.find_one({"driver_id": user_id}, {"_id": 0})
@@ -809,8 +812,9 @@ async def admin_update_balance(
     if user["user_type"] != "admin":
         raise HTTPException(status_code=403, detail="Admin access required")
     
-    current = await db.user_balances.find_one({"user_id": user_id})
-    old_amount = current.get("amount", 0.0) if current else 0.0
+    # Read current balance from users.wallet_balance (primary source of truth)
+    target_user = await db.users.find_one({"user_id": user_id}, {"_id": 0, "wallet_balance": 1})
+    old_amount = target_user.get("wallet_balance", 0.0) if target_user else 0.0
     
     if update.operation == "add":
         new_amount = old_amount + update.amount
@@ -819,17 +823,8 @@ async def admin_update_balance(
     else:
         new_amount = update.amount
     
-    await db.user_balances.update_one(
-        {"user_id": user_id},
-        {"$set": {"amount": new_amount, "updated_at": datetime.now(timezone.utc).isoformat()}},
-        upsert=True
-    )
-    
-    # Sync with users.wallet_balance
-    await db.users.update_one(
-        {"user_id": user_id},
-        {"$set": {"wallet_balance": new_amount}}
-    )
+    # Use unified setter that syncs BOTH collections
+    await set_wallet_balance(user_id, new_amount)
     
     # Record transaction
     await db.wallet_transactions.insert_one({

@@ -132,7 +132,7 @@ async def send_chat_message(
     receiver_id = ride["driver_id"] if user["user_id"] == ride["rider_id"] else ride["rider_id"]
     
     msg = {
-        "message_id": f"msg_{uuid.uuid4().hex[:12]}",
+        "message_id": generate_id("msg_"),
         "ride_id": ride_id,
         "sender_id": user["user_id"],
         "sender_name": user.get("name", "Usuario"),

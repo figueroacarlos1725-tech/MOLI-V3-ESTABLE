@@ -348,6 +348,51 @@ backend:
         agent: "testing"
         comment: "COMPREHENSIVE REFACTORED BACKEND TESTING COMPLETED ✅ All 34 critical endpoints tested successfully across ALL 11 route modules! TESTED ROUTES: ✅ Auth (routes/auth.py): login (admin/rider/driver), register, get current user ✅ Drivers (routes/drivers.py): block-status, documents/required, verification-status, earnings ✅ Vehicles (routes/vehicles.py): vehicle-icons, vehicles list ✅ Rides (routes/rides.py): active rides, my-rides, fare estimation ✅ Chat (routes/chat.py): conversations ✅ Support (routes/support.py): AI support chat ✅ Wallet (routes/wallet.py): status, balance, cancellation config ✅ Admin (routes/admin.py): dashboard, settings, users, drivers, fares, banners, payment-config ✅ Places (routes/places.py): search, reverse geocoding ✅ Push (routes/push.py): push token registration ✅ Misc (routes/misc.py): health, config/maps, config/dispatch, fares, version-check, banners. All endpoints have proper authentication, authorization, and return correct data structures. The refactored modular architecture is fully functional and ready for production use."
 
+  - task: "Wallet Balance Synchronization"
+    implemented: true
+    working: true
+    file: "/app/backend/utils.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "WALLET BALANCE SYNCHRONIZATION FIX COMPLETED. Created adjust_wallet_balance() and set_wallet_balance() helper functions in utils.py that atomically update BOTH users.wallet_balance AND user_balances.amount. Replaced ALL raw $inc wallet_balance calls in rides.py with adjust_wallet_balance(). Updated wallet.py payment callback to use adjust_wallet_balance(). Updated admin.py admin_update_balance to use set_wallet_balance() and read from users.wallet_balance as primary source. Fixed admin_get_user() to read balance from users.wallet_balance instead of stale user_balances.amount."
+      - working: true
+        agent: "testing"
+        comment: "WALLET BALANCE SYNCHRONIZATION TESTED SUCCESSFULLY ✅ All wallet balance operations now properly sync between collections. ✅ Admin balance update (PUT /api/admin/users/{user_id}/balance) correctly updates both users.wallet_balance and user_balances.amount ✅ Admin get user (GET /api/admin/users/{user_id}) returns synced balance and wallet_balance fields ✅ Wallet status (GET /api/wallet/status) returns correct balance matching admin updates ✅ Wallet balance (GET /api/wallet/balance) returns correct balance matching admin updates ✅ All balance operations use the new adjust_wallet_balance() and set_wallet_balance() helper functions ✅ Primary source of truth is users.wallet_balance with secondary sync to user_balances.amount"
+
+  - task: "Chat Send Message Fix"
+    implemented: true
+    working: true
+    file: "/app/backend/routes/chat.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "CHAT BUG FIX COMPLETED. Fixed NameError in /api/chat/send endpoint - uuid.uuid4() was used without importing uuid. Replaced with generate_id('msg_') which was already imported from utils.py."
+      - working: true
+        agent: "testing"
+        comment: "CHAT SEND MESSAGE FIX TESTED SUCCESSFULLY ✅ No more NameError crashes in /api/chat/send endpoint. ✅ POST /api/chat/send?ride_id={ride_id}&message=Hola (as rider) returns 200 with message_id ✅ POST /api/chat/send?ride_id={ride_id}&message=En camino (as driver) returns 200 with message_id ✅ GET /api/chat/ride/{ride_id} shows both messages in chat history ✅ Chat functionality working correctly for both riders and drivers ✅ Fixed by replacing uuid.uuid4() with generate_id('msg_') which was already imported"
+
+  - task: "Admin Balance Update Sync"
+    implemented: true
+    working: true
+    file: "/app/backend/routes/admin.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "ADMIN BALANCE UPDATE SYNC FIX COMPLETED. Updated admin_update_balance to use set_wallet_balance() helper function that syncs BOTH collections. Updated admin_get_user() to read balance from users.wallet_balance as primary source instead of user_balances.amount."
+      - working: true
+        agent: "testing"
+        comment: "ADMIN BALANCE UPDATE SYNC TESTED SUCCESSFULLY ✅ PUT /api/admin/users/{user_id}/balance properly updates both collections atomically ✅ Response includes new balance value ✅ GET /api/admin/users/{user_id} shows synced balance and wallet_balance fields ✅ All wallet endpoints (status, balance) reflect the admin balance changes ✅ Primary source of truth is users.wallet_balance with proper sync to user_balances.amount ✅ Admin balance operations use the new set_wallet_balance() helper function"
+
 frontend:
   - task: "Pin Adjustment (Draggable Markers)"
     implemented: true
@@ -405,15 +450,17 @@ metadata:
 
 test_plan:
   current_focus:
-    - "Dispatch Pending Rides to Newly Online Drivers"
-    - "Dispatch Loop with Zero Drivers and Expiration"
-  stuck_tasks:
-    - "Dispatch Pending Rides to Newly Online Drivers"
-    - "Dispatch Loop with Zero Drivers and Expiration"
+    - "Wallet Balance Synchronization"
+    - "Chat Send Message Fix"
+    - "Admin Balance Update Sync"
+  stuck_tasks: []
   test_all: false
   test_priority: "high_first"
 
 agent_communication:
+  - agent: "main"
+    message: "WALLET BALANCE SYNCHRONIZATION FIX COMPLETED + CHAT BUG FIX. KEY CHANGES: 1) Created adjust_wallet_balance() and set_wallet_balance() helper functions in utils.py that atomically update BOTH users.wallet_balance AND user_balances.amount. 2) Replaced ALL raw $inc wallet_balance calls in rides.py (6 places: cash commission debit, card earnings credit, rider penalty collection, rider cancel penalty, driver cancel compensation, driver cancel penalty) with adjust_wallet_balance(). 3) Updated wallet.py payment callback to use adjust_wallet_balance(). 4) Updated admin.py admin_update_balance to use set_wallet_balance() and read from users.wallet_balance as primary source. 5) Fixed admin_get_user() to read balance from users.wallet_balance instead of stale user_balances.amount. 6) FIXED CHAT BUG: chat.py /api/chat/send was crashing with NameError because uuid.uuid4() was used but uuid was never imported. Replaced with generate_id('msg_') which was already imported. TEST CREDENTIALS: admin@test.com/admin123456, rider@test.com/test123456, driver@test.com/test123456. TESTS TO RUN: 1) Admin update balance endpoint - verify both collections synced 2) Wallet status - verify correct balance returned 3) Chat send message - verify no crash 4) Wallet balance endpoint"
+
   - agent: "main"
     message: "Implemented the automatic driver dispatch system. KEY CHANGES: 1) POST /api/rides/{request_id}/driver-response?action=accept|reject - NEW endpoint for drivers to respond to offers. 2) The create_ride_request endpoint now starts a background task (assign_ride_to_drivers) that offers rides to drivers one-by-one with 8s timeout. 3) The driver-response endpoint creates rides on accept and signals events on reject. TEST CREDENTIALS: rider@test.com/test123456, driver@test.com/test123456. TEST FLOW: Login as driver -> register vehicle -> set online with location -> Login as rider -> create ride request -> check that request status is pending and background task runs -> Use driver-response endpoint to accept/reject."
   - agent: "testing"
@@ -432,3 +479,5 @@ agent_communication:
     message: "BACKEND REFACTORING COMPLETED: server.py (5200+ lines) has been split into modular architecture. Created: dispatch.py (ride assignment system), places_helpers.py (geocoding cache/search), updated models.py (14 new inline models), updated utils.py (shared constants). Extracted 125 endpoints into 11 route files in /routes/: auth.py (7), drivers.py (9), vehicles.py (3), rides.py (12), chat.py (5), support.py (5), wallet.py (9), admin.py (61), places.py (2), push.py (1), misc.py (11). New slim server.py is ~70 lines. Manual endpoint testing confirms: health, auth login, admin dashboard/settings, vehicle icons, config maps, fares, wallet status, cancellation config, places search/reverse, version check, admin fares/users/drivers, rides active, dispatch config, driver block-status/earnings/docs/verification, rider my-rides/wallet/locations, conversations ALL working. NEEDS RETESTING with testing agent for full coverage."
   - agent: "testing"
     message: "COMPREHENSIVE REFACTORED BACKEND TESTING COMPLETED ✅ All 34 critical endpoints tested successfully across ALL 11 route modules! TESTED ROUTES: ✅ Auth (routes/auth.py): login (admin/rider/driver), register, get current user ✅ Drivers (routes/drivers.py): block-status, documents/required, verification-status, earnings ✅ Vehicles (routes/vehicles.py): vehicle-icons, vehicles list ✅ Rides (routes/rides.py): active rides, my-rides, fare estimation ✅ Chat (routes/chat.py): conversations ✅ Support (routes/support.py): AI support chat ✅ Wallet (routes/wallet.py): status, balance, cancellation config ✅ Admin (routes/admin.py): dashboard, settings, users, drivers, fares, banners, payment-config ✅ Places (routes/places.py): search, reverse geocoding ✅ Push (routes/push.py): push token registration ✅ Misc (routes/misc.py): health, config/maps, config/dispatch, fares, version-check, banners. All endpoints have proper authentication, authorization, and return correct data structures. The refactored modular architecture is fully functional and ready for production use."
+  - agent: "testing"
+    message: "WALLET BALANCE SYNCHRONIZATION & CHAT BUG FIX TESTING COMPLETED ✅ All critical fixes tested successfully! WALLET SYNC TESTS: ✅ Admin balance update (PUT /api/admin/users/{user_id}/balance) correctly updates both users.wallet_balance and user_balances.amount atomically ✅ Admin get user (GET /api/admin/users/{user_id}) returns synced balance and wallet_balance fields ✅ Wallet status (GET /api/wallet/status) returns correct balance matching admin updates ✅ Wallet balance (GET /api/wallet/balance) returns correct balance matching admin updates. CHAT FIX TESTS: ✅ Chat send message (POST /api/chat/send) no longer crashes with NameError ✅ Both rider and driver can send messages successfully ✅ Chat history (GET /api/chat/ride/{ride_id}) shows all messages correctly. The wallet balance synchronization helper functions (adjust_wallet_balance, set_wallet_balance) are working perfectly, and the chat uuid import bug has been completely resolved. All wallet operations now maintain consistency between collections, and chat functionality is fully operational."

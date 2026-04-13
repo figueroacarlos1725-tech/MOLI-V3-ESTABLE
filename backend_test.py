@@ -555,24 +555,235 @@ def test_misc_endpoints():
     else:
         results.add_failure("GET /api/banners", f"Status: {response.status_code if response else 'No response'}")
 
+def test_wallet_balance_sync():
+    """Test wallet balance synchronization fixes"""
+    print(f"\n{'='*20} TESTING WALLET BALANCE SYNC {'='*20}")
+    
+    if not admin_token or not driver_token:
+        results.add_failure("Wallet Balance Sync", "Missing admin or driver tokens")
+        return
+    
+    admin_headers = {"Authorization": f"Bearer {admin_token}"}
+    driver_headers = {"Authorization": f"Bearer {driver_token}"}
+    
+    # Get driver user ID first
+    response = make_request("GET", "/auth/me", headers=driver_headers)
+    if not response or response.status_code != 200:
+        results.add_failure("Wallet Balance Sync", "Could not get driver user ID")
+        return
+    
+    driver_user_id = response.json().get("user_id")
+    if not driver_user_id:
+        results.add_failure("Wallet Balance Sync", "Driver user ID not found in response")
+        return
+    
+    # Test 1: Admin Balance Update Sync
+    balance_update = {
+        "amount": 5000,
+        "operation": "add",
+        "reason": "Test sync"
+    }
+    response = make_request("PUT", f"/admin/users/{driver_user_id}/balance", 
+                          headers=admin_headers, json_data=balance_update)
+    if response and response.status_code == 200:
+        data = response.json()
+        if "balance" in data:
+            new_balance = data["balance"]
+            results.add_success("Admin Balance Update - Response includes new balance")
+            
+            # Test 2: Verify admin get user shows synced balance
+            response = make_request("GET", f"/admin/users/{driver_user_id}", headers=admin_headers)
+            if response and response.status_code == 200:
+                user_data = response.json()
+                admin_balance = user_data.get("balance")
+                admin_wallet_balance = user_data.get("wallet_balance")
+                if admin_balance == new_balance and admin_wallet_balance == new_balance:
+                    results.add_success("Admin Get User - Balance and wallet_balance match")
+                else:
+                    results.add_failure("Admin Get User", f"Balance mismatch: balance={admin_balance}, wallet_balance={admin_wallet_balance}, expected={new_balance}")
+            else:
+                results.add_failure("Admin Get User", f"Status: {response.status_code if response else 'No response'}")
+            
+            # Test 3: Verify wallet status endpoint shows synced balance
+            response = make_request("GET", "/wallet/status", headers=driver_headers)
+            if response and response.status_code == 200:
+                wallet_data = response.json()
+                wallet_balance = wallet_data.get("balance")
+                if wallet_balance == new_balance:
+                    results.add_success("Wallet Status - Balance matches admin update")
+                else:
+                    results.add_failure("Wallet Status", f"Balance mismatch: got={wallet_balance}, expected={new_balance}")
+            else:
+                results.add_failure("Wallet Status", f"Status: {response.status_code if response else 'No response'}")
+            
+            # Test 4: Verify wallet balance endpoint shows synced balance
+            response = make_request("GET", "/wallet/balance", headers=driver_headers)
+            if response and response.status_code == 200:
+                balance_data = response.json()
+                balance = balance_data.get("balance")
+                if balance == new_balance:
+                    results.add_success("Wallet Balance - Balance matches admin update")
+                else:
+                    results.add_failure("Wallet Balance", f"Balance mismatch: got={balance}, expected={new_balance}")
+            else:
+                results.add_failure("Wallet Balance", f"Status: {response.status_code if response else 'No response'}")
+        else:
+            results.add_failure("Admin Balance Update", "Missing balance field in response")
+    else:
+        results.add_failure("Admin Balance Update", f"Status: {response.status_code if response else 'No response'}")
+
+
+def test_chat_send_fix():
+    """Test chat send message bug fix"""
+    print(f"\n{'='*20} TESTING CHAT SEND MESSAGE FIX {'='*20}")
+    
+    if not rider_token or not driver_token:
+        results.add_failure("Chat Send Fix", "Missing rider or driver tokens")
+        return
+    
+    rider_headers = {"Authorization": f"Bearer {rider_token}"}
+    driver_headers = {"Authorization": f"Bearer {driver_token}"}
+    
+    # First, we need to create a ride for testing chat
+    # Step 1: Register driver vehicle
+    vehicle_data = {
+        "make": "Toyota",
+        "model": "Corolla",
+        "year": 2020,
+        "plate_number": "ABC123",
+        "vehicle_type": "economy",
+        "color": "White"
+    }
+    response = make_request("POST", "/vehicles", headers=driver_headers, json_data=vehicle_data)
+    if not response or response.status_code != 200:
+        results.add_failure("Chat Send Fix", "Could not register driver vehicle")
+        return
+    
+    # Step 2: Set driver online with location
+    location_data = {
+        "latitude": -28.4696,
+        "longitude": -65.7852
+    }
+    response = make_request("PUT", "/drivers/availability", 
+                          headers=driver_headers, 
+                          params={"is_online": "true"},
+                          json_data=location_data)
+    if not response or response.status_code != 200:
+        results.add_failure("Chat Send Fix", "Could not set driver online")
+        return
+    
+    # Step 3: Create ride request as rider
+    ride_request = {
+        "pickup_location": {
+            "latitude": -28.4696,
+            "longitude": -65.7852,
+            "address": "Centro, Catamarca"
+        },
+        "dropoff_location": {
+            "latitude": -28.4800,
+            "longitude": -65.7900,
+            "address": "Plaza 25 de Mayo, Catamarca"
+        },
+        "vehicle_type": "economy"
+    }
+    response = make_request("POST", "/rides/request", headers=rider_headers, json_data=ride_request)
+    if not response or response.status_code != 200:
+        results.add_failure("Chat Send Fix", "Could not create ride request")
+        return
+    
+    request_data = response.json()
+    request_id = request_data.get("request_id")
+    if not request_id:
+        results.add_failure("Chat Send Fix", "No request_id in ride request response")
+        return
+    
+    # Step 4: Driver accepts the ride
+    response = make_request("POST", f"/rides/{request_id}/driver-response", 
+                          headers=driver_headers, 
+                          params={"action": "accept"})
+    if not response or response.status_code != 200:
+        results.add_failure("Chat Send Fix", "Driver could not accept ride")
+        return
+    
+    ride_data = response.json()
+    ride_id = ride_data.get("ride_id")
+    if not ride_id:
+        results.add_failure("Chat Send Fix", "No ride_id in driver response")
+        return
+    
+    # Now test the chat send functionality
+    # Test 5: Send message as rider (should not crash with NameError)
+    response = make_request("POST", "/chat/send", 
+                          headers=rider_headers, 
+                          params={"ride_id": ride_id, "message": "Hola"})
+    if response and response.status_code == 200:
+        data = response.json()
+        if "message_id" in data:
+            results.add_success("Chat Send (Rider) - No NameError, returns message_id")
+        else:
+            results.add_failure("Chat Send (Rider)", "Missing message_id in response")
+    else:
+        error_msg = f"Status: {response.status_code if response else 'No response'}"
+        if response and response.status_code == 500:
+            try:
+                error_detail = response.json().get("detail", "")
+                if "NameError" in error_detail or "uuid" in error_detail:
+                    error_msg += f" - NameError detected: {error_detail}"
+            except:
+                pass
+        results.add_failure("Chat Send (Rider)", error_msg)
+    
+    # Test 6: Send message as driver
+    response = make_request("POST", "/chat/send", 
+                          headers=driver_headers, 
+                          params={"ride_id": ride_id, "message": "En camino"})
+    if response and response.status_code == 200:
+        data = response.json()
+        if "message_id" in data:
+            results.add_success("Chat Send (Driver) - No NameError, returns message_id")
+        else:
+            results.add_failure("Chat Send (Driver)", "Missing message_id in response")
+    else:
+        error_msg = f"Status: {response.status_code if response else 'No response'}"
+        if response and response.status_code == 500:
+            try:
+                error_detail = response.json().get("detail", "")
+                if "NameError" in error_detail or "uuid" in error_detail:
+                    error_msg += f" - NameError detected: {error_detail}"
+            except:
+                pass
+        results.add_failure("Chat Send (Driver)", error_msg)
+    
+    # Test 7: Get chat messages to verify both messages appear
+    response = make_request("GET", f"/chat/ride/{ride_id}", headers=rider_headers)
+    if response and response.status_code == 200:
+        data = response.json()
+        messages = data.get("messages", [])
+        if len(messages) >= 2:
+            results.add_success("Chat Get Messages - Both messages appear in chat history")
+        else:
+            results.add_failure("Chat Get Messages", f"Expected 2+ messages, got {len(messages)}")
+    else:
+        results.add_failure("Chat Get Messages", f"Status: {response.status_code if response else 'No response'}")
+
+
 def main():
     """Run all tests"""
     print(f"🚀 Starting Moli Backend API Testing")
     print(f"Backend URL: {BASE_URL}")
-    print(f"Testing refactored modular architecture with 125 endpoints across 11 route files")
+    print(f"Testing wallet balance synchronization and chat bug fixes")
     
-    # Run all test suites
+    # Run authentication first
     test_auth_endpoints()
-    test_driver_endpoints()
-    test_vehicle_endpoints()
-    test_ride_endpoints()
-    test_chat_endpoints()
-    test_support_endpoints()
+    
+    # Run specific tests for the fixes
+    test_wallet_balance_sync()
+    test_chat_send_fix()
+    
+    # Run other critical tests
     test_wallet_endpoints()
     test_admin_endpoints()
-    test_places_endpoints()
-    test_push_endpoints()
-    test_misc_endpoints()
+    test_chat_endpoints()
     
     # Print final summary
     results.summary()

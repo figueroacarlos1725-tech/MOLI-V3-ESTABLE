@@ -11,6 +11,7 @@ from websocket_manager import manager
 from utils import (
     generate_id, get_current_user, get_settings, calculate_distance,
     calculate_fare, get_nearby_drivers, DEFAULT_FARES, DISPLAY_NAMES,
+    adjust_wallet_balance,
 )
 from models import (
     RideRequestCreate, RideRequestResponse, BidCreate, BidResponse, EstimateRequest,
@@ -542,10 +543,7 @@ async def update_ride_status(
                 )
             
             # Update rider wallet (clear the negative from penalties)
-            await db.users.update_one(
-                {"user_id": ride["rider_id"]},
-                {"$inc": {"wallet_balance": total_penalty}}
-            )
+            await adjust_wallet_balance(ride["rider_id"], total_penalty)
             
             # Record rider wallet transaction
             await db.wallet_transactions.insert_one({
@@ -571,10 +569,7 @@ async def update_ride_status(
         if payment_method == "cash":
             # CASH: Driver collected full fare from rider physically
             # Driver OWES the system the commission → wallet goes NEGATIVE by commission
-            await db.users.update_one(
-                {"user_id": ride["driver_id"]},
-                {"$inc": {"wallet_balance": -final_commission}}
-            )
+            await adjust_wallet_balance(ride["driver_id"], -final_commission)
             await db.wallet_transactions.insert_one({
                 "transaction_id": generate_id("txn_"),
                 "user_id": ride["driver_id"],
@@ -587,10 +582,7 @@ async def update_ride_status(
             })
         else:
             # CARD: System collected the money → Driver gets earnings credited
-            await db.users.update_one(
-                {"user_id": ride["driver_id"]},
-                {"$inc": {"wallet_balance": final_driver_earnings}}
-            )
+            await adjust_wallet_balance(ride["driver_id"], final_driver_earnings)
             await db.wallet_transactions.insert_one({
                 "transaction_id": generate_id("txn_"),
                 "user_id": ride["driver_id"],
@@ -690,10 +682,7 @@ async def update_ride_status(
                 await db.cancellation_records.insert_one(record)
                 
                 # Deduct from rider wallet
-                await db.users.update_one(
-                    {"user_id": user["user_id"]},
-                    {"$inc": {"wallet_balance": -penalty_amount}}
-                )
+                await adjust_wallet_balance(user["user_id"], -penalty_amount)
                 
                 # Record rider wallet transaction
                 await db.wallet_transactions.insert_one({
@@ -709,10 +698,7 @@ async def update_ride_status(
                 
                 # CREDIT driver as compensation for wasted time
                 driver_compensation = penalty_amount
-                await db.users.update_one(
-                    {"user_id": ride["driver_id"]},
-                    {"$inc": {"wallet_balance": driver_compensation}}
-                )
+                await adjust_wallet_balance(ride["driver_id"], driver_compensation)
                 await db.wallet_transactions.insert_one({
                     "transaction_id": generate_id("txn_"),
                     "user_id": ride["driver_id"],
@@ -803,10 +789,7 @@ async def update_ride_status(
                 await db.cancellation_records.insert_one(record)
                 
                 # Deduct from driver wallet
-                await db.users.update_one(
-                    {"user_id": user["user_id"]},
-                    {"$inc": {"wallet_balance": -penalty_amount}}
-                )
+                await adjust_wallet_balance(user["user_id"], -penalty_amount)
                 
                 # Record wallet transaction
                 await db.wallet_transactions.insert_one({
