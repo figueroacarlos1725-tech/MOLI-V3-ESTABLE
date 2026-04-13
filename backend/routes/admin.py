@@ -481,7 +481,7 @@ async def admin_create_user(data: AdminCreateUser, user: dict = Depends(get_curr
     if existing:
         raise HTTPException(status_code=400, detail="Email already exists")
     
-    hashed = pwd_context.hash(data.password)
+    hashed = hash_password(data.password)
     new_user_id = str(uuid.uuid4())
     new_user = {
         "user_id": new_user_id,

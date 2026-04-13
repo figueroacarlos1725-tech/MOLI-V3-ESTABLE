@@ -259,11 +259,13 @@ const styles = StyleSheet.create({
   },
   registerButton: {
     marginTop: 16,
+    marginBottom: 40,
   },
   footerSection: {
     flexDirection: 'row',
     justifyContent: 'center',
     paddingTop: 24,
+    paddingBottom: 60,
   },
   footerText: {
     color: '#8E8E93',

@@ -792,7 +792,7 @@ export default function DriverHomeScreen() {
                     ? currentRide.pickup_location.longitude
                     : (currentRide.dropoff_location?.longitude || currentRide.pickup_location.longitude)
                 }
-                height={280}
+                height={380}
                 onClose={() => setShowNavigation(false)}
               />
             )}
