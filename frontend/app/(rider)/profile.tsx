@@ -62,12 +62,12 @@ export default function RiderProfileScreen() {
     {
       icon: 'person-outline',
       title: 'Editar perfil',
-      onPress: () => {},
+      onPress: () => router.push('/(rider)/edit-profile'),
     },
     {
       icon: 'location-outline',
       title: 'Lugares guardados',
-      onPress: () => {},
+      onPress: () => Alert.alert('Lugares guardados', 'Próximamente podrás guardar tus direcciones favoritas para un acceso más rápido.'),
     },
     {
       icon: 'cash-outline',

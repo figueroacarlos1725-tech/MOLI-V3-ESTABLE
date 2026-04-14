@@ -227,3 +227,49 @@ async def save_location(
     }
     await db.saved_locations.insert_one(location_doc)
     return {"status": "success", "location_id": location_doc["location_id"]}
+
+
+
+# ─── EDIT PROFILE ────────────────
+
+@router.put("/api/auth/profile")
+async def update_profile(
+    data: dict = Body(...),
+    user: dict = Depends(get_current_user)
+):
+    """Update user profile (name, phone, profile_picture)"""
+    allowed = {}
+    if "name" in data and data["name"]: allowed["name"] = data["name"]
+    if "phone" in data and data["phone"]: allowed["phone"] = data["phone"]
+    if "profile_picture" in data: allowed["profile_picture"] = data["profile_picture"]
+    
+    if not allowed:
+        raise HTTPException(status_code=400, detail="Nada que actualizar")
+    
+    await db.users.update_one({"user_id": user["user_id"]}, {"$set": allowed})
+    return {"status": "updated", "updated_fields": list(allowed.keys())}
+
+
+# ─── SINGLE DEVICE SESSION ────────────────
+
+@router.post("/api/auth/register-device")
+async def register_device(
+    data: dict = Body(...),
+    user: dict = Depends(get_current_user)
+):
+    """Register device token and enforce single device for drivers"""
+    device_id = data.get("device_id", "unknown")
+    
+    if user["user_type"] == "driver":
+        await db.active_sessions.delete_many({"user_id": user["user_id"]})
+    
+    await db.active_sessions.update_one(
+        {"user_id": user["user_id"], "device_id": device_id},
+        {"$set": {
+            "user_id": user["user_id"],
+            "device_id": device_id,
+            "last_active": datetime.now(timezone.utc),
+        }},
+        upsert=True
+    )
+    return {"status": "registered"}

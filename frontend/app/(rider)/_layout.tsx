@@ -6,6 +6,7 @@ export default function RiderLayout() {
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="home" />
       <Stack.Screen name="rides" />
+      <Stack.Screen name="edit-profile" />
       <Stack.Screen name="wallet" />
       <Stack.Screen name="profile" />
     </Stack>

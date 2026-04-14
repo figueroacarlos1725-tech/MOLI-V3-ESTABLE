@@ -2130,3 +2130,28 @@ async def get_notification_logs(user: dict = Depends(get_current_user), limit: i
     ).sort("_id", -1).limit(limit).to_list(limit)
     
     return {"logs": logs, "count": len(logs)}
+
+
+# ─── ADMIN: VIEW RATINGS ────────────────
+
+@router.get("/api/admin/ratings")
+async def admin_get_ratings(
+    user: dict = Depends(get_current_user),
+    limit: int = 50
+):
+    if user["user_type"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    ratings = await db.ratings.find({}, {"_id": 0}).sort("created_at", -1).to_list(limit)
+    
+    # Enrich with user names
+    for r in ratings:
+        rater = await db.users.find_one({"user_id": r.get("rater_id")}, {"_id": 0, "name": 1})
+        rated = await db.users.find_one({"user_id": r.get("rated_user_id")}, {"_id": 0, "name": 1})
+        r["rater_name"] = rater.get("name", "Desconocido") if rater else "Desconocido"
+        r["rated_name"] = rated.get("name", "Desconocido") if rated else "Desconocido"
+        if isinstance(r.get("created_at"), datetime):
+            r["created_at"] = r["created_at"].isoformat()
+    
+    return {"ratings": ratings, "count": len(ratings)}
+

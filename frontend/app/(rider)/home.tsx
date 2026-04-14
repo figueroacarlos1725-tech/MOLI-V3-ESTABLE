@@ -21,6 +21,7 @@ import { MapView } from '@/src/components/MapView';
 import { useAuthStore } from '@/src/stores/authStore';
 import { useRideStore } from '@/src/stores/rideStore';
 import { socketService } from '@/src/services/socket';
+import SnakeGame from '@/src/components/SnakeGame';
 import { apiService } from '@/src/services/api';
 import { Audio } from 'expo-av';
 import SideMenu from '@/src/components/SideMenu';
@@ -78,6 +79,7 @@ export default function RiderHomeScreen() {
   const [firstRideDiscount, setFirstRideDiscount] = useState(0);
   const [addressHistory, setAddressHistory] = useState<any[]>([]);
   const [serviceType, setServiceType] = useState<'ride' | 'delivery'>('ride');
+  const [showSnake, setShowSnake] = useState(false);
 
   // Banners
   const [banners, setBanners] = useState<any[]>([]);
@@ -955,6 +957,20 @@ export default function RiderHomeScreen() {
                 </View>
               )}
               <Text style={s.searchingHint}>El sistema busca al conductor más cercano</Text>
+
+              {/* Snake game while waiting */}
+              {!showSnake ? (
+                <TouchableOpacity
+                  style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#F2F2F7', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 12, marginTop: 8 }}
+                  onPress={() => setShowSnake(true)}
+                >
+                  <Ionicons name="game-controller" size={20} color="#00C853" />
+                  <Text style={{ fontSize: 14, fontWeight: '600', color: '#1C1C1E' }}>Jugar mientras esperás</Text>
+                </TouchableOpacity>
+              ) : (
+                <SnakeGame onClose={() => setShowSnake(false)} />
+              )}
+
               <TouchableOpacity style={s.cancelSearchBtn} onPress={handleCancelSearch}>
                 <Text style={s.cancelSearchText}>Cancelar búsqueda</Text>
               </TouchableOpacity>

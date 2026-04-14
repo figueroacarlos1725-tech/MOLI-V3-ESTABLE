@@ -194,11 +194,29 @@ async def get_driver_earnings(
     else:
         start_date = datetime.min.replace(tzinfo=timezone.utc)
     
-    rides = await db.rides.find({
-        "driver_id": user["user_id"],
-        "status": "completed",
-        "completed_at": {"$gte": start_date}
-    }, {"_id": 0}).to_list(1000)
+    # Try both datetime and string formats for completed_at
+    try:
+        rides = await db.rides.find({
+            "driver_id": user["user_id"],
+            "status": "completed",
+            "completed_at": {"$gte": start_date}
+        }, {"_id": 0}).to_list(1000)
+    except Exception:
+        # Fallback: get all completed rides and filter in Python
+        all_rides = await db.rides.find({
+            "driver_id": user["user_id"],
+            "status": "completed",
+        }, {"_id": 0}).to_list(1000)
+        rides = []
+        for r in all_rides:
+            cat = r.get("completed_at")
+            if cat:
+                if isinstance(cat, str):
+                    try:
+                        cat = datetime.fromisoformat(cat.replace("Z", "+00:00"))
+                    except: continue
+                if isinstance(cat, datetime) and cat >= start_date:
+                    rides.append(r)
     
     total_earnings = sum(r.get("driver_earnings", 0) for r in rides)
     total_rides = len(rides)
