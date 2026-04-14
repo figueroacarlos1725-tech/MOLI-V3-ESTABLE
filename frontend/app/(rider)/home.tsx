@@ -74,6 +74,7 @@ export default function RiderHomeScreen() {
   const [dispatchProgress, setDispatchProgress] = useState<{ i: number; t: number } | null>(null);
   const [driverFound, setDriverFound] = useState(false);
   const [showContinuePrompt, setShowContinuePrompt] = useState(false);
+  const [rideRating, setRideRating] = useState(0);
 
   // Banners
   const [banners, setBanners] = useState<any[]>([]);
@@ -542,16 +543,40 @@ export default function RiderHomeScreen() {
               <Text style={s.completedLabel}>Método de pago</Text>
               <Text style={s.completedValue}>Efectivo</Text>
             </View>
-            {currentRide.vehicle_info && (
-              <View style={s.completedRow}>
-                <Text style={s.completedLabel}>Vehículo</Text>
-                <Text style={s.completedValue}>{currentRide.vehicle_info.plate_number}</Text>
-              </View>
-            )}
           </View>
 
-          <TouchableOpacity style={s.completedBtn} onPress={handleFinishRide}>
-            <Text style={s.completedBtnText}>Volver al inicio</Text>
+          {/* Star Rating */}
+          <Text style={{ fontSize: 16, fontWeight: '600', color: '#1C1C1E', marginTop: 20, marginBottom: 10 }}>
+            ¿Cómo fue tu experiencia?
+          </Text>
+          <View style={{ flexDirection: 'row', gap: 8, marginBottom: 20 }}>
+            {[1, 2, 3, 4, 5].map((star) => (
+              <TouchableOpacity key={star} onPress={() => setRideRating(star)}>
+                <Ionicons
+                  name={star <= rideRating ? 'star' : 'star-outline'}
+                  size={40}
+                  color={star <= rideRating ? '#FFD700' : '#D1D1D6'}
+                />
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          <TouchableOpacity style={s.completedBtn} onPress={async () => {
+            // Submit rating
+            if (rideRating > 0 && currentRide.ride_id) {
+              try {
+                await apiService.post(`/rides/${currentRide.ride_id}/rate`, {
+                  rating: rideRating,
+                  rated_user_type: 'driver',
+                });
+              } catch (e) { /* silent */ }
+            }
+            setRideRating(0);
+            handleFinishRide();
+          }}>
+            <Text style={s.completedBtnText}>
+              {rideRating > 0 ? 'Calificar y volver' : 'Volver al inicio'}
+            </Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>

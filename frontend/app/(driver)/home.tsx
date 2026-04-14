@@ -82,6 +82,7 @@ export default function DriverHomeScreen() {
   // Block & Cancel state
   const [driverBlocked, setDriverBlocked] = useState(false);
   const [blockInfo, setBlockInfo] = useState<any>(null);
+  const [pendingVerification, setPendingVerification] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [cancelConfig, setCancelConfig] = useState<any>(null);
   const [fareConfig, setFareConfig] = useState<any>(null);
@@ -162,11 +163,12 @@ export default function DriverHomeScreen() {
     // Check block status and load cancel config
     const checkBlockAndConfig = async () => {
       try {
-        const [blockRes, configRes, walletRes, faresRes] = await Promise.all([
+        const [blockRes, configRes, walletRes, faresRes, meRes] = await Promise.all([
           apiService.get('/driver/block-status'),
           apiService.get('/cancellation/config'),
           apiService.get('/wallet/status'),
           apiService.get('/fares'),
+          apiService.get('/auth/me'),
         ]);
         if (blockRes.is_blocked) {
           setDriverBlocked(true);
@@ -179,6 +181,10 @@ export default function DriverHomeScreen() {
         }
         if (walletRes.cancel_count_30d !== undefined) {
           setDriverCancelCount(walletRes.cancel_count_30d);
+        }
+        // Check verification
+        if (meRes && meRes.is_verified === false) {
+          setPendingVerification(true);
         }
       } catch (e) { /* silent */ }
     };
@@ -990,6 +996,20 @@ export default function DriverHomeScreen() {
           </View>
         </View>
       </View>
+
+      {/* Verification pending banner */}
+      {pendingVerification && !driverBlocked && (
+        <View style={{ marginHorizontal: 16, marginTop: 8, backgroundColor: '#FFF3E0', borderRadius: 14, padding: 14, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+          <Ionicons name="alert-circle" size={24} color="#FF9500" />
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 14, fontWeight: '700', color: '#1C1C1E' }}>Verificación pendiente</Text>
+            <Text style={{ fontSize: 12, color: '#636366', marginTop: 2 }}>Tu cuenta está en revisión. Subí tus documentos y esperá la aprobación para recibir viajes.</Text>
+          </View>
+          <TouchableOpacity onPress={() => router.push('/(driver)/documents')}>
+            <Text style={{ fontSize: 13, fontWeight: '700', color: '#FF9500' }}>Subir</Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       {/* Status message */}
       {statusMessage ? (

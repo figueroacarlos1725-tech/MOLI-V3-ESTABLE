@@ -274,7 +274,7 @@ export default function DriverProfileScreen() {
 
         {/* Eliminar cuenta */}
         <TouchableOpacity
-          style={{ marginHorizontal: 16, marginBottom: 40, paddingVertical: 14, alignItems: 'center' }}
+          style={{ marginHorizontal: 16, marginBottom: 80, paddingVertical: 14, alignItems: 'center' }}
           onPress={() => setShowDeleteConfirm(true)}
         >
           <Text style={{ color: '#FF3B30', fontSize: 14, fontWeight: '600' }}>Eliminar mi cuenta</Text>

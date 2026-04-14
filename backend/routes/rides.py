@@ -1,5 +1,5 @@
 """Ride routes"""
-from fastapi import APIRouter, HTTPException, Depends, Query
+from fastapi import APIRouter, HTTPException, Depends, Query, Body
 from typing import Optional, List
 from datetime import datetime, timezone, timedelta
 import asyncio
@@ -1202,3 +1202,47 @@ async def estimate_fares(data: EstimateRequest):
     
     estimates.sort(key=lambda x: x["estimated_fare"])
     return {"estimates": estimates, "distance_km": round(data.distance_km, 2), "duration_min": data.duration_min}
+
+
+
+# ─── Rate a ride ────────────────────────────
+@router.post("/api/rides/{ride_id}/rate")
+async def rate_ride(
+    ride_id: str,
+    rating_data: dict = Body(...),
+    user: dict = Depends(get_current_user)
+):
+    ride = await db.rides.find_one({"ride_id": ride_id})
+    if not ride:
+        raise HTTPException(status_code=404, detail="Viaje no encontrado")
+    
+    rating = rating_data.get("rating", 5)
+    rated_user_type = rating_data.get("rated_user_type", "driver")
+    
+    if rating < 1 or rating > 5:
+        raise HTTPException(status_code=400, detail="La calificación debe ser entre 1 y 5")
+    
+    # Save individual rating
+    await db.ratings.insert_one({
+        "ride_id": ride_id,
+        "rater_id": user["user_id"],
+        "rated_user_id": ride["driver_id"] if rated_user_type == "driver" else ride.get("rider_id"),
+        "rated_user_type": rated_user_type,
+        "rating": rating,
+        "created_at": datetime.now(timezone.utc),
+    })
+    
+    # Update average rating for rated user
+    rated_user_id = ride["driver_id"] if rated_user_type == "driver" else ride.get("rider_id")
+    if rated_user_id:
+        all_ratings = await db.ratings.find(
+            {"rated_user_id": rated_user_id}
+        ).to_list(500)
+        if all_ratings:
+            avg = sum(r["rating"] for r in all_ratings) / len(all_ratings)
+            await db.users.update_one(
+                {"user_id": rated_user_id},
+                {"$set": {"rating": round(avg, 2), "total_ratings": len(all_ratings)}}
+            )
+    
+    return {"status": "rated", "rating": rating}
