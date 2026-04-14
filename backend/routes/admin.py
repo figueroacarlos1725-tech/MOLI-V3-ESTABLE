@@ -150,6 +150,41 @@ async def verify_driver(
         {"$set": {"is_verified": verified, "verified_at": now if verified else None}}
     )
     
+    if verified:
+        # Send welcome inbox message
+        await db.inbox_messages.insert_one({
+            "message_id": generate_id("inbox_"),
+            "sender_id": "system",
+            "sender_name": "Moli - Equipo",
+            "sender_type": "admin",
+            "recipient_id": driver_id,
+            "subject": "¡Bienvenido a Moli! Tu cuenta fue verificada",
+            "body": "¡Felicitaciones! Tu cuenta de conductor fue verificada exitosamente. Ya podés ponerte en línea y empezar a recibir viajes. ¡Buena ruta!",
+            "is_read": False,
+            "created_at": now,
+        })
+        
+        # Send push notification
+        try:
+            from notifications import send_push_notification
+            await send_push_notification(
+                driver_id,
+                "✅ ¡Cuenta verificada!",
+                "Tu cuenta fue aprobada. Ya podés recibir viajes en Moli.",
+                {"type": "verification_approved"}
+            )
+        except Exception as e:
+            print(f"Push notification error: {e}")
+        
+        # Send WebSocket notification
+        try:
+            from websocket_manager import manager
+            await manager.send_personal_message({
+                "type": "account_verified",
+                "message": "¡Tu cuenta fue verificada! Ya podés recibir viajes.",
+            }, driver_id)
+        except: pass
+    
     return {"status": "success", "verified": verified}
 
 
