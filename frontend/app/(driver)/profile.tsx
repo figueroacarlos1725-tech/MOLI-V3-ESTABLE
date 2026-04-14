@@ -8,6 +8,8 @@ import {
   ScrollView,
   Switch,
   Modal,
+  Alert,
+  Linking,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -83,6 +85,8 @@ export default function DriverProfileScreen() {
   };
 
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const doLogout = async () => {
     try {
@@ -254,7 +258,70 @@ export default function DriverProfileScreen() {
         </View>
 
         <Text style={styles.versionText}>Moli Conductor v1.0.0</Text>
+
+        {/* Legal links */}
+        <View style={{ marginHorizontal: 16, marginBottom: 8, gap: 12 }}>
+          <TouchableOpacity onPress={() => Linking.openURL(`${process.env.EXPO_PUBLIC_BACKEND_URL || ''}/api/legal/privacy`)}>
+            <Text style={{ color: '#007AFF', fontSize: 14, textAlign: 'center' }}>Política de privacidad</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => Linking.openURL(`${process.env.EXPO_PUBLIC_BACKEND_URL || ''}/api/legal/terms`)}>
+            <Text style={{ color: '#007AFF', fontSize: 14, textAlign: 'center' }}>Términos y condiciones</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Eliminar cuenta */}
+        <TouchableOpacity
+          style={{ marginHorizontal: 16, marginBottom: 40, paddingVertical: 14, alignItems: 'center' }}
+          onPress={() => setShowDeleteConfirm(true)}
+        >
+          <Text style={{ color: '#FF3B30', fontSize: 14, fontWeight: '600' }}>Eliminar mi cuenta</Text>
+        </TouchableOpacity>
       </ScrollView>
+
+      {/* Modal eliminar cuenta */}
+      <Modal visible={showDeleteConfirm} transparent animationType="fade">
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center', padding: 24 }}>
+          <View style={{ backgroundColor: '#fff', borderRadius: 20, padding: 24, width: '100%', maxWidth: 360, alignItems: 'center' }}>
+            <Ionicons name="warning-outline" size={48} color="#FF3B30" />
+            <Text style={{ fontSize: 20, fontWeight: '800', color: '#1C1C1E', marginTop: 12, textAlign: 'center' }}>
+              Eliminar cuenta
+            </Text>
+            <Text style={{ fontSize: 14, color: '#636366', textAlign: 'center', marginTop: 8, lineHeight: 20 }}>
+              Esta acción es irreversible. Se eliminarán todos tus datos personales, documentos y ganancias registradas.
+            </Text>
+            <View style={{ flexDirection: 'row', gap: 10, marginTop: 20, width: '100%' }}>
+              <TouchableOpacity
+                style={{ flex: 1, backgroundColor: '#E5E5EA', paddingVertical: 14, borderRadius: 12, alignItems: 'center' }}
+                onPress={() => setShowDeleteConfirm(false)}
+              >
+                <Text style={{ fontWeight: '600', color: '#666', fontSize: 15 }}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={{ flex: 1, backgroundColor: '#FF3B30', paddingVertical: 14, borderRadius: 12, alignItems: 'center' }}
+                onPress={async () => {
+                  setDeleting(true);
+                  try {
+                    await apiService.delete('/auth/delete-account?confirmation=ELIMINAR');
+                    Alert.alert('Cuenta eliminada', 'Tu cuenta ha sido eliminada exitosamente.');
+                    await logout();
+                    router.replace('/');
+                  } catch (e: any) {
+                    Alert.alert('Error', e.message || 'No se pudo eliminar la cuenta');
+                  } finally {
+                    setDeleting(false);
+                    setShowDeleteConfirm(false);
+                  }
+                }}
+                disabled={deleting}
+              >
+                <Text style={{ fontWeight: '700', color: '#fff', fontSize: 15 }}>
+                  {deleting ? 'Eliminando...' : 'Eliminar'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       <Modal visible={showAddVehicleModal} animationType="slide" transparent>
         <View style={styles.modalContainer}>

@@ -52,6 +52,18 @@ async def get_active_banners():
     return {"banners": banners}
 
 
+@router.get("/api/admin/settings/public")
+async def get_public_settings():
+    """Public endpoint - returns non-sensitive settings like trabajos_enabled"""
+    settings = await get_settings()
+    trabajos_mode = settings.get("trabajos_mode", "disabled")
+    return {
+        "trabajos_enabled": trabajos_mode in ("real", "mvp", "enabled"),
+        "trabajos_mode": trabajos_mode,
+        "currency_symbol": settings.get("currency_symbol", "$"),
+    }
+
+
 @router.post("/api/user/premium/toggle")
 async def toggle_premium(user: dict = Depends(get_current_user)):
     """Toggle Molí+ premium status"""

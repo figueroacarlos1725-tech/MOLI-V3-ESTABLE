@@ -234,14 +234,27 @@ async def get_driver_block_status(user: dict = Depends(get_current_user)):
             return {"is_blocked": False}
     
     if not is_blocked:
-        # Also check wallet limit
+        # Also check wallet limit - AUTO-BLOCK if below threshold
         settings = await get_settings()
         max_neg = settings.get("driver_max_negative_balance", -15000)
         if user.get("wallet_balance", 0) <= max_neg:
+            # Actually block the driver in DB so availability check catches it too
+            now = datetime.now(timezone.utc)
+            await db.drivers.update_one(
+                {"driver_id": user["user_id"]},
+                {"$set": {
+                    "is_blocked": True,
+                    "block_reason": "negative_balance",
+                    "blocked_at": now,
+                    "blocked_until": None,
+                    "is_available": False,
+                    "is_online": False,
+                }}
+            )
             return {
                 "is_blocked": True,
                 "reason": "negative_balance",
-                "message": f"Tu saldo llegó al límite de ${max_neg}. Recarga tu billetera para continuar.",
+                "message": f"Tu saldo llegó al límite de ${max_neg}. Recarga tu billetera para continuar trabajando.",
                 "balance": user.get("wallet_balance", 0),
                 "blocked_until": None,
             }

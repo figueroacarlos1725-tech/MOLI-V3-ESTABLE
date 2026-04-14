@@ -4,40 +4,51 @@
     "slug": "moli",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/moli-splash.png",
+    "icon": "./assets/icon.png",
     "scheme": "moli",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
+      "bundleIdentifier": "com.moli.movelibre",
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "Ubicar conductores cercanos y tu destino",
-        "NSCameraUsageDescription": "Tomar foto de perfil"
+        "NSLocationWhenInUseUsageDescription": "Ubicar conductores cercanos y calcular tu ruta",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Seguimiento de viaje activo en segundo plano",
+        "NSCameraUsageDescription": "Subir foto de perfil o documentos",
+        "NSPhotoLibraryUsageDescription": "Seleccionar foto de perfil desde tu galería",
+        "NSMicrophoneUsageDescription": "Enviar mensajes de voz al conductor"
       }
     },
     "android": {
+      "package": "com.moli.movelibre",
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/moli-splash.png",
+        "foregroundImage": "./assets/icon.png",
         "backgroundColor": "#0D0D0D"
       },
       "edgeToEdgeEnabled": true,
       "permissions": [
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION",
-        "CAMERA"
+        "ACCESS_BACKGROUND_LOCATION",
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "VIBRATE",
+        "RECEIVE_BOOT_COMPLETED",
+        "POST_NOTIFICATIONS"
       ]
     },
     "web": {
       "bundler": "metro",
       "output": "static",
-      "favicon": "./assets/images/moli-splash.png"
+      "favicon": "./assets/icon.png"
     },
     "plugins": [
       "expo-router",
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/moli-splash.png",
+          "image": "./assets/icon.png",
           "imageWidth": 300,
           "resizeMode": "contain",
           "backgroundColor": "#0D0D0D"
