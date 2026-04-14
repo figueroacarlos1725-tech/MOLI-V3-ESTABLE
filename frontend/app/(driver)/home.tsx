@@ -792,43 +792,46 @@ export default function DriverHomeScreen() {
           )}
           
           <View style={styles.actionButtons}>
+            {/* External navigation buttons */}
             {currentRide.status === 'accepted' && currentRide.pickup_location && (
               <TouchableOpacity
                 style={styles.navBtn}
-                onPress={() => setShowNavigation(true)}
+                onPress={() => {
+                  const lat = currentRide.pickup_location.latitude;
+                  const lng = currentRide.pickup_location.longitude;
+                  const url = Platform.select({
+                    ios: `maps://app?daddr=${lat},${lng}&dirflg=d`,
+                    android: `google.navigation:q=${lat},${lng}&mode=d`,
+                    default: `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=driving`,
+                  });
+                  if (url) Linking.openURL(url).catch(() => {
+                    Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=driving`);
+                  });
+                }}
               >
                 <Ionicons name="navigate" size={20} color="#fff" />
-                <Text style={styles.navBtnText}>Navegar al origen</Text>
+                <Text style={styles.navBtnText}>Navegar al pasajero</Text>
               </TouchableOpacity>
             )}
             {currentRide.status === 'started' && currentRide.dropoff_location && (
               <TouchableOpacity
                 style={styles.navBtn}
-                onPress={() => setShowNavigation(true)}
+                onPress={() => {
+                  const lat = currentRide.dropoff_location!.latitude;
+                  const lng = currentRide.dropoff_location!.longitude;
+                  const url = Platform.select({
+                    ios: `maps://app?daddr=${lat},${lng}&dirflg=d`,
+                    android: `google.navigation:q=${lat},${lng}&mode=d`,
+                    default: `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=driving`,
+                  });
+                  if (url) Linking.openURL(url).catch(() => {
+                    Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=driving`);
+                  });
+                }}
               >
                 <Ionicons name="navigate" size={20} color="#fff" />
                 <Text style={styles.navBtnText}>Navegar al destino</Text>
               </TouchableOpacity>
-            )}
-
-            {/* In-app navigation view */}
-            {showNavigation && currentRide.pickup_location && (
-              <NavigationView
-                originLat={userLocation?.latitude || currentRide.pickup_location.latitude}
-                originLng={userLocation?.longitude || currentRide.pickup_location.longitude}
-                destLat={
-                  currentRide.status === 'accepted'
-                    ? currentRide.pickup_location.latitude
-                    : (currentRide.dropoff_location?.latitude || currentRide.pickup_location.latitude)
-                }
-                destLng={
-                  currentRide.status === 'accepted'
-                    ? currentRide.pickup_location.longitude
-                    : (currentRide.dropoff_location?.longitude || currentRide.pickup_location.longitude)
-                }
-                height={380}
-                onClose={() => setShowNavigation(false)}
-              />
             )}
 
             {currentRide.status === 'accepted' && (

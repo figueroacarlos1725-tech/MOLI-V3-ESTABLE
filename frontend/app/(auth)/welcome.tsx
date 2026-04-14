@@ -77,7 +77,6 @@ export default function WelcomeScreen() {
             variant="outline"
             size="large"
             style={[styles.button, styles.outlineBtn]}
-            textStyle={{ color: MOLI_COLORS.white }}
           />
         </Animated.View>
 
@@ -94,7 +93,7 @@ export default function WelcomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: MOLI_COLORS.black,
+    backgroundColor: '#FFFFFF',
   },
   content: {
     flex: 1,
@@ -107,9 +106,9 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   logo: {
-    width: 140,
-    height: 140,
-    borderRadius: 32,
+    width: 120,
+    height: 120,
+    borderRadius: 28,
   },
   subtitle: {
     fontSize: 17,
@@ -131,13 +130,13 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 12,
-    backgroundColor: 'rgba(0, 200, 83, 0.12)',
+    backgroundColor: 'rgba(0, 200, 83, 0.1)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   featureText: {
     fontSize: 15,
-    color: MOLI_COLORS.white,
+    color: MOLI_COLORS.darkGray,
     marginLeft: 14,
     fontWeight: '500',
     letterSpacing: 0.2,
@@ -150,11 +149,11 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   outlineBtn: {
-    borderColor: 'rgba(255,255,255,0.2)',
+    borderColor: MOLI_COLORS.lightGray,
   },
   termsText: {
     fontSize: 12,
-    color: MOLI_COLORS.gray,
+    color: MOLI_COLORS.mediumGray,
     textAlign: 'center',
     lineHeight: 18,
   },

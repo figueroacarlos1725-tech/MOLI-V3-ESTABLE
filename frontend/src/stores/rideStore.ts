@@ -174,6 +174,6 @@ export const useRideStore = create<RideState>((set, get) => ({
   },
 
   clearRequest: () => {
-    set({ currentRequest: null, bids: [] });
+    set({ currentRequest: null, currentRide: null, bids: [] });
   },
 }));

@@ -6,6 +6,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '@/src/stores/authStore';
 import { apiService } from '@/src/services/api';
+import { useRouter } from 'expo-router';
 import * as Location from 'expo-location';
 
 interface TaxiConfig {
@@ -24,6 +25,7 @@ const DEFAULT_CONFIG: TaxiConfig = {
 
 export default function TaximeterScreen() {
   const { user } = useAuthStore();
+  const router = useRouter();
   const [isRunning, setIsRunning] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
@@ -227,6 +229,9 @@ export default function TaximeterScreen() {
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* Header */}
         <View style={styles.header}>
+          <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
+            <Ionicons name="arrow-back" size={22} color="#1C1C1E" />
+          </TouchableOpacity>
           <View style={styles.headerLeft}>
             <View style={styles.headerIcon}>
               <Ionicons name="speedometer" size={20} color="#00C853" />
@@ -344,7 +349,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 20, paddingTop: 16, paddingBottom: 8,
   },
-  headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  backBtn: {
+    width: 40, height: 40, borderRadius: 12, backgroundColor: '#F2F2F7',
+    justifyContent: 'center', alignItems: 'center', marginRight: 8,
+  },
+  headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 },
   headerIcon: {
     width: 36, height: 36, borderRadius: 10,
     backgroundColor: 'rgba(0,200,83,0.1)', justifyContent: 'center', alignItems: 'center',
