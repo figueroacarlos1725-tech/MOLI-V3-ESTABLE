@@ -61,6 +61,7 @@ async def get_public_settings():
         "trabajos_enabled": trabajos_mode in ("real", "mvp", "enabled"),
         "trabajos_mode": trabajos_mode,
         "currency_symbol": settings.get("currency_symbol", "$"),
+        "banner_interval_seconds": settings.get("banner_interval_seconds", 90),
     }
 
 

@@ -14,6 +14,8 @@ import {
   Dimensions,
   Animated,
   Vibration,
+  Image,
+  Linking,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -80,6 +82,7 @@ export default function RiderHomeScreen() {
   const [addressHistory, setAddressHistory] = useState<any[]>([]);
   const [serviceType, setServiceType] = useState<'ride' | 'delivery'>('ride');
   const [showSnake, setShowSnake] = useState(false);
+  const [bannerInterval, setBannerInterval] = useState(90000);
 
   // Banners
   const [banners, setBanners] = useState<any[]>([]);
@@ -136,6 +139,12 @@ export default function RiderHomeScreen() {
     apiService.get('/places/history').then((r) => {
       if (r.history) setAddressHistory(r.history);
     }).catch(() => {});
+    // Load banner interval from settings
+    fetch(`${process.env.EXPO_PUBLIC_BACKEND_URL || ''}/api/admin/settings/public`)
+      .then(r => r.json())
+      .then(d => {
+        if (d.banner_interval_seconds) setBannerInterval(d.banner_interval_seconds * 1000);
+      }).catch(() => {});
   }, []);
 
   // Detect active ride → switch phase
@@ -787,6 +796,35 @@ export default function RiderHomeScreen() {
             </View>
           )}
 
+          {/* Novedades carousel */}
+          {banners.length > 0 && (
+            <View style={{ marginTop: 16 }}>
+              <Text style={{ fontSize: 12, fontWeight: '600', color: '#8E8E93', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 }}>Novedades</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -4 }}>
+                {banners.map((b: any, i: number) => (
+                  <TouchableOpacity
+                    key={b.banner_id || i}
+                    style={{ width: 220, marginHorizontal: 4, borderRadius: 14, overflow: 'hidden', backgroundColor: '#F8F8FA' }}
+                    onPress={() => b.button_link ? Linking.openURL(b.button_link) : null}
+                    activeOpacity={0.8}
+                  >
+                    {b.image_url ? (
+                      <Image source={{ uri: b.image_url }} style={{ width: 220, height: 100, borderTopLeftRadius: 14, borderTopRightRadius: 14 }} resizeMode="cover" />
+                    ) : (
+                      <View style={{ width: 220, height: 60, backgroundColor: '#00C853', borderTopLeftRadius: 14, borderTopRightRadius: 14, justifyContent: 'center', alignItems: 'center' }}>
+                        <Ionicons name="megaphone" size={24} color="#fff" />
+                      </View>
+                    )}
+                    <View style={{ padding: 10 }}>
+                      <Text style={{ fontSize: 13, fontWeight: '700', color: '#1C1C1E' }} numberOfLines={1}>{b.title || 'Novedad'}</Text>
+                      {b.description ? <Text style={{ fontSize: 11, color: '#8E8E93', marginTop: 2 }} numberOfLines={2}>{b.description}</Text> : null}
+                    </View>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          )}
+
           {/* Moli+ Banner - Hidden for now */}
         </View>
       )}
@@ -1039,7 +1077,7 @@ export default function RiderHomeScreen() {
         </SafeAreaView>
       </Modal>
       <SideMenu visible={sideMenuOpen} onClose={() => setSideMenuOpen(false)} role="rider" />
-      <BannerPopup target="rider" enabled={!!currentRide && currentRide.status === 'started'} intervalMs={90000} />
+      <BannerPopup target="rider" enabled={!!currentRide && currentRide.status === 'started' || phase === 'searching'} intervalMs={bannerInterval} />
     </SafeAreaView>
   );
 }

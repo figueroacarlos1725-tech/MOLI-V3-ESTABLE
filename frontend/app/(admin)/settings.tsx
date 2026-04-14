@@ -293,6 +293,7 @@ export default function AdminSettingsScreen() {
               {renderField('Horas de bloqueo (0=permanente)', 'driver_block_hours', { placeholder: '24', numeric: true })}
               {renderField('Saldo negativo maximo ($)', 'driver_max_negative_balance', { placeholder: '-15000', numeric: true })}
               {renderField('Descuento primer viaje (%)', 'first_ride_discount', { placeholder: '10', numeric: true })}
+              {renderField('Intervalo banners (segundos)', 'banner_interval_seconds', { placeholder: '90', numeric: true })}
             </View>
           </View>
 
