@@ -1725,37 +1725,38 @@ async def update_support_hours(
 
 @router.get("/api/admin/drivers/pending-verification")
 async def get_pending_verifications(user: dict = Depends(get_current_user)):
-    """Admin: Get drivers with pending document verification"""
+    """Admin: Get all unverified drivers (with or without documents)"""
     if user["user_type"] != "admin":
         raise HTTPException(status_code=403, detail="Solo administradores")
     
-    # Get all pending documents
-    pending_docs = await db.driver_documents.find(
-        {"status": "pending"}, {"_id": 0, "file_data": 0}
+    # Get ALL drivers who are not verified
+    all_drivers = await db.users.find(
+        {"user_type": "driver", "$or": [{"is_verified": False}, {"is_verified": {"$exists": False}}]},
+        {"_id": 0, "password": 0}
     ).to_list(100)
     
-    # Group by driver
-    driver_ids = list(set(d["driver_id"] for d in pending_docs))
     drivers_data = []
-    
-    for did in driver_ids:
-        driver_user = await db.users.find_one({"user_id": did}, {"_id": 0, "password": 0})
+    for driver_user in all_drivers:
+        did = driver_user["user_id"]
         driver_docs = await db.driver_documents.find(
             {"driver_id": did}, {"_id": 0, "file_data": 0}
         ).to_list(20)
         
-        if driver_user:
-            drivers_data.append({
-                "driver_id": did,
-                "name": driver_user.get("name", "Sin nombre"),
-                "email": driver_user.get("email", ""),
-                "phone": driver_user.get("phone", ""),
-                "documents": [{
-                    **doc,
-                    "uploaded_at": doc["uploaded_at"].isoformat() if isinstance(doc.get("uploaded_at"), datetime) else str(doc.get("uploaded_at", "")),
-                } for doc in driver_docs],
-                "pending_count": sum(1 for d in driver_docs if d.get("status") == "pending"),
-            })
+        pending_count = sum(1 for d in driver_docs if d.get("status") == "pending")
+        
+        drivers_data.append({
+            "driver_id": did,
+            "name": driver_user.get("name", "Sin nombre"),
+            "email": driver_user.get("email", ""),
+            "phone": driver_user.get("phone", ""),
+            "documents": [{
+                **doc,
+                "uploaded_at": doc["uploaded_at"].isoformat() if isinstance(doc.get("uploaded_at"), datetime) else str(doc.get("uploaded_at", "")),
+            } for doc in driver_docs],
+            "pending_count": pending_count,
+            "total_docs": len(driver_docs),
+            "has_no_docs": len(driver_docs) == 0,
+        })
     
     return {"drivers": drivers_data}
 

@@ -107,9 +107,15 @@ export default function AdminVerificationScreen() {
         <Text style={st.driverName}>{item.name || item.email}</Text>
         <Text style={st.driverEmail}>{item.email}</Text>
       </View>
-      <View style={st.pendingBadge}>
-        <Text style={st.pendingText}>{item.pending_count} pendiente{item.pending_count > 1 ? 's' : ''}</Text>
-      </View>
+      {(item as any).has_no_docs ? (
+        <View style={[st.pendingBadge, { backgroundColor: '#FFEBEE' }]}>
+          <Text style={[st.pendingText, { color: '#FF3B30' }]}>Sin documentos</Text>
+        </View>
+      ) : (
+        <View style={st.pendingBadge}>
+          <Text style={st.pendingText}>{item.pending_count} pendiente{item.pending_count > 1 ? 's' : ''}</Text>
+        </View>
+      )}
       <Ionicons name="chevron-forward" size={18} color="#C7C7CC" />
     </TouchableOpacity>
   );
