@@ -699,12 +699,7 @@ export default function RiderHomeScreen() {
             </TouchableOpacity>
           </TouchableOpacity>
 
-          {/* Moli+ Banner */}
-          <TouchableOpacity style={s.moliBanner}>
-            <View style={s.moliTag}><Text style={s.moliTagText}>Moli+</Text></View>
-            <Text style={s.moliBannerText}>Sin publicidad y beneficios exclusivos</Text>
-            <Ionicons name="chevron-forward" size={18} color="#8E8E93" />
-          </TouchableOpacity>
+          {/* Moli+ Banner - Hidden for now */}
         </View>
       )}
 

@@ -70,14 +70,10 @@ export default function RiderProfileScreen() {
       onPress: () => {},
     },
     {
-      icon: 'card-outline',
+      icon: 'cash-outline',
       title: 'Métodos de pago',
-      onPress: () => {},
-    },
-    {
-      icon: 'ticket-outline',
-      title: 'Promociones',
-      onPress: () => {},
+      subtitle: 'Efectivo',
+      onPress: () => Alert.alert('Métodos de pago', 'Actualmente solo está disponible el pago en efectivo. Próximamente más opciones.'),
     },
     {
       icon: 'help-circle-outline',
