@@ -738,9 +738,6 @@ export default function DriverHomeScreen() {
                 </View>
               </View>
               <View style={styles.riderActions}>
-                <TouchableOpacity style={styles.actionButtonSmall}>
-                  <Ionicons name="call" size={22} color="#00C853" />
-                </TouchableOpacity>
                 <TouchableOpacity
                   style={styles.actionButtonSmall}
                   onPress={() => router.push({

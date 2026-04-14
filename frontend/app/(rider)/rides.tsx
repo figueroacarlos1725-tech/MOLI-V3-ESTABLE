@@ -221,6 +221,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 12,
+    flexShrink: 0,
+    maxWidth: 120,
   },
   statusText: {
     fontSize: 12,

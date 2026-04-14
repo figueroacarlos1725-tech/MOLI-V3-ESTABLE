@@ -46,7 +46,6 @@ export default function RootLayout() {
         <Stack.Screen name="(jobs)" />
       </Stack>
       <ChatNotificationBanner />
-      <SupportBubble />
       <ForceUpdateChecker />
     </View>
   );
@@ -55,6 +54,6 @@ export default function RootLayout() {
 const styles = StyleSheet.create({
   splashContainer: {
     flex: 1,
-    backgroundColor: '#7B2D8E',
+    backgroundColor: '#FFFFFF',
   },
 });
