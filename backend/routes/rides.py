@@ -961,6 +961,22 @@ async def update_ride_status(
         ws_data["penalty_info"] = {k: (v.isoformat() if isinstance(v, datetime) else v) for k, v in penalty_info.items()} if penalty_info else None
     await manager.send_personal_message(ws_data, other_user_id)
     
+    # Send push notifications for key status changes
+    try:
+        driver_user = await db.users.find_one({"user_id": ride["driver_id"]}, {"_id": 0, "name": 1})
+        driver_name = driver_user.get("name", "Tu conductor") if driver_user else "Tu conductor"
+        
+        if status == "arrived":
+            await notify_driver_arrived(ride["rider_id"], driver_name, ride_id)
+        elif status == "completed":
+            final_fare = update_data.get("fare", ride.get("fare", 0))
+            await notify_ride_completed(ride["rider_id"], final_fare, ride_id)
+        elif status == "cancelled":
+            cancelled_by = "conductor" if user["user_type"] == "driver" else "pasajero"
+            await notify_ride_cancelled(other_user_id, cancelled_by, ride_id)
+    except Exception as push_err:
+        print(f"Push notification error: {push_err}")
+    
     response = {"status": "success", "ride_status": status}
     if penalty_info:
         response["penalty"] = penalty_info

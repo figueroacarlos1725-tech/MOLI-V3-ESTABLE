@@ -26,6 +26,8 @@ import { socketService } from '@/src/services/socket';
 import { apiService } from '@/src/services/api';
 import { getCurrentLocation, reverseGeocode } from '@/src/utils/location';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Notifications from 'expo-notifications';
+import Constants from 'expo-constants';
 import * as Haptics from 'expo-haptics';
 import { Audio } from 'expo-av';
 
@@ -190,7 +192,42 @@ export default function DriverHomeScreen() {
       } catch (e) { /* silent */ }
     };
     checkBlockAndConfig();
-    
+
+    // Register push notifications
+    const registerPushToken = async () => {
+      try {
+        if (Platform.OS === 'web') return; // Push not supported on web
+        
+        const { status: existingStatus } = await Notifications.getPermissionsAsync();
+        let finalStatus = existingStatus;
+        if (existingStatus !== 'granted') {
+          const { status } = await Notifications.requestPermissionsAsync();
+          finalStatus = status;
+        }
+        if (finalStatus !== 'granted') return;
+        
+        // Configure notification handler
+        Notifications.setNotificationHandler({
+          handleNotification: async () => ({
+            shouldShowAlert: true,
+            shouldPlaySound: true,
+            shouldSetBadge: true,
+          }),
+        });
+        
+        const projectId = Constants.expoConfig?.extra?.eas?.projectId;
+        const tokenData = await Notifications.getExpoPushTokenAsync({ projectId });
+        const token = tokenData.data;
+        
+        // Save to backend
+        await apiService.post('/push-token', { token });
+        console.log('Push token registered:', token.substring(0, 20));
+      } catch (e) {
+        console.log('Push registration skipped:', e);
+      }
+    };
+    registerPushToken();
+
     // Periodic block status re-check (every 30s) — ensures persistence across reconnects
     const blockCheckInterval = setInterval(async () => {
       try {

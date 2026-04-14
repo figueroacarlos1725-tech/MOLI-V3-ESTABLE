@@ -9,6 +9,7 @@ from datetime import datetime, timezone
 from database import db
 from websocket_manager import manager
 from utils import get_settings, get_nearby_drivers
+from notifications import notify_new_ride_offer
 
 
 # Track active assignment tasks and driver response events
@@ -141,6 +142,17 @@ async def assign_ride_to_drivers(request_id: str, rider_id: str, sorted_drivers:
                     "is_taximeter": dropoff_loc is None or not dropoff_loc,
                 }
                 await manager.send_personal_message(offer_msg, driver_id)
+
+                # Send PUSH NOTIFICATION to driver (works even if app is in background)
+                try:
+                    pickup_addr = pickup_loc.get("address", "Recogida cercana")
+                    fare_amount = request_doc.get("estimated_fare", 0)
+                    svc = request_doc.get("service_type", "ride")
+                    push_title = "📦 ¡Nuevo envío!" if svc == "delivery" else "🚗 ¡Nuevo viaje!"
+                    push_body = f"${fare_amount:,.0f} · {pickup_addr[:50]}"
+                    await notify_new_ride_offer(driver_id, pickup_addr, fare_amount, request_id)
+                except Exception as push_err:
+                    print(f"Push notification error: {push_err}")
 
                 # Notify rider
                 await manager.send_personal_message({
