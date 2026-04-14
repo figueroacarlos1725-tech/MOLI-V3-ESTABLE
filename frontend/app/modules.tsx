@@ -121,7 +121,7 @@ export default function ModuleSelectionScreen() {
               <View style={[s.cardArrow, { backgroundColor: 'rgba(123,45,142,0.3)' }]}>
                 <Ionicons name="arrow-forward" size={22} color="#D8A8E8" />
               </View>
-              <View style={[s.cardAccent, { backgroundColor: '#A855F7' }]} />
+              <View style={[s.cardAccent, { backgroundColor: '#00C853' }]} />
             </TouchableOpacity>
           </Animated.View>
 

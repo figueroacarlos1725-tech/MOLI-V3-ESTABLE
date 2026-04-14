@@ -179,7 +179,7 @@ const styles = StyleSheet.create({
   sidebarLogo: {
     fontSize: 28,
     fontWeight: '800',
-    color: '#A855F7',
+    color: '#00C853',
   },
   sidebarSubtitle: {
     fontSize: 12,

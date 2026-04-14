@@ -77,7 +77,7 @@ export default function ForceUpdateChecker() {
       <View style={s.overlay}>
         <View style={s.card}>
           <View style={s.iconBg}>
-            <Ionicons name="arrow-up-circle" size={48} color="#A855F7" />
+            <Ionicons name="arrow-up-circle" size={48} color="#00C853" />
           </View>
           <Text style={s.title}>Actualización requerida</Text>
           <Text style={s.message}>
@@ -122,14 +122,14 @@ const s = StyleSheet.create({
     padding: 32,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(168,85,247,0.2)',
+    borderColor: 'rgba(0,200,83,0.2)',
     width: '100%',
   },
   iconBg: {
     width: 80,
     height: 80,
     borderRadius: 24,
-    backgroundColor: 'rgba(168,85,247,0.12)',
+    backgroundColor: 'rgba(0,200,83,0.12)',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 20,
@@ -160,7 +160,7 @@ const s = StyleSheet.create({
     width: '100%',
     paddingVertical: 16,
     borderRadius: 16,
-    backgroundColor: '#A855F7',
+    backgroundColor: '#00C853',
   },
   updateBtnText: {
     fontSize: 16,

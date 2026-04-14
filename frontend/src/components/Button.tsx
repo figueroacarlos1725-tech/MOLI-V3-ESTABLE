@@ -7,11 +7,12 @@ import {
   ViewStyle,
   TextStyle,
 } from 'react-native';
+import { MOLI_COLORS, MOLI_RADIUS } from '@/src/theme/colors';
 
 interface ButtonProps {
   title: string;
   onPress: () => void;
-  variant?: 'primary' | 'secondary' | 'outline' | 'danger';
+  variant?: 'primary' | 'secondary' | 'outline' | 'danger' | 'dark';
   size?: 'small' | 'medium' | 'large';
   disabled?: boolean;
   loading?: boolean;
@@ -41,8 +42,8 @@ export function Button({
 
   const textStyles = [
     styles.text,
-    styles[`${variant}Text`],
-    styles[`${size}Text`],
+    styles[`${variant}Text`] as TextStyle,
+    styles[`${size}Text`] as TextStyle,
     textStyle,
   ];
 
@@ -51,11 +52,11 @@ export function Button({
       style={buttonStyles}
       onPress={onPress}
       disabled={disabled || loading}
-      activeOpacity={0.7}
+      activeOpacity={0.8}
     >
       {loading ? (
         <ActivityIndicator
-          color={variant === 'outline' ? '#A855F7' : '#fff'}
+          color={variant === 'outline' ? MOLI_COLORS.primary : '#fff'}
           size="small"
         />
       ) : (
@@ -73,29 +74,32 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 12,
+    borderRadius: MOLI_RADIUS.md,
     gap: 8,
   },
   primary: {
-    backgroundColor: '#A855F7',
+    backgroundColor: MOLI_COLORS.primary,
   },
   secondary: {
-    backgroundColor: '#A855F7',
+    backgroundColor: MOLI_COLORS.darkGray,
   },
   outline: {
     backgroundColor: 'transparent',
-    borderWidth: 2,
-    borderColor: '#A855F7',
+    borderWidth: 1.5,
+    borderColor: MOLI_COLORS.lightGray,
+  },
+  dark: {
+    backgroundColor: MOLI_COLORS.black,
   },
   danger: {
-    backgroundColor: '#FF3B30',
+    backgroundColor: MOLI_COLORS.error,
   },
   small: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
+    paddingVertical: 10,
+    paddingHorizontal: 18,
   },
   medium: {
-    paddingVertical: 14,
+    paddingVertical: 16,
     paddingHorizontal: 24,
   },
   large: {
@@ -103,19 +107,23 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
   },
   disabled: {
-    opacity: 0.5,
+    opacity: 0.4,
   },
   text: {
-    fontWeight: '600',
+    fontWeight: '700',
+    letterSpacing: 0.3,
   },
   primaryText: {
-    color: '#fff',
+    color: MOLI_COLORS.black,
   },
   secondaryText: {
     color: '#fff',
   },
   outlineText: {
-    color: '#A855F7',
+    color: MOLI_COLORS.darkGray,
+  },
+  darkText: {
+    color: '#fff',
   },
   dangerText: {
     color: '#fff',

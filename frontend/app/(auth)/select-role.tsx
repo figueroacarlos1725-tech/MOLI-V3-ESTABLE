@@ -9,6 +9,7 @@ import {
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Button } from '@/src/components/Button';
+import { MOLI_COLORS, MOLI_RADIUS } from '@/src/theme/colors';
 
 type UserRole = 'rider' | 'driver';
 
@@ -25,84 +26,88 @@ export default function SelectRoleScreen() {
     }
   };
 
+  const isSelected = (role: UserRole) => selectedRole === role;
+
   return (
     <SafeAreaView style={styles.container}>
       <TouchableOpacity
         style={styles.backButton}
         onPress={() => router.back()}
       >
-        <Ionicons name="arrow-back" size={24} color="#1C1C1E" />
+        <Ionicons name="arrow-back" size={24} color={MOLI_COLORS.darkGray} />
       </TouchableOpacity>
 
       <View style={styles.content}>
-        <Text style={styles.title}>Únete como</Text>
-        <Text style={styles.subtitle}>Elige cómo quieres usar TaxiRide</Text>
+        <Text style={styles.title}>¿Cómo vas a{"\n"}usar Moli?</Text>
+        <Text style={styles.subtitle}>Elegí tu rol para empezar</Text>
 
         <View style={styles.optionsContainer}>
           <TouchableOpacity
             style={[
               styles.optionCard,
-              selectedRole === 'rider' && styles.optionCardSelected,
+              isSelected('rider') && styles.optionCardSelected,
             ]}
             onPress={() => setSelectedRole('rider')}
+            activeOpacity={0.7}
           >
             <View style={[
               styles.iconContainer,
-              selectedRole === 'rider' && styles.iconContainerSelected,
+              isSelected('rider') && styles.iconContainerSelected,
             ]}>
               <Ionicons
                 name="person"
-                size={40}
-                color={selectedRole === 'rider' ? '#007AFF' : '#8E8E93'}
+                size={32}
+                color={isSelected('rider') ? MOLI_COLORS.primary : MOLI_COLORS.mediumGray}
               />
             </View>
-            <Text style={[
-              styles.optionTitle,
-              selectedRole === 'rider' && styles.optionTitleSelected,
-            ]}>
-              Pasajero
-            </Text>
-            <Text style={styles.optionDescription}>
-              Solicita viajes y viaja cómodamente
-            </Text>
-            {selectedRole === 'rider' && (
-              <View style={styles.checkmark}>
-                <Ionicons name="checkmark-circle" size={24} color="#007AFF" />
-              </View>
-            )}
+            <View style={styles.optionTextContainer}>
+              <Text style={[
+                styles.optionTitle,
+                isSelected('rider') && styles.optionTitleSelected,
+              ]}>
+                Pasajero
+              </Text>
+              <Text style={styles.optionDescription}>
+                Pedí viajes y llegá a donde quieras
+              </Text>
+            </View>
+            <View style={[styles.radio, isSelected('rider') && styles.radioSelected]}>
+              {isSelected('rider') && <View style={styles.radioDot} />}
+            </View>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={[
               styles.optionCard,
-              selectedRole === 'driver' && styles.optionCardSelected,
+              isSelected('driver') && styles.optionCardSelected,
             ]}
             onPress={() => setSelectedRole('driver')}
+            activeOpacity={0.7}
           >
             <View style={[
               styles.iconContainer,
-              selectedRole === 'driver' && styles.iconContainerSelected,
+              isSelected('driver') && styles.iconContainerSelected,
             ]}>
               <Ionicons
                 name="car-sport"
-                size={40}
-                color={selectedRole === 'driver' ? '#34C759' : '#8E8E93'}
+                size={32}
+                color={isSelected('driver') ? MOLI_COLORS.primary : MOLI_COLORS.mediumGray}
               />
             </View>
-            <Text style={[
-              styles.optionTitle,
-              selectedRole === 'driver' && styles.optionTitleSelectedDriver,
-            ]}>
-              Conductor
-            </Text>
-            <Text style={styles.optionDescription}>
-              Gana dinero llevando pasajeros
-            </Text>
-            {selectedRole === 'driver' && (
-              <View style={styles.checkmark}>
-                <Ionicons name="checkmark-circle" size={24} color="#34C759" />
-              </View>
-            )}
+            <View style={styles.optionTextContainer}>
+              <Text style={[
+                styles.optionTitle,
+                isSelected('driver') && styles.optionTitleSelected,
+              ]}>
+                Conductor
+              </Text>
+              <Text style={styles.optionDescription}>
+                Ganá dinero llevando pasajeros
+              </Text>
+            </View>
+            <View style={[styles.radio, isSelected('driver') && styles.radioSelected]}>
+              {isSelected('driver') && <View style={styles.radioDot} />}
+            </View>
           </TouchableOpacity>
         </View>
 
@@ -110,7 +115,7 @@ export default function SelectRoleScreen() {
           title="Continuar"
           onPress={handleContinue}
           disabled={!selectedRole}
-          variant={selectedRole === 'driver' ? 'secondary' : 'primary'}
+          size="large"
           style={styles.continueButton}
         />
       </View>
@@ -121,78 +126,96 @@ export default function SelectRoleScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: MOLI_COLORS.white,
   },
   backButton: {
     width: 44,
     height: 44,
+    borderRadius: 12,
+    backgroundColor: MOLI_COLORS.offWhite,
     justifyContent: 'center',
-    marginLeft: 16,
-    marginTop: 8,
+    alignItems: 'center',
+    marginLeft: 24,
+    marginTop: 12,
   },
   content: {
     flex: 1,
-    paddingHorizontal: 24,
-    paddingTop: 24,
+    paddingHorizontal: 28,
+    paddingTop: 28,
   },
   title: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: '#1C1C1E',
+    fontSize: 34,
+    fontWeight: '800',
+    color: MOLI_COLORS.darkGray,
     marginBottom: 8,
+    lineHeight: 40,
   },
   subtitle: {
     fontSize: 16,
-    color: '#8E8E93',
+    color: MOLI_COLORS.mediumGray,
     marginBottom: 40,
   },
   optionsContainer: {
-    gap: 16,
+    gap: 14,
   },
   optionCard: {
-    backgroundColor: '#F2F2F7',
-    borderRadius: 16,
-    padding: 24,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: MOLI_COLORS.offWhite,
+    borderRadius: MOLI_RADIUS.lg,
+    padding: 20,
     borderWidth: 2,
     borderColor: 'transparent',
-    position: 'relative',
   },
   optionCardSelected: {
-    borderColor: '#007AFF',
-    backgroundColor: '#F0F8FF',
+    borderColor: MOLI_COLORS.primary,
+    backgroundColor: MOLI_COLORS.primaryGlow,
   },
   iconContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: '#E5E5EA',
+    width: 56,
+    height: 56,
+    borderRadius: 16,
+    backgroundColor: MOLI_COLORS.white,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 16,
   },
   iconContainerSelected: {
-    backgroundColor: '#fff',
+    backgroundColor: MOLI_COLORS.white,
+  },
+  optionTextContainer: {
+    flex: 1,
+    marginLeft: 16,
   },
   optionTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#1C1C1E',
-    marginBottom: 8,
+    fontSize: 18,
+    fontWeight: '700',
+    color: MOLI_COLORS.darkGray,
+    marginBottom: 4,
   },
   optionTitleSelected: {
-    color: '#007AFF',
-  },
-  optionTitleSelectedDriver: {
-    color: '#34C759',
+    color: MOLI_COLORS.primary,
   },
   optionDescription: {
     fontSize: 14,
-    color: '#8E8E93',
+    color: MOLI_COLORS.mediumGray,
   },
-  checkmark: {
-    position: 'absolute',
-    top: 16,
-    right: 16,
+  radio: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: MOLI_COLORS.lightGray,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  radioSelected: {
+    borderColor: MOLI_COLORS.primary,
+  },
+  radioDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: MOLI_COLORS.primary,
   },
   continueButton: {
     marginTop: 40,

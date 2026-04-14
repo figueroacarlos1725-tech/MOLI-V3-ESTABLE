@@ -57,13 +57,13 @@ html,body,#map{width:100%;height:100%}
 .job-pin.jardineria{border-color:rgba(0,200,83,0.5);background:linear-gradient(135deg,#fff,#E8F5E9)}
 .job-budget{
   position:absolute;bottom:-10px;left:50%;transform:translateX(-50%);
-  background:#A855F7;color:#000;font-size:9px;font-weight:800;
+  background:#00C853;color:#000;font-size:9px;font-weight:800;
   padding:2px 6px;border-radius:6px;white-space:nowrap;
   box-shadow:0 2px 4px rgba(0,0,0,0.4);
 }
 .pulse-ring{
   position:absolute;top:-4px;left:-4px;right:-4px;bottom:-4px;
-  border-radius:18px;border:2px solid rgba(168,85,247,0.3);
+  border-radius:18px;border:2px solid rgba(0,200,83,0.3);
   animation:pulse 2s ease-out infinite;
 }
 @keyframes pulse{

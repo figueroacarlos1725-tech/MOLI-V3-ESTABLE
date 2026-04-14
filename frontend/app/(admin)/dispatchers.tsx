@@ -162,7 +162,7 @@ export default function DispatchersScreen() {
                         value={editPerms[perm.key] || false}
                         onValueChange={(v) => setEditPerms(p => ({ ...p, [perm.key]: v }))}
                         trackColor={{ false: '#333', true: '#7B2D8E' }}
-                        thumbColor={editPerms[perm.key] ? '#A855F7' : '#666'}
+                        thumbColor={editPerms[perm.key] ? '#00C853' : '#666'}
                       />
                     </View>
                   ))}

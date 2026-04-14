@@ -354,7 +354,7 @@ export default function JobsHomeScreen() {
               {/* Info pills */}
               <View style={s.infoPills}>
                 <View style={s.pill}>
-                  <Ionicons name="location-outline" size={14} color="#A855F7" />
+                  <Ionicons name="location-outline" size={14} color="#00C853" />
                   <Text style={s.pillText}>{selectedJob.distance}</Text>
                 </View>
                 <View style={s.pill}>
@@ -613,12 +613,12 @@ const s = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: 'rgba(168,85,247,0.08)',
+    backgroundColor: 'rgba(0,200,83,0.08)',
     padding: 14,
     borderRadius: 14,
     marginBottom: 14,
     borderWidth: 1,
-    borderColor: 'rgba(168,85,247,0.15)',
+    borderColor: 'rgba(0,200,83,0.15)',
   },
   budgetLabel: {
     fontSize: 13,
@@ -628,7 +628,7 @@ const s = StyleSheet.create({
   budgetValue: {
     fontSize: 24,
     fontWeight: '900',
-    color: '#A855F7',
+    color: '#00C853',
   },
   jobDescription: {
     fontSize: 14,
@@ -736,7 +736,7 @@ const s = StyleSheet.create({
     gap: 6,
     paddingVertical: 16,
     borderRadius: 16,
-    backgroundColor: '#A855F7',
+    backgroundColor: '#00C853',
   },
   acceptText: {
     fontSize: 15,

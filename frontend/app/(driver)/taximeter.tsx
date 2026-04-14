@@ -188,7 +188,7 @@ export default function TaximeterScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Ionicons name="speedometer" size={24} color="#A855F7" />
+        <Ionicons name="speedometer" size={24} color="#00C853" />
         <Text style={styles.headerTitle}>Taximetro</Text>
       </View>
 
@@ -293,7 +293,7 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   fareLabel: { fontSize: 14, fontWeight: '700', color: '#8E8E93', letterSpacing: 2 },
-  fareAmount: { fontSize: 72, fontWeight: '800', color: '#A855F7', marginTop: 4 },
+  fareAmount: { fontSize: 72, fontWeight: '800', color: '#00C853', marginTop: 4 },
   runningDot: {
     position: 'absolute', top: 30, right: 40,
     width: 14, height: 14, borderRadius: 7, backgroundColor: '#10B981',
@@ -317,8 +317,8 @@ const styles = StyleSheet.create({
   },
   startBtn: {
     width: 140, height: 140, borderRadius: 70,
-    backgroundColor: '#A855F7', justifyContent: 'center', alignItems: 'center',
-    shadowColor: '#A855F7', shadowOffset: { width: 0, height: 4 },
+    backgroundColor: '#00C853', justifyContent: 'center', alignItems: 'center',
+    shadowColor: '#00C853', shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.4, shadowRadius: 12, elevation: 8,
   },
   startBtnText: { color: '#fff', fontSize: 16, fontWeight: '800', marginTop: 4 },
@@ -353,7 +353,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#1A1A1A',
   },
-  historyFare: { fontSize: 16, fontWeight: '700', color: '#A855F7', width: 80 },
+  historyFare: { fontSize: 16, fontWeight: '700', color: '#00C853', width: 80 },
   historyDetail: { fontSize: 12, color: '#999', flex: 1 },
   historyDate: { fontSize: 11, color: '#666' },
 });

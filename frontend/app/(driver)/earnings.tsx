@@ -84,10 +84,10 @@ export default function DriverEarningsScreen() {
   const getTxnIcon = (type: string) => {
     switch (type) {
       case 'commission_debit': return { name: 'remove-circle', color: '#FF3B30' };
-      case 'ride_earnings': return { name: 'add-circle', color: '#A855F7' };
+      case 'ride_earnings': return { name: 'add-circle', color: '#00C853' };
       case 'cancel_penalty': return { name: 'warning', color: '#FF9500' };
       case 'cancel_compensation': return { name: 'gift', color: '#007AFF' };
-      case 'recharge': return { name: 'wallet', color: '#A855F7' };
+      case 'recharge': return { name: 'wallet', color: '#00C853' };
       default: return { name: 'swap-horizontal', color: '#8E8E93' };
     }
   };
@@ -95,7 +95,7 @@ export default function DriverEarningsScreen() {
   if (isLoading) {
     return (
       <SafeAreaView style={st.container}>
-        <ActivityIndicator size="large" color="#A855F7" style={{ marginTop: 40 }} />
+        <ActivityIndicator size="large" color="#00C853" style={{ marginTop: 40 }} />
       </SafeAreaView>
     );
   }
@@ -133,7 +133,7 @@ export default function DriverEarningsScreen() {
             )}
             {!isNegative && balance > 0 && (
               <TouchableOpacity style={st.withdrawBtn}>
-                <Ionicons name="arrow-up-circle-outline" size={18} color="#A855F7" />
+                <Ionicons name="arrow-up-circle-outline" size={18} color="#00C853" />
                 <Text style={st.withdrawBtnText}>Retirar</Text>
               </TouchableOpacity>
             )}
@@ -270,7 +270,7 @@ const st = StyleSheet.create({
   // Balance card
   balanceCard: { margin: 16, borderRadius: 20, padding: 24 },
   balanceCardNeg: { backgroundColor: '#FF3B30' },
-  balanceCardPos: { backgroundColor: '#A855F7' },
+  balanceCardPos: { backgroundColor: '#00C853' },
   balanceLabel: { fontSize: 14, color: 'rgba(255,255,255,0.8)', fontWeight: '600' },
   balanceAmount: { fontSize: 44, fontWeight: '800', color: '#fff', marginTop: 4 },
   balanceHint: { fontSize: 12, color: 'rgba(255,255,255,0.7)', marginTop: 4 },
@@ -315,7 +315,7 @@ const st = StyleSheet.create({
   txnDesc: { fontSize: 14, fontWeight: '600', color: '#1C1C1E' },
   txnDate: { fontSize: 11, color: '#8E8E93', marginTop: 2 },
   txnAmount: { fontSize: 16, fontWeight: '800' },
-  txnPos: { color: '#A855F7' },
+  txnPos: { color: '#00C853' },
   txnNeg: { color: '#FF3B30' },
   
   // Explain

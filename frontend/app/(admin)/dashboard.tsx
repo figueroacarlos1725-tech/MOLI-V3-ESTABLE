@@ -50,7 +50,7 @@ export default function AdminDashboardScreen() {
 
   const statCards = [
     { title: 'Usuarios totales', value: stats?.total_users || 0, icon: 'people', color: '#007AFF', bgColor: '#E3F2FD' },
-    { title: 'Conductores', value: stats?.total_drivers || 0, icon: 'car-sport', color: '#A855F7', bgColor: '#E8F5E9' },
+    { title: 'Conductores', value: stats?.total_drivers || 0, icon: 'car-sport', color: '#00C853', bgColor: '#E8F5E9' },
     { title: 'En linea', value: stats?.online_drivers || 0, icon: 'radio-button-on', color: '#FF9500', bgColor: '#FFF3E0' },
     { title: 'Viajes activos', value: stats?.active_rides || 0, icon: 'navigate', color: '#8E44AD', bgColor: '#F3E5F5' },
   ];
@@ -110,7 +110,7 @@ export default function AdminDashboardScreen() {
               <Text style={styles.actionText}>Agregar usuario</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.actionCard}>
-              <Ionicons name="car" size={24} color="#A855F7" />
+              <Ionicons name="car" size={24} color="#00C853" />
               <Text style={styles.actionText}>Verificar conductor</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.actionCard}>

@@ -64,7 +64,7 @@ function generateLeafletHtml(
 *{margin:0;padding:0;box-sizing:border-box}
 html,body,#map{width:100%;height:100%}
 .leaflet-div-icon{background:none!important;border:none!important}
-.m-pickup{width:22px;height:22px;border-radius:50%;background:#A855F7;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.4);cursor:grab}
+.m-pickup{width:22px;height:22px;border-radius:50%;background:#00C853;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.4);cursor:grab}
 .m-dropoff{width:16px;height:16px;border-radius:50%;background:#EF4444;border:3px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.3)}
 .m-user{width:14px;height:14px;border-radius:50%;background:#007AFF;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,0.3)}
 .m-driver{display:flex;align-items:center;justify-content:center;width:36px;height:36px;background:#fff;border-radius:50%;box-shadow:0 2px 8px rgba(0,0,0,0.3);font-size:20px}
@@ -141,7 +141,7 @@ function drawRoute(arr){
       var rt=data.routes[0];
       var coords=rt.geometry.coordinates.map(function(c){return[c[1],c[0]]});
       if(routeLayer)map.removeLayer(routeLayer);
-      routeLayer=L.polyline(coords,{color:'#A855F7',weight:5,opacity:0.85}).addTo(map);
+      routeLayer=L.polyline(coords,{color:'#00C853',weight:5,opacity:0.85}).addTo(map);
       sendMsg({type:'routeInfo',distance_km:rt.distance/1000,duration_min:Math.ceil(rt.duration/60)});
     }
   }).catch(function(e){console.error('Route error:',e)});
@@ -199,7 +199,7 @@ function sendMsg(obj){
 
 function getMarkerIcon(type,vt){
   var emojiMap={'economy':'🚗','comfort':'🚙','premium':'🏎️','xl':'🚌'};
-  if(type==='pickup')return{path:google.maps.SymbolPath.CIRCLE,scale:11,fillColor:'#A855F7',fillOpacity:1,strokeColor:'#fff',strokeWeight:3};
+  if(type==='pickup')return{path:google.maps.SymbolPath.CIRCLE,scale:11,fillColor:'#00C853',fillOpacity:1,strokeColor:'#fff',strokeWeight:3};
   if(type==='dropoff')return{path:google.maps.SymbolPath.CIRCLE,scale:8,fillColor:'#EF4444',fillOpacity:1,strokeColor:'#fff',strokeWeight:3};
   if(type==='user')return{path:google.maps.SymbolPath.CIRCLE,scale:7,fillColor:'#007AFF',fillOpacity:1,strokeColor:'#fff',strokeWeight:2};
   return null;
@@ -252,7 +252,7 @@ function drawRoute(arr){
   var d=arr.find(function(m){return m.type==='dropoff'});
   if(!p||!d)return;
   var ds=new google.maps.DirectionsService();
-  if(!directionsRenderer)directionsRenderer=new google.maps.DirectionsRenderer({suppressMarkers:true,polylineOptions:{strokeColor:'#A855F7',strokeWeight:5,strokeOpacity:0.85}});
+  if(!directionsRenderer)directionsRenderer=new google.maps.DirectionsRenderer({suppressMarkers:true,polylineOptions:{strokeColor:'#00C853',strokeWeight:5,strokeOpacity:0.85}});
   directionsRenderer.setMap(map);
   ds.route({origin:{lat:p.latitude,lng:p.longitude},destination:{lat:d.latitude,lng:d.longitude},travelMode:'DRIVING'},function(result,status){
     if(status==='OK'){
@@ -376,7 +376,7 @@ function WebMapView({ initialRegion, markers = [], showRoute = false, onMapPress
     <View ref={containerRef} style={[styles.container, style]}>
       {isLoading && (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#A855F7" />
+          <ActivityIndicator size="large" color="#00C853" />
           <Text style={styles.loadingText}>Cargando mapa...</Text>
         </View>
       )}
@@ -451,7 +451,7 @@ function NativeMapView({ initialRegion, markers = [], showRoute = false, onMapPr
       />
       {isLoading && (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#A855F7" />
+          <ActivityIndicator size="large" color="#00C853" />
           <Text style={styles.loadingText}>Cargando mapa...</Text>
         </View>
       )}
@@ -524,7 +524,7 @@ export function MapView(props: MapViewProps) {
     return (
       <View style={[styles.container, props.style]}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#A855F7" />
+          <ActivityIndicator size="large" color="#00C853" />
           <Text style={styles.loadingText}>Cargando mapa...</Text>
         </View>
       </View>

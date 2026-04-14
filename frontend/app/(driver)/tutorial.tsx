@@ -151,9 +151,9 @@ export default function DriverTutorialScreen() {
   };
 
   const getActionColor = () => {
-    if (step === 'ride_offer') return '#A855F7';
-    if (step === 'go_online') return '#A855F7';
-    if (step === 'done') return '#A855F7';
+    if (step === 'ride_offer') return '#00C853';
+    if (step === 'go_online') return '#00C853';
+    if (step === 'done') return '#00C853';
     return '#7B2D8E';
   };
 
@@ -220,7 +220,7 @@ export default function DriverTutorialScreen() {
           {/* Step icon */}
           <View style={s.stepIconRow}>
             <View style={s.stepIconBg}>
-              <Ionicons name={config.icon as any} size={28} color="#A855F7" />
+              <Ionicons name={config.icon as any} size={28} color="#00C853" />
             </View>
             <View style={s.stepLabel}>
               <Text style={s.stepLabelText}>SIMULACIÓN</Text>
@@ -249,7 +249,7 @@ export default function DriverTutorialScreen() {
               </View>
               <View style={s.offerDetails}>
                 <View style={s.offerDetail}>
-                  <Ionicons name="location" size={14} color="#A855F7" />
+                  <Ionicons name="location" size={14} color="#00C853" />
                   <Text style={s.offerDetailText}>{FAKE_PICKUP.address}</Text>
                 </View>
                 <View style={s.offerDetail}>
@@ -327,7 +327,7 @@ const s = StyleSheet.create({
     left: 16, right: 70, zIndex: 10,
   },
   progressBg: { height: 4, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 2, overflow: 'hidden' },
-  progressFill: { height: '100%', backgroundColor: '#A855F7', borderRadius: 2 },
+  progressFill: { height: '100%', backgroundColor: '#00C853', borderRadius: 2 },
   progressText: { fontSize: 11, color: 'rgba(255,255,255,0.4)', fontWeight: '600', marginTop: 4 },
   // Skip
   skipBtn: {
@@ -350,14 +350,14 @@ const s = StyleSheet.create({
   stepIconRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 14 },
   stepIconBg: {
     width: 48, height: 48, borderRadius: 16,
-    backgroundColor: 'rgba(168,85,247,0.12)',
+    backgroundColor: 'rgba(0,200,83,0.12)',
     justifyContent: 'center', alignItems: 'center',
   },
   stepLabel: {
     paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8,
-    backgroundColor: 'rgba(168,85,247,0.15)',
+    backgroundColor: 'rgba(0,200,83,0.15)',
   },
-  stepLabelText: { fontSize: 10, fontWeight: '800', color: '#A855F7', letterSpacing: 1 },
+  stepLabelText: { fontSize: 10, fontWeight: '800', color: '#00C853', letterSpacing: 1 },
   cardTitle: { fontSize: 22, fontWeight: '900', color: '#fff', marginBottom: 6 },
   cardInstruction: { fontSize: 14, color: 'rgba(255,255,255,0.5)', lineHeight: 20, marginBottom: 16 },
   // Offer card
@@ -368,12 +368,12 @@ const s = StyleSheet.create({
   offerRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 },
   offerAvatar: {
     width: 40, height: 40, borderRadius: 12,
-    backgroundColor: 'rgba(168,85,247,0.2)', justifyContent: 'center', alignItems: 'center',
+    backgroundColor: 'rgba(0,200,83,0.2)', justifyContent: 'center', alignItems: 'center',
   },
   offerName: { fontSize: 16, fontWeight: '700', color: '#fff' },
   ratingRow: { flexDirection: 'row', alignItems: 'center', gap: 3 },
   ratingText: { fontSize: 13, color: '#FFCC00', fontWeight: '600' },
-  offerFare: { fontSize: 22, fontWeight: '900', color: '#A855F7' },
+  offerFare: { fontSize: 22, fontWeight: '900', color: '#00C853' },
   offerDetails: { gap: 8 },
   offerDetail: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   offerDetailText: { fontSize: 13, color: 'rgba(255,255,255,0.6)', flex: 1 },
@@ -386,12 +386,12 @@ const s = StyleSheet.create({
   metaDot: { width: 4, height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.2)' },
   // Completed
   completedCard: {
-    flexDirection: 'row', backgroundColor: 'rgba(168,85,247,0.08)',
+    flexDirection: 'row', backgroundColor: 'rgba(0,200,83,0.08)',
     borderRadius: 16, padding: 16, marginBottom: 16,
-    borderWidth: 1, borderColor: 'rgba(168,85,247,0.15)',
+    borderWidth: 1, borderColor: 'rgba(0,200,83,0.15)',
   },
   completedStat: { flex: 1, alignItems: 'center' },
-  completedStatValue: { fontSize: 20, fontWeight: '900', color: '#A855F7' },
+  completedStatValue: { fontSize: 20, fontWeight: '900', color: '#00C853' },
   completedStatLabel: { fontSize: 11, color: 'rgba(255,255,255,0.4)', fontWeight: '500', marginTop: 2 },
   completedDivider: { width: 1, backgroundColor: 'rgba(255,255,255,0.08)' },
   // Action
@@ -406,7 +406,7 @@ const s = StyleSheet.create({
     gap: 6, paddingVertical: 16,
   },
   waitingDot: {
-    width: 8, height: 8, borderRadius: 4, backgroundColor: '#A855F7', opacity: 0.6,
+    width: 8, height: 8, borderRadius: 4, backgroundColor: '#00C853', opacity: 0.6,
   },
   waitingText: { fontSize: 14, color: 'rgba(255,255,255,0.4)', fontWeight: '500', marginLeft: 8 },
 });

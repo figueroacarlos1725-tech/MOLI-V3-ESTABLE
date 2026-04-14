@@ -15,6 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Input } from '@/src/components/Input';
 import { Button } from '@/src/components/Button';
 import { useAuthStore } from '@/src/stores/authStore';
+import { MOLI_COLORS } from '@/src/theme/colors';
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -29,20 +30,19 @@ export default function LoginScreen() {
     if (!email) newErrors.email = 'El email es requerido';
     else if (!/\S+@\S+\.\S+/.test(email)) newErrors.email = 'Formato de email inválido';
     if (!password) newErrors.password = 'La contraseña es requerida';
-    else if (password.length < 6) newErrors.password = 'La contraseña debe tener al menos 6 caracteres';
+    else if (password.length < 6) newErrors.password = 'Mínimo 6 caracteres';
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
   const handleLogin = async () => {
     if (!validate()) return;
-
     setIsLoading(true);
     try {
       await login(email, password);
       router.replace('/');
     } catch (error: any) {
-      Alert.alert('Error de inicio de sesión', error.message || 'Credenciales inválidas');
+      Alert.alert('Error', error.message || 'Credenciales inválidas');
     } finally {
       setIsLoading(false);
     }
@@ -62,18 +62,18 @@ export default function LoginScreen() {
             style={styles.backButton}
             onPress={() => router.back()}
           >
-            <Ionicons name="arrow-back" size={24} color="#1C1C1E" />
+            <Ionicons name="arrow-back" size={24} color={MOLI_COLORS.darkGray} />
           </TouchableOpacity>
 
           <View style={styles.headerSection}>
-            <Text style={styles.title}>Bienvenido de vuelta</Text>
-            <Text style={styles.subtitle}>Inicia sesión para continuar</Text>
+            <Text style={styles.title}>Bienvenido{"\n"}de vuelta</Text>
+            <Text style={styles.subtitle}>Ingresá tus datos para continuar</Text>
           </View>
 
           <View style={styles.formSection}>
             <Input
               label="Email"
-              placeholder="Ingresa tu email"
+              placeholder="tu@email.com"
               value={email}
               onChangeText={setEmail}
               keyboardType="email-address"
@@ -84,7 +84,7 @@ export default function LoginScreen() {
 
             <Input
               label="Contraseña"
-              placeholder="Ingresa tu contraseña"
+              placeholder="Tu contraseña"
               value={password}
               onChangeText={setPassword}
               secureTextEntry
@@ -100,14 +100,15 @@ export default function LoginScreen() {
               title="Iniciar sesión"
               onPress={handleLogin}
               loading={isLoading}
+              size="large"
               style={styles.loginButton}
             />
           </View>
 
           <View style={styles.footerSection}>
-            <Text style={styles.footerText}>¿No tienes cuenta? </Text>
+            <Text style={styles.footerText}>¿No tenés cuenta? </Text>
             <TouchableOpacity onPress={() => router.push('/(auth)/select-role')}>
-              <Text style={styles.signUpText}>Regístrate</Text>
+              <Text style={styles.signUpText}>Registrate</Text>
             </TouchableOpacity>
           </View>
         </ScrollView>
@@ -119,62 +120,66 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: MOLI_COLORS.white,
   },
   keyboardView: {
     flex: 1,
   },
   scrollContent: {
     flexGrow: 1,
-    paddingHorizontal: 24,
+    paddingHorizontal: 28,
     paddingTop: 16,
   },
   backButton: {
     width: 44,
     height: 44,
+    borderRadius: 12,
+    backgroundColor: MOLI_COLORS.offWhite,
     justifyContent: 'center',
+    alignItems: 'center',
   },
   headerSection: {
-    marginTop: 32,
+    marginTop: 36,
     marginBottom: 40,
   },
   title: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: '#1C1C1E',
+    fontSize: 34,
+    fontWeight: '800',
+    color: MOLI_COLORS.darkGray,
     marginBottom: 8,
+    lineHeight: 40,
   },
   subtitle: {
     fontSize: 16,
-    color: '#8E8E93',
+    color: MOLI_COLORS.mediumGray,
   },
   formSection: {
     flex: 1,
   },
   forgotPassword: {
     alignSelf: 'flex-end',
-    marginBottom: 24,
+    marginBottom: 28,
   },
   forgotPasswordText: {
-    color: '#007AFF',
+    color: MOLI_COLORS.primary,
     fontSize: 14,
     fontWeight: '600',
   },
   loginButton: {
-    marginTop: 8,
+    marginTop: 4,
   },
   footerSection: {
     flexDirection: 'row',
     justifyContent: 'center',
-    paddingVertical: 24,
+    paddingVertical: 28,
   },
   footerText: {
-    color: '#8E8E93',
-    fontSize: 14,
+    color: MOLI_COLORS.mediumGray,
+    fontSize: 15,
   },
   signUpText: {
-    color: '#007AFF',
-    fontSize: 14,
-    fontWeight: '600',
+    color: MOLI_COLORS.primary,
+    fontSize: 15,
+    fontWeight: '700',
   },
 });

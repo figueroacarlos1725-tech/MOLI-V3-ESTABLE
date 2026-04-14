@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -6,70 +6,86 @@ import {
   TouchableOpacity,
   SafeAreaView,
   Dimensions,
+  Image,
+  Linking,
+  Animated,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Button } from '@/src/components/Button';
+import { MOLI_COLORS, MOLI_RADIUS } from '@/src/theme/colors';
 
 const { width } = Dimensions.get('window');
 
 export default function WelcomeScreen() {
   const router = useRouter();
+  const [fadeAnim] = useState(new Animated.Value(0));
+  const [slideAnim] = useState(new Animated.Value(30));
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, { toValue: 1, duration: 700, useNativeDriver: true }),
+      Animated.timing(slideAnim, { toValue: 0, duration: 600, useNativeDriver: true }),
+    ]).start();
+  }, []);
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
-        <View style={styles.heroSection}>
-          {/* Logo text styled */}
-          <View style={styles.logoContainer}>
-            <Text style={styles.logoText}>MOLI</Text>
-            <View style={styles.logoDot} />
-          </View>
-          <Text style={styles.subtitle}>
-            Tu viaje confiable, en cualquier momento y lugar
-          </Text>
-        </View>
+        {/* Hero */}
+        <Animated.View style={[styles.heroSection, { opacity: fadeAnim }]}>
+          <Image
+            source={require('../../assets/icon.png')}
+            style={styles.logo}
+            resizeMode="contain"
+          />
+        </Animated.View>
 
-        <View style={styles.featuresSection}>
-          <View style={styles.featureItem}>
-            <View style={styles.featureIcon}>
-              <Ionicons name="location" size={22} color="#A855F7" />
-            </View>
-            <Text style={styles.featureText}>Seguimiento en tiempo real</Text>
-          </View>
-          <View style={styles.featureItem}>
-            <View style={styles.featureIcon}>
-              <Ionicons name="shield-checkmark" size={22} color="#A855F7" />
-            </View>
-            <Text style={styles.featureText}>Viajes seguros y protegidos</Text>
-          </View>
-          <View style={styles.featureItem}>
-            <View style={styles.featureIcon}>
-              <Ionicons name="wallet" size={22} color="#A855F7" />
-            </View>
-            <Text style={styles.featureText}>Multiples opciones de pago</Text>
-          </View>
-        </View>
+        <Animated.Text style={[styles.subtitle, { opacity: fadeAnim }]}>
+          Movete libre por tu ciudad
+        </Animated.Text>
 
-        <View style={styles.buttonsSection}>
+        {/* Features */}
+        <Animated.View style={[styles.featuresSection, { opacity: fadeAnim }]}>
+          {[
+            { icon: 'navigate', text: 'Viajes seguros en tiempo real' },
+            { icon: 'flash', text: 'Llegamos en minutos' },
+            { icon: 'wallet', text: 'Pagá como quieras' },
+          ].map((f, i) => (
+            <View key={i} style={styles.featureItem}>
+              <View style={styles.featureIcon}>
+                <Ionicons name={f.icon as any} size={20} color={MOLI_COLORS.primary} />
+              </View>
+              <Text style={styles.featureText}>{f.text}</Text>
+            </View>
+          ))}
+        </Animated.View>
+
+        {/* Buttons */}
+        <Animated.View style={[styles.buttonsSection, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
           <Button
-            title="Iniciar sesion"
+            title="Iniciar sesión"
             onPress={() => router.push('/(auth)/login')}
             variant="primary"
+            size="large"
             style={styles.button}
           />
 
           <Button
             title="Crear cuenta"
             onPress={() => router.push('/(auth)/select-role')}
-            variant="secondary"
-            style={styles.button}
+            variant="outline"
+            size="large"
+            style={[styles.button, styles.outlineBtn]}
+            textStyle={{ color: MOLI_COLORS.white }}
           />
-        </View>
+        </Animated.View>
 
-        <Text style={styles.termsText}>
-          Al continuar, aceptas nuestros Terminos de Servicio y Politica de Privacidad
-        </Text>
+        <TouchableOpacity onPress={() => Linking.openURL(`${process.env.EXPO_PUBLIC_BACKEND_URL || ''}/api/legal/terms`)}>
+          <Text style={styles.termsText}>
+            Al continuar, aceptás nuestros Términos y Política de Privacidad
+          </Text>
+        </TouchableOpacity>
       </View>
     </SafeAreaView>
   );
@@ -78,75 +94,68 @@ export default function WelcomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0D0D0D',
+    backgroundColor: MOLI_COLORS.black,
   },
   content: {
     flex: 1,
-    paddingHorizontal: 24,
-    justifyContent: 'space-between',
-    paddingVertical: 40,
+    paddingHorizontal: 28,
+    justifyContent: 'center',
+    paddingBottom: 32,
   },
   heroSection: {
     alignItems: 'center',
-    marginTop: 40,
+    marginBottom: 8,
   },
-  logoContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  logoText: {
-    fontSize: 64,
-    fontWeight: '900',
-    color: '#FFFFFF',
-    letterSpacing: 8,
-  },
-  logoDot: {
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    backgroundColor: '#A855F7',
-    marginLeft: 4,
-    marginTop: 20,
+  logo: {
+    width: 140,
+    height: 140,
+    borderRadius: 32,
   },
   subtitle: {
-    fontSize: 16,
-    color: '#AEAEAE',
+    fontSize: 17,
+    color: MOLI_COLORS.mediumGray,
     textAlign: 'center',
+    marginBottom: 40,
+    letterSpacing: 0.3,
   },
   featuresSection: {
-    marginVertical: 24,
+    marginBottom: 48,
+    gap: 16,
   },
   featureItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 18,
-    paddingHorizontal: 20,
+    paddingHorizontal: 8,
   },
   featureIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(168,85,247,0.12)',
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: 'rgba(0, 200, 83, 0.12)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   featureText: {
-    fontSize: 16,
-    color: '#FFFFFF',
-    marginLeft: 16,
+    fontSize: 15,
+    color: MOLI_COLORS.white,
+    marginLeft: 14,
     fontWeight: '500',
+    letterSpacing: 0.2,
   },
   buttonsSection: {
     gap: 12,
+    marginBottom: 24,
   },
   button: {
     width: '100%',
   },
+  outlineBtn: {
+    borderColor: 'rgba(255,255,255,0.2)',
+  },
   termsText: {
     fontSize: 12,
-    color: '#8E8E93',
+    color: MOLI_COLORS.gray,
     textAlign: 'center',
-    marginTop: 24,
+    lineHeight: 18,
   },
 });

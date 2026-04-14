@@ -119,7 +119,7 @@ export default function DriverProfileScreen() {
         <View style={styles.profileCard}>
           <View style={styles.avatarContainer}>
             <View style={styles.avatar}>
-              <Ionicons name="person" size={40} color="#A855F7" />
+              <Ionicons name="person" size={40} color="#00C853" />
             </View>
             <View style={styles.verifiedBadge}>
               <Ionicons name="checkmark" size={12} color="#fff" />
@@ -150,7 +150,7 @@ export default function DriverProfileScreen() {
               style={styles.addButton}
               onPress={() => setShowAddVehicleModal(true)}
             >
-              <Ionicons name="add" size={20} color="#A855F7" />
+              <Ionicons name="add" size={20} color="#00C853" />
               <Text style={styles.addButtonText}>Agregar</Text>
             </TouchableOpacity>
           </View>
@@ -159,7 +159,7 @@ export default function DriverProfileScreen() {
             vehicles.map((vehicle) => (
               <View key={vehicle.vehicle_id} style={styles.vehicleCard}>
                 <View style={styles.vehicleIcon}>
-                  <Ionicons name="car-sport" size={28} color="#A855F7" />
+                  <Ionicons name="car-sport" size={28} color="#00C853" />
                 </View>
                 <View style={styles.vehicleInfo}>
                   <Text style={styles.vehicleName}>
@@ -170,7 +170,7 @@ export default function DriverProfileScreen() {
                   </Text>
                   <View style={styles.vehicleBadges}>
                     <View style={[styles.vehicleBadge, { backgroundColor: vehicle.is_active ? '#E8F5E9' : '#FFEBEE' }]}>
-                      <Text style={[styles.vehicleBadgeText, { color: vehicle.is_active ? '#A855F7' : '#FF3B30' }]}>
+                      <Text style={[styles.vehicleBadgeText, { color: vehicle.is_active ? '#00C853' : '#FF3B30' }]}>
                         {vehicle.is_active ? 'Activo' : 'Inactivo'}
                       </Text>
                     </View>
@@ -192,13 +192,13 @@ export default function DriverProfileScreen() {
           <View style={styles.settingsCard}>
             <View style={styles.settingItem}>
               <View style={styles.settingLeft}>
-                <Ionicons name="notifications-outline" size={22} color="#A855F7" />
+                <Ionicons name="notifications-outline" size={22} color="#00C853" />
                 <Text style={styles.settingText}>Notificaciones push</Text>
               </View>
               <Switch
                 value={notificationsEnabled}
                 onValueChange={setNotificationsEnabled}
-                trackColor={{ false: '#E5E5EA', true: '#A855F7' }}
+                trackColor={{ false: '#E5E5EA', true: '#00C853' }}
                 thumbColor="#fff"
               />
             </View>
@@ -209,7 +209,7 @@ export default function DriverProfileScreen() {
           <View style={styles.menuCard}>
             <TouchableOpacity style={styles.menuItem}>
               <View style={styles.menuItemLeft}>
-                <Ionicons name="document-text-outline" size={22} color="#A855F7" />
+                <Ionicons name="document-text-outline" size={22} color="#00C853" />
                 <Text style={styles.menuItemText}>Documentos</Text>
               </View>
               <Ionicons name="chevron-forward" size={20} color="#C7C7CC" />
@@ -217,7 +217,7 @@ export default function DriverProfileScreen() {
             <View style={styles.menuDivider} />
             <TouchableOpacity style={styles.menuItem} onPress={() => router.push('/support')}>
               <View style={styles.menuItemLeft}>
-                <Ionicons name="help-circle-outline" size={22} color="#A855F7" />
+                <Ionicons name="help-circle-outline" size={22} color="#00C853" />
                 <Text style={styles.menuItemText}>Ayuda y soporte</Text>
               </View>
               <Ionicons name="chevron-forward" size={20} color="#C7C7CC" />
@@ -371,7 +371,7 @@ const styles = StyleSheet.create({
   profileCard: { backgroundColor: '#fff', margin: 16, borderRadius: 20, padding: 24, alignItems: 'center' },
   avatarContainer: { position: 'relative', marginBottom: 16 },
   avatar: { width: 100, height: 100, borderRadius: 50, backgroundColor: '#E8F5E9', justifyContent: 'center', alignItems: 'center' },
-  verifiedBadge: { position: 'absolute', bottom: 0, right: 0, width: 28, height: 28, borderRadius: 14, backgroundColor: '#A855F7', justifyContent: 'center', alignItems: 'center', borderWidth: 3, borderColor: '#fff' },
+  verifiedBadge: { position: 'absolute', bottom: 0, right: 0, width: 28, height: 28, borderRadius: 14, backgroundColor: '#00C853', justifyContent: 'center', alignItems: 'center', borderWidth: 3, borderColor: '#fff' },
   userName: { fontSize: 22, fontWeight: 'bold', color: '#1C1C1E' },
   userEmail: { fontSize: 14, color: '#8E8E93', marginTop: 4 },
   statsContainer: { flexDirection: 'row', marginTop: 24, paddingTop: 24, borderTopWidth: 1, borderTopColor: '#E5E5EA', width: '100%' },
@@ -385,7 +385,7 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: 18, fontWeight: '600', color: '#1C1C1E' },
   sectionTitleSmall: { fontSize: 14, fontWeight: '600', color: '#8E8E93', marginBottom: 8, marginLeft: 4, textTransform: 'uppercase' },
   addButton: { flexDirection: 'row', alignItems: 'center' },
-  addButtonText: { color: '#A855F7', fontWeight: '600', marginLeft: 4 },
+  addButtonText: { color: '#00C853', fontWeight: '600', marginLeft: 4 },
   vehicleCard: { backgroundColor: '#fff', borderRadius: 16, padding: 16, flexDirection: 'row', marginBottom: 12 },
   vehicleIcon: { width: 56, height: 56, borderRadius: 28, backgroundColor: '#E8F5E9', justifyContent: 'center', alignItems: 'center' },
   vehicleInfo: { flex: 1, marginLeft: 12 },
@@ -415,7 +415,7 @@ const styles = StyleSheet.create({
   inputLabel: { fontSize: 14, fontWeight: '600', color: '#1C1C1E', marginBottom: 8 },
   vehicleTypeSelector: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 24 },
   vehicleTypeButton: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 20, backgroundColor: '#F2F2F7' },
-  vehicleTypeButtonActive: { backgroundColor: '#A855F7' },
+  vehicleTypeButtonActive: { backgroundColor: '#00C853' },
   vehicleTypeText: { fontSize: 14, fontWeight: '600', color: '#8E8E93' },
   vehicleTypeTextActive: { color: '#fff' },
   submitButton: { marginBottom: 20 },

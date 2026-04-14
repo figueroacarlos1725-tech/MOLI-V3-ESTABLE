@@ -432,7 +432,7 @@ const s = StyleSheet.create({
   userCard:{backgroundColor:'#fff',borderRadius:12,padding:14},
   userCardHeader:{flexDirection:'row',alignItems:'center',gap:10},
   avatar:{width:40,height:40,borderRadius:20,justifyContent:'center',alignItems:'center'},
-  avatarRider:{backgroundColor:'#A855F7'},avatarDriver:{backgroundColor:'#3B82F6'},avatarAdmin:{backgroundColor:'#8E44AD'},
+  avatarRider:{backgroundColor:'#00C853'},avatarDriver:{backgroundColor:'#3B82F6'},avatarAdmin:{backgroundColor:'#8E44AD'},
   userName:{fontSize:16,fontWeight:'600',color:'#1C1C1E'},
   userEmail:{fontSize:13,color:'#8E8E93'},
   badge:{paddingHorizontal:8,paddingVertical:2,borderRadius:10},

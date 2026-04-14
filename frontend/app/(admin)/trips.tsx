@@ -17,7 +17,7 @@ interface Trip {
 
 const STATUS_COLORS: Record<string,string> = {
   requested:'#3B82F6',accepted:'#F59E0B',arrived:'#8B5CF6',
-  started:'#10B981',completed:'#A855F7',cancelled:'#EF4444',
+  started:'#10B981',completed:'#00C853',cancelled:'#EF4444',
 };
 
 export default function AdminTripsScreen() {
@@ -130,7 +130,7 @@ export default function AdminTripsScreen() {
               </View>
               <View style={s.tripBody}>
                 <Text style={s.tripName}>{t.rider_name || 'Pasajero'} {t.driver_name ? `→ ${t.driver_name}` : ''}</Text>
-                {t.pickup_location?.address && <Text style={s.tripAddr}><Ionicons name="location" size={12} color="#A855F7" /> {t.pickup_location.address}</Text>}
+                {t.pickup_location?.address && <Text style={s.tripAddr}><Ionicons name="location" size={12} color="#00C853" /> {t.pickup_location.address}</Text>}
                 {t.dropoff_location?.address && <Text style={s.tripAddr}><Ionicons name="flag" size={12} color="#EF4444" /> {t.dropoff_location.address}</Text>}
                 {t.notes ? <Text style={s.tripNotes}>{t.notes}</Text> : null}
                 <Text style={s.tripDate}>{t.created_at?.substring(0,16).replace('T',' ')}</Text>
@@ -255,7 +255,7 @@ const s = StyleSheet.create({
   statusText:{fontSize:12,fontWeight:'700'},
   manualBadge:{fontSize:10,fontWeight:'700',color:'#8E44AD',backgroundColor:'#F3E8FF',paddingHorizontal:8,paddingVertical:2,borderRadius:8,overflow:'hidden'},
   ticketeraBadge:{fontSize:10,fontWeight:'700',color:'#F59E0B',backgroundColor:'#FEF3C7',paddingHorizontal:8,paddingVertical:2,borderRadius:8,overflow:'hidden'},
-  fareText:{fontSize:16,fontWeight:'800',color:'#A855F7',marginLeft:'auto'},
+  fareText:{fontSize:16,fontWeight:'800',color:'#00C853',marginLeft:'auto'},
   tripBody:{padding:12},
   tripName:{fontSize:14,fontWeight:'600',color:'#1C1C1E'},
   tripAddr:{fontSize:12,color:'#666',marginTop:3},

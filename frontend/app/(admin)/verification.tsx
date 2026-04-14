@@ -114,7 +114,7 @@ export default function AdminVerificationScreen() {
     </TouchableOpacity>
   );
 
-  if (loading) return <SafeAreaView style={st.container}><ActivityIndicator size="large" color="#A855F7" style={{ marginTop: 40 }} /></SafeAreaView>;
+  if (loading) return <SafeAreaView style={st.container}><ActivityIndicator size="large" color="#00C853" style={{ marginTop: 40 }} /></SafeAreaView>;
 
   return (
     <SafeAreaView style={st.container}>
@@ -131,7 +131,7 @@ export default function AdminVerificationScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchDrivers(); }} />}
         ListEmptyComponent={
           <View style={st.empty}>
-            <Ionicons name="checkmark-circle" size={56} color="#A855F7" />
+            <Ionicons name="checkmark-circle" size={56} color="#00C853" />
             <Text style={st.emptyTitle}>¡Todo al día!</Text>
             <Text style={st.emptyText}>No hay documentos pendientes de verificación</Text>
           </View>
@@ -260,18 +260,18 @@ const st = StyleSheet.create({
   docCard: { backgroundColor: '#fff', borderRadius: 16, padding: 16, marginBottom: 12 },
   docHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
   statusDot: { width: 10, height: 10, borderRadius: 5 },
-  dotApproved: { backgroundColor: '#A855F7' },
+  dotApproved: { backgroundColor: '#00C853' },
   dotRejected: { backgroundColor: '#FF3B30' },
   dotPending: { backgroundColor: '#FF9500' },
   docLabel: { flex: 1, fontSize: 15, fontWeight: '700', color: '#1C1C1E' },
   statusText: { fontSize: 12, fontWeight: '700' },
-  statusApproved: { color: '#A855F7' },
+  statusApproved: { color: '#00C853' },
   statusRejected: { color: '#FF3B30' },
   statusPending: { color: '#FF9500' },
   docImage: { width: '100%', height: 200, borderRadius: 12, backgroundColor: '#F2F2F7' },
   rejectReasonText: { fontSize: 13, color: '#FF3B30', marginTop: 8, fontStyle: 'italic' },
   docActions: { flexDirection: 'row', gap: 10, marginTop: 12 },
-  approveBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: '#A855F7', borderRadius: 12, paddingVertical: 12 },
+  approveBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: '#00C853', borderRadius: 12, paddingVertical: 12 },
   approveBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
   rejectBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: '#FFF5F5', borderRadius: 12, paddingVertical: 12, borderWidth: 1, borderColor: '#FFE0E0' },
   rejectBtnText: { color: '#FF3B30', fontSize: 15, fontWeight: '700' },

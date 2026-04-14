@@ -8,6 +8,7 @@ import {
   ViewStyle,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { MOLI_COLORS, MOLI_RADIUS } from '@/src/theme/colors';
 
 interface InputProps {
   label?: string;
@@ -64,7 +65,7 @@ export function Input({
           <Ionicons
             name={leftIcon}
             size={20}
-            color={error ? '#FF3B30' : '#8E8E93'}
+            color={error ? MOLI_COLORS.error : isFocused ? MOLI_COLORS.primary : MOLI_COLORS.mediumGray}
             style={styles.leftIcon}
           />
         )}
@@ -75,7 +76,7 @@ export function Input({
             leftIcon && styles.inputWithLeftIcon,
           ]}
           placeholder={placeholder}
-          placeholderTextColor="#8E8E93"
+          placeholderTextColor={MOLI_COLORS.mediumGray}
           value={value}
           onChangeText={onChangeText}
           secureTextEntry={isSecure}
@@ -95,7 +96,7 @@ export function Input({
             <Ionicons
               name={showPassword ? 'eye-off' : 'eye'}
               size={20}
-              color="#8E8E93"
+              color={MOLI_COLORS.mediumGray}
             />
           </TouchableOpacity>
         )}
@@ -104,7 +105,7 @@ export function Input({
             onPress={onRightIconPress}
             style={styles.rightIcon}
           >
-            <Ionicons name={rightIcon} size={20} color="#8E8E93" />
+            <Ionicons name={rightIcon} size={20} color={MOLI_COLORS.mediumGray} />
           </TouchableOpacity>
         )}
       </View>
@@ -118,25 +119,27 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   label: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
-    color: '#1C1C1E',
-    marginBottom: 8,
+    color: MOLI_COLORS.gray,
+    marginBottom: 6,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F2F2F7',
-    borderRadius: 12,
-    borderWidth: 2,
+    backgroundColor: MOLI_COLORS.offWhite,
+    borderRadius: MOLI_RADIUS.md,
+    borderWidth: 1.5,
     borderColor: 'transparent',
   },
   inputContainerFocused: {
-    borderColor: '#007AFF',
-    backgroundColor: '#fff',
+    borderColor: MOLI_COLORS.primary,
+    backgroundColor: MOLI_COLORS.white,
   },
   inputContainerError: {
-    borderColor: '#FF3B30',
+    borderColor: MOLI_COLORS.error,
   },
   inputContainerDisabled: {
     opacity: 0.5,
@@ -144,7 +147,7 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     fontSize: 16,
-    color: '#1C1C1E',
+    color: MOLI_COLORS.darkGray,
     paddingVertical: 14,
     paddingHorizontal: 16,
   },
@@ -163,7 +166,8 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: 12,
-    color: '#FF3B30',
+    color: MOLI_COLORS.error,
     marginTop: 4,
+    fontWeight: '500',
   },
 });

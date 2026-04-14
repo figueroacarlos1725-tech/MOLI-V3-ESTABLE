@@ -144,7 +144,7 @@ export default function DriverDocumentsScreen() {
 
   const getStatusConfig = (status: string) => {
     switch (status) {
-      case 'approved': return { icon: 'checkmark-circle', color: '#A855F7', label: 'Aprobado', bg: '#F0FFF0' };
+      case 'approved': return { icon: 'checkmark-circle', color: '#00C853', label: 'Aprobado', bg: '#F0FFF0' };
       case 'rejected': return { icon: 'close-circle', color: '#FF3B30', label: 'Rechazado', bg: '#FFF5F5' };
       case 'pending': return { icon: 'time', color: '#FF9500', label: 'En revisión', bg: '#FFF8E6' };
       default: return { icon: 'cloud-upload-outline', color: '#8E8E93', label: 'Sin subir', bg: '#F2F2F7' };
@@ -152,7 +152,7 @@ export default function DriverDocumentsScreen() {
   };
 
   const overallConfig = {
-    approved: { icon: 'shield-checkmark', color: '#A855F7', text: '¡Verificado! Puedes aceptar viajes.' },
+    approved: { icon: 'shield-checkmark', color: '#00C853', text: '¡Verificado! Puedes aceptar viajes.' },
     pending: { icon: 'hourglass-outline', color: '#FF9500', text: 'Documentos en revisión. Te avisaremos pronto.' },
     rejected: { icon: 'alert-circle', color: '#FF3B30', text: 'Algunos documentos fueron rechazados. Vuelve a subirlos.' },
     incomplete: { icon: 'documents-outline', color: '#007AFF', text: 'Sube todos los documentos requeridos para poder aceptar viajes.' },
@@ -160,7 +160,7 @@ export default function DriverDocumentsScreen() {
 
   const overall = overallConfig[verificationStatus as keyof typeof overallConfig] || overallConfig.incomplete;
 
-  if (loading) return <SafeAreaView style={st.container}><ActivityIndicator size="large" color="#A855F7" style={{ marginTop: 40 }} /></SafeAreaView>;
+  if (loading) return <SafeAreaView style={st.container}><ActivityIndicator size="large" color="#00C853" style={{ marginTop: 40 }} /></SafeAreaView>;
 
   return (
     <SafeAreaView style={st.container}>
@@ -220,7 +220,7 @@ export default function DriverDocumentsScreen() {
                     )}
                   </TouchableOpacity>
                   <TouchableOpacity style={st.cameraBtn} onPress={() => handleCamera(doc.key)} disabled={isUploading}>
-                    <Ionicons name="camera-outline" size={18} color="#A855F7" /><Text style={st.cameraBtnText}>Cámara</Text>
+                    <Ionicons name="camera-outline" size={18} color="#00C853" /><Text style={st.cameraBtnText}>Cámara</Text>
                   </TouchableOpacity>
                 </View>
               )}
@@ -249,7 +249,7 @@ const st = StyleSheet.create({
   statusBannerText: { flex: 1, fontSize: 14, color: '#1C1C1E', fontWeight: '600', lineHeight: 20 },
   progressCard: { marginHorizontal: 16, marginTop: 12, backgroundColor: '#fff', borderRadius: 14, padding: 16 },
   progressBar: { height: 8, borderRadius: 4, backgroundColor: '#E5E5EA' },
-  progressFill: { height: 8, borderRadius: 4, backgroundColor: '#A855F7' },
+  progressFill: { height: 8, borderRadius: 4, backgroundColor: '#00C853' },
   progressText: { fontSize: 13, color: '#8E8E93', marginTop: 8, fontWeight: '600', textAlign: 'center' },
   docCard: { marginHorizontal: 16, marginTop: 12, backgroundColor: '#fff', borderRadius: 16, padding: 16 },
   docTop: { flexDirection: 'row', marginBottom: 8 },
@@ -260,10 +260,10 @@ const st = StyleSheet.create({
   rejectBox: { flexDirection: 'row', alignItems: 'flex-start', gap: 6, backgroundColor: '#FFF5F5', padding: 10, borderRadius: 10, marginTop: 10 },
   rejectText: { flex: 1, fontSize: 13, color: '#FF3B30', fontWeight: '500' },
   uploadActions: { flexDirection: 'row', gap: 10, marginTop: 14 },
-  uploadBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: '#A855F7', borderRadius: 12, paddingVertical: 14 },
+  uploadBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: '#00C853', borderRadius: 12, paddingVertical: 14 },
   uploadBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
   cameraBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: '#F2F2F7', borderRadius: 12, paddingVertical: 14 },
-  cameraBtnText: { color: '#A855F7', fontSize: 15, fontWeight: '700' },
+  cameraBtnText: { color: '#00C853', fontSize: 15, fontWeight: '700' },
   pendingHint: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 10 },
   pendingHintText: { fontSize: 13, color: '#FF9500', fontWeight: '500' },
 });

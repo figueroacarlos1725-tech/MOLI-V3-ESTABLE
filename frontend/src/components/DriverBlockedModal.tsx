@@ -78,7 +78,7 @@ export default function DriverBlockedModal({
             </TouchableOpacity>
 
             <TouchableOpacity style={st.btnSecondary} onPress={onChatSupport}>
-              <Ionicons name="chatbubbles-outline" size={20} color="#A855F7" />
+              <Ionicons name="chatbubbles-outline" size={20} color="#00C853" />
               <Text style={st.btnSecondaryText}>Chat con soporte</Text>
             </TouchableOpacity>
           </View>
@@ -176,7 +176,7 @@ const st = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: '#A855F7',
+    backgroundColor: '#00C853',
     borderRadius: 14,
     paddingVertical: 16,
   },
@@ -197,6 +197,6 @@ const st = StyleSheet.create({
   btnSecondaryText: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#A855F7',
+    color: '#00C853',
   },
 });

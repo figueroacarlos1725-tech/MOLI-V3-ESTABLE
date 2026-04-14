@@ -46,7 +46,7 @@ export default function SideMenu({ visible, onClose, role }: SideMenuProps) {
     { icon: 'wallet', label: 'Billetera', route: '/(driver)/earnings' },
     { icon: 'document-text', label: 'Mis Documentos', route: '/(driver)/documents' },
     { icon: 'speedometer', label: 'Taxímetro', route: '/(driver)/taximeter' },
-    { icon: 'school-outline', label: 'Cómo usar la app', color: '#A855F7', onPress: async () => { 
+    { icon: 'school-outline', label: 'Cómo usar la app', color: '#00C853', onPress: async () => { 
       const AsyncStorage = (await import('@react-native-async-storage/async-storage')).default;
       await AsyncStorage.removeItem('tutorial_completed'); 
       onClose(); 
