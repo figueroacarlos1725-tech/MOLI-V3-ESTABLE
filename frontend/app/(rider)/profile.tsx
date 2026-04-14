@@ -153,18 +153,6 @@ export default function RiderProfileScreen() {
               />
             </View>
             <View style={styles.settingDivider} />
-            <View style={styles.settingItem}>
-              <View style={styles.settingLeft}>
-                <Ionicons name="moon-outline" size={22} color="#007AFF" />
-                <Text style={styles.settingText}>Modo oscuro</Text>
-              </View>
-              <Switch
-                value={darkMode}
-                onValueChange={setDarkMode}
-                trackColor={{ false: '#E5E5EA', true: '#34C759' }}
-                thumbColor="#fff"
-              />
-            </View>
           </View>
         </View>
 

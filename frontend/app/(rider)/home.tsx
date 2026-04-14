@@ -75,6 +75,8 @@ export default function RiderHomeScreen() {
   const [driverFound, setDriverFound] = useState(false);
   const [showContinuePrompt, setShowContinuePrompt] = useState(false);
   const [rideRating, setRideRating] = useState(0);
+  const [firstRideDiscount, setFirstRideDiscount] = useState(0);
+  const [addressHistory, setAddressHistory] = useState<any[]>([]);
 
   // Banners
   const [banners, setBanners] = useState<any[]>([]);
@@ -123,6 +125,14 @@ export default function RiderHomeScreen() {
     fetchBanners();
     // Load cancellation config
     apiService.get('/cancellation/config').then(setCancelConfig).catch(() => {});
+    // Load first ride discount
+    apiService.get('/promotions/first-ride').then((r) => {
+      if (r.eligible && r.discount_percent > 0) setFirstRideDiscount(r.discount_percent);
+    }).catch(() => {});
+    // Load address history
+    apiService.get('/places/history').then((r) => {
+      if (r.history) setAddressHistory(r.history);
+    }).catch(() => {});
   }, []);
 
   // Detect active ride → switch phase
@@ -491,8 +501,8 @@ export default function RiderHomeScreen() {
     return m;
   }, [pickupLocation?.latitude, pickupLocation?.longitude, dropoffLocation?.latitude, dropoffLocation?.longitude, currentRide?.driver_location?.latitude, phase]);
 
-  const emojiMap: Record<string, string> = { economy: '🚗', comfort: '🚙', premium: '🏎️', xl: '🚌' };
-  const nameMap: Record<string, string> = { economy: 'Económico', comfort: 'Confort', premium: 'Premium', xl: 'XL' };
+  const emojiMap: Record<string, string> = { economy: '🚗', moto: '🏍️', comfort: '🚙', premium: '🏎️', xl: '🚌' };
+  const nameMap: Record<string, string> = { economy: 'Auto', moto: 'Moto', comfort: 'Confort', premium: 'Premium', xl: 'XL' };
   const selectedFare = fareEstimates.find((e: any) => e.vehicle_type === selectedVehicle);
 
   const handleFinishRide = () => {
@@ -731,6 +741,29 @@ export default function RiderHomeScreen() {
             </TouchableOpacity>
           </TouchableOpacity>
 
+          {/* Recent addresses */}
+          {addressHistory.length > 0 && (
+            <View style={{ marginTop: 12 }}>
+              <Text style={{ fontSize: 12, fontWeight: '600', color: '#8E8E93', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 }}>Recientes</Text>
+              {addressHistory.slice(0, 3).map((h, i) => (
+                <TouchableOpacity
+                  key={i}
+                  style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 10, borderTopWidth: i > 0 ? 1 : 0, borderTopColor: '#F0F0F0', gap: 10 }}
+                  onPress={() => {
+                    if (h.location) {
+                      setDropoffLocation({ latitude: h.location.latitude, longitude: h.location.longitude });
+                      setDropoffAddress(h.address);
+                      setPhase('confirm');
+                    }
+                  }}
+                >
+                  <Ionicons name={h.type === 'saved' ? 'bookmark' : 'time-outline'} size={18} color={h.type === 'saved' ? '#00C853' : '#8E8E93'} />
+                  <Text style={{ flex: 1, fontSize: 14, color: '#1C1C1E' }} numberOfLines={1}>{h.address || 'Dirección'}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+
           {/* Moli+ Banner - Hidden for now */}
         </View>
       )}
@@ -808,7 +841,8 @@ export default function RiderHomeScreen() {
           {/* Vehicle list */}
           <ScrollView style={s.vehicleList} showsVerticalScrollIndicator={false}>
             {(fareEstimates.length > 0 ? fareEstimates : [
-              { vehicle_type: 'economy', display_name: 'Económico', estimated_fare: 0 },
+              { vehicle_type: 'economy', display_name: 'Auto', estimated_fare: 0 },
+              { vehicle_type: 'moto', display_name: 'Moto', estimated_fare: 0 },
               { vehicle_type: 'comfort', display_name: 'Confort', estimated_fare: 0 },
               { vehicle_type: 'premium', display_name: 'Premium', estimated_fare: 0 },
               { vehicle_type: 'xl', display_name: 'XL', estimated_fare: 0 },
@@ -839,6 +873,16 @@ export default function RiderHomeScreen() {
             <Ionicons name="chevron-forward" size={16} color="#8E8E93" />
           </View>
 
+          {/* First ride discount banner */}
+          {firstRideDiscount > 0 && selectedFare && (
+            <View style={{ backgroundColor: '#E8F5E9', borderRadius: 10, padding: 10, marginBottom: 8, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <Ionicons name="gift" size={20} color="#00C853" />
+              <Text style={{ flex: 1, fontSize: 13, color: '#2E7D32', fontWeight: '600' }}>
+                ¡{firstRideDiscount}% de descuento en tu primer viaje! Ahorrás ${Math.round(selectedFare.estimated_fare * firstRideDiscount / 100).toLocaleString()}
+              </Text>
+            </View>
+          )}
+
           {/* Confirm button */}
           <TouchableOpacity
             style={[s.confirmBtn, isLoading && { opacity: 0.6 }]}
@@ -849,7 +893,11 @@ export default function RiderHomeScreen() {
               <ActivityIndicator color="#fff" />
             ) : (
               <Text style={s.confirmBtnText}>
-                Confirmar {nameMap[selectedVehicle]}{selectedFare ? ` · $${Math.round(selectedFare.estimated_fare).toLocaleString()}` : ''}
+                Confirmar {nameMap[selectedVehicle]}{selectedFare ? ` · $${Math.round(
+                  firstRideDiscount > 0
+                    ? selectedFare.estimated_fare * (1 - firstRideDiscount / 100)
+                    : selectedFare.estimated_fare
+                ).toLocaleString()}` : ''}
               </Text>
             )}
           </TouchableOpacity>

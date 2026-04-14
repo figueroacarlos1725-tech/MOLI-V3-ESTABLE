@@ -92,7 +92,7 @@ export default function DispatchersScreen() {
       </View>
 
       <ScrollView style={s.body}>
-        {loading ? <ActivityIndicator size="large" color="#7B2D8E" style={{ marginTop: 40 }} /> : (
+        {loading ? <ActivityIndicator size="large" color="#00C853" style={{ marginTop: 40 }} /> : (
           dispatchers.length === 0 ? (
             <View style={s.empty}>
               <Ionicons name="people-outline" size={48} color="#636366" />
@@ -106,7 +106,7 @@ export default function DispatchersScreen() {
               return (
                 <TouchableOpacity key={d.user_id} style={s.dispCard} onPress={() => openPerms(d)}>
                   <View style={s.dispAvatar}>
-                    <Ionicons name="headset" size={24} color="#7B2D8E" />
+                    <Ionicons name="headset" size={24} color="#00C853" />
                   </View>
                   <View style={{ flex: 1 }}>
                     <Text style={s.dispName}>{d.name || d.email}</Text>
@@ -136,7 +136,7 @@ export default function DispatchersScreen() {
             <TextInput style={s.input} value={newDisp.password} onChangeText={t => setNewDisp(p => ({ ...p, password: t }))} placeholder="••••••" placeholderTextColor="#555" secureTextEntry />
             <View style={{ flexDirection: 'row', gap: 8, marginTop: 16 }}>
               <TouchableOpacity style={[s.modalBtn, { backgroundColor: '#333' }]} onPress={() => setShowCreate(false)}><Text style={s.modalBtnText}>Cancelar</Text></TouchableOpacity>
-              <TouchableOpacity style={[s.modalBtn, { backgroundColor: '#7B2D8E' }]} onPress={handleCreate} disabled={saving}>{saving ? <ActivityIndicator color="#fff" size="small" /> : <Text style={s.modalBtnText}>Crear</Text>}</TouchableOpacity>
+              <TouchableOpacity style={[s.modalBtn, { backgroundColor: '#00C853' }]} onPress={handleCreate} disabled={saving}>{saving ? <ActivityIndicator color="#fff" size="small" /> : <Text style={s.modalBtnText}>Crear</Text>}</TouchableOpacity>
             </View>
           </View>
         </View>
@@ -156,12 +156,12 @@ export default function DispatchersScreen() {
                   <Text style={s.permCatTitle}>{cat}</Text>
                   {PERMISSIONS.filter(p => p.category === cat).map(perm => (
                     <View key={perm.key} style={s.permRow}>
-                      <Ionicons name={perm.icon as any} size={18} color={editPerms[perm.key] ? '#7B2D8E' : '#555'} />
+                      <Ionicons name={perm.icon as any} size={18} color={editPerms[perm.key] ? '#00C853' : '#555'} />
                       <Text style={[s.permLabel, editPerms[perm.key] && { color: '#fff' }]}>{perm.label}</Text>
                       <Switch
                         value={editPerms[perm.key] || false}
                         onValueChange={(v) => setEditPerms(p => ({ ...p, [perm.key]: v }))}
-                        trackColor={{ false: '#333', true: '#7B2D8E' }}
+                        trackColor={{ false: '#333', true: '#00C853' }}
                         thumbColor={editPerms[perm.key] ? '#00C853' : '#666'}
                       />
                     </View>
@@ -169,7 +169,7 @@ export default function DispatchersScreen() {
                 </View>
               ))}
             </ScrollView>
-            <TouchableOpacity style={[s.modalBtn, { backgroundColor: '#7B2D8E', marginTop: 12 }]} onPress={handleSavePerms} disabled={saving}>
+            <TouchableOpacity style={[s.modalBtn, { backgroundColor: '#00C853', marginTop: 12 }]} onPress={handleSavePerms} disabled={saving}>
               {saving ? <ActivityIndicator color="#fff" size="small" /> : <Text style={s.modalBtnText}>Guardar permisos</Text>}
             </TouchableOpacity>
           </View>
@@ -184,7 +184,7 @@ const s = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#1A1D23', paddingHorizontal: 16, paddingVertical: 12, gap: 12, borderBottomWidth: 1, borderBottomColor: '#2A2F38' },
   backBtn: { width: 36, height: 36, borderRadius: 10, backgroundColor: '#2A2F38', justifyContent: 'center', alignItems: 'center' },
   headerTitle: { flex: 1, fontSize: 18, fontWeight: '800', color: '#E5E5EA' },
-  addBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#7B2D8E', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8 },
+  addBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#00C853', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8 },
   addBtnText: { color: '#fff', fontSize: 13, fontWeight: '700' },
   body: { flex: 1, padding: 16 },
   empty: { alignItems: 'center', paddingTop: 60, gap: 8 },
@@ -194,7 +194,7 @@ const s = StyleSheet.create({
   dispAvatar: { width: 48, height: 48, borderRadius: 14, backgroundColor: 'rgba(123,45,142,0.15)', justifyContent: 'center', alignItems: 'center' },
   dispName: { fontSize: 15, fontWeight: '700', color: '#E5E5EA' },
   dispEmail: { fontSize: 12, color: '#8E8E93' },
-  dispPermsCount: { fontSize: 11, color: '#7B2D8E', fontWeight: '600', marginTop: 2 },
+  dispPermsCount: { fontSize: 11, color: '#00C853', fontWeight: '600', marginTop: 2 },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center', padding: 16 },
   modalContent: { backgroundColor: '#1A1D23', borderRadius: 16, width: '100%', maxWidth: 420, padding: 20, borderWidth: 1, borderColor: '#2A2F38' },
   modalTitle: { fontSize: 18, fontWeight: '800', color: '#E5E5EA', marginBottom: 8 },
@@ -203,7 +203,7 @@ const s = StyleSheet.create({
   modalBtn: { flex: 1, alignItems: 'center', paddingVertical: 12, borderRadius: 8 },
   modalBtnText: { color: '#fff', fontSize: 14, fontWeight: '700' },
   permCategory: { marginBottom: 16 },
-  permCatTitle: { fontSize: 12, fontWeight: '800', color: '#7B2D8E', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 },
+  permCatTitle: { fontSize: 12, fontWeight: '800', color: '#00C853', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 },
   permRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#2A2F38' },
   permLabel: { flex: 1, fontSize: 14, color: '#8E8E93', fontWeight: '500' },
 });

@@ -43,6 +43,7 @@ export default function SideMenu({ visible, onClose, role }: SideMenuProps) {
     { icon: 'home', label: 'Inicio', route: '/(driver)/home' },
     { icon: 'list', label: 'Solicitudes', route: '/(driver)/rides' },
     { icon: 'wallet', label: 'Billetera', route: '/(driver)/earnings' },
+    { icon: 'mail', label: 'Bandeja de entrada', route: '/(driver)/inbox' },
     { icon: 'document-text', label: 'Mis Documentos', route: '/(driver)/documents' },
     { icon: 'speedometer', label: 'Taxímetro', route: '/(driver)/taximeter' },
     { icon: 'person', label: 'Mi Perfil', route: '/(driver)/profile' },

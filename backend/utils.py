@@ -166,13 +166,15 @@ async def get_nearby_drivers(lat: float, lng: float, radius_km: float = 50, vehi
 
 DEFAULT_FARES = {
     "economy": {"base_fare": 500, "per_km": 150, "per_min": 50, "min_fare": 800, "multiplier": 1.0},
+    "moto": {"base_fare": 350, "per_km": 120, "per_min": 30, "min_fare": 500, "multiplier": 0.8},
     "comfort": {"base_fare": 700, "per_km": 200, "per_min": 70, "min_fare": 1200, "multiplier": 1.3},
     "premium": {"base_fare": 1000, "per_km": 300, "per_min": 100, "min_fare": 1800, "multiplier": 1.8},
     "xl": {"base_fare": 800, "per_km": 250, "per_min": 80, "min_fare": 1500, "multiplier": 1.5},
 }
 
 DISPLAY_NAMES = {
-    "economy": "Económico",
+    "economy": "Auto",
+    "moto": "Moto",
     "comfort": "Confort",
     "premium": "Premium",
     "xl": "XL",
