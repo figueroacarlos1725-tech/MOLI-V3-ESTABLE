@@ -8,6 +8,7 @@ import {
   ScrollView,
   ActivityIndicator,
   RefreshControl,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -128,13 +129,17 @@ export default function DriverEarningsScreen() {
           
           <View style={st.balanceActions}>
             {isNegative && (
-              <TouchableOpacity style={st.rechargeBtn}>
+              <TouchableOpacity style={st.rechargeBtn} onPress={() => {
+                Alert.alert('Pagar deuda', 'Por el momento podés regularizar tu deuda realizando viajes con tarjeta. Próximamente más opciones de pago.');
+              }}>
                 <Ionicons name="card-outline" size={18} color="#fff" />
                 <Text style={st.rechargeBtnText}>Pagar deuda</Text>
               </TouchableOpacity>
             )}
             {!isNegative && balance > 0 && (
-              <TouchableOpacity style={st.withdrawBtn}>
+              <TouchableOpacity style={st.withdrawBtn} onPress={() => {
+                Alert.alert('Retirar fondos', 'Próximamente podrás retirar tus ganancias. Contactá a soporte para más info.');
+              }}>
                 <Ionicons name="arrow-up-circle-outline" size={18} color="#00C853" />
                 <Text style={st.withdrawBtnText}>Retirar</Text>
               </TouchableOpacity>

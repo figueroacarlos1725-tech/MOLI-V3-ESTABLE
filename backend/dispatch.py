@@ -17,7 +17,7 @@ assignment_tasks: Dict[str, asyncio.Task] = {}  # request_id -> Task
 
 # Default dispatch settings (overridden by DB config)
 DEFAULT_ACCEPT_SECONDS = 8
-DEFAULT_MAX_BEFORE_ASK = 10
+DEFAULT_MAX_BEFORE_ASK = 15
 
 
 async def get_dispatch_config():

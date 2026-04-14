@@ -27,7 +27,7 @@ PRIVACY_POLICY_HTML = """<!DOCTYPE html>
 </head>
 <body>
 <h1>Política de Privacidad de Moli (Movete Libre)</h1>
-<p class="updated">Última actualización: Junio 2025</p>
+<p class="updated">Última actualización: Junio 2026</p>
 
 <h2>1. Información que recopilamos</h2>
 <p>Moli recopila los siguientes datos personales para brindar el servicio de transporte:</p>
@@ -108,7 +108,7 @@ TERMS_HTML = """<!DOCTYPE html>
 </head>
 <body>
 <h1>Términos y Condiciones de Uso - Moli</h1>
-<p class="updated">Última actualización: Junio 2025</p>
+<p class="updated">Última actualización: Junio 2026</p>
 
 <h2>1. Descripción del servicio</h2>
 <p>Moli (Movete Libre) es una plataforma tecnológica que actúa como <strong>intermediario</strong> entre pasajeros que necesitan transporte y conductores independientes que ofrecen el servicio de traslado. Moli <strong>no es una empresa de transporte</strong>; facilita la conexión entre ambas partes a través de la aplicación móvil.</p>

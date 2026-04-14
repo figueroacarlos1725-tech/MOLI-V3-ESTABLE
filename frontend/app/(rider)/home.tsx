@@ -240,6 +240,14 @@ export default function RiderHomeScreen() {
   useEffect(() => {
     if (phase !== 'searching') return;
     
+    // Fallback timer: if after 60 seconds no WebSocket alert, show prompt
+    const fallbackTimer = setTimeout(() => {
+      if (!driverFound && !showContinuePrompt) {
+        setShowContinuePrompt(true);
+        setDispatchMsg('Está tardando más de lo normal...');
+      }
+    }, 60000);
+    
     const pollInterval = setInterval(async () => {
       try {
         const ride = await fetchActiveRide();
@@ -260,7 +268,7 @@ export default function RiderHomeScreen() {
       }
     }, 3000);
 
-    return () => clearInterval(pollInterval);
+    return () => { clearInterval(pollInterval); clearTimeout(fallbackTimer); };
   }, [phase]);
 
   // ─── Search debounce ──────────────────────
@@ -583,7 +591,6 @@ export default function RiderHomeScreen() {
               <TouchableOpacity style={s.iconBtn} onPress={() => router.push({ pathname: '/chat', params: { rideId: currentRide.ride_id, otherName: currentRide.driver_info?.name || 'Conductor' } })}>
                 <Ionicons name="chatbubble-ellipses" size={22} color="#00C853" />
               </TouchableOpacity>
-              <TouchableOpacity style={s.iconBtn}><Ionicons name="call" size={22} color="#34C759" /></TouchableOpacity>
             </View>
           )}
           {currentRide.vehicle_info && (
