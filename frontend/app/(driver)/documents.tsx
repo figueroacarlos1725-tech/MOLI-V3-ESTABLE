@@ -68,20 +68,24 @@ export default function DriverDocumentsScreen() {
       setUploading(docKey);
       const imageUri = result.assets[0].uri;
       const token = await AsyncStorage.getItem('auth_token');
-      const backendUrl = Constants.expoConfig?.extra?.EXPO_BACKEND_URL || process.env.EXPO_PUBLIC_API_URL || '';
+      const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || '';
 
       const formData = new FormData();
-      formData.append('file', {
-        uri: imageUri,
-        type: 'image/jpeg',
-        name: `${docKey}.jpg`,
-      } as any);
+      if (typeof window !== 'undefined' && (imageUri.startsWith('blob:') || imageUri.startsWith('data:'))) {
+        const resp = await fetch(imageUri);
+        const blob = await resp.blob();
+        formData.append('file', blob, `${docKey}.jpg`);
+      } else {
+        formData.append('file', {
+          uri: imageUri,
+          type: 'image/jpeg',
+          name: `${docKey}.jpg`,
+        } as any);
+      }
 
       const response = await fetch(`${backendUrl}/api/driver/documents/upload?doc_type=${docKey}`, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
+        headers: { 'Authorization': `Bearer ${token}` },
         body: formData,
       });
 

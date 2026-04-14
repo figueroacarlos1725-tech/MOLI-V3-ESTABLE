@@ -22,6 +22,7 @@ const SIDEBAR_ITEMS = [
   { name: 'settings', title: 'Ajustes', icon: 'settings' },
   { name: 'support', title: 'Soporte', icon: 'chatbubbles' },
   { name: 'verification', title: 'Verificación', icon: 'shield-checkmark' },
+  { name: 'messages', title: 'Mensajes', icon: 'mail' },
 ];
 
 function AdminSidebar() {

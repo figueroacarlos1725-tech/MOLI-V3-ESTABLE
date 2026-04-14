@@ -177,35 +177,18 @@ export default function RiderProfileScreen() {
 
         {/* Botón de cerrar sesión */}
         <View style={styles.logoutSection}>
-          {showLogoutConfirm ? (
-            <View style={{ gap: 10 }}>
-              <Text style={{ textAlign: 'center', fontSize: 15, color: '#EF4444', fontWeight: '600' }}>
-                ¿Seguro que quieres cerrar sesión?
-              </Text>
-              <View style={{ flexDirection: 'row', gap: 10 }}>
-                <TouchableOpacity
-                  style={{ flex: 1, backgroundColor: '#E5E5EA', paddingVertical: 14, borderRadius: 12, alignItems: 'center' }}
-                  onPress={() => setShowLogoutConfirm(false)}
-                >
-                  <Text style={{ fontWeight: '600', color: '#666', fontSize: 15 }}>Cancelar</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={{ flex: 1, backgroundColor: '#EF4444', paddingVertical: 14, borderRadius: 12, alignItems: 'center' }}
-                  onPress={doLogout}
-                >
-                  <Text style={{ fontWeight: '700', color: '#fff', fontSize: 15 }}>Sí, salir</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          ) : (
-            <TouchableOpacity
-              style={{ backgroundColor: '#EF4444', paddingVertical: 14, borderRadius: 12, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8 }}
-              onPress={() => setShowLogoutConfirm(true)}
-            >
-              <Ionicons name="log-out-outline" size={20} color="#fff" />
-              <Text style={{ fontWeight: '700', color: '#fff', fontSize: 15 }}>Cerrar sesión</Text>
-            </TouchableOpacity>
-          )}
+          <TouchableOpacity
+            style={{ backgroundColor: '#EF4444', paddingVertical: 14, borderRadius: 12, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8 }}
+            onPress={() => {
+              Alert.alert('Cerrar sesión', '¿Seguro que querés cerrar sesión?', [
+                { text: 'Cancelar', style: 'cancel' },
+                { text: 'Sí, salir', style: 'destructive', onPress: doLogout },
+              ]);
+            }}
+          >
+            <Ionicons name="log-out-outline" size={20} color="#fff" />
+            <Text style={{ fontWeight: '700', color: '#fff', fontSize: 15 }}>Cerrar sesión</Text>
+          </TouchableOpacity>
         </View>
 
         {/* Versión */}
