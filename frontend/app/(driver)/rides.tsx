@@ -9,10 +9,12 @@ import {
   RefreshControl,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { useRideStore, Ride } from '@/src/stores/rideStore';
 import { format } from 'date-fns';
 
 export default function DriverRidesScreen() {
+  const router = useRouter();
   const { rideHistory, fetchRideHistory } = useRideStore();
   const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState<'all' | 'completed' | 'cancelled'>('all');
@@ -106,6 +108,9 @@ export default function DriverRidesScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()} style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: '#F2F2F7', justifyContent: 'center', alignItems: 'center', marginRight: 12 }}>
+          <Ionicons name="arrow-back" size={22} color="#1C1C1E" />
+        </TouchableOpacity>
         <Text style={styles.title}>Historial de viajes</Text>
       </View>
 
@@ -145,7 +150,7 @@ export default function DriverRidesScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F2F2F7' },
-  header: { backgroundColor: '#fff', paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#E5E5EA' },
+  header: { backgroundColor: '#fff', paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#E5E5EA', flexDirection: 'row', alignItems: 'center' },
   title: { fontSize: 28, fontWeight: 'bold', color: '#1C1C1E' },
   filterContainer: { flexDirection: 'row', padding: 16, gap: 8 },
   filterButton: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: '#fff' },

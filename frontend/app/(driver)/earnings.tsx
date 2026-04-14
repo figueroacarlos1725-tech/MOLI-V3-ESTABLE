@@ -10,6 +10,7 @@ import {
   RefreshControl,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { apiService } from '@/src/services/api';
 
 interface EarningsData {
@@ -37,6 +38,7 @@ interface WalletTxn {
 }
 
 export default function DriverEarningsScreen() {
+  const router = useRouter();
   const [selectedPeriod, setSelectedPeriod] = useState<'today' | 'week' | 'month' | 'all'>('today');
   const [earnings, setEarnings] = useState<EarningsData | null>(null);
   const [walletStatus, setWalletStatus] = useState<WalletStatus | null>(null);
@@ -103,7 +105,7 @@ export default function DriverEarningsScreen() {
   return (
     <SafeAreaView style={st.container}>
       <View style={st.header}>
-        <Text style={st.title}>Billetera</Text>
+        <TouchableOpacity onPress={() => router.back()} style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: '#F2F2F7', justifyContent: 'center', alignItems: 'center', marginRight: 12 }}><Ionicons name="arrow-back" size={22} color="#1C1C1E" /></TouchableOpacity><Text style={st.title}>Billetera</Text>
       </View>
 
       <ScrollView
@@ -264,7 +266,7 @@ export default function DriverEarningsScreen() {
 
 const st = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F2F2F7' },
-  header: { backgroundColor: '#fff', paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#E5E5EA' },
+  header: { backgroundColor: '#fff', paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#E5E5EA', flexDirection: 'row', alignItems: 'center' },
   title: { fontSize: 28, fontWeight: '800', color: '#1C1C1E' },
   
   // Balance card

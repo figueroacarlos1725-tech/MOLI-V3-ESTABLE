@@ -11,6 +11,7 @@ import {
   TextInput,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { useAuthStore } from '@/src/stores/authStore';
 import { apiService } from '@/src/services/api';
 import { Button } from '@/src/components/Button';
@@ -27,6 +28,7 @@ interface Transaction {
 }
 
 export default function RiderWalletScreen() {
+  const router = useRouter();
   const { user } = useAuthStore();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [showAddFundsModal, setShowAddFundsModal] = useState(false);
@@ -154,6 +156,9 @@ export default function RiderWalletScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()} style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: '#F2F2F7', justifyContent: 'center', alignItems: 'center', marginRight: 12 }}>
+          <Ionicons name="arrow-back" size={22} color="#1C1C1E" />
+        </TouchableOpacity>
         <Text style={styles.title}>Billetera</Text>
       </View>
 
@@ -269,7 +274,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F2F2F7',
   },
-  header: {
+  header: { flexDirection: 'row', alignItems: 'center',
     backgroundColor: '#fff',
     paddingHorizontal: 20,
     paddingVertical: 16,

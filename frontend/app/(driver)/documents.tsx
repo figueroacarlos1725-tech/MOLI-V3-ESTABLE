@@ -12,6 +12,7 @@ import {
   Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { apiService } from '@/src/services/api';
 import Constants from 'expo-constants';
@@ -28,6 +29,7 @@ interface DocItem {
 }
 
 export default function DriverDocumentsScreen() {
+  const router = useRouter();
   const [documents, setDocuments] = useState<DocItem[]>([]);
   const [verificationStatus, setVerificationStatus] = useState('');
   const [isVerified, setIsVerified] = useState(false);
@@ -165,6 +167,9 @@ export default function DriverDocumentsScreen() {
   return (
     <SafeAreaView style={st.container}>
       <View style={st.header}>
+        <TouchableOpacity onPress={() => router.back()} style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: '#F2F2F7', justifyContent: 'center', alignItems: 'center', marginRight: 12 }}>
+          <Ionicons name="arrow-back" size={22} color="#1C1C1E" />
+        </TouchableOpacity>
         <Text style={st.title}>Mis Documentos</Text>
       </View>
 
@@ -243,7 +248,7 @@ export default function DriverDocumentsScreen() {
 
 const st = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F2F2F7' },
-  header: { backgroundColor: '#fff', paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#E5E5EA' },
+  header: { backgroundColor: '#fff', paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#E5E5EA', flexDirection: 'row', alignItems: 'center' },
   title: { fontSize: 24, fontWeight: '800', color: '#1C1C1E' },
   statusBanner: { marginHorizontal: 16, marginTop: 16, backgroundColor: '#fff', borderRadius: 14, padding: 16, flexDirection: 'row', alignItems: 'center', gap: 12, borderLeftWidth: 4 },
   statusBannerText: { flex: 1, fontSize: 14, color: '#1C1C1E', fontWeight: '600', lineHeight: 20 },

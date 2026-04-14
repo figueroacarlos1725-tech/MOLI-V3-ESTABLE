@@ -113,6 +113,9 @@ export default function DriverProfileScreen() {
     <SafeAreaView style={styles.container}>
       <ScrollView showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
+          <TouchableOpacity onPress={() => router.back()} style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: '#F2F2F7', justifyContent: 'center', alignItems: 'center', marginRight: 12 }}>
+            <Ionicons name="arrow-back" size={22} color="#1C1C1E" />
+          </TouchableOpacity>
           <Text style={styles.title}>Perfil</Text>
         </View>
 
@@ -366,7 +369,7 @@ export default function DriverProfileScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F2F2F7' },
-  header: { backgroundColor: '#fff', paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#E5E5EA' },
+  header: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#E5E5EA' },
   title: { fontSize: 28, fontWeight: 'bold', color: '#1C1C1E' },
   profileCard: { backgroundColor: '#fff', margin: 16, borderRadius: 20, padding: 24, alignItems: 'center' },
   avatarContainer: { position: 'relative', marginBottom: 16 },

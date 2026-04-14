@@ -9,11 +9,13 @@ import {
   RefreshControl,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { useRideStore, Ride } from '@/src/stores/rideStore';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 
 export default function RiderRidesScreen() {
+  const router = useRouter();
   const { rideHistory, fetchRideHistory } = useRideStore();
   const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState<'all' | 'completed' | 'cancelled'>('all');
@@ -112,6 +114,9 @@ export default function RiderRidesScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()} style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: '#F2F2F7', justifyContent: 'center', alignItems: 'center', marginRight: 12 }}>
+          <Ionicons name="arrow-back" size={22} color="#1C1C1E" />
+        </TouchableOpacity>
         <Text style={styles.title}>Mis Viajes</Text>
       </View>
 
@@ -154,7 +159,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F2F2F7',
   },
-  header: {
+  header: { flexDirection: 'row', alignItems: 'center',
     backgroundColor: '#fff',
     paddingHorizontal: 20,
     paddingVertical: 16,
