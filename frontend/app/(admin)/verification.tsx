@@ -156,47 +156,107 @@ export default function AdminVerificationScreen() {
           </View>
 
           <ScrollView contentContainerStyle={{ padding: 16 }}>
-            {driverDocs.map((doc) => {
-              const label = DOC_LABELS[doc.doc_type] || doc.doc_type;
-              const isApproved = doc.status === 'approved';
-              const isRejected = doc.status === 'rejected';
-              const isPending = doc.status === 'pending';
-
+            {/* Show ALL required docs, mark as uploaded or not */}
+            {(() => {
+              const REQUIRED_DOCS = [
+                { key: 'profile_photo', label: 'Foto de perfil' },
+                { key: 'dni_front', label: 'DNI Frente' },
+                { key: 'dni_back', label: 'DNI Dorso' },
+                { key: 'license_front', label: 'Licencia Frente' },
+                { key: 'license_back', label: 'Licencia Dorso' },
+                { key: 'insurance_front', label: 'Seguro Frente' },
+                { key: 'insurance_back', label: 'Seguro Dorso' },
+                { key: 'vehicle_front', label: 'Vehículo Frente' },
+                { key: 'vehicle_side', label: 'Vehículo Costado' },
+                { key: 'background_check', label: 'Antecedentes penales' },
+              ];
+              const uploadedCount = driverDocs.length;
               return (
-                <View key={doc.doc_type} style={st.docCard}>
-                  <View style={st.docHeader}>
-                    <View style={[st.statusDot, isApproved ? st.dotApproved : isRejected ? st.dotRejected : st.dotPending]} />
-                    <Text style={st.docLabel}>{label}</Text>
-                    <Text style={[st.statusText, isApproved ? st.statusApproved : isRejected ? st.statusRejected : st.statusPending]}>
-                      {isApproved ? 'Aprobado' : isRejected ? 'Rechazado' : 'Pendiente'}
-                    </Text>
+                <>
+                  <View style={{ backgroundColor: '#F8F8FA', borderRadius: 14, padding: 14, marginBottom: 16, flexDirection: 'row', justifyContent: 'space-between' }}>
+                    <Text style={{ fontSize: 14, fontWeight: '600', color: '#1C1C1E' }}>Documentos subidos</Text>
+                    <Text style={{ fontSize: 14, fontWeight: '800', color: uploadedCount >= 5 ? '#00C853' : '#FF9500' }}>{uploadedCount} / {REQUIRED_DOCS.length}</Text>
                   </View>
+                  {REQUIRED_DOCS.map(req => {
+                    const doc = driverDocs.find(d => d.doc_type === req.key);
+                    if (doc) {
+                      const isApproved = doc.status === 'approved';
+                      const isRejected = doc.status === 'rejected';
+                      const isPending = doc.status === 'pending';
+                      return (
+                        <View key={req.key} style={st.docCard}>
+                          <View style={st.docHeader}>
+                            <View style={[st.statusDot, isApproved ? st.dotApproved : isRejected ? st.dotRejected : st.dotPending]} />
+                            <Text style={st.docLabel}>{req.label}</Text>
+                            <Text style={[st.statusText, isApproved ? st.statusApproved : isRejected ? st.statusRejected : st.statusPending]}>
+                              {isApproved ? 'Aprobado' : isRejected ? 'Rechazado' : 'Pendiente'}
+                            </Text>
+                          </View>
+                          {doc.file_data && (
+                            <TouchableOpacity onPress={() => setPreviewDoc(doc)}>
+                              <Image source={{ uri: doc.file_data }} style={st.docImage} resizeMode="cover" />
+                            </TouchableOpacity>
+                          )}
+                          {isRejected && doc.reject_reason ? (
+                            <Text style={st.rejectReasonText}>Motivo: {doc.reject_reason}</Text>
+                          ) : null}
+                          {isPending && (
+                            <View style={st.docActions}>
+                              <TouchableOpacity style={st.approveBtn} onPress={() => handleReview(doc, 'approve')} disabled={processing}>
+                                {processing ? <ActivityIndicator color="#fff" size="small" /> : (
+                                  <><Ionicons name="checkmark" size={18} color="#fff" /><Text style={st.approveBtnText}>Aprobar</Text></>
+                                )}
+                              </TouchableOpacity>
+                              <TouchableOpacity style={st.rejectBtn} onPress={() => handleReview(doc, 'reject')} disabled={processing}>
+                                <Ionicons name="close" size={18} color="#FF3B30" /><Text style={st.rejectBtnText}>Rechazar</Text>
+                              </TouchableOpacity>
+                            </View>
+                          )}
+                        </View>
+                      );
+                    } else {
+                      return (
+                        <View key={req.key} style={[st.docCard, { opacity: 0.6 }]}>
+                          <View style={st.docHeader}>
+                            <View style={[st.statusDot, { backgroundColor: '#D1D1D6' }]} />
+                            <Text style={st.docLabel}>{req.label}</Text>
+                            <Text style={[st.statusText, { color: '#C7C7CC' }]}>No subido</Text>
+                          </View>
+                        </View>
+                      );
+                    }
+                  })}
 
-                  {doc.file_data && (
-                    <TouchableOpacity onPress={() => setPreviewDoc(doc)}>
-                      <Image source={{ uri: doc.file_data }} style={st.docImage} resizeMode="cover" />
-                    </TouchableOpacity>
-                  )}
+                  {/* VERIFY DRIVER BUTTON */}
+                  <TouchableOpacity
+                    style={{ backgroundColor: '#00C853', paddingVertical: 16, borderRadius: 14, alignItems: 'center', marginTop: 20 }}
+                    onPress={async () => {
+                      try {
+                        setProcessing(true);
+                        await apiService.put(`/admin/drivers/${selectedDriver!.driver_id}/verify?verified=true`);
+                        Alert.alert('Conductor verificado', `${selectedDriver!.name} fue verificado exitosamente`);
+                        setSelectedDriver(null);
+                        setDriverDocs([]);
+                        fetchDrivers();
+                      } catch (e: any) { Alert.alert('Error', e.message); }
+                      finally { setProcessing(false); }
+                    }}
+                    disabled={processing}
+                  >
+                    <Text style={{ color: '#fff', fontSize: 16, fontWeight: '700' }}>
+                      {processing ? 'Procesando...' : 'Verificar conductor'}
+                    </Text>
+                  </TouchableOpacity>
 
-                  {isRejected && doc.reject_reason ? (
-                    <Text style={st.rejectReasonText}>Motivo: {doc.reject_reason}</Text>
-                  ) : null}
-
-                  {isPending && (
-                    <View style={st.docActions}>
-                      <TouchableOpacity style={st.approveBtn} onPress={() => handleReview(doc, 'approve')} disabled={processing}>
-                        {processing ? <ActivityIndicator color="#fff" size="small" /> : (
-                          <><Ionicons name="checkmark" size={18} color="#fff" /><Text style={st.approveBtnText}>Aprobar</Text></>
-                        )}
-                      </TouchableOpacity>
-                      <TouchableOpacity style={st.rejectBtn} onPress={() => handleReview(doc, 'reject')} disabled={processing}>
-                        <Ionicons name="close" size={18} color="#FF3B30" /><Text style={st.rejectBtnText}>Rechazar</Text>
-                      </TouchableOpacity>
-                    </View>
-                  )}
-                </View>
+                  <TouchableOpacity
+                    style={{ paddingVertical: 14, alignItems: 'center', marginTop: 8 }}
+                    onPress={() => { setSelectedDriver(null); setDriverDocs([]); }}
+                  >
+                    <Text style={{ color: '#636366', fontSize: 14 }}>Cerrar</Text>
+                  </TouchableOpacity>
+                </>
               );
-            })}
+            })()}
           </ScrollView>
         </SafeAreaView>
       </Modal>
