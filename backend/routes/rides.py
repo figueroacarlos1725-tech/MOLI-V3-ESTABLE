@@ -72,6 +72,7 @@ async def create_ride_request(request: RideRequestCreate, user: dict = Depends(g
         "dropoff_location": request.dropoff_location.model_dump(),
         "stops": waypoints,
         "ride_type": request.ride_type,
+        "service_type": getattr(request, 'service_type', 'ride'),
         "vehicle_type": request.vehicle_type,
         "status": "pending",
         "estimated_fare": estimated_fare,

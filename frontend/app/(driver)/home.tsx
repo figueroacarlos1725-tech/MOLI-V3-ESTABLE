@@ -46,6 +46,7 @@ interface RideOffer {
   distance_km: number;
   duration_min: number;
   vehicle_type: string;
+  service_type?: string;
   rider_name: string;
 }
 
@@ -1114,8 +1115,11 @@ export default function DriverHomeScreen() {
                 </Text>
               </View>
               <View style={{ flex: 1, marginLeft: 16 }}>
-                <Text style={styles.offerTitle}>¡Nuevo viaje!</Text>
+                <Text style={styles.offerTitle}>
+                  {rideOffer?.service_type === 'delivery' ? '📦 ¡Nuevo envío!' : '🚗 ¡Nuevo viaje!'}
+                </Text>
                 <Text style={styles.offerSubtitle}>
+                  {rideOffer?.service_type === 'delivery' ? 'ENVÍO · ' : ''}
                   {rideOffer ? `${nameMap[rideOffer.vehicle_type] || rideOffer.vehicle_type}` : ''}
                   {' · '}
                   {rideOffer ? `${rideOffer.rider_name}` : ''}

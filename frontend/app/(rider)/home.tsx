@@ -77,6 +77,7 @@ export default function RiderHomeScreen() {
   const [rideRating, setRideRating] = useState(0);
   const [firstRideDiscount, setFirstRideDiscount] = useState(0);
   const [addressHistory, setAddressHistory] = useState<any[]>([]);
+  const [serviceType, setServiceType] = useState<'ride' | 'delivery'>('ride');
 
   // Banners
   const [banners, setBanners] = useState<any[]>([]);
@@ -441,6 +442,7 @@ export default function RiderHomeScreen() {
         vehicle_type: selectedVehicle,
         ride_type: 'standard',
         payment_method: 'cash',
+        service_type: serviceType, // 'ride' or 'delivery'
       };
       if (stops.length > 0) {
         requestData.stops = stops.map(s => ({
@@ -723,10 +725,29 @@ export default function RiderHomeScreen() {
       {/* ═══ Bottom Panel ═══ */}
       {phase === 'idle' && (
         <View style={s.bottomPanel}>
-          {/* Greeting */}
-          <Text style={s.greeting}>Hola, {user?.name?.split(' ')[0] || 'Pasajero'}</Text>
+          {/* Service type selector */}
+          <View style={{ flexDirection: 'row', backgroundColor: '#F2F2F7', borderRadius: 12, padding: 3, marginBottom: 14 }}>
+            <TouchableOpacity
+              style={{ flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: 'center', backgroundColor: serviceType === 'ride' ? '#fff' : 'transparent' }}
+              onPress={() => setServiceType('ride')}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Ionicons name="car" size={18} color={serviceType === 'ride' ? '#00C853' : '#8E8E93'} />
+                <Text style={{ fontSize: 14, fontWeight: '700', color: serviceType === 'ride' ? '#1C1C1E' : '#8E8E93' }}>Viaje</Text>
+              </View>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={{ flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: 'center', backgroundColor: serviceType === 'delivery' ? '#fff' : 'transparent' }}
+              onPress={() => setServiceType('delivery')}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Ionicons name="cube" size={18} color={serviceType === 'delivery' ? '#00C853' : '#8E8E93'} />
+                <Text style={{ fontSize: 14, fontWeight: '700', color: serviceType === 'delivery' ? '#1C1C1E' : '#8E8E93' }}>Envíos</Text>
+              </View>
+            </TouchableOpacity>
+          </View>
 
-          {/* Search bar like Uber */}
+          {/* Search bar */}
           <TouchableOpacity style={s.searchBar} onPress={() => { setSearchType('dropoff'); setSearchModal(true); }}>
             <View style={s.searchIcon}><Ionicons name="search" size={20} color="#00C853" /></View>
             <Text style={s.searchPlaceholder}>¿A dónde vamos?</Text>

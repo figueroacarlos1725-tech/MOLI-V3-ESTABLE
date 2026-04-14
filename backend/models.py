@@ -73,6 +73,7 @@ class RideRequestCreate(BaseModel):
     scheduled_time: Optional[datetime] = None
     notes: Optional[str] = None
     payment_method: str = "cash"
+    service_type: str = "ride"  # "ride" or "delivery"
 
 class RideRequestResponse(BaseModel):
     request_id: str

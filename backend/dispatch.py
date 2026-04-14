@@ -136,6 +136,7 @@ async def assign_ride_to_drivers(request_id: str, rider_id: str, sorted_drivers:
                     "distance_km": request_doc.get("estimated_distance", 0),
                     "duration_min": request_doc.get("estimated_duration", 0),
                     "vehicle_type": request_doc.get("vehicle_type", "economy"),
+                    "service_type": request_doc.get("service_type", "ride"),
                     "rider_name": "Pasajero",
                     "is_taximeter": dropoff_loc is None or not dropoff_loc,
                 }
