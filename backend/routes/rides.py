@@ -51,12 +51,14 @@ async def create_ride_request(request: RideRequestCreate, user: dict = Depends(g
             request.dropoff_location.latitude, request.dropoff_location.longitude
         )
     
-    distance_km = total_distance_km
+    # Apply road correction factor (1.4x) to match frontend estimate
+    # Haversine gives straight-line distance; actual roads are ~40% longer
+    ROAD_CORRECTION = 1.4
+    distance_km = round(total_distance_km * ROAD_CORRECTION, 1)
     
-    # Estimate duration (average 30 km/h in city)
-    duration_min = int((distance_km / 30) * 60)
-    if duration_min < 5:
-        duration_min = 5
+    # Estimate duration: use city avg speed (30 km/h for short, 50 km/h for long distances)
+    avg_speed = 50 if distance_km > 15 else 30
+    duration_min = max(5, int(math.ceil((distance_km / avg_speed) * 60)))
     
     estimated_fare = await calculate_fare(distance_km, duration_min, request.vehicle_type)
     
