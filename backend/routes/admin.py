@@ -139,9 +139,15 @@ async def verify_driver(
     if user["user_type"] != "admin":
         raise HTTPException(status_code=403, detail="Admin access required")
     
+    now = datetime.now(timezone.utc)
     await db.drivers.update_one(
         {"driver_id": driver_id},
-        {"$set": {"documents_verified": verified}}
+        {"$set": {"documents_verified": verified, "is_verified": verified}}
+    )
+    # Also update users.is_verified
+    await db.users.update_one(
+        {"user_id": driver_id},
+        {"$set": {"is_verified": verified, "verified_at": now if verified else None}}
     )
     
     return {"status": "success", "verified": verified}

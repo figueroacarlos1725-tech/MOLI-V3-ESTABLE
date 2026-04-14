@@ -1030,21 +1030,17 @@ export default function DriverHomeScreen() {
             </Text>
           </View>
         </View>
-      </View>
-
-      {/* Verification pending banner */}
-      {pendingVerification && !driverBlocked && (
-        <View style={{ marginHorizontal: 16, marginTop: 110, backgroundColor: '#FFF3E0', borderRadius: 14, padding: 14, flexDirection: 'row', alignItems: 'center', gap: 10, position: 'absolute', top: 0, left: 0, right: 0, zIndex: 9 }}>
-          <Ionicons name="alert-circle" size={24} color="#FF9500" />
-          <View style={{ flex: 1 }}>
-            <Text style={{ fontSize: 14, fontWeight: '700', color: '#1C1C1E' }}>Verificación pendiente</Text>
-            <Text style={{ fontSize: 12, color: '#636366', marginTop: 2 }}>Subí tus documentos para recibir viajes.</Text>
+        {/* Verification pending banner - inside floating header */}
+        {pendingVerification && !driverBlocked && (
+          <View style={{ marginHorizontal: 12, marginTop: 6, backgroundColor: '#FFF3E0', borderRadius: 12, padding: 10, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <Ionicons name="alert-circle" size={20} color="#FF9500" />
+            <Text style={{ flex: 1, fontSize: 12, color: '#636366' }}>Verificación pendiente · Subí documentos</Text>
+            <TouchableOpacity onPress={() => router.push('/(driver)/documents')} style={{ backgroundColor: '#FF9500', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8 }}>
+              <Text style={{ fontSize: 11, fontWeight: '700', color: '#fff' }}>Subir</Text>
+            </TouchableOpacity>
           </View>
-          <TouchableOpacity onPress={() => router.push('/(driver)/documents')}>
-            <Text style={{ fontSize: 13, fontWeight: '700', color: '#FF9500' }}>Subir</Text>
-          </TouchableOpacity>
-        </View>
-      )}
+        )}
+      </View>
 
       {/* Status message */}
       {statusMessage ? (
