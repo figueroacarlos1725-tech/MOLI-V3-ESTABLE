@@ -24,7 +24,7 @@ export default function JobDetailScreen() {
 
   const loadJob = async () => {
     try {
-      const res = await apiService.get(`/jobs/${jobId}`);
+      const res = await apiService.get(`/jobs/detail/${jobId}`);
       setJob(res.job);
       setOffers(res.offers || []);
     } catch (e) { console.log('Job load error', e); }

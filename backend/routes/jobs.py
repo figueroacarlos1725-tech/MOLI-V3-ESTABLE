@@ -125,6 +125,26 @@ async def list_job_posts(
     return {"jobs": jobs, "count": len(jobs)}
 
 
+@router.get("/api/jobs/my-offers")
+async def get_my_offers(user: dict = Depends(get_current_user)):
+    offers = await db.job_offers.find(
+        {"professional_id": user["user_id"]}, {"_id": 0}
+    ).sort("created_at", -1).to_list(50)
+    
+    # Enrich with job details
+    for o in offers:
+        job = await db.job_posts.find_one({"job_id": o["job_id"]}, {"_id": 0, "title": 1, "status": 1, "category": 1, "address": 1})
+        if job:
+            o["job_title"] = job.get("title")
+            o["job_status"] = job.get("status")
+            o["job_category"] = job.get("category")
+            o["job_address"] = job.get("address")
+        if isinstance(o.get("created_at"), datetime):
+            o["created_at"] = o["created_at"].isoformat()
+    
+    return {"offers": offers}
+
+
 @router.get("/api/jobs/my-posts")
 async def get_my_job_posts(user: dict = Depends(get_current_user)):
     jobs = await db.job_posts.find(
@@ -133,7 +153,7 @@ async def get_my_job_posts(user: dict = Depends(get_current_user)):
     return {"jobs": jobs}
 
 
-@router.get("/api/jobs/{job_id}")
+@router.get("/api/jobs/detail/{job_id}")
 async def get_job_detail(job_id: str, user: dict = Depends(get_current_user)):
     job = await db.job_posts.find_one({"job_id": job_id}, {"_id": 0})
     if not job:
