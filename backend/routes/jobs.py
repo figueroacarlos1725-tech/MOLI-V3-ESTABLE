@@ -53,36 +53,56 @@ async def update_professional_profile(
     user: dict = Depends(get_current_user)
 ):
     now = datetime.now(timezone.utc)
-    profile_data = {
-        "user_id": user["user_id"],
-        "name": user.get("name", ""),
-        "categories": data.get("categories", []),
-        "description": data.get("description", ""),
-        "hourly_rate": data.get("hourly_rate", 0),
-        "portfolio_images": data.get("portfolio_images", []),
-        "is_available": data.get("is_available", True),
-        "location": data.get("location"),
-        "updated_at": now,
-    }
     
     existing = await db.professional_profiles.find_one({"user_id": user["user_id"]})
     if existing:
+        # Only update fields that are explicitly provided
+        update_fields: dict = {"updated_at": now}
+        if "categories" in data:
+            update_fields["categories"] = data["categories"]
+        if "description" in data:
+            update_fields["description"] = data["description"]
+        if "hourly_rate" in data:
+            update_fields["hourly_rate"] = data["hourly_rate"]
+        if "portfolio_images" in data:
+            update_fields["portfolio_images"] = data["portfolio_images"]
+        if "is_available" in data:
+            update_fields["is_available"] = data["is_available"]
+        if "location" in data:
+            update_fields["location"] = data["location"]
+        if "name" in data:
+            update_fields["name"] = data["name"]
+        
         await db.professional_profiles.update_one(
             {"user_id": user["user_id"]},
-            {"$set": profile_data}
+            {"$set": update_fields}
         )
+        result = await db.professional_profiles.find_one({"user_id": user["user_id"]}, {"_id": 0})
     else:
-        profile_data["created_at"] = now
-        profile_data["rating"] = 5.0
-        profile_data["total_jobs"] = 0
+        profile_data = {
+            "user_id": user["user_id"],
+            "name": data.get("name", user.get("name", "")),
+            "categories": data.get("categories", []),
+            "description": data.get("description", ""),
+            "hourly_rate": data.get("hourly_rate", 0),
+            "portfolio_images": data.get("portfolio_images", []),
+            "is_available": data.get("is_available", True),
+            "location": data.get("location"),
+            "rating": 5.0,
+            "total_jobs": 0,
+            "created_at": now,
+            "updated_at": now,
+        }
         await db.professional_profiles.insert_one(profile_data)
+        profile_data.pop("_id", None)
+        result = profile_data
     
-    profile_data.pop("_id", None)
     # Serialize datetimes
-    for k in ["updated_at", "created_at"]:
-        if k in profile_data and hasattr(profile_data[k], 'isoformat'):
-            profile_data[k] = profile_data[k].isoformat()
-    return {"status": "updated", "profile": profile_data}
+    if result:
+        for k in ["updated_at", "created_at"]:
+            if k in result and hasattr(result[k], 'isoformat'):
+                result[k] = result[k].isoformat()
+    return {"status": "updated", "profile": result}
 
 
 # ─── JOB POSTS (Client creates) ────────────────
@@ -104,8 +124,10 @@ async def create_job_post(
         "location": data.get("location"),
         "address": data.get("address", ""),
         "images": data.get("images", []),
-        "status": "open",  # open, assigned, in_progress, completed, cancelled
+        "status": "open",  # open, reviewing, assigned, in_progress, completed, cancelled
         "assigned_to": None,
+        "reviewing_by": None,  # professional currently reviewing (30s lock)
+        "reviewing_until": None,
         "offers_count": 0,
         "created_at": now,
         "updated_at": now,
@@ -115,6 +137,53 @@ async def create_job_post(
     # Serialize datetime for JSON
     job["created_at"] = job["created_at"].isoformat() if hasattr(job["created_at"], 'isoformat') else str(job["created_at"])
     job["updated_at"] = job["updated_at"].isoformat() if hasattr(job["updated_at"], 'isoformat') else str(job["updated_at"])
+
+    # Notify all available professionals in matching categories via WebSocket
+    try:
+        from websocket_manager import manager
+        category = data.get("category", "otro")
+        pros = await db.professional_profiles.find(
+            {"is_available": True, "categories": category},
+            {"_id": 0, "user_id": 1}
+        ).to_list(100)
+        # Also notify pros with no category filter (all categories)
+        if not pros:
+            pros = await db.professional_profiles.find(
+                {"is_available": True},
+                {"_id": 0, "user_id": 1}
+            ).to_list(100)
+        
+        for pro in pros:
+            if pro["user_id"] != user["user_id"]:
+                try:
+                    await manager.send_personal_message({
+                        "type": "new_job_available",
+                        "job_id": job["job_id"],
+                        "category": category,
+                        "title": job["title"],
+                        "budget": job["budget"],
+                        "address": job["address"],
+                        "client_name": job["client_name"],
+                    }, pro["user_id"])
+                except:
+                    pass
+        
+        # Also send push notifications
+        try:
+            from notifications import send_push_to_multiple
+            pro_ids = [p["user_id"] for p in pros if p["user_id"] != user["user_id"]]
+            if pro_ids:
+                await send_push_to_multiple(
+                    pro_ids,
+                    f"Nuevo trabajo: {job['title']}",
+                    f"${job['budget']} · {category}",
+                    {"type": "new_job", "job_id": job["job_id"]}
+                )
+        except:
+            pass
+    except Exception as e:
+        print(f"Job notification error: {e}")
+
     return {"status": "created", "job": job}
 
 
@@ -126,11 +195,33 @@ async def list_job_posts(
     lng: Optional[float] = None,
     user: dict = Depends(get_current_user)
 ):
-    query = {"status": status}
+    now = datetime.now(timezone.utc)
+    
+    # Include "reviewing" jobs with expired locks as available
+    if status == "open":
+        query = {"$or": [
+            {"status": "open"},
+            {"status": "reviewing", "reviewing_until": {"$lte": now.isoformat()}},
+        ]}
+    else:
+        query = {"status": status}
+    
     if category:
         query["category"] = category
     
     jobs = await db.job_posts.find(query, {"_id": 0}).sort("created_at", -1).to_list(50)
+    
+    # Auto-release expired reviewing jobs
+    for j in jobs:
+        if j.get("status") == "reviewing":
+            review_until = j.get("reviewing_until", "")
+            if isinstance(review_until, str) and review_until < now.isoformat():
+                await db.job_posts.update_one(
+                    {"job_id": j["job_id"]},
+                    {"$set": {"status": "open", "reviewing_by": None, "reviewing_until": None}}
+                )
+                j["status"] = "open"
+    
     return {"jobs": jobs, "count": len(jobs)}
 
 
@@ -174,7 +265,160 @@ async def get_job_detail(job_id: str, user: dict = Depends(get_current_user)):
     return {"job": job, "offers": offers}
 
 
-# ─── JOB OFFERS (Professional sends) ────────────────
+# ─── JOB REVIEW (30-second lock) ────────────────
+
+@router.post("/api/jobs/{job_id}/review")
+async def start_job_review(
+    job_id: str,
+    user: dict = Depends(get_current_user)
+):
+    """Professional starts reviewing a job - 30 second lock"""
+    from datetime import timedelta
+    now = datetime.now(timezone.utc)
+    
+    job = await db.job_posts.find_one({"job_id": job_id})
+    if not job:
+        raise HTTPException(status_code=404, detail="Trabajo no encontrado")
+    
+    # Check if job is available (open or review expired)
+    if job["status"] == "assigned":
+        raise HTTPException(status_code=400, detail="Este trabajo ya fue asignado")
+    
+    # Check if another pro is reviewing and lock hasn't expired
+    if job.get("reviewing_by") and job["reviewing_by"] != user["user_id"]:
+        review_until = job.get("reviewing_until")
+        if review_until:
+            if isinstance(review_until, str):
+                review_until = datetime.fromisoformat(review_until.replace("Z", "+00:00"))
+            if review_until > now:
+                raise HTTPException(status_code=409, detail="Otro profesional está revisando este trabajo")
+    
+    # Lock job for 30 seconds
+    review_until = now + timedelta(seconds=30)
+    await db.job_posts.update_one(
+        {"job_id": job_id},
+        {"$set": {
+            "status": "reviewing",
+            "reviewing_by": user["user_id"],
+            "reviewing_until": review_until.isoformat(),
+            "updated_at": now,
+        }}
+    )
+    
+    # Notify client that someone is reviewing
+    try:
+        from websocket_manager import manager
+        await manager.send_personal_message({
+            "type": "job_reviewing",
+            "job_id": job_id,
+            "professional_name": user.get("name", "Un profesional"),
+            "message": f"{user.get('name', 'Un profesional')} está revisando tu propuesta...",
+        }, job["client_id"])
+    except:
+        pass
+    
+    return {"status": "reviewing", "review_seconds": 30}
+
+
+@router.post("/api/jobs/{job_id}/accept")
+async def accept_job_after_review(
+    job_id: str,
+    user: dict = Depends(get_current_user)
+):
+    """Professional accepts job after reviewing"""
+    now = datetime.now(timezone.utc)
+    
+    job = await db.job_posts.find_one({"job_id": job_id})
+    if not job:
+        raise HTTPException(status_code=404, detail="Trabajo no encontrado")
+    
+    if job.get("status") == "assigned":
+        raise HTTPException(status_code=400, detail="Este trabajo ya fue asignado")
+    
+    # Verify this pro was reviewing
+    if job.get("reviewing_by") != user["user_id"]:
+        raise HTTPException(status_code=403, detail="No estás revisando este trabajo")
+    
+    # Accept - assign to this professional
+    await db.job_posts.update_one(
+        {"job_id": job_id},
+        {"$set": {
+            "status": "assigned",
+            "assigned_to": user["user_id"],
+            "assigned_name": user.get("name", "Profesional"),
+            "assigned_at": now,
+            "agreed_price": job["budget"],
+            "reviewing_by": None,
+            "reviewing_until": None,
+        }}
+    )
+    
+    # Notify client
+    try:
+        from websocket_manager import manager
+        pro_profile = await db.professional_profiles.find_one({"user_id": user["user_id"]})
+        await manager.send_personal_message({
+            "type": "job_accepted",
+            "job_id": job_id,
+            "professional_id": user["user_id"],
+            "professional_name": user.get("name", "Profesional"),
+            "professional_rating": pro_profile.get("rating", 5.0) if pro_profile else 5.0,
+            "message": f"¡{user.get('name', 'Un profesional')} aceptó tu trabajo!",
+        }, job["client_id"])
+    except:
+        pass
+    
+    # Push notification
+    try:
+        from notifications import send_push_notification
+        await send_push_notification(
+            job["client_id"],
+            "Profesional encontrado",
+            f"{user.get('name', 'Un profesional')} aceptó tu trabajo y está en camino",
+            {"type": "job_accepted", "job_id": job_id}
+        )
+    except:
+        pass
+    
+    return {"status": "accepted", "job_id": job_id}
+
+
+@router.post("/api/jobs/{job_id}/decline")
+async def decline_job_after_review(
+    job_id: str,
+    user: dict = Depends(get_current_user)
+):
+    """Professional declines job after reviewing - release back to pool"""
+    now = datetime.now(timezone.utc)
+    
+    job = await db.job_posts.find_one({"job_id": job_id})
+    if not job:
+        raise HTTPException(status_code=404, detail="Trabajo no encontrado")
+    
+    # Release the job back to open
+    if job.get("reviewing_by") == user["user_id"]:
+        await db.job_posts.update_one(
+            {"job_id": job_id},
+            {"$set": {
+                "status": "open",
+                "reviewing_by": None,
+                "reviewing_until": None,
+                "updated_at": now,
+            }}
+        )
+    
+    # Notify client
+    try:
+        from websocket_manager import manager
+        await manager.send_personal_message({
+            "type": "job_declined",
+            "job_id": job_id,
+            "message": "El profesional no aceptó. Buscando otro profesional...",
+        }, job["client_id"])
+    except:
+        pass
+    
+    return {"status": "declined", "job_id": job_id}
 
 @router.post("/api/jobs/{job_id}/offer")
 async def send_job_offer(

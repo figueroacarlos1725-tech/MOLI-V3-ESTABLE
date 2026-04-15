@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity,
-  ActivityIndicator, ScrollView, Dimensions, Platform, TextInput, Alert,
+  View, Text, StyleSheet, TouchableOpacity, Modal,
+  ActivityIndicator, ScrollView, Dimensions, Platform, Alert, Vibration,
 } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { useRouter } from 'expo-router';
@@ -9,8 +9,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { apiService } from '@/src/services/api';
 import { useAuthStore } from '@/src/stores/authStore';
+import Constants from 'expo-constants';
 
-const { width, height } = Dimensions.get('window');
+const { width } = Dimensions.get('window');
+const GREEN = '#00C853';
+const REVIEW_SECONDS = 30;
 
 const CAT_ICONS: Record<string, { icon: string; color: string }> = {
   electricista: { icon: '⚡', color: '#FF9500' },
@@ -27,39 +30,83 @@ const CAT_ICONS: Record<string, { icon: string; color: string }> = {
 
 export default function JobsHomeScreen() {
   const router = useRouter();
-  const { user } = useAuthStore();
+  const { user, token } = useAuthStore();
   const insets = useSafeAreaInsets();
   const webViewRef = useRef<any>(null);
+  const wsRef = useRef<WebSocket | null>(null);
+  const timerRef = useRef<any>(null);
+
   const [jobs, setJobs] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
   const [selectedCat, setSelectedCat] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [hasProfile, setHasProfile] = useState(false);
+  const [isAvailable, setIsAvailable] = useState(false);
+  const [togglingAvail, setTogglingAvail] = useState(false);
+
+  // Job alert & review states
+  const [incomingJob, setIncomingJob] = useState<any>(null);
+  const [reviewingJob, setReviewingJob] = useState<any>(null);
+  const [reviewTimer, setReviewTimer] = useState(REVIEW_SECONDS);
   const [selectedJob, setSelectedJob] = useState<any>(null);
-  const [showOfferForm, setShowOfferForm] = useState(false);
-  const [offerPrice, setOfferPrice] = useState('');
-  const [offerMsg, setOfferMsg] = useState('');
-  const [sending, setSending] = useState(false);
-  const [myOffers, setMyOffers] = useState<any[]>([]);
+  const [accepting, setAccepting] = useState(false);
 
-  useEffect(() => { loadAll(); }, []);
-
-  const loadAll = async () => {
+  // ─── Load data ───
+  const loadAll = useCallback(async () => {
     try {
-      const [catsRes, jobsRes, profileRes, offersRes] = await Promise.all([
+      const [catsRes, jobsRes, profileRes] = await Promise.all([
         apiService.get('/jobs/categories'),
         apiService.get('/jobs/posts?status=open'),
         apiService.get('/jobs/professional/profile'),
-        apiService.get('/jobs/my-offers'),
       ]);
       setCategories(catsRes.categories || []);
       setJobs(jobsRes.jobs || []);
       setHasProfile(profileRes.has_profile);
-      setMyOffers(offersRes.offers || []);
+      if (profileRes.profile) {
+        setIsAvailable(profileRes.profile.is_available || false);
+      }
     } catch (e) { console.log('Jobs load error', e); }
     finally { setLoading(false); }
-  };
+  }, []);
 
+  useEffect(() => { loadAll(); }, [loadAll]);
+
+  // ─── WebSocket for job notifications ───
+  useEffect(() => {
+    if (!user?.user_id || !hasProfile) return;
+
+    const backendUrl = Constants.expoConfig?.extra?.EXPO_BACKEND_URL
+      || process.env.EXPO_PUBLIC_API_URL || '';
+    const wsBase = backendUrl.replace(/^http/, 'ws');
+    const wsUrl = `${wsBase}/api/ws/${user.user_id}`;
+
+    const connect = () => {
+      try {
+        const ws = new WebSocket(wsUrl);
+        ws.onmessage = (event) => {
+          try {
+            const msg = JSON.parse(event.data);
+            if (msg.type === 'new_job_available' && isAvailable) {
+              Vibration.vibrate([0, 300, 100, 300]);
+              setIncomingJob(msg);
+            }
+          } catch {}
+        };
+        ws.onclose = () => { setTimeout(connect, 3000); };
+        wsRef.current = ws;
+      } catch {}
+    };
+    connect();
+    return () => { wsRef.current?.close(); };
+  }, [user?.user_id, hasProfile, isAvailable]);
+
+  // ─── Refresh jobs periodically ───
+  useEffect(() => {
+    const iv = setInterval(() => { if (isAvailable) loadAll(); }, 10000);
+    return () => clearInterval(iv);
+  }, [isAvailable, loadAll]);
+
+  // ─── Map markers ───
   useEffect(() => {
     if (webViewRef.current && jobs.length > 0) {
       const filtered = selectedCat ? jobs.filter(j => j.category === selectedCat) : jobs;
@@ -67,12 +114,107 @@ export default function JobsHomeScreen() {
         const lat = j.location?.latitude || -28.47;
         const lng = j.location?.longitude || -65.78;
         const cat = CAT_ICONS[j.category] || CAT_ICONS.otro;
-        const alreadyOffered = myOffers.some(o => o.job_id === j.job_id);
-        return `addJobMarker(${lat}, ${lng}, '${j.job_id}', '${cat.icon}', '${j.title?.replace(/'/g, '')}', ${j.budget || 0}, '${j.category}', ${alreadyOffered});`;
+        return `addJobMarker(${lat}, ${lng}, '${j.job_id}', '${cat.icon}', '${j.title?.replace(/'/g, '')}', ${j.budget || 0}, '${j.category}');`;
       }).join('\n');
       webViewRef.current.injectJavaScript(`clearMarkers(); ${markersJs}; true;`);
     }
-  }, [jobs, selectedCat, myOffers]);
+  }, [jobs, selectedCat]);
+
+  // ─── 30-sec review timer ───
+  useEffect(() => {
+    if (reviewingJob) {
+      setReviewTimer(REVIEW_SECONDS);
+      timerRef.current = setInterval(() => {
+        setReviewTimer(prev => {
+          if (prev <= 1) {
+            clearInterval(timerRef.current);
+            handleDeclineJob();
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+      return () => clearInterval(timerRef.current);
+    }
+  }, [reviewingJob?.job_id]);
+
+  // ─── Toggle availability ───
+  const toggleAvailability = async () => {
+    setTogglingAvail(true);
+    try {
+      const newVal = !isAvailable;
+      await apiService.put('/jobs/professional/profile', { is_available: newVal });
+      setIsAvailable(newVal);
+    } catch (e: any) {
+      Alert.alert('Error', e.message || 'No se pudo cambiar disponibilidad');
+    }
+    setTogglingAvail(false);
+  };
+
+  // ─── Start reviewing a job (30-sec lock) ───
+  const handleReviewJob = async (job: any) => {
+    try {
+      await apiService.post(`/jobs/${job.job_id}/review`, {});
+      setIncomingJob(null);
+      // Load full job details
+      const res = await apiService.get(`/jobs/detail/${job.job_id}`);
+      setReviewingJob(res.job || job);
+    } catch (e: any) {
+      Alert.alert('No disponible', e.message || 'Este trabajo ya no está disponible');
+      setIncomingJob(null);
+    }
+  };
+
+  // ─── Accept job after review ───
+  const handleAcceptJob = async () => {
+    if (!reviewingJob) return;
+    setAccepting(true);
+    try {
+      await apiService.post(`/jobs/${reviewingJob.job_id}/accept`, {});
+      clearInterval(timerRef.current);
+      Alert.alert('¡Trabajo aceptado!', `Trabajo "${reviewingJob.title}" asignado a vos.`);
+      setReviewingJob(null);
+      setSelectedJob(null);
+      loadAll();
+    } catch (e: any) {
+      Alert.alert('Error', e.message || 'No se pudo aceptar');
+    }
+    setAccepting(false);
+  };
+
+  // ─── Decline job ───
+  const handleDeclineJob = async () => {
+    if (!reviewingJob) return;
+    try {
+      await apiService.post(`/jobs/${reviewingJob.job_id}/decline`, {});
+    } catch {}
+    clearInterval(timerRef.current);
+    setReviewingJob(null);
+  };
+
+  // ─── Map tap handler ───
+  const handleWebViewMessage = (event: any) => {
+    try {
+      const data = JSON.parse(event.nativeEvent.data);
+      if (data.type === 'job_selected') {
+        const job = jobs.find(j => j.job_id === data.job_id);
+        if (job) setSelectedJob(job);
+      }
+    } catch {}
+  };
+
+  // ─── Start review from map selection ───
+  const handleReviewFromMap = async () => {
+    if (!selectedJob) return;
+    try {
+      await apiService.post(`/jobs/${selectedJob.job_id}/review`, {});
+      const res = await apiService.get(`/jobs/detail/${selectedJob.job_id}`);
+      setSelectedJob(null);
+      setReviewingJob(res.job || selectedJob);
+    } catch (e: any) {
+      Alert.alert('No disponible', e.message || 'Este trabajo ya no está disponible');
+    }
+  };
 
   const getMapHtml = () => `<!DOCTYPE html>
 <html><head>
@@ -87,9 +229,9 @@ var map=L.map('map',{zoomControl:false}).setView([-28.47,-65.78],13);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map);
 var markers=[];
 function clearMarkers(){markers.forEach(m=>map.removeLayer(m));markers=[];}
-function addJobMarker(lat,lng,jobId,emoji,title,budget,cat,offered){
+function addJobMarker(lat,lng,jobId,emoji,title,budget,cat){
   var icon=L.divIcon({
-    html:'<div style="width:44px;height:44px;border-radius:14px;background:'+(offered?'#E5E5EA':'#fff')+';display:flex;align-items:center;justify-content:center;font-size:22px;box-shadow:0 2px 8px rgba(0,0,0,0.15);border:2px solid '+(offered?'#C7C7CC':'#00C853')+'">'+emoji+'</div>',
+    html:'<div style="width:44px;height:44px;border-radius:14px;background:#fff;display:flex;align-items:center;justify-content:center;font-size:22px;box-shadow:0 2px 8px rgba(0,0,0,0.15);border:2px solid #00C853">'+emoji+'</div>',
     className:'',iconSize:[44,44],iconAnchor:[22,44]
   });
   var m=L.marker([lat,lng],{icon:icon}).addTo(map);
@@ -101,44 +243,11 @@ function addJobMarker(lat,lng,jobId,emoji,title,budget,cat,offered){
 </script>
 </body></html>`;
 
-  const handleWebViewMessage = (event: any) => {
-    try {
-      const data = JSON.parse(event.nativeEvent.data);
-      if (data.type === 'job_selected') {
-        const job = jobs.find(j => j.job_id === data.job_id);
-        if (job) {
-          setSelectedJob(job);
-          setShowOfferForm(false);
-          setOfferPrice('');
-          setOfferMsg('');
-        }
-      }
-    } catch (e) {}
-  };
-
-  const handleSendOffer = async () => {
-    if (!offerPrice || parseFloat(offerPrice) <= 0) {
-      Alert.alert('Error', 'Ingresá un precio válido');
-      return;
-    }
-    setSending(true);
-    try {
-      await apiService.post(`/jobs/${selectedJob.job_id}/offer`, {
-        price: parseFloat(offerPrice),
-        message: offerMsg.trim(),
-      });
-      Alert.alert('¡Oferta enviada!', 'El cliente recibirá tu propuesta');
-      setSelectedJob(null);
-      setShowOfferForm(false);
-      loadAll();
-    } catch (e: any) {
-      Alert.alert('Error', e.message || 'No se pudo enviar');
-    } finally { setSending(false); }
-  };
+  // ─── RENDER ───
 
   if (loading) return (
     <View style={[s.container, { paddingTop: insets.top }]}>
-      <View style={s.center}><ActivityIndicator size="large" color="#00C853" /></View>
+      <View style={s.center}><ActivityIndicator size="large" color={GREEN} /></View>
     </View>
   );
 
@@ -152,13 +261,9 @@ function addJobMarker(lat,lng,jobId,emoji,title,budget,cat,offered){
           <Text style={s.headerTitle}>Moli Trabajos</Text>
         </View>
         <View style={s.center}>
-          <View style={s.setupIcon}>
-            <Ionicons name="briefcase" size={40} color="#00C853" />
-          </View>
+          <View style={s.setupIcon}><Ionicons name="briefcase" size={40} color={GREEN} /></View>
           <Text style={s.setupTitle}>Configurá tu perfil profesional</Text>
-          <Text style={s.setupSubtitle}>
-            Completá tu perfil para poder ver trabajos disponibles y enviar ofertas.
-          </Text>
+          <Text style={s.setupSubtitle}>Completá tu perfil para poder ver trabajos disponibles.</Text>
           <TouchableOpacity style={s.setupBtn} onPress={() => router.push('/(jobs)/setup-profile')}>
             <Text style={s.setupBtnText}>Completar perfil</Text>
           </TouchableOpacity>
@@ -171,7 +276,7 @@ function addJobMarker(lat,lng,jobId,emoji,title,budget,cat,offered){
 
   return (
     <View style={[s.container, { paddingTop: insets.top }]}>
-      {/* Header */}
+      {/* Header with GO button */}
       <View style={s.header}>
         <TouchableOpacity onPress={() => router.back()} style={s.backBtn}>
           <Ionicons name="arrow-back" size={22} color="#1C1C1E" />
@@ -180,6 +285,24 @@ function addJobMarker(lat,lng,jobId,emoji,title,budget,cat,offered){
         <View style={s.jobCount}>
           <Text style={s.jobCountText}>{filteredJobs.length}</Text>
         </View>
+
+        {/* GO Button */}
+        <TouchableOpacity
+          style={[s.goBtn, isAvailable && s.goBtnActive]}
+          onPress={toggleAvailability}
+          disabled={togglingAvail}
+        >
+          {togglingAvail ? (
+            <ActivityIndicator size="small" color={isAvailable ? '#fff' : GREEN} />
+          ) : (
+            <>
+              <Ionicons name={isAvailable ? 'radio-button-on' : 'radio-button-off'} size={16} color={isAvailable ? '#fff' : GREEN} />
+              <Text style={[s.goBtnText, isAvailable && { color: '#fff' }]}>
+                {isAvailable ? 'EN LÍNEA' : 'OFFLINE'}
+              </Text>
+            </>
+          )}
+        </TouchableOpacity>
       </View>
 
       {/* Category filter */}
@@ -215,88 +338,120 @@ function addJobMarker(lat,lng,jobId,emoji,title,budget,cat,offered){
             javaScriptEnabled
           />
         )}
+
+        {/* Not available overlay */}
+        {!isAvailable && (
+          <View style={s.offlineOverlay}>
+            <Ionicons name="moon" size={28} color="#8E8E93" />
+            <Text style={s.offlineText}>Estás offline</Text>
+            <Text style={s.offlineSubtext}>Presioná EN LÍNEA para recibir trabajos</Text>
+          </View>
+        )}
       </View>
 
-      {/* Selected job bottom sheet */}
-      {selectedJob && (
+      {/* Selected job from map */}
+      {selectedJob && !reviewingJob && (
         <View style={s.sheet}>
           <View style={s.sheetHandle} />
           <TouchableOpacity style={s.sheetClose} onPress={() => setSelectedJob(null)}>
             <Ionicons name="close" size={20} color="#636366" />
           </TouchableOpacity>
-
-          {!showOfferForm ? (
-            <>
-              <View style={s.sheetHeader}>
-                <Text style={s.sheetEmoji}>{CAT_ICONS[selectedJob.category]?.icon || '📋'}</Text>
-                <View style={{ flex: 1 }}>
-                  <Text style={s.sheetTitle}>{selectedJob.title}</Text>
-                  <Text style={s.sheetCat}>{selectedJob.category} · {selectedJob.client_name}</Text>
-                </View>
-                <Text style={s.sheetBudget}>${selectedJob.budget?.toLocaleString()}</Text>
-              </View>
-              <Text style={s.sheetDesc} numberOfLines={3}>{selectedJob.description}</Text>
-              {selectedJob.address ? (
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 6 }}>
-                  <Ionicons name="location" size={14} color="#00C853" />
-                  <Text style={{ fontSize: 13, color: '#636366' }}>{selectedJob.address}</Text>
-                </View>
-              ) : null}
-              <View style={{ flexDirection: 'row', gap: 10, marginTop: 14 }}>
-                <TouchableOpacity
-                  style={s.offerBtn}
-                  onPress={() => {
-                    if (myOffers.some(o => o.job_id === selectedJob.job_id)) {
-                      Alert.alert('Ya ofertaste', 'Ya enviaste una oferta para este trabajo');
-                    } else {
-                      setShowOfferForm(true);
-                    }
-                  }}
-                >
-                  <Ionicons name="paper-plane" size={18} color="#fff" />
-                  <Text style={s.offerBtnText}>
-                    {myOffers.some(o => o.job_id === selectedJob.job_id) ? 'Ya ofertaste' : 'Enviar oferta'}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            </>
-          ) : (
-            <>
-              <Text style={{ fontSize: 16, fontWeight: '700', color: '#1C1C1E', marginBottom: 12 }}>Tu oferta para "{selectedJob.title}"</Text>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-                <Text style={{ fontSize: 22, fontWeight: '800', color: '#1C1C1E' }}>$</Text>
-                <TextInput
-                  style={s.priceInput}
-                  placeholder="Precio"
-                  placeholderTextColor="#C7C7CC"
-                  value={offerPrice}
-                  onChangeText={setOfferPrice}
-                  keyboardType="numeric"
-                  autoFocus
-                />
-              </View>
-              <TextInput
-                style={s.msgInput}
-                placeholder="Mensaje al cliente (opcional)"
-                placeholderTextColor="#8E8E93"
-                value={offerMsg}
-                onChangeText={setOfferMsg}
-                multiline
-              />
-              <View style={{ flexDirection: 'row', gap: 10, marginTop: 12 }}>
-                <TouchableOpacity style={s.cancelBtn} onPress={() => setShowOfferForm(false)}>
-                  <Text style={{ color: '#636366', fontWeight: '600', fontSize: 15 }}>Cancelar</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={s.submitBtn} onPress={handleSendOffer} disabled={sending}>
-                  {sending ? <ActivityIndicator color="#fff" size="small" /> : (
-                    <Text style={{ color: '#fff', fontWeight: '700', fontSize: 15 }}>Enviar</Text>
-                  )}
-                </TouchableOpacity>
-              </View>
-            </>
-          )}
+          <View style={s.sheetHeader}>
+            <Text style={s.sheetEmoji}>{CAT_ICONS[selectedJob.category]?.icon || '📋'}</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={s.sheetTitle}>{selectedJob.title}</Text>
+              <Text style={s.sheetCat}>{selectedJob.category} · {selectedJob.client_name}</Text>
+            </View>
+            <Text style={s.sheetBudget}>${selectedJob.budget?.toLocaleString()}</Text>
+          </View>
+          <Text style={s.sheetDesc} numberOfLines={2}>{selectedJob.description}</Text>
+          {selectedJob.address ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 6 }}>
+              <Ionicons name="location" size={14} color={GREEN} />
+              <Text style={{ fontSize: 13, color: '#636366' }}>{selectedJob.address}</Text>
+            </View>
+          ) : null}
+          <TouchableOpacity style={s.reviewBtn} onPress={handleReviewFromMap}>
+            <Ionicons name="eye" size={20} color="#fff" />
+            <Text style={s.reviewBtnText}>Revisar trabajo (30s)</Text>
+          </TouchableOpacity>
         </View>
       )}
+
+      {/* ═══ Incoming job alert popup ═══ */}
+      <Modal visible={!!incomingJob && !reviewingJob} transparent animationType="slide">
+        <View style={s.alertOverlay}>
+          <View style={s.alertCard}>
+            <View style={s.alertPulse}>
+              <Text style={{ fontSize: 36 }}>{CAT_ICONS[incomingJob?.category]?.icon || '📋'}</Text>
+            </View>
+            <Text style={s.alertTitle}>¡Nuevo trabajo disponible!</Text>
+            <Text style={s.alertJobTitle}>{incomingJob?.title}</Text>
+            <Text style={s.alertBudget}>${incomingJob?.budget?.toLocaleString()}</Text>
+            <Text style={s.alertAddress}>{incomingJob?.address}</Text>
+            <Text style={s.alertClient}>Cliente: {incomingJob?.client_name}</Text>
+
+            <TouchableOpacity style={s.alertReviewBtn} onPress={() => handleReviewJob(incomingJob)}>
+              <Ionicons name="eye" size={22} color="#fff" />
+              <Text style={s.alertReviewBtnText}>Revisar</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={s.alertDismissBtn} onPress={() => setIncomingJob(null)}>
+              <Text style={s.alertDismissText}>Ignorar</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ═══ 30-second review modal ═══ */}
+      <Modal visible={!!reviewingJob} transparent animationType="fade">
+        <View style={s.alertOverlay}>
+          <View style={s.reviewCard}>
+            {/* Timer bar */}
+            <View style={s.timerBarBg}>
+              <View style={[s.timerBarFill, { width: `${(reviewTimer / REVIEW_SECONDS) * 100}%` }]} />
+            </View>
+            <View style={s.timerRow}>
+              <Ionicons name="timer" size={18} color={reviewTimer <= 10 ? '#FF3B30' : GREEN} />
+              <Text style={[s.timerText, reviewTimer <= 10 && { color: '#FF3B30' }]}>{reviewTimer}s</Text>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 400 }}>
+              <View style={{ alignItems: 'center', marginBottom: 16 }}>
+                <Text style={{ fontSize: 40 }}>{CAT_ICONS[reviewingJob?.category]?.icon || '📋'}</Text>
+              </View>
+              <Text style={s.reviewJobTitle}>{reviewingJob?.title}</Text>
+              <Text style={s.reviewJobCat}>{reviewingJob?.category} · {reviewingJob?.client_name}</Text>
+              <View style={s.reviewBudgetRow}>
+                <Text style={s.reviewBudgetLabel}>Presupuesto</Text>
+                <Text style={s.reviewBudgetVal}>${reviewingJob?.budget?.toLocaleString()}</Text>
+              </View>
+              <Text style={s.reviewDescTitle}>Descripción</Text>
+              <Text style={s.reviewDesc}>{reviewingJob?.description}</Text>
+              {reviewingJob?.address ? (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 12 }}>
+                  <Ionicons name="location" size={16} color={GREEN} />
+                  <Text style={{ fontSize: 14, color: '#636366', flex: 1 }}>{reviewingJob.address}</Text>
+                </View>
+              ) : null}
+            </ScrollView>
+
+            <View style={{ flexDirection: 'row', gap: 12, marginTop: 20 }}>
+              <TouchableOpacity style={s.declineBtn} onPress={handleDeclineJob}>
+                <Ionicons name="close-circle" size={20} color="#FF3B30" />
+                <Text style={s.declineBtnText}>Rechazar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={s.acceptBtn} onPress={handleAcceptJob} disabled={accepting}>
+                {accepting ? <ActivityIndicator color="#fff" size="small" /> : (
+                  <>
+                    <Ionicons name="checkmark-circle" size={20} color="#fff" />
+                    <Text style={s.acceptBtnText}>Aceptar</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -304,16 +459,22 @@ function addJobMarker(lat,lng,jobId,emoji,title,budget,cat,offered){
 const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#fff' },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 },
-  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#F0F0F0' },
+  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#F0F0F0', gap: 8 },
   backBtn: { width: 40, height: 40, borderRadius: 12, backgroundColor: '#F2F2F7', justifyContent: 'center', alignItems: 'center' },
-  headerTitle: { fontSize: 18, fontWeight: '700', color: '#1C1C1E', marginLeft: 12, flex: 1 },
-  jobCount: { backgroundColor: '#00C853', width: 28, height: 28, borderRadius: 14, justifyContent: 'center', alignItems: 'center' },
-  jobCountText: { color: '#fff', fontSize: 13, fontWeight: '700' },
-  catScroll: { maxHeight: 50, borderBottomWidth: 1, borderBottomColor: '#F0F0F0' },
+  headerTitle: { fontSize: 17, fontWeight: '700', color: '#1C1C1E', flex: 1 },
+  jobCount: { backgroundColor: GREEN, width: 26, height: 26, borderRadius: 13, justifyContent: 'center', alignItems: 'center' },
+  jobCountText: { color: '#fff', fontSize: 12, fontWeight: '700' },
+  goBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 2, borderColor: GREEN, backgroundColor: '#fff' },
+  goBtnActive: { backgroundColor: GREEN },
+  goBtnText: { fontSize: 12, fontWeight: '800', color: GREEN },
+  catScroll: { maxHeight: 48, borderBottomWidth: 1, borderBottomColor: '#F0F0F0' },
   catChip: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20, backgroundColor: '#F2F2F7' },
-  catChipActive: { backgroundColor: '#00C853' },
+  catChipActive: { backgroundColor: GREEN },
   catChipText: { fontSize: 12, fontWeight: '600', color: '#636366' },
   catChipTextActive: { color: '#fff' },
+  offlineOverlay: { position: 'absolute', bottom: 16, left: 16, right: 16, backgroundColor: 'rgba(255,255,255,0.95)', borderRadius: 16, padding: 20, alignItems: 'center', gap: 4, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 8, elevation: 5 },
+  offlineText: { fontSize: 16, fontWeight: '700', color: '#1C1C1E' },
+  offlineSubtext: { fontSize: 13, color: '#8E8E93' },
   sheet: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: '#fff', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, paddingBottom: 36, shadowColor: '#000', shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.1, shadowRadius: 16, elevation: 10 },
   sheetHandle: { width: 36, height: 4, borderRadius: 2, backgroundColor: '#D1D1D6', alignSelf: 'center', marginBottom: 12 },
   sheetClose: { position: 'absolute', top: 16, right: 16, zIndex: 1 },
@@ -321,17 +482,46 @@ const s = StyleSheet.create({
   sheetEmoji: { fontSize: 32 },
   sheetTitle: { fontSize: 18, fontWeight: '800', color: '#1C1C1E' },
   sheetCat: { fontSize: 13, color: '#8E8E93', marginTop: 2 },
-  sheetBudget: { fontSize: 22, fontWeight: '800', color: '#00C853' },
+  sheetBudget: { fontSize: 22, fontWeight: '800', color: GREEN },
   sheetDesc: { fontSize: 14, color: '#636366', lineHeight: 20 },
-  offerBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: '#00C853', paddingVertical: 16, borderRadius: 14 },
-  offerBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
-  priceInput: { flex: 1, fontSize: 22, fontWeight: '700', color: '#1C1C1E', backgroundColor: '#F2F2F7', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10 },
-  msgInput: { backgroundColor: '#F2F2F7', borderRadius: 12, padding: 14, fontSize: 14, color: '#1C1C1E', minHeight: 60 },
-  cancelBtn: { flex: 1, paddingVertical: 14, borderRadius: 12, backgroundColor: '#F2F2F7', alignItems: 'center' },
-  submitBtn: { flex: 1, paddingVertical: 14, borderRadius: 12, backgroundColor: '#00C853', alignItems: 'center' },
+  reviewBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: GREEN, paddingVertical: 16, borderRadius: 14, marginTop: 14 },
+  reviewBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+
+  // Alert popup
+  alertOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center', padding: 24 },
+  alertCard: { width: '100%', backgroundColor: '#fff', borderRadius: 24, padding: 28, alignItems: 'center' },
+  alertPulse: { width: 72, height: 72, borderRadius: 22, backgroundColor: '#E8F5E9', justifyContent: 'center', alignItems: 'center', marginBottom: 16 },
+  alertTitle: { fontSize: 20, fontWeight: '800', color: '#1C1C1E', marginBottom: 8 },
+  alertJobTitle: { fontSize: 16, fontWeight: '600', color: '#1C1C1E' },
+  alertBudget: { fontSize: 28, fontWeight: '800', color: GREEN, marginTop: 4 },
+  alertAddress: { fontSize: 13, color: '#8E8E93', marginTop: 6 },
+  alertClient: { fontSize: 13, color: '#636366', marginTop: 4 },
+  alertReviewBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: GREEN, paddingVertical: 16, borderRadius: 14, width: '100%', marginTop: 20 },
+  alertReviewBtnText: { color: '#fff', fontSize: 17, fontWeight: '800' },
+  alertDismissBtn: { paddingVertical: 12, marginTop: 8 },
+  alertDismissText: { color: '#8E8E93', fontSize: 15, fontWeight: '600' },
+
+  // Review modal
+  reviewCard: { width: '100%', backgroundColor: '#fff', borderRadius: 24, padding: 24 },
+  timerBarBg: { height: 6, borderRadius: 3, backgroundColor: '#E5E5EA', marginBottom: 8, overflow: 'hidden' },
+  timerBarFill: { height: 6, borderRadius: 3, backgroundColor: GREEN },
+  timerRow: { flexDirection: 'row', alignItems: 'center', gap: 6, justifyContent: 'center', marginBottom: 12 },
+  timerText: { fontSize: 18, fontWeight: '800', color: GREEN },
+  reviewJobTitle: { fontSize: 20, fontWeight: '800', color: '#1C1C1E', textAlign: 'center' },
+  reviewJobCat: { fontSize: 14, color: '#8E8E93', textAlign: 'center', marginTop: 4 },
+  reviewBudgetRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#F8F8FA', borderRadius: 12, padding: 16, marginTop: 16 },
+  reviewBudgetLabel: { fontSize: 14, color: '#636366' },
+  reviewBudgetVal: { fontSize: 24, fontWeight: '800', color: GREEN },
+  reviewDescTitle: { fontSize: 14, fontWeight: '700', color: '#1C1C1E', marginTop: 16, marginBottom: 4 },
+  reviewDesc: { fontSize: 14, color: '#636366', lineHeight: 20 },
+  declineBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 16, borderRadius: 14, backgroundColor: '#FFF5F5', borderWidth: 1, borderColor: '#FF3B30' },
+  declineBtnText: { color: '#FF3B30', fontSize: 15, fontWeight: '700' },
+  acceptBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 16, borderRadius: 14, backgroundColor: GREEN },
+  acceptBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
+
   setupIcon: { width: 80, height: 80, borderRadius: 24, backgroundColor: 'rgba(0,200,83,0.1)', justifyContent: 'center', alignItems: 'center', marginBottom: 20 },
   setupTitle: { fontSize: 22, fontWeight: '800', color: '#1C1C1E', textAlign: 'center' },
   setupSubtitle: { fontSize: 15, color: '#8E8E93', textAlign: 'center', marginTop: 8, paddingHorizontal: 40, lineHeight: 22 },
-  setupBtn: { backgroundColor: '#00C853', paddingHorizontal: 32, paddingVertical: 16, borderRadius: 14, marginTop: 28 },
+  setupBtn: { backgroundColor: GREEN, paddingHorizontal: 32, paddingVertical: 16, borderRadius: 14, marginTop: 28 },
   setupBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
 });

@@ -394,6 +394,25 @@ async def get_driver_verification_status(user: dict = Depends(get_current_user))
     if user["user_type"] != "driver":
         raise HTTPException(status_code=403, detail="Solo conductores")
     
+    # First check if admin has directly verified this driver
+    driver_rec = await db.drivers.find_one({"driver_id": user["user_id"]}, {"_id": 0})
+    user_rec = await db.users.find_one({"user_id": user["user_id"]}, {"_id": 0, "is_verified": 1})
+    
+    admin_verified = (
+        (driver_rec and driver_rec.get("documents_verified")) or
+        (driver_rec and driver_rec.get("is_verified")) or
+        (user_rec and user_rec.get("is_verified"))
+    )
+    
+    if admin_verified:
+        return {
+            "is_verified": True,
+            "status": "approved",
+            "uploaded_count": len(REQUIRED_DOCUMENTS),
+            "required_count": len(REQUIRED_DOCUMENTS),
+        }
+    
+    # Otherwise check individual documents
     docs = await db.driver_documents.find(
         {"driver_id": user["user_id"]}, {"_id": 0, "file_data": 0}
     ).to_list(20)
