@@ -27,6 +27,7 @@ export default function ClientHomeScreen() {
   const [suggestions, setSuggestions] = useState<any[]>([]);
   const [searching, setSearching] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
+  const [myActiveJobs, setMyActiveJobs] = useState<any[]>([]);
 
   // Pulse animation for location marker
   useEffect(() => {
@@ -58,6 +59,14 @@ export default function ClientHomeScreen() {
         }
       } catch {}
       setLoadingLoc(false);
+    })();
+    // Load active jobs
+    (async () => {
+      try {
+        const res = await apiService.get('/jobs/my-posts');
+        const active = (res.jobs || []).filter((j: any) => ['open', 'assigned', 'reviewing', 'in_progress', 'pending_completion'].includes(j.status));
+        setMyActiveJobs(active);
+      } catch {}
     })();
   }, []);
 
@@ -151,6 +160,28 @@ function updatePin(lat,lng){pin.setLatLng([lat,lng]);map.setView([lat,lng],15);}
           />
         )}
       </View>
+
+      {/* Active jobs banner */}
+      {myActiveJobs.length > 0 && (
+        <View style={{ backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: '#E5E5EA', paddingHorizontal: 16, paddingVertical: 10 }}>
+          <Text style={{ fontSize: 14, fontWeight: '700', color: '#1C1C1E', marginBottom: 8 }}>Mis trabajos activos</Text>
+          {myActiveJobs.map((job) => (
+            <TouchableOpacity
+              key={job.job_id}
+              style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#F8F8FA', borderRadius: 12, padding: 12, marginBottom: 6, borderLeftWidth: 3, borderLeftColor: job.status === 'assigned' ? '#00C853' : '#FF9500' }}
+              onPress={() => router.push({ pathname: '/(jobs)/job-status', params: { jobId: job.job_id } } as any)}
+            >
+              <Ionicons name={job.status === 'assigned' ? 'checkmark-circle' : 'search'} size={20} color={job.status === 'assigned' ? '#00C853' : '#FF9500'} />
+              <View style={{ flex: 1, marginLeft: 10 }}>
+                <Text style={{ fontSize: 14, fontWeight: '600', color: '#1C1C1E' }} numberOfLines={1}>{job.title}</Text>
+                <Text style={{ fontSize: 12, color: '#8E8E93' }}>{job.status === 'assigned' ? (job.assigned_name || 'Profesional asignado') : 'Buscando...'}</Text>
+              </View>
+              <Text style={{ fontSize: 15, fontWeight: '700', color: '#00C853' }}>${job.budget}</Text>
+              <Ionicons name="chevron-forward" size={18} color="#C7C7CC" style={{ marginLeft: 4 }} />
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
 
       {/* Bottom card */}
       <View style={[s.bottomCard, { paddingBottom: Math.max(insets.bottom, 16) }]}>

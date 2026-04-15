@@ -26,6 +26,10 @@ export default function JobStatusScreen() {
   const [sending, setSending] = useState(false);
   const [showChat, setShowChat] = useState(false);
   const [cancelling, setCancelling] = useState(false);
+  const [showRating, setShowRating] = useState(false);
+  const [rating, setRating] = useState(5);
+  const [ratingComment, setRatingComment] = useState('');
+  const [submittingRating, setSubmittingRating] = useState(false);
 
   const loadJob = useCallback(async () => {
     try {
@@ -129,15 +133,46 @@ export default function JobStatusScreen() {
 
   const isAssigned = job.status === 'assigned' || job.status === 'in_progress';
   const isOpen = job.status === 'open' || job.status === 'reviewing';
+  const isPendingCompletion = job.status === 'pending_completion';
+  const isCompleted = job.status === 'completed';
+  const iWasRequester = job.completed_by === user?.user_id;
+  const canConfirm = isPendingCompletion && !iWasRequester;
 
   const statusConfig: Record<string, { color: string; icon: string; label: string }> = {
     open: { color: '#FF9500', icon: 'search', label: 'Buscando profesional...' },
     reviewing: { color: '#007AFF', icon: 'eye', label: 'Un profesional lo está revisando' },
     assigned: { color: GREEN, icon: 'checkmark-circle', label: 'Profesional asignado' },
     in_progress: { color: GREEN, icon: 'construct', label: 'En progreso' },
+    pending_completion: { color: '#007AFF', icon: 'hourglass', label: iWasRequester ? 'Esperando confirmación...' : '¡Confirma que el trabajo terminó!' },
     completed: { color: '#34C759', icon: 'trophy', label: 'Completado' },
     cancelled: { color: '#FF3B30', icon: 'close-circle', label: 'Cancelado' },
     expired: { color: '#8E8E93', icon: 'time', label: 'Expirado' },
+  };
+
+  const markCompleted = async () => {
+    try {
+      await apiService.put(`/jobs/${params.jobId}/status`, { status: 'mark_completed' });
+      loadJob();
+    } catch (e: any) { Alert.alert('Error', e.message); }
+  };
+
+  const confirmCompleted = async () => {
+    try {
+      await apiService.put(`/jobs/${params.jobId}/status`, { status: 'confirm_completed' });
+      loadJob();
+      setShowRating(true);
+    } catch (e: any) { Alert.alert('Error', e.message); }
+  };
+
+  const submitRating = async () => {
+    setSubmittingRating(true);
+    try {
+      await apiService.post(`/jobs/${params.jobId}/rate`, { rating, comment: ratingComment });
+      Alert.alert('¡Gracias!', 'Tu calificación fue enviada.');
+      setShowRating(false);
+      loadJob();
+    } catch (e: any) { Alert.alert('Error', e.message); }
+    setSubmittingRating(false);
   };
 
   const st = statusConfig[job.status] || statusConfig.open;
@@ -261,6 +296,54 @@ export default function JobStatusScreen() {
             </View>
           )}
 
+          {/* Completion actions */}
+          {isAssigned && !isPendingCompletion && (
+            <TouchableOpacity
+              style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: '#34C759', paddingVertical: 16, borderRadius: 14, marginBottom: 8 }}
+              onPress={markCompleted}
+            >
+              <Ionicons name="checkmark-done" size={20} color="#fff" />
+              <Text style={{ color: '#fff', fontSize: 16, fontWeight: '700' }}>Marcar como terminado</Text>
+            </TouchableOpacity>
+          )}
+
+          {/* Confirm completion (other party requested) */}
+          {canConfirm && (
+            <View style={{ backgroundColor: '#007AFF15', borderRadius: 16, padding: 16, marginBottom: 12 }}>
+              <Text style={{ fontSize: 15, fontWeight: '700', color: '#007AFF', textAlign: 'center', marginBottom: 12 }}>
+                La otra parte marcó el trabajo como terminado
+              </Text>
+              <TouchableOpacity
+                style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: '#34C759', paddingVertical: 16, borderRadius: 14 }}
+                onPress={confirmCompleted}
+              >
+                <Ionicons name="checkmark-done" size={20} color="#fff" />
+                <Text style={{ color: '#fff', fontSize: 16, fontWeight: '700' }}>Confirmar trabajo terminado</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {/* Waiting for confirmation */}
+          {isPendingCompletion && iWasRequester && (
+            <View style={{ backgroundColor: '#FFF3E0', borderRadius: 14, padding: 16, alignItems: 'center', marginBottom: 12 }}>
+              <ActivityIndicator size="small" color="#FF9500" />
+              <Text style={{ color: '#FF9500', fontWeight: '600', fontSize: 14, marginTop: 8, textAlign: 'center' }}>
+                Esperando que la otra parte confirme...
+              </Text>
+            </View>
+          )}
+
+          {/* Rating prompt after completion */}
+          {isCompleted && (
+            <TouchableOpacity
+              style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: '#FFD700', paddingVertical: 16, borderRadius: 14, marginBottom: 8 }}
+              onPress={() => setShowRating(true)}
+            >
+              <Ionicons name="star" size={20} color="#fff" />
+              <Text style={{ color: '#fff', fontSize: 16, fontWeight: '700' }}>Calificar</Text>
+            </TouchableOpacity>
+          )}
+
           {/* Cancel button */}
           {(isOpen || isAssigned) && (
             <TouchableOpacity style={s.cancelBtn} onPress={cancelJob} disabled={cancelling}>
@@ -269,6 +352,41 @@ export default function JobStatusScreen() {
             </TouchableOpacity>
           )}
         </ScrollView>
+      )}
+
+      {/* ═══ Rating Modal ═══ */}
+      {showRating && (
+        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center', padding: 24, zIndex: 100 }}>
+          <View style={{ backgroundColor: '#fff', borderRadius: 24, padding: 28, width: '100%', alignItems: 'center' }}>
+            <Text style={{ fontSize: 22, fontWeight: '800', color: '#1C1C1E', marginBottom: 4 }}>¿Cómo fue tu experiencia?</Text>
+            <Text style={{ fontSize: 14, color: '#8E8E93', marginBottom: 20 }}>Calificá de 1 a 5 estrellas</Text>
+            <View style={{ flexDirection: 'row', gap: 8, marginBottom: 16 }}>
+              {[1, 2, 3, 4, 5].map(star => (
+                <TouchableOpacity key={star} onPress={() => setRating(star)}>
+                  <Ionicons name={star <= rating ? 'star' : 'star-outline'} size={40} color={star <= rating ? '#FFD700' : '#D1D1D6'} />
+                </TouchableOpacity>
+              ))}
+            </View>
+            <TextInput
+              style={{ width: '100%', backgroundColor: '#F2F2F7', borderRadius: 12, paddingHorizontal: 16, paddingVertical: 12, fontSize: 14, color: '#1C1C1E', marginBottom: 16, textAlignVertical: 'top', minHeight: 60 }}
+              placeholder="Comentario (opcional)"
+              placeholderTextColor="#8E8E93"
+              value={ratingComment}
+              onChangeText={setRatingComment}
+              multiline
+            />
+            <TouchableOpacity
+              style={{ width: '100%', backgroundColor: GREEN, borderRadius: 14, paddingVertical: 16, alignItems: 'center' }}
+              onPress={submitRating}
+              disabled={submittingRating}
+            >
+              {submittingRating ? <ActivityIndicator color="#fff" /> : <Text style={{ color: '#fff', fontSize: 16, fontWeight: '700' }}>Enviar calificación</Text>}
+            </TouchableOpacity>
+            <TouchableOpacity style={{ paddingVertical: 12, marginTop: 4 }} onPress={() => setShowRating(false)}>
+              <Text style={{ color: '#8E8E93', fontSize: 14 }}>Omitir</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
       )}
     </KeyboardAvoidingView>
   );

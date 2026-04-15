@@ -550,21 +550,64 @@ async def update_job_status(
     
     new_status = data.get("status")
     now = datetime.now(timezone.utc)
-    update = {"status": new_status, "updated_at": now}
+    update: dict = {"updated_at": now}
     
     if new_status == "in_progress":
+        update["status"] = "in_progress"
         update["started_at"] = now
-    elif new_status == "completed":
+    elif new_status == "mark_completed":
+        # One party marks as done - needs confirmation from the other
+        update["status"] = "pending_completion"
+        update["completed_by"] = user["user_id"]
+        update["completed_requested_at"] = now
+        # Notify the other party
+        other_id = job.get("assigned_to") if user["user_id"] == job["client_id"] else job["client_id"]
+        if other_id:
+            try:
+                from websocket_manager import manager
+                await manager.send_personal_message({
+                    "type": "job_completion_request",
+                    "job_id": job_id,
+                    "requester_name": user.get("name", "Usuario"),
+                    "message": f"{user.get('name', 'El otro usuario')} marcó el trabajo como terminado. Confirmá.",
+                }, other_id)
+            except:
+                pass
+    elif new_status == "confirm_completed":
+        # Other party confirms completion
+        if job.get("status") != "pending_completion":
+            raise HTTPException(status_code=400, detail="El trabajo no está pendiente de confirmación")
+        if job.get("completed_by") == user["user_id"]:
+            raise HTTPException(status_code=400, detail="No podés confirmar tu propia solicitud")
+        update["status"] = "completed"
         update["completed_at"] = now
+        update["confirmed_by"] = user["user_id"]
         # Increment professional's total jobs
         if job.get("assigned_to"):
             await db.professional_profiles.update_one(
                 {"user_id": job["assigned_to"]},
                 {"$inc": {"total_jobs": 1}}
             )
+        # Notify both parties to rate
+        for uid in [job.get("client_id"), job.get("assigned_to")]:
+            if uid:
+                try:
+                    from websocket_manager import manager
+                    await manager.send_personal_message({
+                        "type": "job_completed",
+                        "job_id": job_id,
+                        "message": "¡Trabajo completado! Calificá tu experiencia.",
+                    }, uid)
+                except:
+                    pass
+    elif new_status == "cancelled":
+        update["status"] = "cancelled"
+        update["cancelled_by"] = user["user_id"]
+    else:
+        update["status"] = new_status
     
     await db.job_posts.update_one({"job_id": job_id}, {"$set": update})
-    return {"status": "updated", "job_status": new_status}
+    return {"status": "updated", "job_status": update.get("status", new_status)}
 
 
 @router.post("/api/jobs/{job_id}/rate")
