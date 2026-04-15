@@ -194,19 +194,22 @@ export default function DriverHomeScreen() {
         if (docsRes) {
           setDocsUploaded(docsRes.uploaded_count || 0);
           setDocsRequired(docsRes.required_count || 6);
-          if (docsRes.status === 'incomplete') {
-            setDocsIncomplete(true);
+          if (docsRes.status === 'approved') {
+            setDocsIncomplete(false);
+            setDocsRejected(false);
             setPendingVerification(false);
           } else if (docsRes.status === 'rejected') {
             setDocsRejected(true);
             setDocsIncomplete(true);
             setPendingVerification(false);
-          } else if (docsRes.status === 'pending') {
+          } else if (docsRes.uploaded_count > 0) {
+            // At least 1 doc uploaded - let them through with soft banner
             setDocsIncomplete(false);
             setDocsRejected(false);
             setPendingVerification(true);
-          } else if (docsRes.status === 'approved') {
-            setDocsIncomplete(false);
+          } else {
+            // Zero docs uploaded - block
+            setDocsIncomplete(true);
             setDocsRejected(false);
             setPendingVerification(false);
           }
