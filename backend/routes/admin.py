@@ -12,6 +12,7 @@ from websocket_manager import manager
 from utils import (
     generate_id, hash_password, get_current_user, get_settings, calculate_distance,
     DEFAULT_FARES, REQUIRED_DOCUMENTS, adjust_wallet_balance, set_wallet_balance,
+    DEFAULT_VEHICLE_ICONS, DISPLAY_NAMES,
 )
 from models import (
     SettingsUpdate, VehicleIconUpdate, AdminUserUpdate, AdminCreateUser,
@@ -281,7 +282,7 @@ async def update_vehicle_icon(
     if user["user_type"] != "admin":
         raise HTTPException(status_code=403, detail="Admin access required")
     
-    valid_types = ["economy", "comfort", "premium", "xl"]
+    valid_types = ["economy", "moto", "comfort", "premium", "xl"]
     if vehicle_type not in valid_types:
         raise HTTPException(status_code=400, detail=f"Invalid vehicle type. Must be one of: {valid_types}")
     
@@ -1056,7 +1057,7 @@ async def admin_update_fare(
     if user["user_type"] != "admin":
         raise HTTPException(status_code=403, detail="Admin access required")
     
-    valid = ["economy", "comfort", "premium", "xl"]
+    valid = ["economy", "moto", "comfort", "premium", "xl"]
     if vehicle_type not in valid:
         raise HTTPException(status_code=400, detail=f"Invalid type. Must be: {valid}")
     

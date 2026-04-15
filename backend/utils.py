@@ -180,6 +180,14 @@ DISPLAY_NAMES = {
     "xl": "XL",
 }
 
+DEFAULT_VEHICLE_ICONS = [
+    {"vehicle_type": "economy", "display_name": "Auto", "icon_type": "emoji", "emoji_value": "🚗", "image_data": None},
+    {"vehicle_type": "moto", "display_name": "Moto", "icon_type": "emoji", "emoji_value": "🏍️", "image_data": None},
+    {"vehicle_type": "comfort", "display_name": "Confort", "icon_type": "emoji", "emoji_value": "🚙", "image_data": None},
+    {"vehicle_type": "premium", "display_name": "Premium", "icon_type": "emoji", "emoji_value": "🏎️", "image_data": None},
+    {"vehicle_type": "xl", "display_name": "XL", "icon_type": "emoji", "emoji_value": "🚐", "image_data": None},
+]
+
 REQUIRED_DOCUMENTS = [
     {"key": "license", "label": "Licencia de conducir", "description": "Foto legible de tu licencia vigente"},
     {"key": "id_front", "label": "DNI frente", "description": "Foto del frente de tu documento de identidad"},

@@ -185,9 +185,9 @@ export default function AdminTripsScreen() {
 
               <Text style={s.sectionLabel}>Servicio</Text>
               <View style={s.radioRow}>
-                {['economy','comfort','premium','xl'].map(v => (
+                {['economy','moto','comfort','premium','xl'].map(v => (
                   <TouchableOpacity key={v} style={[s.serviceBtn, form.vehicle_type===v&&s.serviceBtnActive]} onPress={() => setForm({...form,vehicle_type:v})}>
-                    <Text style={[s.serviceBtnText, form.vehicle_type===v&&{color:'#fff'}]}>{v==='economy'?'Eco':v==='comfort'?'Confort':v==='premium'?'Premium':'XL'}</Text>
+                    <Text style={[s.serviceBtnText, form.vehicle_type===v&&{color:'#fff'}]}>{v==='economy'?'Auto':v==='moto'?'Moto':v==='comfort'?'Confort':v==='premium'?'Premium':'XL'}</Text>
                   </TouchableOpacity>
                 ))}
               </View>

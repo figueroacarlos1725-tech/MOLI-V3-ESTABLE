@@ -819,9 +819,9 @@ export default function DispatchHome() {
 
                 <Text style={s.inputLabel}>Vehículo</Text>
                 <View style={s.vRow}>
-                  {['economy', 'comfort', 'premium', 'xl'].map(v => (
+                  {['economy', 'moto', 'comfort', 'premium', 'xl'].map(v => (
                     <TouchableOpacity key={v} style={[s.vChip, newOrder.vehicle_type === v && s.vChipActive]} onPress={() => setNewOrder(p => ({ ...p, vehicle_type: v }))}>
-                      <Text style={[s.vChipTxt, newOrder.vehicle_type === v && { color: '#fff' }]}>{v === 'economy' ? 'Eco' : v === 'comfort' ? 'Confort' : v === 'premium' ? 'Premium' : 'XL'}</Text>
+                      <Text style={[s.vChipTxt, newOrder.vehicle_type === v && { color: '#fff' }]}>{v === 'economy' ? 'Auto' : v === 'moto' ? 'Moto' : v === 'comfort' ? 'Confort' : v === 'premium' ? 'Premium' : 'XL'}</Text>
                     </TouchableOpacity>
                   ))}
                 </View>

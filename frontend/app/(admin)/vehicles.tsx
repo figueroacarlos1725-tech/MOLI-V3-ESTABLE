@@ -31,6 +31,7 @@ const EMOJI_OPTIONS = [
 
 const VEHICLE_TYPE_ICONS: Record<string, string> = {
   economy: 'car-outline',
+  moto: 'bicycle',
   comfort: 'car',
   premium: 'car-sport',
   xl: 'bus',
@@ -123,6 +124,7 @@ export default function AdminVehicleIconsScreen() {
   const handleResetToEmoji = async (vehicleType: string) => {
     const defaults: Record<string, string> = {
       economy: '🚗',
+      moto: '🏍️',
       comfort: '🚙',
       premium: '🏎️',
       xl: '🚐',

@@ -275,7 +275,7 @@ export default function AdminUsersScreen() {
                     <Text style={s.sectionTitle}>Tipos de Servicio</Text>
                     <Text style={{fontSize:12,color:'#8E8E93',marginBottom:10}}>Elegí qué servicios puede ofrecer este conductor</Text>
                     <View style={s.radioRow}>
-                      {[{key:'economy',label:'Econ\u00f3mico'},{key:'comfort',label:'Confort'},{key:'premium',label:'Premium'},{key:'xl',label:'XL'}].map(t => (
+                      {[{key:'economy',label:'Auto'},{key:'moto',label:'Moto'},{key:'comfort',label:'Confort'},{key:'premium',label:'Premium'},{key:'xl',label:'XL'}].map(t => (
                         <TouchableOpacity key={t.key} style={[s.serviceChip, serviceTypes.includes(t.key)&&s.serviceChipActive]} onPress={() => toggleServiceType(t.key)}>
                           <Ionicons name={serviceTypes.includes(t.key)?'checkmark-circle':'ellipse-outline'} size={18} color={serviceTypes.includes(t.key)?'#fff':'#8E8E93'} />
                           <Text style={[s.serviceChipText, serviceTypes.includes(t.key)&&{color:'#fff'}]}>{t.label}</Text>

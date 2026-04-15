@@ -3,7 +3,7 @@ from fastapi import APIRouter, HTTPException, Depends
 from datetime import datetime, timezone
 
 from database import db
-from utils import generate_id, get_current_user
+from utils import generate_id, get_current_user, DEFAULT_VEHICLE_ICONS
 from models import VehicleCreate, VehicleResponse
 
 router = APIRouter()

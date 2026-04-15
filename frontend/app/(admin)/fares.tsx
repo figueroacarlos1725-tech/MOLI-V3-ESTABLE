@@ -14,8 +14,8 @@ interface Fare {
   day_surcharge: number;
 }
 
-const TYPE_NAMES: Record<string,string> = {economy:'Económico',comfort:'Confort',premium:'Premium',xl:'XL'};
-const TYPE_ICONS: Record<string,string> = {economy:'car-outline',comfort:'car',premium:'car-sport',xl:'bus'};
+const TYPE_NAMES: Record<string,string> = {economy:'Auto',moto:'Moto',comfort:'Confort',premium:'Premium',xl:'XL'};
+const TYPE_ICONS: Record<string,string> = {economy:'car-outline',moto:'bicycle',comfort:'car',premium:'car-sport',xl:'bus'};
 
 export default function AdminFaresScreen() {
   const [fares, setFares] = useState<Fare[]>([]);

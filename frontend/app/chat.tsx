@@ -42,6 +42,40 @@ export default function RideChatScreen() {
   const [showQuick, setShowQuick] = useState(true);
   const flatListRef = useRef<FlatList>(null);
 
+  const handleQuickSend = async (msg: string) => {
+    setShowQuick(false);
+    setIsSending(true);
+    
+    const tempMsg: ChatMessage = {
+      message_id: `temp_${Date.now()}`,
+      ride_id: rideId || '',
+      sender_id: user?.user_id || '',
+      sender_name: user?.name || 'Yo',
+      receiver_id: '',
+      message: msg,
+      is_ai: false,
+      created_at: new Date().toISOString(),
+    };
+    setMessages(prev => [...prev, tempMsg]);
+    setTimeout(() => flatListRef.current?.scrollToEnd(), 100);
+    
+    try {
+      const response = await apiService.post(
+        `/chat/send?ride_id=${rideId}&message=${encodeURIComponent(msg)}`
+      );
+      if (response.message) {
+        setMessages(prev => prev.map(m => 
+          m.message_id === tempMsg.message_id ? { ...response.message } : m
+        ));
+      }
+    } catch (error) {
+      console.error('Error enviando mensaje rápido:', error);
+      setMessages(prev => prev.filter(m => m.message_id !== tempMsg.message_id));
+    } finally {
+      setIsSending(false);
+    }
+  };
+
   const QUICK_MESSAGES = [
     'Estoy en camino',
     'Ya llegué',
@@ -212,7 +246,7 @@ export default function RideChatScreen() {
         {showQuick && (
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.quickScroll} contentContainerStyle={{ paddingHorizontal: 12, gap: 6 }}>
             {QUICK_MESSAGES.map((msg, i) => (
-              <TouchableOpacity key={i} style={styles.quickChip} onPress={() => { setNewMessage(msg); setShowQuick(false); }}>
+              <TouchableOpacity key={i} style={styles.quickChip} onPress={() => handleQuickSend(msg)}>
                 <Text style={styles.quickText}>{msg}</Text>
               </TouchableOpacity>
             ))}
