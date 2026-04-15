@@ -83,12 +83,9 @@ android-sdk/
 
 # Metro cache
 .metro-cache*
--e 
-# Environment and credential files
-.env
-.env.*
-*.env
-credentials.json
-*.pem
-*.key
-.credentials
+
+# Ruff cache
+.ruff_cache/
+
+# Expo build artifacts
+.expo/
