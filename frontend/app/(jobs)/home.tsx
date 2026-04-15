@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
-  View, Text, StyleSheet, SafeAreaView, TouchableOpacity,
+  View, Text, StyleSheet, TouchableOpacity,
   ActivityIndicator, ScrollView, Dimensions, Platform, TextInput, Alert,
 } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { apiService } from '@/src/services/api';
 import { useAuthStore } from '@/src/stores/authStore';
 
@@ -27,6 +28,7 @@ const CAT_ICONS: Record<string, { icon: string; color: string }> = {
 export default function JobsHomeScreen() {
   const router = useRouter();
   const { user } = useAuthStore();
+  const insets = useSafeAreaInsets();
   const webViewRef = useRef<any>(null);
   const [jobs, setJobs] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
@@ -135,14 +137,14 @@ function addJobMarker(lat,lng,jobId,emoji,title,budget,cat,offered){
   };
 
   if (loading) return (
-    <SafeAreaView style={s.container}>
+    <View style={[s.container, { paddingTop: insets.top }]}>
       <View style={s.center}><ActivityIndicator size="large" color="#00C853" /></View>
-    </SafeAreaView>
+    </View>
   );
 
   if (!hasProfile) {
     return (
-      <SafeAreaView style={s.container}>
+      <View style={[s.container, { paddingTop: insets.top }]}>
         <View style={s.header}>
           <TouchableOpacity onPress={() => router.back()} style={s.backBtn}>
             <Ionicons name="arrow-back" size={22} color="#1C1C1E" />
@@ -161,14 +163,14 @@ function addJobMarker(lat,lng,jobId,emoji,title,budget,cat,offered){
             <Text style={s.setupBtnText}>Completar perfil</Text>
           </TouchableOpacity>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
   const filteredJobs = selectedCat ? jobs.filter(j => j.category === selectedCat) : jobs;
 
   return (
-    <SafeAreaView style={s.container}>
+    <View style={[s.container, { paddingTop: insets.top }]}>
       {/* Header */}
       <View style={s.header}>
         <TouchableOpacity onPress={() => router.back()} style={s.backBtn}>
@@ -295,7 +297,7 @@ function addJobMarker(lat,lng,jobId,emoji,title,budget,cat,offered){
           )}
         </View>
       )}
-    </SafeAreaView>
+    </View>
   );
 }
 

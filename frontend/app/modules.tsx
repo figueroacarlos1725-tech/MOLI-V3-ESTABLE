@@ -50,10 +50,12 @@ export default function ModulesScreen() {
             <View style={[s.cardIcon, { backgroundColor: 'rgba(0,200,83,0.1)' }]}>
               <Ionicons name="car-sport" size={36} color="#00C853" />
             </View>
-            <Text style={s.cardTitle}>Moli Viajes</Text>
-            <Text style={s.cardDesc}>
-              {isDriver ? 'Conectate y empezá a ganar con viajes' : 'Pedí un auto o moto en minutos'}
-            </Text>
+            <View style={s.cardTextBlock}>
+              <Text style={s.cardTitle}>Moli Viajes</Text>
+              <Text style={s.cardDesc}>
+                {isDriver ? 'Conectate y empezá a ganar con viajes' : 'Pedí un auto o moto en minutos'}
+              </Text>
+            </View>
             <View style={s.cardArrow}>
               <Ionicons name="arrow-forward" size={20} color="#00C853" />
             </View>
@@ -64,10 +66,12 @@ export default function ModulesScreen() {
             <View style={[s.cardIcon, { backgroundColor: 'rgba(0,122,255,0.1)' }]}>
               <Ionicons name="briefcase" size={36} color="#007AFF" />
             </View>
-            <Text style={s.cardTitle}>Moli Trabajos</Text>
-            <Text style={s.cardDesc}>
-              {isDriver ? 'Ofrecé tus servicios profesionales' : 'Encontrá profesionales cerca tuyo'}
-            </Text>
+            <View style={s.cardTextBlock}>
+              <Text style={s.cardTitle}>Moli Trabajos</Text>
+              <Text style={s.cardDesc}>
+                {isDriver ? 'Ofrecé tus servicios profesionales' : 'Encontrá profesionales cerca tuyo'}
+              </Text>
+            </View>
             <View style={[s.cardArrow, { backgroundColor: 'rgba(0,122,255,0.1)' }]}>
               <Ionicons name="arrow-forward" size={20} color="#007AFF" />
             </View>
@@ -110,8 +114,9 @@ const s = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  cardTitle: { fontSize: 17, fontWeight: '700', color: '#1C1C1E', marginLeft: 14 },
-  cardDesc: { fontSize: 12, color: '#8E8E93', marginLeft: 14, flex: 1, marginTop: 2 },
+  cardTitle: { fontSize: 17, fontWeight: '700', color: '#1C1C1E' },
+  cardTextBlock: { flex: 1, marginLeft: 14, marginRight: 10 },
+  cardDesc: { fontSize: 12, color: '#8E8E93', marginTop: 2 },
   cardArrow: {
     width: 36,
     height: 36,
