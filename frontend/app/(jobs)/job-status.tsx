@@ -27,6 +27,7 @@ export default function JobStatusScreen() {
   const [showChat, setShowChat] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [showRating, setShowRating] = useState(false);
+  const [hasRated, setHasRated] = useState(false);
   const [rating, setRating] = useState(5);
   const [ratingComment, setRatingComment] = useState('');
   const [submittingRating, setSubmittingRating] = useState(false);
@@ -187,6 +188,7 @@ export default function JobStatusScreen() {
       await apiService.post(`/jobs/${params.jobId}/rate`, { rating, comment: ratingComment });
       Alert.alert('¡Gracias!', 'Tu calificación fue enviada.');
       setShowRating(false);
+      setHasRated(true);
       loadJob();
     } catch (e: any) { Alert.alert('Error', e.message); }
     setSubmittingRating(false);
@@ -308,7 +310,7 @@ export default function JobStatusScreen() {
               </View>
               <TouchableOpacity style={s.chatBtn} onPress={() => setShowChat(true)}>
                 <Ionicons name="chatbubble" size={18} color="#fff" />
-                <Text style={s.chatBtnText}>Chatear con profesional</Text>
+                <Text style={s.chatBtnText}>{job.client_id === user?.user_id ? 'Chatear con profesional' : 'Chatear con cliente'}</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -350,14 +352,23 @@ export default function JobStatusScreen() {
             </View>
           )}
 
-          {/* Rating prompt after completion */}
-          {isCompleted && (
+          {/* Rating prompt / Return button after completion */}
+          {isCompleted && !hasRated && (
             <TouchableOpacity
               style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: '#FFD700', paddingVertical: 16, borderRadius: 14, marginBottom: 8 }}
               onPress={() => setShowRating(true)}
             >
               <Ionicons name="star" size={20} color="#fff" />
               <Text style={{ color: '#fff', fontSize: 16, fontWeight: '700' }}>Calificar</Text>
+            </TouchableOpacity>
+          )}
+          {isCompleted && hasRated && (
+            <TouchableOpacity
+              style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: GREEN, paddingVertical: 16, borderRadius: 14, marginBottom: 8 }}
+              onPress={() => router.replace('/modules')}
+            >
+              <Ionicons name="arrow-back" size={20} color="#fff" />
+              <Text style={{ color: '#fff', fontSize: 16, fontWeight: '700' }}>Volver al inicio</Text>
             </TouchableOpacity>
           )}
 

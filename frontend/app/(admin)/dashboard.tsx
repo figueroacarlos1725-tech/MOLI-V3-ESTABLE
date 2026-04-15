@@ -9,6 +9,7 @@ import {
   RefreshControl,
   ActivityIndicator,
   AppState,
+  Linking,
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -169,6 +170,35 @@ export default function AdminDashboardScreen() {
               <Ionicons name="bar-chart" size={24} color="#00C853" />
               <Text style={styles.actionText}>Reportes</Text>
             </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Admin Web Access */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Acceso Web</Text>
+          <TouchableOpacity 
+            style={{ backgroundColor: '#1C1C1E', borderRadius: 16, padding: 20, flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 12 }}
+            onPress={() => Linking.openURL(`${process.env.EXPO_PUBLIC_BACKEND_URL || 'https://taxify-clone.emergent.host'}`)}
+          >
+            <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: '#00C853', justifyContent: 'center', alignItems: 'center' }}>
+              <Ionicons name="globe" size={24} color="#fff" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: '#fff', fontSize: 16, fontWeight: '700' }}>Abrir Panel Admin Web</Text>
+              <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12, marginTop: 2 }}>Administrar desde el navegador</Text>
+            </View>
+            <Ionicons name="open-outline" size={20} color="#00C853" />
+          </TouchableOpacity>
+          
+          <View style={{ backgroundColor: '#fff', borderRadius: 16, padding: 16, gap: 8 }}>
+            <Text style={{ fontSize: 14, fontWeight: '700', color: '#1C1C1E' }}>Conectar dominio personalizado</Text>
+            <Text style={{ fontSize: 12, color: '#8E8E93', lineHeight: 18 }}>
+              Tu app esta disponible en:{'\n'}
+              taxify-clone.emergent.host{'\n\n'}
+              Para usar tu propio dominio (ej: app.moli.com.ar):{'\n'}
+              1. Configurar un CNAME en tu DNS apuntando a taxify-clone.emergent.host{'\n'}
+              2. Contactar a soporte de Emergent para activar el SSL
+            </Text>
           </View>
         </View>
       </ScrollView>

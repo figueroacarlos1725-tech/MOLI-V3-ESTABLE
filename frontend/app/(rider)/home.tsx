@@ -1191,7 +1191,7 @@ const s = StyleSheet.create({
   foundSub: { fontSize: 14, color: '#8E8E93', marginTop: 6 },
 
   // ─── Active Ride ───
-  activeCard: { backgroundColor: '#fff', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, shadowColor: '#000', shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.1, shadowRadius: 12, elevation: 8 },
+  activeCard: { backgroundColor: '#fff', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, paddingBottom: 36, shadowColor: '#000', shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.1, shadowRadius: 12, elevation: 8 },
   activeStatusBadge: { flexDirection: 'row', alignItems: 'center', alignSelf: 'center', backgroundColor: '#F2F2F7', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, marginBottom: 16, gap: 8 },
   statusDot: { width: 8, height: 8, borderRadius: 4 },
   activeStatusText: { fontSize: 14, fontWeight: '600', color: '#1C1C1E' },
