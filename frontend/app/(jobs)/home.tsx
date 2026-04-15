@@ -548,7 +548,7 @@ function addJobMarker(lat,lng,jobId,emoji,title,budget,cat){
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#E5E5EA' }}>
                   <View>
                     <Text style={{ fontSize: 12, color: '#8E8E93' }}>Presupuesto</Text>
-                    <Text style={{ fontSize: 20, fontWeight: '800', color: GREEN }}>${acceptedJob?.budget?.toLocaleString()}</Text>
+                    <Text style={{ fontSize: 20, fontWeight: '800', color: GREEN }}>${acceptedJob?.budget || 0}</Text>
                   </View>
                   <View style={{ alignItems: 'flex-end' }}>
                     <Text style={{ fontSize: 12, color: '#8E8E93' }}>Cliente</Text>
