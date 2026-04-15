@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -7,8 +7,10 @@ import {
   ScrollView,
   TouchableOpacity,
   RefreshControl,
+  ActivityIndicator,
+  AppState,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '@/src/stores/authStore';
 import { apiService } from '@/src/services/api';
@@ -23,41 +25,72 @@ interface DashboardStats {
   today_commission: number;
 }
 
+// Persist stats globally so they survive unmount/remount
+let _cachedStats: DashboardStats | null = null;
+
 export default function AdminDashboardScreen() {
   const { user } = useAuthStore();
   const router = useRouter();
-  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [stats, setStats] = useState<DashboardStats | null>(_cachedStats);
+  const [loadingStats, setLoadingStats] = useState(!_cachedStats);
   const [refreshing, setRefreshing] = useState(false);
+  const isMounted = useRef(true);
 
-  useEffect(() => {
-    fetchStats();
-  }, []);
-
-  const fetchStats = async () => {
+  const fetchStats = useCallback(async (isRefresh = false) => {
+    if (!isRefresh && !_cachedStats) setLoadingStats(true);
     try {
       const response = await apiService.get('/admin/dashboard');
-      setStats(response.stats);
+      if (isMounted.current && response?.stats) {
+        const s = response.stats;
+        setStats(s);
+        _cachedStats = s; // persist across remounts
+      }
     } catch (error) {
       console.error('Error obteniendo estadisticas:', error);
+      // Don't reset stats on error - keep showing old data
+    } finally {
+      if (isMounted.current) {
+        setLoadingStats(false);
+        setRefreshing(false);
+      }
     }
-  };
+  }, []);
 
-  const onRefresh = async () => {
+  useEffect(() => {
+    isMounted.current = true;
+    return () => { isMounted.current = false; };
+  }, []);
+
+  // Re-fetch stats every time the screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      fetchStats();
+    }, [fetchStats])
+  );
+
+  // Also refresh when app comes to foreground
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active' && isMounted.current) fetchStats();
+    });
+    return () => sub.remove();
+  }, [fetchStats]);
+
+  const onRefresh = () => {
     setRefreshing(true);
-    await fetchStats();
-    setRefreshing(false);
+    fetchStats(true);
   };
 
   const statCards = [
-    { title: 'Usuarios totales', value: stats?.total_users || 0, icon: 'people', color: '#007AFF', bgColor: '#E3F2FD' },
-    { title: 'Conductores', value: stats?.total_drivers || 0, icon: 'car-sport', color: '#00C853', bgColor: '#E8F5E9' },
-    { title: 'En linea', value: stats?.online_drivers || 0, icon: 'radio-button-on', color: '#FF9500', bgColor: '#FFF3E0' },
-    { title: 'Viajes activos', value: stats?.active_rides || 0, icon: 'navigate', color: '#8E44AD', bgColor: '#F3E5F5' },
+    { title: 'Usuarios totales', value: stats?.total_users ?? 0, icon: 'people', color: '#007AFF', bgColor: '#E3F2FD' },
+    { title: 'Conductores', value: stats?.total_drivers ?? 0, icon: 'car-sport', color: '#00C853', bgColor: '#E8F5E9' },
+    { title: 'En linea', value: stats?.online_drivers ?? 0, icon: 'radio-button-on', color: '#FF9500', bgColor: '#FFF3E0' },
+    { title: 'Viajes activos', value: stats?.active_rides ?? 0, icon: 'navigate', color: '#00C853', bgColor: '#E8F5E9' },
   ];
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}>
+      <ScrollView refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#00C853" />}>
         <View style={styles.header}>
           <View>
             <Text style={styles.greeting}>Panel de Admin</Text>
@@ -68,27 +101,34 @@ export default function AdminDashboardScreen() {
           </TouchableOpacity>
         </View>
 
-        <View style={styles.revenueCard}>
-          <View style={styles.revenueHeader}>
-            <Text style={styles.revenueLabel}>Ingresos de hoy</Text>
-            <Text style={styles.revenueDate}>
-              {new Date().toLocaleDateString('es-ES', { month: 'short', day: 'numeric' })}
+        {loadingStats && !stats ? (
+          <View style={styles.loadingCard}>
+            <ActivityIndicator size="large" color="#00C853" />
+            <Text style={styles.loadingText}>Cargando estadísticas...</Text>
+          </View>
+        ) : (
+          <View style={styles.revenueCard}>
+            <View style={styles.revenueHeader}>
+              <Text style={styles.revenueLabel}>Ingresos de hoy</Text>
+              <Text style={styles.revenueDate}>
+                {new Date().toLocaleDateString('es-ES', { month: 'short', day: 'numeric' })}
+              </Text>
+            </View>
+            <Text style={styles.revenueAmount}>
+              ${(stats?.today_revenue ?? 0).toFixed(2)}
             </Text>
-          </View>
-          <Text style={styles.revenueAmount}>
-            ${stats?.today_revenue?.toFixed(2) || '0.00'}
-          </Text>
-          <View style={styles.revenueStats}>
-            <View style={styles.revenueStat}>
-              <Text style={styles.revenueStatLabel}>Comision</Text>
-              <Text style={styles.revenueStatValue}>${stats?.today_commission?.toFixed(2) || '0.00'}</Text>
-            </View>
-            <View style={styles.revenueStat}>
-              <Text style={styles.revenueStatLabel}>Viajes</Text>
-              <Text style={styles.revenueStatValue}>{stats?.today_rides || 0}</Text>
+            <View style={styles.revenueStats}>
+              <View style={styles.revenueStat}>
+                <Text style={styles.revenueStatLabel}>Comisión</Text>
+                <Text style={styles.revenueStatValue}>${(stats?.today_commission ?? 0).toFixed(2)}</Text>
+              </View>
+              <View style={styles.revenueStat}>
+                <Text style={styles.revenueStatLabel}>Viajes</Text>
+                <Text style={styles.revenueStatValue}>{stats?.today_rides ?? 0}</Text>
+              </View>
             </View>
           </View>
-        </View>
+        )}
 
         <View style={styles.statsGrid}>
           {statCards.map((stat, index) => (
@@ -96,33 +136,37 @@ export default function AdminDashboardScreen() {
               <View style={[styles.statIcon, { backgroundColor: stat.bgColor }]}>
                 <Ionicons name={stat.icon as any} size={24} color={stat.color} />
               </View>
-              <Text style={styles.statValue}>{stat.value}</Text>
+              {loadingStats && !stats ? (
+                <ActivityIndicator size="small" color="#00C853" style={{ marginVertical: 4 }} />
+              ) : (
+                <Text style={styles.statValue}>{stat.value}</Text>
+              )}
               <Text style={styles.statTitle}>{stat.title}</Text>
             </View>
           ))}
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Acciones rapidas</Text>
+          <Text style={styles.sectionTitle}>Acciones rápidas</Text>
           <View style={styles.actionsGrid}>
-            <TouchableOpacity style={styles.actionCard}>
+            <TouchableOpacity style={styles.actionCard} onPress={() => router.push('/(admin)/users' as any)}>
               <Ionicons name="person-add" size={24} color="#007AFF" />
               <Text style={styles.actionText}>Agregar usuario</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.actionCard}>
+            <TouchableOpacity style={styles.actionCard} onPress={() => router.push('/(admin)/verification' as any)}>
               <Ionicons name="car" size={24} color="#00C853" />
               <Text style={styles.actionText}>Verificar conductor</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.actionCard}>
+            <TouchableOpacity style={styles.actionCard} onPress={() => router.push('/(admin)/coupons' as any)}>
               <Ionicons name="ticket" size={24} color="#FF9500" />
-              <Text style={styles.actionText}>Agregar cupon</Text>
+              <Text style={styles.actionText}>Agregar cupón</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.actionCard} onPress={() => router.push('/(admin)/places')}>
+            <TouchableOpacity style={styles.actionCard} onPress={() => router.push('/(admin)/places' as any)}>
               <Ionicons name="location" size={24} color="#34C759" />
               <Text style={styles.actionText}>Lugares y Cache</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.actionCard}>
-              <Ionicons name="bar-chart" size={24} color="#8E44AD" />
+            <TouchableOpacity style={styles.actionCard} onPress={() => router.push('/(admin)/trips' as any)}>
+              <Ionicons name="bar-chart" size={24} color="#00C853" />
               <Text style={styles.actionText}>Reportes</Text>
             </TouchableOpacity>
           </View>
@@ -138,14 +182,16 @@ const styles = StyleSheet.create({
   greeting: { fontSize: 28, fontWeight: 'bold', color: '#1C1C1E' },
   subGreeting: { fontSize: 14, color: '#8E8E93', marginTop: 4 },
   notificationButton: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#F2F2F7', justifyContent: 'center', alignItems: 'center' },
-  revenueCard: { backgroundColor: '#8E44AD', margin: 16, borderRadius: 20, padding: 24 },
+  loadingCard: { margin: 16, borderRadius: 20, padding: 40, alignItems: 'center', justifyContent: 'center', backgroundColor: '#00C853' },
+  loadingText: { color: 'rgba(255,255,255,0.9)', fontSize: 14, marginTop: 12 },
+  revenueCard: { backgroundColor: '#00C853', margin: 16, borderRadius: 20, padding: 24 },
   revenueHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  revenueLabel: { fontSize: 14, color: 'rgba(255,255,255,0.8)' },
-  revenueDate: { fontSize: 12, color: 'rgba(255,255,255,0.6)' },
+  revenueLabel: { fontSize: 14, color: 'rgba(255,255,255,0.85)' },
+  revenueDate: { fontSize: 12, color: 'rgba(255,255,255,0.7)' },
   revenueAmount: { fontSize: 42, fontWeight: 'bold', color: '#fff', marginTop: 8 },
-  revenueStats: { flexDirection: 'row', marginTop: 24, paddingTop: 16, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.2)' },
+  revenueStats: { flexDirection: 'row', marginTop: 24, paddingTop: 16, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.25)' },
   revenueStat: { flex: 1 },
-  revenueStatLabel: { fontSize: 12, color: 'rgba(255,255,255,0.6)' },
+  revenueStatLabel: { fontSize: 12, color: 'rgba(255,255,255,0.7)' },
   revenueStatValue: { fontSize: 18, fontWeight: '600', color: '#fff', marginTop: 4 },
   statsGrid: { flexDirection: 'row', flexWrap: 'wrap', padding: 8 },
   statCard: { width: '50%', padding: 8 },

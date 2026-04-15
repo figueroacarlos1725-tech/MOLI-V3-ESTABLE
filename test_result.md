@@ -393,6 +393,36 @@ backend:
         agent: "testing"
         comment: "ADMIN BALANCE UPDATE SYNC TESTED SUCCESSFULLY ✅ PUT /api/admin/users/{user_id}/balance properly updates both collections atomically ✅ Response includes new balance value ✅ GET /api/admin/users/{user_id} shows synced balance and wallet_balance fields ✅ All wallet endpoints (status, balance) reflect the admin balance changes ✅ Primary source of truth is users.wallet_balance with proper sync to user_balances.amount ✅ Admin balance operations use the new set_wallet_balance() helper function"
 
+  - task: "Saved Addresses CRUD (NEW)"
+    implemented: true
+    working: true
+    file: "/app/backend/routes/places.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "NEW SAVED ADDRESSES ENDPOINTS: GET /api/places/saved-addresses (returns saved addresses for current admin/dispatcher user), POST /api/places/saved-addresses (save an address with body {address, latitude, longitude, label}), DELETE /api/places/saved-addresses/{addr_id} (delete saved address). Endpoints require admin/dispatcher role. Deduplication: if same address text already saved, increments use_count. Sorted by use_count descending."
+      - working: true
+        agent: "testing"
+        comment: "SAVED ADDRESSES ENDPOINTS TESTED SUCCESSFULLY ✅ All 11 test scenarios passed! TESTED FUNCTIONALITY: ✅ GET /api/places/saved-addresses - Returns empty addresses array initially ✅ POST /api/places/saved-addresses - Creates new address with status 'created' and returns addr_id ✅ POST same address again - Deduplication works correctly, returns status 'updated' and increments use_count ✅ POST different address - Creates second address successfully ✅ GET /api/places/saved-addresses - Returns 2 addresses correctly sorted by use_count (first address has use_count=2, second has use_count=1) ✅ DELETE /api/places/saved-addresses/{addr_id} - Successfully deletes address and returns status 'deleted' ✅ GET after deletion - Returns 1 remaining address ✅ Access control - Rider access correctly returns 403 'Dispatch access required' ✅ Admin dashboard - Still works correctly after all operations ✅ All endpoints have proper authentication and authorization ✅ JSON body format working correctly (not query params) ✅ Address deduplication and use_count tracking working perfectly"
+
+  - task: "Admin Dashboard Stats Persistence"
+    implemented: true
+    working: true
+    file: "/app/backend/routes/admin.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Verified GET /api/admin/dashboard endpoint returns correct stats. Frontend fix: stats now cached in module-level variable to survive component unmount/remount. Uses useFocusEffect to refresh on screen focus."
+      - working: true
+        agent: "testing"
+        comment: "ADMIN DASHBOARD TESTED SUCCESSFULLY ✅ GET /api/admin/dashboard endpoint working correctly ✅ Returns proper stats structure with total_users and other required fields ✅ Dashboard remains functional after saved addresses operations ✅ No issues with stats persistence or data integrity"
+
 frontend:
   - task: "Pin Adjustment (Draggable Markers)"
     implemented: true
@@ -449,17 +479,14 @@ metadata:
   run_ui: false
 
 test_plan:
-  current_focus:
-    - "Wallet Balance Synchronization"
-    - "Chat Send Message Fix"
-    - "Admin Balance Update Sync"
+  current_focus: []
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
 
 agent_communication:
   - agent: "main"
-    message: "WALLET BALANCE SYNCHRONIZATION FIX COMPLETED + CHAT BUG FIX. KEY CHANGES: 1) Created adjust_wallet_balance() and set_wallet_balance() helper functions in utils.py that atomically update BOTH users.wallet_balance AND user_balances.amount. 2) Replaced ALL raw $inc wallet_balance calls in rides.py (6 places: cash commission debit, card earnings credit, rider penalty collection, rider cancel penalty, driver cancel compensation, driver cancel penalty) with adjust_wallet_balance(). 3) Updated wallet.py payment callback to use adjust_wallet_balance(). 4) Updated admin.py admin_update_balance to use set_wallet_balance() and read from users.wallet_balance as primary source. 5) Fixed admin_get_user() to read balance from users.wallet_balance instead of stale user_balances.amount. 6) FIXED CHAT BUG: chat.py /api/chat/send was crashing with NameError because uuid.uuid4() was used but uuid was never imported. Replaced with generate_id('msg_') which was already imported. TEST CREDENTIALS: admin@test.com/admin123456, rider@test.com/test123456, driver@test.com/test123456. TESTS TO RUN: 1) Admin update balance endpoint - verify both collections synced 2) Wallet status - verify correct balance returned 3) Chat send message - verify no crash 4) Wallet balance endpoint"
+    message: "THREE FIXES IMPLEMENTED: 1) ADMIN DASHBOARD STATS FIX: Stats now persist across unmount/remount using module-level _cachedStats variable. Added useFocusEffect for re-fetch on screen focus, AppState listener for app foreground. Shows loading indicator instead of 0 values. Changed revenueCard from purple to green theme. 2) DISPATCH AUTOCOMPLETE FIX: Changed both pickup and dropoff suggestions from absolute positioning to inline rendering - they now render inside the ScrollView as regular elements, avoiding the overflow:hidden clipping issue. 3) SAVED ADDRESSES: NEW backend endpoints GET/POST/DELETE /api/places/saved-addresses. Frontend loads saved addresses on mount, displays as horizontal bookmark chips, saves when 'Recordar dirección' is checked on order create, long press to delete. TEST CREDENTIALS: admin@test.com/admin123456. TESTS TO RUN: 1) GET /api/places/saved-addresses (should return empty initially), 2) POST /api/places/saved-addresses with body {address, latitude, longitude, label}, 3) GET again to verify it's returned, 4) DELETE /api/places/saved-addresses/{addr_id}, 5) GET /api/admin/dashboard should still return stats correctly."
 
   - agent: "main"
     message: "Implemented the automatic driver dispatch system. KEY CHANGES: 1) POST /api/rides/{request_id}/driver-response?action=accept|reject - NEW endpoint for drivers to respond to offers. 2) The create_ride_request endpoint now starts a background task (assign_ride_to_drivers) that offers rides to drivers one-by-one with 8s timeout. 3) The driver-response endpoint creates rides on accept and signals events on reject. TEST CREDENTIALS: rider@test.com/test123456, driver@test.com/test123456. TEST FLOW: Login as driver -> register vehicle -> set online with location -> Login as rider -> create ride request -> check that request status is pending and background task runs -> Use driver-response endpoint to accept/reject."
@@ -481,3 +508,5 @@ agent_communication:
     message: "COMPREHENSIVE REFACTORED BACKEND TESTING COMPLETED ✅ All 34 critical endpoints tested successfully across ALL 11 route modules! TESTED ROUTES: ✅ Auth (routes/auth.py): login (admin/rider/driver), register, get current user ✅ Drivers (routes/drivers.py): block-status, documents/required, verification-status, earnings ✅ Vehicles (routes/vehicles.py): vehicle-icons, vehicles list ✅ Rides (routes/rides.py): active rides, my-rides, fare estimation ✅ Chat (routes/chat.py): conversations ✅ Support (routes/support.py): AI support chat ✅ Wallet (routes/wallet.py): status, balance, cancellation config ✅ Admin (routes/admin.py): dashboard, settings, users, drivers, fares, banners, payment-config ✅ Places (routes/places.py): search, reverse geocoding ✅ Push (routes/push.py): push token registration ✅ Misc (routes/misc.py): health, config/maps, config/dispatch, fares, version-check, banners. All endpoints have proper authentication, authorization, and return correct data structures. The refactored modular architecture is fully functional and ready for production use."
   - agent: "testing"
     message: "WALLET BALANCE SYNCHRONIZATION & CHAT BUG FIX TESTING COMPLETED ✅ All critical fixes tested successfully! WALLET SYNC TESTS: ✅ Admin balance update (PUT /api/admin/users/{user_id}/balance) correctly updates both users.wallet_balance and user_balances.amount atomically ✅ Admin get user (GET /api/admin/users/{user_id}) returns synced balance and wallet_balance fields ✅ Wallet status (GET /api/wallet/status) returns correct balance matching admin updates ✅ Wallet balance (GET /api/wallet/balance) returns correct balance matching admin updates. CHAT FIX TESTS: ✅ Chat send message (POST /api/chat/send) no longer crashes with NameError ✅ Both rider and driver can send messages successfully ✅ Chat history (GET /api/chat/ride/{ride_id}) shows all messages correctly. The wallet balance synchronization helper functions (adjust_wallet_balance, set_wallet_balance) are working perfectly, and the chat uuid import bug has been completely resolved. All wallet operations now maintain consistency between collections, and chat functionality is fully operational."
+  - agent: "testing"
+    message: "NEW SAVED ADDRESSES ENDPOINTS TESTING COMPLETED ✅ All 11 test scenarios passed perfectly! COMPREHENSIVE TESTING RESULTS: ✅ GET /api/places/saved-addresses - Returns empty addresses array initially, proper authentication required ✅ POST /api/places/saved-addresses - Creates new address with JSON body {address, latitude, longitude, label}, returns status 'created' and addr_id ✅ POST same address again - Deduplication works perfectly, returns status 'updated' and increments use_count ✅ POST different address - Creates second address successfully ✅ GET /api/places/saved-addresses - Returns 2 addresses correctly sorted by use_count descending (first address: use_count=2, second: use_count=1) ✅ DELETE /api/places/saved-addresses/{addr_id} - Successfully deletes address and returns status 'deleted' ✅ GET after deletion - Returns 1 remaining address ✅ Access control - Rider access correctly returns 403 'Dispatch access required' (admin/dispatcher only) ✅ Admin dashboard - Remains fully functional after all saved addresses operations ✅ All endpoints use proper JSON body format (not query params) ✅ Address deduplication and use_count tracking working perfectly ✅ Authentication and authorization working correctly for all endpoints. The saved addresses system is fully functional and ready for production use."

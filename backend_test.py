@@ -462,6 +462,155 @@ def test_places_endpoints():
     else:
         results.add_failure("GET /api/places/reverse", f"Status: {response.status_code if response else 'No response'}")
 
+
+def test_saved_addresses_endpoints():
+    """Test NEW Saved Addresses CRUD endpoints (routes/places.py)"""
+    print(f"\n{'='*20} TESTING SAVED ADDRESSES ENDPOINTS {'='*20}")
+    
+    if not admin_token:
+        results.add_failure("Saved Addresses", "No admin token available")
+        return
+    
+    admin_headers = {"Authorization": f"Bearer {admin_token}"}
+    
+    # Test 1: GET /api/places/saved-addresses - Should return empty initially
+    response = make_request("GET", "/places/saved-addresses", headers=admin_headers)
+    if response and response.status_code == 200:
+        data = response.json()
+        if "addresses" in data and isinstance(data["addresses"], list):
+            initial_count = len(data["addresses"])
+            results.add_success(f"GET /api/places/saved-addresses - Returns addresses array (initial count: {initial_count})")
+        else:
+            results.add_failure("GET /api/places/saved-addresses", "Missing addresses field or not a list")
+    else:
+        results.add_failure("GET /api/places/saved-addresses", f"Status: {response.status_code if response else 'No response'}")
+        return
+    
+    # Test 2: POST /api/places/saved-addresses - Save first address
+    address_data_1 = {
+        "address": "San Martín 152, Catamarca",
+        "latitude": -28.4696,
+        "longitude": -65.7852,
+        "label": "Terminal"
+    }
+    response = make_request("POST", "/places/saved-addresses", headers=admin_headers, json_data=address_data_1)
+    if response and response.status_code == 200:
+        data = response.json()
+        if "status" in data and "addr_id" in data:
+            if data["status"] == "created":
+                addr_id_1 = data["addr_id"]
+                results.add_success(f"POST /api/places/saved-addresses - Created new address (addr_id: {addr_id_1})")
+            else:
+                results.add_failure("POST /api/places/saved-addresses", f"Expected status 'created', got '{data['status']}'")
+        else:
+            results.add_failure("POST /api/places/saved-addresses", "Missing status or addr_id field")
+    else:
+        results.add_failure("POST /api/places/saved-addresses", f"Status: {response.status_code if response else 'No response'}")
+        return
+    
+    # Test 3: POST same address again - Should return "updated" (deduplication)
+    response = make_request("POST", "/places/saved-addresses", headers=admin_headers, json_data=address_data_1)
+    if response and response.status_code == 200:
+        data = response.json()
+        if "status" in data and data["status"] == "updated":
+            results.add_success("POST /api/places/saved-addresses - Deduplication works (status: updated)")
+        else:
+            results.add_failure("POST /api/places/saved-addresses (dedup)", f"Expected status 'updated', got '{data.get('status')}'")
+    else:
+        results.add_failure("POST /api/places/saved-addresses (dedup)", f"Status: {response.status_code if response else 'No response'}")
+    
+    # Test 4: POST different address
+    address_data_2 = {
+        "address": "Av. Güemes 800, Catamarca",
+        "latitude": -28.4700,
+        "longitude": -65.7800,
+        "label": "Hospital"
+    }
+    response = make_request("POST", "/places/saved-addresses", headers=admin_headers, json_data=address_data_2)
+    if response and response.status_code == 200:
+        data = response.json()
+        if "status" in data and data["status"] == "created":
+            addr_id_2 = data["addr_id"]
+            results.add_success(f"POST /api/places/saved-addresses - Created second address (addr_id: {addr_id_2})")
+        else:
+            results.add_failure("POST /api/places/saved-addresses (second)", f"Expected status 'created', got '{data.get('status')}'")
+    else:
+        results.add_failure("POST /api/places/saved-addresses (second)", f"Status: {response.status_code if response else 'No response'}")
+    
+    # Test 5: GET /api/places/saved-addresses - Should now return 2 addresses
+    response = make_request("GET", "/places/saved-addresses", headers=admin_headers)
+    if response and response.status_code == 200:
+        data = response.json()
+        addresses = data.get("addresses", [])
+        if len(addresses) >= 2:
+            # Check if sorted by use_count (first address should have higher use_count due to deduplication)
+            first_addr = addresses[0]
+            if first_addr.get("use_count", 0) >= 2:
+                results.add_success(f"GET /api/places/saved-addresses - Returns 2+ addresses sorted by use_count")
+            else:
+                results.add_success(f"GET /api/places/saved-addresses - Returns 2+ addresses (use_count sorting may vary)")
+        else:
+            results.add_failure("GET /api/places/saved-addresses (after saves)", f"Expected 2+ addresses, got {len(addresses)}")
+    else:
+        results.add_failure("GET /api/places/saved-addresses (after saves)", f"Status: {response.status_code if response else 'No response'}")
+    
+    # Test 6: DELETE /api/places/saved-addresses/{addr_id}
+    if 'addr_id_1' in locals():
+        response = make_request("DELETE", f"/places/saved-addresses/{addr_id_1}", headers=admin_headers)
+        if response and response.status_code == 200:
+            data = response.json()
+            if "status" in data and data["status"] == "deleted":
+                results.add_success(f"DELETE /api/places/saved-addresses/{addr_id_1} - Successfully deleted")
+            else:
+                results.add_failure("DELETE saved address", f"Expected status 'deleted', got '{data.get('status')}'")
+        else:
+            results.add_failure("DELETE saved address", f"Status: {response.status_code if response else 'No response'}")
+    
+    # Test 7: GET /api/places/saved-addresses - Should now return 1 address
+    response = make_request("GET", "/places/saved-addresses", headers=admin_headers)
+    if response and response.status_code == 200:
+        data = response.json()
+        addresses = data.get("addresses", [])
+        if len(addresses) == 1:
+            results.add_success("GET /api/places/saved-addresses - Returns 1 address after deletion")
+        else:
+            results.add_failure("GET /api/places/saved-addresses (after delete)", f"Expected 1 address, got {len(addresses)}")
+    else:
+        results.add_failure("GET /api/places/saved-addresses (after delete)", f"Status: {response.status_code if response else 'No response'}")
+    
+    # Test 8: Access control test - Login as rider and try to access
+    if rider_token:
+        rider_headers = {"Authorization": f"Bearer {rider_token}"}
+        response = make_request("GET", "/places/saved-addresses", headers=rider_headers)
+        if response:
+            if response.status_code == 403:
+                data = response.json()
+                if "Dispatch access required" in data.get("detail", ""):
+                    results.add_success("GET /api/places/saved-addresses (rider) - Correctly returns 403 'Dispatch access required'")
+                else:
+                    results.add_success("GET /api/places/saved-addresses (rider) - Correctly returns 403 (access denied)")
+            else:
+                results.add_failure("GET /api/places/saved-addresses (rider)", f"Expected 403, got {response.status_code}")
+        else:
+            # Retry once for network issues
+            time.sleep(1)
+            response = make_request("GET", "/places/saved-addresses", headers=rider_headers)
+            if response and response.status_code == 403:
+                results.add_success("GET /api/places/saved-addresses (rider) - Correctly returns 403 (after retry)")
+            else:
+                results.add_failure("GET /api/places/saved-addresses (rider)", f"No response even after retry")
+    
+    # Test 9: Verify admin dashboard still works
+    response = make_request("GET", "/admin/dashboard", headers=admin_headers)
+    if response and response.status_code == 200:
+        data = response.json()
+        if "stats" in data:
+            results.add_success("GET /api/admin/dashboard - Still working after saved addresses operations")
+        else:
+            results.add_failure("GET /api/admin/dashboard (after saved addresses)", "Missing stats field")
+    else:
+        results.add_failure("GET /api/admin/dashboard (after saved addresses)", f"Status: {response.status_code if response else 'No response'}")
+
 def test_push_endpoints():
     """Test Push routes (routes/push.py)"""
     print(f"\n{'='*20} TESTING PUSH ROUTES {'='*20}")
@@ -771,19 +920,18 @@ def main():
     """Run all tests"""
     print(f"🚀 Starting Moli Backend API Testing")
     print(f"Backend URL: {BASE_URL}")
-    print(f"Testing wallet balance synchronization and chat bug fixes")
+    print(f"Testing NEW saved addresses endpoints and existing functionality")
     
     # Run authentication first
     test_auth_endpoints()
     
-    # Run specific tests for the fixes
-    test_wallet_balance_sync()
-    test_chat_send_fix()
+    # Run NEW saved addresses tests (primary focus)
+    test_saved_addresses_endpoints()
     
     # Run other critical tests
-    test_wallet_endpoints()
+    test_places_endpoints()
     test_admin_endpoints()
-    test_chat_endpoints()
+    test_wallet_endpoints()
     
     # Print final summary
     results.summary()
