@@ -164,9 +164,6 @@ export default function RideChatScreen() {
             <Text style={styles.headerStatus}>En viaje</Text>
           </View>
         </View>
-        <TouchableOpacity style={styles.callButton}>
-          <Ionicons name="call" size={22} color="#00C853" />
-        </TouchableOpacity>
       </View>
 
       <KeyboardAvoidingView

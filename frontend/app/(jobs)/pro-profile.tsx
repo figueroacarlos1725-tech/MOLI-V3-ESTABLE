@@ -52,8 +52,7 @@ export default function ProProfileScreen() {
 
   const doLogout = async () => {
     try { await logout(); } catch {}
-    if (typeof window !== 'undefined') window.location.href = '/';
-    else router.replace('/');
+    router.replace('/(auth)/welcome' as any);
   };
 
   const completedJobs = myJobs.filter(j => j.job_status === 'completed').length;

@@ -69,9 +69,17 @@ export default function JobStatusScreen() {
       if (msg.job_id === params.jobId) loadJob();
     });
 
+    const unsubCompletion = socketService.on('job_completion_request', (msg: any) => {
+      if (msg.job_id === params.jobId) loadJob();
+    });
+
+    const unsubCompleted = socketService.on('job_completed', (msg: any) => {
+      if (msg.job_id === params.jobId) { loadJob(); setShowRating(true); }
+    });
+
     // Poll job status
     const iv = setInterval(loadJob, 8000);
-    return () => { unsub(); unsubAccepted(); unsubReviewing(); clearInterval(iv); };
+    return () => { unsub(); unsubAccepted(); unsubReviewing(); unsubCompletion(); unsubCompleted(); clearInterval(iv); };
   }, [user?.user_id, params.jobId, loadJob]);
 
   const sendMessage = async () => {

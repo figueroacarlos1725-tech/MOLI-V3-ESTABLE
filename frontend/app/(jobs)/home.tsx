@@ -608,11 +608,11 @@ function addJobMarker(lat,lng,jobId,emoji,title,budget,cat){
                 style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: '#007AFF', paddingVertical: 16, borderRadius: 14 }}
                 onPress={() => {
                   setAcceptedJob(null);
-                  router.push({ pathname: '/chat', params: { rideId: acceptedJob?.job_id, otherName: acceptedJob?.client_name || 'Cliente' } } as any);
+                  router.push({ pathname: '/(jobs)/job-status', params: { jobId: acceptedJob?.job_id } } as any);
                 }}
               >
                 <Ionicons name="chatbubble" size={20} color="#fff" />
-                <Text style={{ color: '#fff', fontSize: 16, fontWeight: '700' }}>Chatear con cliente</Text>
+                <Text style={{ color: '#fff', fontSize: 16, fontWeight: '700' }}>Chat y detalles</Text>
               </TouchableOpacity>
 
               <TouchableOpacity

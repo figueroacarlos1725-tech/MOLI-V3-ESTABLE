@@ -241,7 +241,7 @@ export default function RequestJobScreen() {
                 <Text style={s.label}>¿Cuánto querés pagar? *</Text>
                 <View style={s.priceRow}>
                   <Text style={{ fontSize: 24, fontWeight: '800', color: '#1C1C1E' }}>$</Text>
-                  <TextInput style={s.priceInput} placeholder="2000" placeholderTextColor="#C7C7CC" value={budget} onChangeText={setBudget} keyboardType="numeric" />
+                  <TextInput style={s.priceInput} placeholder="2000" placeholderTextColor="#C7C7CC" value={budget} onChangeText={t => setBudget(t.replace(/[^0-9]/g, ''))} keyboardType="number-pad" />
                 </View>
               </View>
 
@@ -273,8 +273,14 @@ export default function RequestJobScreen() {
     return (
       <SafeAreaView style={s.container}>
         <View style={{ flex: 1, padding: 24 }}>
+          {/* Budget display */}
+          <View style={{ alignItems: 'center', marginTop: 12 }}>
+            <Text style={{ fontSize: 13, color: '#8E8E93' }}>Tu presupuesto</Text>
+            <Text style={{ fontSize: 32, fontWeight: '800', color: '#00C853' }}>${budget}</Text>
+          </View>
+
           {/* Status message */}
-          <View style={{ alignItems: 'center', marginTop: 24, marginBottom: 20 }}>
+          <View style={{ alignItems: 'center', marginTop: 16, marginBottom: 20 }}>
             {searchStatus === 'reviewing' ? (
               <>
                 <View style={{ width: 60, height: 60, borderRadius: 30, backgroundColor: '#FFF3E0', justifyContent: 'center', alignItems: 'center', marginBottom: 12 }}>
@@ -292,12 +298,8 @@ export default function RequestJobScreen() {
                 <View style={{ width: 60, height: 60, borderRadius: 30, backgroundColor: '#FFF5F5', justifyContent: 'center', alignItems: 'center', marginBottom: 12 }}>
                   <Ionicons name="close-circle" size={30} color="#FF3B30" />
                 </View>
-                <Text style={{ fontSize: 18, fontWeight: '800', color: '#1C1C1E', textAlign: 'center' }}>
-                  No la aceptó
-                </Text>
-                <Text style={{ fontSize: 13, color: '#8E8E93', marginTop: 4, textAlign: 'center' }}>
-                  Buscando otro profesional...
-                </Text>
+                <Text style={{ fontSize: 18, fontWeight: '800', color: '#1C1C1E', textAlign: 'center' }}>No la aceptó</Text>
+                <Text style={{ fontSize: 13, color: '#8E8E93', marginTop: 4, textAlign: 'center' }}>Buscando otro profesional...</Text>
               </>
             ) : (
               <>
@@ -354,20 +356,21 @@ export default function RequestJobScreen() {
             ¡Profesional encontrado!
           </Text>
           <Text style={{ fontSize: 16, color: '#636366', marginTop: 8, textAlign: 'center' }}>
-            {professional?.name || 'Un profesional'} aceptó tu trabajo y está en camino
+            {professional?.name || 'Un profesional'} aceptó tu trabajo
           </Text>
+          <Text style={{ fontSize: 28, fontWeight: '800', color: '#00C853', marginTop: 8 }}>${budget}</Text>
           <TouchableOpacity
             style={[s.submitBtn, { marginTop: 24 }]}
             onPress={() => {
               if (jobId) {
-                router.push({ pathname: '/chat', params: { rideId: jobId, otherName: professional?.name || 'Profesional' } });
+                router.replace({ pathname: '/(jobs)/job-status', params: { jobId } } as any);
               }
             }}
           >
             <Ionicons name="chatbubble" size={20} color="#fff" />
-            <Text style={s.submitBtnText}> Chatear con el profesional</Text>
+            <Text style={s.submitBtnText}> Ver trabajo y chatear</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={{ marginTop: 16 }} onPress={() => router.back()}>
+          <TouchableOpacity style={{ marginTop: 16 }} onPress={() => router.replace('/(jobs)/client-home' as any)}>
             <Text style={{ color: '#8E8E93', fontSize: 14 }}>Volver al inicio</Text>
           </TouchableOpacity>
         </View>

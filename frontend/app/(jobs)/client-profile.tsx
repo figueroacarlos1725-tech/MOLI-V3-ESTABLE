@@ -35,8 +35,7 @@ export default function ClientProfileScreen() {
 
   const doLogout = async () => {
     try { await logout(); } catch {}
-    if (typeof window !== 'undefined') window.location.href = '/';
-    else router.replace('/');
+    router.replace('/(auth)/welcome' as any);
   };
 
   const completed = myJobs.filter(j => j.status === 'completed').length;

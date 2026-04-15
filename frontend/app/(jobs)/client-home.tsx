@@ -4,6 +4,7 @@ import {
   ActivityIndicator, ScrollView, Platform, Alert, Animated, Easing,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
@@ -41,7 +42,7 @@ export default function ClientHomeScreen() {
     return () => loop.stop();
   }, []);
 
-  // Get current location
+  // Get current location + load active jobs
   useEffect(() => {
     (async () => {
       try {
@@ -51,7 +52,6 @@ export default function ClientHomeScreen() {
           const pos = await loc.getCurrentPositionAsync({});
           setLatitude(pos.coords.latitude);
           setLongitude(pos.coords.longitude);
-          // Reverse geocode
           try {
             const r = await apiService.get(`/places/reverse?lat=${pos.coords.latitude}&lng=${pos.coords.longitude}`);
             if (r?.address) setAddress(r.address);
@@ -60,15 +60,18 @@ export default function ClientHomeScreen() {
       } catch {}
       setLoadingLoc(false);
     })();
-    // Load active jobs
-    (async () => {
-      try {
-        const res = await apiService.get('/jobs/my-posts');
-        const active = (res.jobs || []).filter((j: any) => ['open', 'assigned', 'reviewing', 'in_progress', 'pending_completion'].includes(j.status));
-        setMyActiveJobs(active);
-      } catch {}
-    })();
   }, []);
+
+  // Refresh active jobs on focus
+  const loadActiveJobs = useCallback(async () => {
+    try {
+      const res = await apiService.get('/jobs/my-posts');
+      const active = (res.jobs || []).filter((j: any) => ['open', 'assigned', 'reviewing', 'in_progress', 'pending_completion'].includes(j.status));
+      setMyActiveJobs(active);
+    } catch {}
+  }, []);
+
+  useFocusEffect(useCallback(() => { loadActiveJobs(); }, [loadActiveJobs]));
 
   // Search addresses
   const handleSearch = useCallback(async (text: string) => {
