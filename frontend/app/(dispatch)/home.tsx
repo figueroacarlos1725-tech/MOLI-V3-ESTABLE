@@ -541,36 +541,6 @@ export default function DispatchHome() {
 
       {/* New Order Modal */}
       <Modal visible={showNewOrder} animationType="slide" transparent>
-
-      {/* PIN Security Modal */}
-      </Modal>
-      <Modal visible={showPinModal} transparent animationType="fade">
-        <View style={s.modalOverlay}>
-          <View style={[s.modalContent, { maxWidth: 320, alignItems: 'center' as any }]}>
-            <Ionicons name="lock-closed" size={32} color={RED} />
-            <Text style={[s.modalTitle, { marginTop: 8 }]}>PIN de seguridad</Text>
-            <Text style={{ color: GRAY, fontSize: 13, marginTop: 4, textAlign: 'center' as any }}>Ingresá el PIN para confirmar el reset</Text>
-            <TextInput
-              style={[s.input, { width: '100%', textAlign: 'center' as any, fontSize: 24, letterSpacing: 8, marginTop: 16 }]}
-              value={pinInput}
-              onChangeText={setPinInput}
-              placeholder="····"
-              placeholderTextColor="#C7C7CC"
-              keyboardType="number-pad"
-              maxLength={4}
-              secureTextEntry
-            />
-            <View style={{ flexDirection: 'row', gap: 10, marginTop: 16, width: '100%' }}>
-              <TouchableOpacity style={{ flex: 1, paddingVertical: 12, borderRadius: 10, borderWidth: 1, borderColor: '#E5E5EA', alignItems: 'center' as any }} onPress={() => { setShowPinModal(false); setPinInput(''); }}>
-                <Text style={{ color: GRAY, fontWeight: '600' }}>Cancelar</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={{ flex: 1, paddingVertical: 12, borderRadius: 10, backgroundColor: RED, alignItems: 'center' as any }} onPress={executeReset}>
-                <Text style={{ color: '#fff', fontWeight: '700' }}>Confirmar</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
           <View style={s.modalOverlay}>
             <View style={s.modalContent}>
@@ -734,6 +704,36 @@ export default function DispatchHome() {
           </View>
         </KeyboardAvoidingView>
       </Modal>
+
+      {/* PIN Security Modal */}
+      <Modal visible={showPinModal} transparent animationType="fade">
+        <View style={s.modalOverlay}>
+          <View style={[s.modalContent, { maxWidth: 320, alignItems: 'center' as any }]}>
+            <Ionicons name="lock-closed" size={32} color={RED} />
+            <Text style={[s.modalTitle, { marginTop: 8 }]}>PIN de seguridad</Text>
+            <Text style={{ color: GRAY, fontSize: 13, marginTop: 4, textAlign: 'center' as any }}>Ingresá el PIN para confirmar el reset</Text>
+            <TextInput
+              style={[s.input, { width: '100%', textAlign: 'center' as any, fontSize: 24, letterSpacing: 8, marginTop: 16 }]}
+              value={pinInput}
+              onChangeText={setPinInput}
+              placeholder="····"
+              placeholderTextColor="#C7C7CC"
+              keyboardType="number-pad"
+              maxLength={4}
+              secureTextEntry
+            />
+            <View style={{ flexDirection: 'row', gap: 10, marginTop: 16, width: '100%' }}>
+              <TouchableOpacity style={{ flex: 1, paddingVertical: 12, borderRadius: 10, borderWidth: 1, borderColor: '#E5E5EA', alignItems: 'center' as any }} onPress={() => { setShowPinModal(false); setPinInput(''); }}>
+                <Text style={{ color: GRAY, fontWeight: '600' }}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={{ flex: 1, paddingVertical: 12, borderRadius: 10, backgroundColor: RED, alignItems: 'center' as any }} onPress={executeReset}>
+                <Text style={{ color: '#fff', fontWeight: '700' }}>Confirmar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
     </SafeAreaView>
   );
 }
