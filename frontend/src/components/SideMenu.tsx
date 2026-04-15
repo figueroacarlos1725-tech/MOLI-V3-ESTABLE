@@ -40,13 +40,13 @@ export default function SideMenu({ visible, onClose, role }: SideMenuProps) {
   ];
 
   const driverItems: MenuItem[] = [
-    { icon: 'home', label: 'Inicio', route: '/(driver)/home' },
+    { icon: 'home', label: 'Inicio', route: '/modules' },
+    { icon: 'speedometer', label: 'Taxímetro', route: '/(driver)/taximeter', color: '#FF9500' },
+    { icon: 'briefcase', label: 'Moli Trabajos', route: '/(jobs)/home', color: '#007AFF' },
     { icon: 'list', label: 'Solicitudes', route: '/(driver)/rides' },
     { icon: 'wallet', label: 'Billetera', route: '/(driver)/earnings' },
     { icon: 'mail', label: 'Bandeja de entrada', route: '/(driver)/inbox' },
     { icon: 'document-text', label: 'Mis Documentos', route: '/(driver)/documents' },
-    { icon: 'speedometer', label: 'Taxímetro', route: '/(driver)/taximeter' },
-    { icon: 'briefcase', label: 'Moli Trabajos', route: '/(jobs)/home' },
     { icon: 'person', label: 'Mi Perfil', route: '/(driver)/profile' },
   ];
 
@@ -94,10 +94,10 @@ export default function SideMenu({ visible, onClose, role }: SideMenuProps) {
                   style={styles.menuItem}
                   onPress={() => item.route ? navigateTo(item.route) : item.onPress?.()}
                 >
-                  <View style={styles.menuIconWrap}>
+                  <View style={[styles.menuIconWrap, item.color ? { backgroundColor: item.color + '15' } : null]}>
                     <Ionicons name={item.icon} size={22} color={item.color || '#1C1C1E'} />
                   </View>
-                  <Text style={[styles.menuLabel, item.color ? { color: item.color } : null]}>{item.label}</Text>
+                  <Text style={[styles.menuLabel, item.color ? { color: item.color, fontWeight: '700' } : null]}>{item.label}</Text>
                   {item.badge ? (
                     <View style={styles.badge}><Text style={styles.badgeText}>{item.badge}</Text></View>
                   ) : (
