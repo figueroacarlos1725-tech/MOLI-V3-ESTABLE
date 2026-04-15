@@ -143,7 +143,27 @@ ${jobMarkers}
       {/* DASHBOARD */}
       {tab === 'dashboard' && dashboard && (
         <ScrollView contentContainerStyle={{ padding: 16, gap: 12 }} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadAll(); }} tintColor="#00C853" />}>
-          <Text style={s.sectionTitle}>Moli Trabajos</Text>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+            <Text style={s.sectionTitle}>Moli Trabajos</Text>
+            <TouchableOpacity
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#FF3B30', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10 }}
+              onPress={() => {
+                Alert.alert('RESET: Cancelar TODOS los trabajos', 'Se cancelarán todos los trabajos abiertos, asignados y en curso. ¿Estás seguro?', [
+                  { text: 'No', style: 'cancel' },
+                  { text: 'Sí, resetear', style: 'destructive', onPress: async () => {
+                    try {
+                      const res = await apiService.delete('/admin/reset/jobs');
+                      Alert.alert('Reset completo', `${res.modified || 0} trabajos cancelados`);
+                      loadAll();
+                    } catch (e: any) { Alert.alert('Error', e.message); }
+                  }},
+                ]);
+              }}
+            >
+              <Ionicons name="refresh" size={14} color="#fff" />
+              <Text style={{ color: '#fff', fontSize: 12, fontWeight: '700' }}>Reset trabajos</Text>
+            </TouchableOpacity>
+          </View>
           <View style={s.statsGrid}>
             {[
               { label: 'Total trabajos', value: dashboard.total_jobs, icon: 'briefcase', color: '#007AFF' },

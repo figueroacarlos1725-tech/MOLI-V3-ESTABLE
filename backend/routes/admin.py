@@ -2220,3 +2220,49 @@ async def admin_get_ratings(
     
     return {"ratings": ratings, "count": len(ratings)}
 
+
+
+# ─── RESET / BULK OPERATIONS ─────────────────
+
+@router.delete("/api/admin/reset/rides")
+async def reset_all_rides(user: dict = Depends(get_current_user)):
+    """Cancel/delete all rides (admin only)"""
+    if user["user_type"] != "admin":
+        raise HTTPException(status_code=403, detail="Solo administradores")
+    result = await db.rides.update_many(
+        {"status": {"$nin": ["completed", "cancelled"]}},
+        {"$set": {"status": "cancelled", "cancelled_by": "admin_reset", "updated_at": datetime.now(timezone.utc)}}
+    )
+    # Also clean up any stuck rides
+    await db.rides.update_many(
+        {"status": {"$exists": False}},
+        {"$set": {"status": "cancelled"}}
+    )
+    return {"status": "reset", "modified": result.modified_count}
+
+
+@router.delete("/api/admin/reset/jobs")
+async def reset_all_jobs(user: dict = Depends(get_current_user)):
+    """Cancel/delete all jobs (admin only)"""
+    if user["user_type"] != "admin":
+        raise HTTPException(status_code=403, detail="Solo administradores")
+    result = await db.job_posts.update_many(
+        {"status": {"$nin": ["completed", "cancelled", "expired"]}},
+        {"$set": {"status": "cancelled", "cancelled_by": "admin_reset", "updated_at": datetime.now(timezone.utc)}}
+    )
+    return {"status": "reset", "modified": result.modified_count}
+
+
+@router.put("/api/admin/rides/{ride_id}/cancel")
+async def admin_cancel_ride(ride_id: str, user: dict = Depends(get_current_user)):
+    """Admin cancel a specific ride"""
+    if user["user_type"] != "admin":
+        raise HTTPException(status_code=403, detail="Solo administradores")
+    result = await db.rides.update_one(
+        {"ride_id": ride_id},
+        {"$set": {"status": "cancelled", "cancelled_by": "admin", "updated_at": datetime.now(timezone.utc)}}
+    )
+    if result.modified_count == 0:
+        raise HTTPException(status_code=404, detail="Viaje no encontrado")
+    return {"status": "cancelled"}
+

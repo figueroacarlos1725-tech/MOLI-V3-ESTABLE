@@ -11,17 +11,17 @@ import { apiService } from '@/src/services/api';
 import DispatchMapPicker from '@/src/components/DispatchMapPicker';
 
 const { width, height } = Dimensions.get('window');
-const DARK = '#1A1D23';
-const DARK2 = '#22262E';
-const DARK3 = '#2A2F38';
+const DARK = '#F2F2F7';
+const DARK2 = '#FFFFFF';
+const DARK3 = '#E5E5EA';
 const ACCENT = '#00C853';
 const ACCENT_LIGHT = '#00C853';
-const GREEN = '#34C759';
+const GREEN = '#00C853';
 const ORANGE = '#FF9500';
 const RED = '#FF3B30';
 const BLUE = '#007AFF';
 const GRAY = '#8E8E93';
-const LIGHT_TEXT = '#E5E5EA';
+const LIGHT_TEXT = '#1C1C1E';
 
 type TabKey = 'new' | 'active' | 'completed' | 'cancelled';
 
@@ -199,14 +199,32 @@ export default function DispatchHome() {
 
   const handleCancelRide = async () => {
     if (!selectedRide) return;
-    const reqId = selectedRide.request_id;
-    if (!reqId) return;
+    const rideId = selectedRide.ride_id || selectedRide.request_id;
+    if (!rideId) return;
     Alert.alert('Cancelar viaje', '¿Estás seguro de cancelar este viaje?', [
       { text: 'No', style: 'cancel' },
       { text: 'Sí, cancelar', style: 'destructive', onPress: async () => {
         try {
-          await apiService.post(`/dispatch/cancel/${reqId}?reason=Cancelado+por+despacho`, {});
+          // Try dispatch cancel first, fallback to admin cancel
+          try {
+            await apiService.post(`/dispatch/cancel/${selectedRide.request_id || rideId}?reason=Cancelado+por+despacho`, {});
+          } catch {
+            await apiService.put(`/admin/rides/${rideId}/cancel`, {});
+          }
           setSelectedRide(null);
+          fetchRides();
+        } catch (e: any) { Alert.alert('Error', e.message); }
+      }},
+    ]);
+  };
+
+  const handleResetAllRides = () => {
+    Alert.alert('RESET: Cancelar TODOS los viajes', 'Se cancelarán todos los viajes activos, nuevos y en curso. ¿Estás seguro?', [
+      { text: 'No', style: 'cancel' },
+      { text: 'Sí, resetear todo', style: 'destructive', onPress: async () => {
+        try {
+          const res = await apiService.delete('/admin/reset/rides');
+          Alert.alert('Reset completo', `${res.modified || 0} viajes cancelados`);
           fetchRides();
         } catch (e: any) { Alert.alert('Error', e.message); }
       }},
@@ -398,6 +416,10 @@ export default function DispatchHome() {
         <TouchableOpacity style={s.newOrderBtn} onPress={() => setShowNewOrder(true)}>
           <Ionicons name="add" size={18} color="#fff" />
           <Text style={s.newOrderText}>Nuevo pedido</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={[s.newOrderBtn, { backgroundColor: RED, marginLeft: 6 }]} onPress={handleResetAllRides}>
+          <Ionicons name="refresh" size={16} color="#fff" />
+          <Text style={s.newOrderText}>Reset</Text>
         </TouchableOpacity>
       </View>
 
@@ -739,29 +761,29 @@ const s = StyleSheet.create({
   navLabel: { fontSize: 10, color: GRAY, fontWeight: '600' },
   // Modals
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center', padding: 16 },
-  modalContent: { backgroundColor: DARK2, borderRadius: 16, width: '100%', maxWidth: 420, maxHeight: '90%', padding: 20, borderWidth: 1, borderColor: DARK3 },
-  modalTitle: { fontSize: 18, fontWeight: '800', color: LIGHT_TEXT },
-  inputLabel: { fontSize: 11, fontWeight: '700', color: GRAY, marginBottom: 4, marginTop: 10, textTransform: 'uppercase' },
-  input: { backgroundColor: DARK3, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, fontSize: 14, color: LIGHT_TEXT, borderWidth: 1, borderColor: '#333' },
-  inputRow: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: DARK3, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8, borderWidth: 1, borderColor: '#333' },
-  inputFlex: { flex: 1, fontSize: 14, color: LIGHT_TEXT },
-  sugInline: { backgroundColor: DARK2, borderRadius: 8, marginTop: 2, marginBottom: 4, borderWidth: 1, borderColor: DARK3, maxHeight: 180 },
-  sugItem: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 10, paddingVertical: 8, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: DARK3 },
-  sugName: { fontSize: 13, fontWeight: '600', color: LIGHT_TEXT },
-  sugAddr: { fontSize: 11, color: GRAY },
+  modalContent: { backgroundColor: '#fff', borderRadius: 16, width: '100%', maxWidth: 420, maxHeight: '90%', padding: 20, borderWidth: 1, borderColor: '#E5E5EA' },
+  modalTitle: { fontSize: 18, fontWeight: '800', color: '#1C1C1E' },
+  inputLabel: { fontSize: 11, fontWeight: '700', color: '#636366', marginBottom: 4, marginTop: 10, textTransform: 'uppercase' },
+  input: { backgroundColor: '#F2F2F7', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, fontSize: 14, color: '#1C1C1E', borderWidth: 1, borderColor: '#E5E5EA' },
+  inputRow: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#F2F2F7', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8, borderWidth: 1, borderColor: '#E5E5EA' },
+  inputFlex: { flex: 1, fontSize: 14, color: '#1C1C1E' },
+  sugInline: { backgroundColor: '#fff', borderRadius: 8, marginTop: 2, marginBottom: 4, borderWidth: 1, borderColor: '#E5E5EA', maxHeight: 180 },
+  sugItem: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 10, paddingVertical: 8, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#E5E5EA' },
+  sugName: { fontSize: 13, fontWeight: '600', color: '#1C1C1E' },
+  sugAddr: { fontSize: 11, color: '#8E8E93' },
   tripTypeRow: { flexDirection: 'row', gap: 8, marginBottom: 6 },
-  tripTypeBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, paddingVertical: 9, borderRadius: 8, backgroundColor: DARK3, borderWidth: 1, borderColor: '#333' },
-  tripTypeTxt: { fontSize: 12, fontWeight: '700', color: GRAY },
+  tripTypeBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, paddingVertical: 9, borderRadius: 8, backgroundColor: '#F2F2F7', borderWidth: 1, borderColor: '#E5E5EA' },
+  tripTypeTxt: { fontSize: 12, fontWeight: '700', color: '#636366' },
   taxiBanner: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: 'rgba(255,149,0,0.1)', borderRadius: 8, padding: 10, marginTop: 8, borderWidth: 1, borderColor: 'rgba(255,149,0,0.3)' },
   taxiBannerTxt: { flex: 1, fontSize: 11, color: ORANGE, fontWeight: '500' },
   vRow: { flexDirection: 'row', gap: 6 },
-  vChip: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 6, backgroundColor: DARK3, borderWidth: 1, borderColor: '#333' },
+  vChip: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 6, backgroundColor: '#F2F2F7', borderWidth: 1, borderColor: '#E5E5EA' },
   vChipActive: { backgroundColor: ACCENT, borderColor: ACCENT },
-  vChipTxt: { fontSize: 12, fontWeight: '600', color: GRAY },
+  vChipTxt: { fontSize: 12, fontWeight: '600', color: '#636366' },
   createBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: ACCENT, paddingVertical: 12, borderRadius: 8, marginTop: 14 },
   createBtnTxt: { color: '#fff', fontSize: 14, fontWeight: '800' },
   // Driver assign
-  driverOption: { paddingHorizontal: 12, paddingVertical: 10, borderRadius: 6, marginBottom: 4, backgroundColor: DARK3 },
+  driverOption: { paddingHorizontal: 12, paddingVertical: 10, borderRadius: 6, marginBottom: 4, backgroundColor: '#F2F2F7' },
   driverOptionActive: { backgroundColor: ACCENT },
-  driverOptionText: { fontSize: 13, fontWeight: '600', color: LIGHT_TEXT },
+  driverOptionText: { fontSize: 13, fontWeight: '600', color: '#1C1C1E' },
 });
