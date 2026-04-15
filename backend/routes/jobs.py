@@ -138,21 +138,17 @@ async def create_job_post(
     job["created_at"] = job["created_at"].isoformat() if hasattr(job["created_at"], 'isoformat') else str(job["created_at"])
     job["updated_at"] = job["updated_at"].isoformat() if hasattr(job["updated_at"], 'isoformat') else str(job["updated_at"])
 
-    # Notify all available professionals in matching categories via WebSocket
+    # Notify all available professionals via WebSocket (regardless of category)
     try:
         from websocket_manager import manager
         category = data.get("category", "otro")
+        # Notify ALL available professionals - they can decide based on category
         pros = await db.professional_profiles.find(
-            {"is_available": True, "categories": category},
+            {"is_available": True},
             {"_id": 0, "user_id": 1}
-        ).to_list(100)
-        # Also notify pros with no category filter (all categories)
-        if not pros:
-            pros = await db.professional_profiles.find(
-                {"is_available": True},
-                {"_id": 0, "user_id": 1}
-            ).to_list(100)
+        ).to_list(200)
         
+        notified = 0
         for pro in pros:
             if pro["user_id"] != user["user_id"]:
                 try:
@@ -165,8 +161,11 @@ async def create_job_post(
                         "address": job["address"],
                         "client_name": job["client_name"],
                     }, pro["user_id"])
+                    notified += 1
                 except:
                     pass
+        
+        print(f"Job {job['job_id']} notified {notified} professionals")
         
         # Also send push notifications
         try:
@@ -195,14 +194,23 @@ async def list_job_posts(
     lng: Optional[float] = None,
     user: dict = Depends(get_current_user)
 ):
+    from datetime import timedelta
     now = datetime.now(timezone.utc)
+    thirty_min_ago = (now - timedelta(minutes=30)).isoformat()
     
-    # Include "reviewing" jobs with expired locks as available
+    # Auto-expire old open jobs (>30 min)
+    await db.job_posts.update_many(
+        {"status": "open", "created_at": {"$lt": now - timedelta(minutes=30)}},
+        {"$set": {"status": "expired", "updated_at": now}}
+    )
+    # Also release reviewing jobs with expired locks
+    await db.job_posts.update_many(
+        {"status": "reviewing", "reviewing_until": {"$lt": now.isoformat()}},
+        {"$set": {"status": "open", "reviewing_by": None, "reviewing_until": None}}
+    )
+    
     if status == "open":
-        query = {"$or": [
-            {"status": "open"},
-            {"status": "reviewing", "reviewing_until": {"$lte": now.isoformat()}},
-        ]}
+        query = {"status": {"$in": ["open", "reviewing"]}}
     else:
         query = {"status": status}
     
@@ -210,18 +218,6 @@ async def list_job_posts(
         query["category"] = category
     
     jobs = await db.job_posts.find(query, {"_id": 0}).sort("created_at", -1).to_list(50)
-    
-    # Auto-release expired reviewing jobs
-    for j in jobs:
-        if j.get("status") == "reviewing":
-            review_until = j.get("reviewing_until", "")
-            if isinstance(review_until, str) and review_until < now.isoformat():
-                await db.job_posts.update_one(
-                    {"job_id": j["job_id"]},
-                    {"$set": {"status": "open", "reviewing_by": None, "reviewing_until": None}}
-                )
-                j["status"] = "open"
-    
     return {"jobs": jobs, "count": len(jobs)}
 
 

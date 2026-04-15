@@ -42,6 +42,7 @@ export default function JobsHomeScreen() {
   const [hasProfile, setHasProfile] = useState(false);
   const [isAvailable, setIsAvailable] = useState(false);
   const [togglingAvail, setTogglingAvail] = useState(false);
+  const [myCats, setMyCats] = useState<string[]>([]);
 
   // Job alert & review states
   const [incomingJob, setIncomingJob] = useState<any>(null);
@@ -63,6 +64,7 @@ export default function JobsHomeScreen() {
       setHasProfile(profileRes.has_profile);
       if (profileRes.profile) {
         setIsAvailable(profileRes.profile.is_available || false);
+        setMyCats(profileRes.profile.categories || []);
       }
     } catch (e) { console.log('Jobs load error', e); }
     finally { setLoading(false); }
@@ -292,6 +294,26 @@ function addJobMarker(lat,lng,jobId,emoji,title,budget,cat){
         </TouchableOpacity>
       </View>
 
+      {/* My categories indicator */}
+      {myCats.length > 0 ? (
+        <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 4, backgroundColor: '#F8F8FA', gap: 4 }}>
+          <Text style={{ fontSize: 10, color: '#8E8E93', fontWeight: '600' }}>Acepto:</Text>
+          {myCats.map(c => (
+            <Text key={c} style={{ fontSize: 10, color: GREEN, fontWeight: '700' }}>
+              {CAT_ICONS[c]?.icon || '📋'}
+            </Text>
+          ))}
+        </View>
+      ) : (
+        <TouchableOpacity
+          style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 6, backgroundColor: '#FFF3E0', gap: 6 }}
+          onPress={() => router.push('/(jobs)/setup-profile')}
+        >
+          <Ionicons name="warning" size={14} color="#FF9500" />
+          <Text style={{ fontSize: 11, color: '#FF9500', fontWeight: '600' }}>Configurá tus categorías para recibir trabajos</Text>
+        </TouchableOpacity>
+      )}
+
       {/* Category filter */}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.catScroll} contentContainerStyle={{ paddingHorizontal: 12, gap: 6 }}>
         <TouchableOpacity style={[s.catChip, !selectedCat && s.catChipActive]} onPress={() => setSelectedCat(null)}>
@@ -366,7 +388,7 @@ function addJobMarker(lat,lng,jobId,emoji,title,budget,cat){
       )}
 
       {/* ═══ Bottom navigation bar ═══ */}
-      <View style={s.bottomNav}>
+      <View style={[s.bottomNav, { paddingBottom: Math.max(insets.bottom, 8) }]}>
         <TouchableOpacity style={s.navBtn} onPress={() => {}}>
           <Ionicons name="map" size={22} color={GREEN} />
           <Text style={[s.navLabel, { color: GREEN }]}>Mapa</Text>
