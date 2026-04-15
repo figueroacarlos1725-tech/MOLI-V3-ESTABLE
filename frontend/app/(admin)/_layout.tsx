@@ -23,6 +23,7 @@ const SIDEBAR_ITEMS = [
   { name: 'support', title: 'Soporte', icon: 'chatbubbles' },
   { name: 'verification', title: 'Verificación', icon: 'shield-checkmark' },
   { name: 'messages', title: 'Mensajes', icon: 'mail' },
+  { name: 'trabajos', title: 'Moli Trabajos', icon: 'briefcase' },
 ];
 
 function AdminSidebar() {

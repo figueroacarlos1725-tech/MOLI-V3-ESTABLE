@@ -351,3 +351,110 @@ async def rate_job(
             )
     
     return {"status": "rated"}
+
+
+# ─── ADMIN: TRABAJOS DASHBOARD ────────────────
+
+@router.get("/api/admin/jobs/dashboard")
+async def admin_jobs_dashboard(user: dict = Depends(get_current_user)):
+    if user["user_type"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    
+    total_jobs = await db.job_posts.count_documents({})
+    open_jobs = await db.job_posts.count_documents({"status": "open"})
+    assigned_jobs = await db.job_posts.count_documents({"status": "assigned"})
+    completed_jobs = await db.job_posts.count_documents({"status": "completed"})
+    cancelled_jobs = await db.job_posts.count_documents({"status": "cancelled"})
+    total_professionals = await db.professional_profiles.count_documents({})
+    available_pros = await db.professional_profiles.count_documents({"is_available": True})
+    
+    # Revenue from completed jobs
+    completed = await db.job_posts.find({"status": "completed"}, {"_id": 0, "agreed_price": 1, "budget": 1}).to_list(1000)
+    total_revenue = sum(j.get("agreed_price", j.get("budget", 0)) for j in completed)
+    
+    return {
+        "total_jobs": total_jobs,
+        "open_jobs": open_jobs,
+        "assigned_jobs": assigned_jobs,
+        "completed_jobs": completed_jobs,
+        "cancelled_jobs": cancelled_jobs,
+        "total_professionals": total_professionals,
+        "available_professionals": available_pros,
+        "total_revenue": total_revenue,
+    }
+
+
+@router.get("/api/admin/jobs/all")
+async def admin_list_jobs(
+    status: Optional[str] = None,
+    user: dict = Depends(get_current_user)
+):
+    if user["user_type"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    
+    query = {}
+    if status:
+        query["status"] = status
+    
+    jobs = await db.job_posts.find(query, {"_id": 0}).sort("created_at", -1).to_list(100)
+    for j in jobs:
+        if isinstance(j.get("created_at"), datetime):
+            j["created_at"] = j["created_at"].isoformat()
+        if isinstance(j.get("completed_at"), datetime):
+            j["completed_at"] = j["completed_at"].isoformat()
+    
+    return {"jobs": jobs}
+
+
+@router.get("/api/admin/jobs/professionals")
+async def admin_list_professionals(user: dict = Depends(get_current_user)):
+    if user["user_type"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    
+    pros = await db.professional_profiles.find({}, {"_id": 0}).to_list(100)
+    for p in pros:
+        u = await db.users.find_one({"user_id": p["user_id"]}, {"_id": 0, "email": 1, "phone": 1, "name": 1})
+        if u:
+            p["email"] = u.get("email", "")
+            p["phone"] = u.get("phone", "")
+            p["name"] = u.get("name", p.get("name", ""))
+        if isinstance(p.get("created_at"), datetime):
+            p["created_at"] = p["created_at"].isoformat()
+        if isinstance(p.get("updated_at"), datetime):
+            p["updated_at"] = p["updated_at"].isoformat()
+    
+    return {"professionals": pros}
+
+
+@router.put("/api/admin/jobs/categories/{cat_id}")
+async def admin_update_category(
+    cat_id: str,
+    data: dict = Body(...),
+    user: dict = Depends(get_current_user)
+):
+    if user["user_type"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    
+    await db.job_categories.update_one(
+        {"category_id": cat_id},
+        {"$set": {
+            "name": data.get("name"),
+            "icon": data.get("icon"),
+            "color": data.get("color"),
+            "is_active": data.get("is_active", True),
+        }}
+    )
+    return {"status": "updated"}
+
+
+@router.delete("/api/admin/jobs/{job_id}")
+async def admin_delete_job(
+    job_id: str,
+    user: dict = Depends(get_current_user)
+):
+    if user["user_type"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    
+    await db.job_posts.update_one({"job_id": job_id}, {"$set": {"status": "cancelled"}})
+    return {"status": "cancelled"}
+
