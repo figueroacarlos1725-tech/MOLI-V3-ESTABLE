@@ -5,6 +5,8 @@ export default function JobsLayout() {
   return (
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="home" />
+      <Stack.Screen name="client-home" />
+      <Stack.Screen name="client-profile" />
       <Stack.Screen name="setup-profile" />
       <Stack.Screen name="job-detail" />
       <Stack.Screen name="request-job" />

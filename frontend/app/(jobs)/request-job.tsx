@@ -4,7 +4,7 @@ import {
   ScrollView, TextInput, Alert, ActivityIndicator, Image,
   KeyboardAvoidingView, Platform,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { apiService } from '@/src/services/api';
@@ -30,23 +30,27 @@ type Phase = 'category' | 'details' | 'searching' | 'matched' | 'active';
 export default function RequestJobScreen() {
   const router = useRouter();
   const { user } = useAuthStore();
+  const params = useLocalSearchParams<{ lat?: string; lng?: string; addr?: string }>();
   const [phase, setPhase] = useState<Phase>('category');
   const [category, setCategory] = useState('');
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [budget, setBudget] = useState('');
   const [photo, setPhoto] = useState<string | null>(null);
-  const [address, setAddress] = useState('Mi ubicación');
-  const [location, setLocation] = useState<any>(null);
+  const [address, setAddress] = useState(params.addr || 'Mi ubicación');
+  const [location, setLocation] = useState<any>(
+    params.lat ? { latitude: parseFloat(params.lat), longitude: parseFloat(params.lng || '-65.7852') } : null
+  );
   const [loading, setLoading] = useState(false);
   const [jobId, setJobId] = useState<string | null>(null);
   const [professional, setProfessional] = useState<any>(null);
   const [searchAttempts, setSearchAttempts] = useState(0);
-  const [searchStatus, setSearchStatus] = useState<string>('searching'); // searching, reviewing, declined
+  const [searchStatus, setSearchStatus] = useState<string>('searching');
   const [reviewerName, setReviewerName] = useState('');
 
-  // Auto-detect location
+  // Auto-detect location (skip if already provided via params)
   useEffect(() => {
+    if (location) return; // Already have location from client-home
     (async () => {
       try {
         const loc = await import('expo-location');

@@ -25,7 +25,7 @@ export default function ModulesScreen() {
     if (isDriver) {
       router.push('/(jobs)/home');
     } else {
-      router.push('/(jobs)/request-job');
+      router.push('/(jobs)/client-home');
     }
   };
 
