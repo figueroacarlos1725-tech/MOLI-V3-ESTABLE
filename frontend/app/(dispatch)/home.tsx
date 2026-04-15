@@ -54,6 +54,9 @@ export default function DispatchHome() {
 
   // New order state
   const [showNewOrder, setShowNewOrder] = useState(false);
+  const [showPinModal, setShowPinModal] = useState(false);
+  const [pinInput, setPinInput] = useState('');
+  const [pinAction, setPinAction] = useState<'reset_rides' | null>(null);
   const [newOrder, setNewOrder] = useState({
     rider_name: '', rider_phone: '', pickup_address: '', dropoff_address: '',
     vehicle_type: 'economy', notes: '', trip_type: 'full' as 'full' | 'taximeter',
@@ -219,16 +222,23 @@ export default function DispatchHome() {
   };
 
   const handleResetAllRides = () => {
-    Alert.alert('RESET: Cancelar TODOS los viajes', 'Se cancelarán todos los viajes activos, nuevos y en curso. ¿Estás seguro?', [
-      { text: 'No', style: 'cancel' },
-      { text: 'Sí, resetear todo', style: 'destructive', onPress: async () => {
-        try {
-          const res = await apiService.delete('/admin/reset/rides');
-          Alert.alert('Reset completo', `${res.modified || 0} viajes cancelados`);
-          fetchRides();
-        } catch (e: any) { Alert.alert('Error', e.message); }
-      }},
-    ]);
+    setPinInput('');
+    setPinAction('reset_rides');
+    setShowPinModal(true);
+  };
+
+  const executeReset = async () => {
+    if (pinInput !== '0725') {
+      Alert.alert('PIN incorrecto');
+      return;
+    }
+    setShowPinModal(false);
+    setPinInput('');
+    try {
+      const res = await apiService.delete('/admin/reset/rides');
+      Alert.alert('Reset completo', `${res.modified || 0} viajes cancelados`);
+      fetchRides();
+    } catch (e: any) { Alert.alert('Error', e.message); }
   };
 
   const rideKey = (r: DispatchRide) => r.request_id || r.ride_id || '';
@@ -531,6 +541,36 @@ export default function DispatchHome() {
 
       {/* New Order Modal */}
       <Modal visible={showNewOrder} animationType="slide" transparent>
+
+      {/* PIN Security Modal */}
+      </Modal>
+      <Modal visible={showPinModal} transparent animationType="fade">
+        <View style={s.modalOverlay}>
+          <View style={[s.modalContent, { maxWidth: 320, alignItems: 'center' as any }]}>
+            <Ionicons name="lock-closed" size={32} color={RED} />
+            <Text style={[s.modalTitle, { marginTop: 8 }]}>PIN de seguridad</Text>
+            <Text style={{ color: GRAY, fontSize: 13, marginTop: 4, textAlign: 'center' as any }}>Ingresá el PIN para confirmar el reset</Text>
+            <TextInput
+              style={[s.input, { width: '100%', textAlign: 'center' as any, fontSize: 24, letterSpacing: 8, marginTop: 16 }]}
+              value={pinInput}
+              onChangeText={setPinInput}
+              placeholder="····"
+              placeholderTextColor="#C7C7CC"
+              keyboardType="number-pad"
+              maxLength={4}
+              secureTextEntry
+            />
+            <View style={{ flexDirection: 'row', gap: 10, marginTop: 16, width: '100%' }}>
+              <TouchableOpacity style={{ flex: 1, paddingVertical: 12, borderRadius: 10, borderWidth: 1, borderColor: '#E5E5EA', alignItems: 'center' as any }} onPress={() => { setShowPinModal(false); setPinInput(''); }}>
+                <Text style={{ color: GRAY, fontWeight: '600' }}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={{ flex: 1, paddingVertical: 12, borderRadius: 10, backgroundColor: RED, alignItems: 'center' as any }} onPress={executeReset}>
+                <Text style={{ color: '#fff', fontWeight: '700' }}>Confirmar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
           <View style={s.modalOverlay}>
             <View style={s.modalContent}>

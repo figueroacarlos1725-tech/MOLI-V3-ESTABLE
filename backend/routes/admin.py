@@ -1904,44 +1904,23 @@ async def review_driver_document(
 
 @router.post("/api/admin/banners")
 async def create_banner(
-    data: dict = Body(None),
-    title: str = Query(None),
-    description: str = Query(None),
-    banner_type: str = Query("image_text"),
-    image_url: str = Query(None),
-    video_url: str = Query(None),
-    button_text: str = Query(None),
-    button_link: str = Query(None),
-    target: str = Query("both"),
-    active: bool = Query(True),
+    data: dict = Body(...),
     user: dict = Depends(get_current_user)
 ):
     if user["user_type"] != "admin":
         raise HTTPException(status_code=403, detail="Solo administradores")
     
-    # Support both query params and JSON body
-    if data:
-        title = data.get("title", title)
-        description = data.get("description", description)
-        banner_type = data.get("banner_type", banner_type)
-        image_url = data.get("image_url", image_url)
-        video_url = data.get("video_url", video_url)
-        button_text = data.get("button_text", button_text)
-        button_link = data.get("button_link", button_link)
-        target = data.get("target", target)
-        active = data.get("active", active)
-    
     banner = {
         "banner_id": generate_id("banner_"),
-        "title": title,
-        "description": description,
-        "banner_type": banner_type,
-        "image_url": image_url,
-        "video_url": video_url,
-        "button_text": button_text,
-        "button_link": button_link,
-        "target": target,
-        "active": active if isinstance(active, bool) else str(active).lower() == 'true',
+        "title": data.get("title"),
+        "description": data.get("description"),
+        "banner_type": data.get("banner_type", "image_text"),
+        "image_url": data.get("image_url"),
+        "video_url": data.get("video_url"),
+        "button_text": data.get("button_text"),
+        "button_link": data.get("button_link"),
+        "target": data.get("target", "both"),
+        "active": data.get("active", True),
         "created_at": datetime.now(timezone.utc),
     }
     await db.banners.insert_one(banner)
@@ -1963,35 +1942,18 @@ async def list_banners(user: dict = Depends(get_current_user)):
 @router.put("/api/admin/banners/{banner_id}")
 async def update_banner(
     banner_id: str,
-    data: dict = Body(None),
-    title: str = Query(None),
-    description: str = Query(None),
-    banner_type: str = Query(None),
-    image_url: str = Query(None),
-    video_url: str = Query(None),
-    button_text: str = Query(None),
-    button_link: str = Query(None),
-    target: str = Query(None),
-    active: bool = Query(None),
+    data: dict = Body(...),
     user: dict = Depends(get_current_user)
 ):
     if user["user_type"] != "admin":
         raise HTTPException(status_code=403, detail="Solo administradores")
     
     update = {}
-    # Support JSON body
-    if data:
-        for field in ["title", "description", "banner_type", "image_url", "video_url", "button_text", "button_link", "target", "active"]:
-            if field in data and data[field] is not None:
-                update[field] = data[field]
-    else:
-        for field, val in [("title", title), ("description", description), ("banner_type", banner_type), ("image_url", image_url), ("video_url", video_url), ("button_text", button_text), ("button_link", button_link), ("target", target), ("active", active)]:
-            if val is not None:
-                update[field] = val
+    for field in ["title", "description", "banner_type", "image_url", "video_url", "button_text", "button_link", "target", "active"]:
+        if field in data and data[field] is not None:
+            update[field] = data[field]
     
     if update:
-        if "active" in update and isinstance(update["active"], str):
-            update["active"] = update["active"].lower() == 'true'
         await db.banners.update_one({"banner_id": banner_id}, {"$set": update})
     return {"status": "updated"}
 

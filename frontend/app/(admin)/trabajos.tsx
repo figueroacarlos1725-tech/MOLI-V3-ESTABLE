@@ -30,6 +30,8 @@ export default function AdminTrabajosScreen() {
   const [selectedPro, setSelectedPro] = useState<any>(null);
   const [editingPro, setEditingPro] = useState<any>(null);
   const [saving, setSaving] = useState(false);
+  const [showPinModal, setShowPinModal] = useState(false);
+  const [pinInput, setPinInput] = useState('');
 
   useEffect(() => { loadAll(); }, []);
 
@@ -147,18 +149,7 @@ ${jobMarkers}
             <Text style={s.sectionTitle}>Moli Trabajos</Text>
             <TouchableOpacity
               style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#FF3B30', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10 }}
-              onPress={() => {
-                Alert.alert('RESET: Cancelar TODOS los trabajos', 'Se cancelarán todos los trabajos abiertos, asignados y en curso. ¿Estás seguro?', [
-                  { text: 'No', style: 'cancel' },
-                  { text: 'Sí, resetear', style: 'destructive', onPress: async () => {
-                    try {
-                      const res = await apiService.delete('/admin/reset/jobs');
-                      Alert.alert('Reset completo', `${res.modified || 0} trabajos cancelados`);
-                      loadAll();
-                    } catch (e: any) { Alert.alert('Error', e.message); }
-                  }},
-                ]);
-              }}
+              onPress={() => { setPinInput(''); setShowPinModal(true); }}
             >
               <Ionicons name="refresh" size={14} color="#fff" />
               <Text style={{ color: '#fff', fontSize: 12, fontWeight: '700' }}>Reset trabajos</Text>
@@ -429,6 +420,44 @@ ${jobMarkers}
             <TouchableOpacity style={{ backgroundColor: '#00C853', borderRadius: 14, paddingVertical: 16, alignItems: 'center', marginTop: 12 }} onPress={handleSavePro} disabled={saving}>
               {saving ? <ActivityIndicator color="#fff" /> : <Text style={{ color: '#fff', fontWeight: '700', fontSize: 16 }}>Guardar cambios</Text>}
             </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+
+      {/* ═══ PIN SECURITY MODAL ═══ */}
+      <Modal visible={showPinModal} transparent animationType="fade">
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 24 }}>
+          <View style={{ backgroundColor: '#fff', borderRadius: 20, padding: 24, width: '100%', maxWidth: 320, alignItems: 'center' }}>
+            <Ionicons name="lock-closed" size={32} color="#FF3B30" />
+            <Text style={{ fontSize: 18, fontWeight: '800', color: '#1C1C1E', marginTop: 8 }}>PIN de seguridad</Text>
+            <Text style={{ fontSize: 13, color: '#8E8E93', marginTop: 4, textAlign: 'center' }}>Ingresá el PIN para resetear todos los trabajos</Text>
+            <TextInput
+              style={{ backgroundColor: '#F2F2F7', borderRadius: 12, paddingHorizontal: 16, paddingVertical: 12, fontSize: 24, color: '#1C1C1E', width: '100%', textAlign: 'center', letterSpacing: 8, marginTop: 16, borderWidth: 1, borderColor: '#E5E5EA' }}
+              value={pinInput}
+              onChangeText={setPinInput}
+              placeholder="····"
+              placeholderTextColor="#C7C7CC"
+              keyboardType="number-pad"
+              maxLength={4}
+              secureTextEntry
+            />
+            <View style={{ flexDirection: 'row', gap: 10, marginTop: 16, width: '100%' }}>
+              <TouchableOpacity style={{ flex: 1, paddingVertical: 12, borderRadius: 10, borderWidth: 1, borderColor: '#E5E5EA', alignItems: 'center' }} onPress={() => { setShowPinModal(false); setPinInput(''); }}>
+                <Text style={{ color: '#8E8E93', fontWeight: '600' }}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={{ flex: 1, paddingVertical: 12, borderRadius: 10, backgroundColor: '#FF3B30', alignItems: 'center' }} onPress={async () => {
+                if (pinInput !== '0725') { Alert.alert('PIN incorrecto'); return; }
+                setShowPinModal(false); setPinInput('');
+                try {
+                  const res = await apiService.delete('/admin/reset/jobs');
+                  Alert.alert('Reset completo', `${res.modified || 0} trabajos cancelados`);
+                  loadAll();
+                } catch (e: any) { Alert.alert('Error', e.message); }
+              }}>
+                <Text style={{ color: '#fff', fontWeight: '700' }}>Confirmar</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>

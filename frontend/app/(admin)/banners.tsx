@@ -84,15 +84,13 @@ export default function BannersScreen() {
 
   const handleSave = async () => {
     if (saving) return;
-    if (!title.trim()) { Alert.alert('Error', 'El título es obligatorio'); return; }
+    if (!title.trim()) { setMsg('Error: El título es obligatorio'); return; }
     setSaving(true);
     setMsg('');
     try {
-      // If image is base64 and very large, compress by truncating (safety)
       let imgUrl = imageUri;
       if (imgUrl && imgUrl.startsWith('data:') && imgUrl.length > 500000) {
-        // Too large, skip image
-        Alert.alert('Imagen muy grande', 'Usá una imagen más pequeña o pegá una URL');
+        setMsg('Error: Imagen muy grande. Usá una más pequeña o pegá URL.');
         setSaving(false);
         return;
       }
@@ -110,13 +108,14 @@ export default function BannersScreen() {
 
       if (editingBanner) {
         await apiService.put(`/admin/banners/${editingBanner.banner_id}`, payload);
+        setMsg('Banner actualizado ✓');
       } else {
         await apiService.post('/admin/banners', payload);
+        setMsg('Banner creado ✓');
       }
       setShowForm(false);
       resetForm();
       loadBanners();
-      setMsg(editingBanner ? 'Banner actualizado ✓' : 'Banner creado ✓');
     } catch (e: any) {
       setMsg('Error: ' + (e.message || 'No se pudo guardar'));
     }
