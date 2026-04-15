@@ -360,7 +360,7 @@ function addJobMarker(lat,lng,jobId,emoji,title,budget,cat){
 
       {/* Selected job from map */}
       {selectedJob && !reviewingJob && (
-        <View style={s.sheet}>
+        <View style={[s.sheet, { bottom: 56 + Math.max(insets.bottom, 8) }]}>
           <View style={s.sheetHandle} />
           <TouchableOpacity style={s.sheetClose} onPress={() => setSelectedJob(null)}>
             <Ionicons name="close" size={20} color="#636366" />
