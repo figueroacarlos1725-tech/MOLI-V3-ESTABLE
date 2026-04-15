@@ -339,7 +339,7 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   sendButtonActive: { backgroundColor: '#00C853' },
-  quickScroll: { backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: '#E5E5EA', paddingVertical: 8 },
-  quickChip: { backgroundColor: '#E8F5E9', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 16, borderWidth: 1, borderColor: '#00C853' },
+  quickScroll: { backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: '#E5E5EA', paddingVertical: 8, maxHeight: 44 },
+  quickChip: { backgroundColor: '#E8F5E9', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 16, borderWidth: 1, borderColor: '#00C853', alignSelf: 'center', height: 34, justifyContent: 'center' },
   quickText: { fontSize: 13, color: '#00C853', fontWeight: '600' },
 });
