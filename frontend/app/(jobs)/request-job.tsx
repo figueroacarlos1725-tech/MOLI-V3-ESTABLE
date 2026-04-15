@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, SafeAreaView, TouchableOpacity,
   ScrollView, TextInput, Alert, ActivityIndicator, Image,
@@ -9,7 +9,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { apiService } from '@/src/services/api';
 import { useAuthStore } from '@/src/stores/authStore';
-import Constants from 'expo-constants';
+import { socketService } from '@/src/services/socket';
 import { WebView } from 'react-native-webview';
 
 const CATEGORIES = [
@@ -44,7 +44,6 @@ export default function RequestJobScreen() {
   const [searchAttempts, setSearchAttempts] = useState(0);
   const [searchStatus, setSearchStatus] = useState<string>('searching'); // searching, reviewing, declined
   const [reviewerName, setReviewerName] = useState('');
-  const wsRef = useRef<WebSocket | null>(null);
 
   // Auto-detect location
   useEffect(() => {
@@ -70,36 +69,34 @@ export default function RequestJobScreen() {
   useEffect(() => {
     if (phase !== 'searching' || !jobId || !user?.user_id) return;
 
-    // WebSocket for real-time updates
-    const backendUrl = Constants.expoConfig?.extra?.EXPO_BACKEND_URL
-      || process.env.EXPO_PUBLIC_API_URL || '';
-    const wsBase = backendUrl.replace(/^http/, 'ws');
-    const wsUrl = `${wsBase}/api/ws/${user.user_id}`;
+    // Use shared socketService for real-time updates
+    socketService.connect(user.user_id);
 
-    try {
-      const ws = new WebSocket(wsUrl);
-      ws.onmessage = (event) => {
-        try {
-          const msg = JSON.parse(event.data);
-          if (msg.type === 'job_reviewing' && msg.job_id === jobId) {
-            setSearchStatus('reviewing');
-            setReviewerName(msg.professional_name || 'Un profesional');
-          } else if (msg.type === 'job_accepted' && msg.job_id === jobId) {
-            setProfessional({
-              name: msg.professional_name,
-              id: msg.professional_id,
-              rating: msg.professional_rating,
-            });
-            setPhase('matched');
-          } else if (msg.type === 'job_declined' && msg.job_id === jobId) {
-            setSearchStatus('declined');
-            setReviewerName('');
-            setTimeout(() => setSearchStatus('searching'), 3000);
-          }
-        } catch {}
-      };
-      wsRef.current = ws;
-    } catch {}
+    const unsubReviewing = socketService.on('job_reviewing', (msg: any) => {
+      if (msg.job_id === jobId) {
+        setSearchStatus('reviewing');
+        setReviewerName(msg.professional_name || 'Un profesional');
+      }
+    });
+
+    const unsubAccepted = socketService.on('job_accepted', (msg: any) => {
+      if (msg.job_id === jobId) {
+        setProfessional({
+          name: msg.professional_name,
+          id: msg.professional_id,
+          rating: msg.professional_rating,
+        });
+        setPhase('matched');
+      }
+    });
+
+    const unsubDeclined = socketService.on('job_declined', (msg: any) => {
+      if (msg.job_id === jobId) {
+        setSearchStatus('declined');
+        setReviewerName('');
+        setTimeout(() => setSearchStatus('searching'), 3000);
+      }
+    });
 
     // Fallback polling
     const interval = setInterval(async () => {
@@ -122,7 +119,9 @@ export default function RequestJobScreen() {
     }, 5000);
     return () => {
       clearInterval(interval);
-      wsRef.current?.close();
+      unsubReviewing();
+      unsubAccepted();
+      unsubDeclined();
     };
   }, [phase, jobId, user?.user_id]);
 

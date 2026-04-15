@@ -9,7 +9,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { apiService } from '@/src/services/api';
 import { useAuthStore } from '@/src/stores/authStore';
-import Constants from 'expo-constants';
+import { socketService } from '@/src/services/socket';
 
 const { width } = Dimensions.get('window');
 const GREEN = '#00C853';
@@ -30,10 +30,9 @@ const CAT_ICONS: Record<string, { icon: string; color: string }> = {
 
 export default function JobsHomeScreen() {
   const router = useRouter();
-  const { user, token } = useAuthStore();
+  const { user } = useAuthStore();
   const insets = useSafeAreaInsets();
   const webViewRef = useRef<any>(null);
-  const wsRef = useRef<WebSocket | null>(null);
   const timerRef = useRef<any>(null);
 
   const [jobs, setJobs] = useState<any[]>([]);
@@ -75,29 +74,17 @@ export default function JobsHomeScreen() {
   useEffect(() => {
     if (!user?.user_id || !hasProfile) return;
 
-    const backendUrl = Constants.expoConfig?.extra?.EXPO_BACKEND_URL
-      || process.env.EXPO_PUBLIC_API_URL || '';
-    const wsBase = backendUrl.replace(/^http/, 'ws');
-    const wsUrl = `${wsBase}/api/ws/${user.user_id}`;
+    // Use the shared socketService (same as driver home)
+    socketService.connect(user.user_id);
 
-    const connect = () => {
-      try {
-        const ws = new WebSocket(wsUrl);
-        ws.onmessage = (event) => {
-          try {
-            const msg = JSON.parse(event.data);
-            if (msg.type === 'new_job_available' && isAvailable) {
-              Vibration.vibrate([0, 300, 100, 300]);
-              setIncomingJob(msg);
-            }
-          } catch {}
-        };
-        ws.onclose = () => { setTimeout(connect, 3000); };
-        wsRef.current = ws;
-      } catch {}
-    };
-    connect();
-    return () => { wsRef.current?.close(); };
+    const unsubNewJob = socketService.on('new_job_available', (msg: any) => {
+      if (isAvailable) {
+        Vibration.vibrate([0, 300, 100, 300]);
+        setIncomingJob(msg);
+      }
+    });
+
+    return () => { unsubNewJob(); };
   }, [user?.user_id, hasProfile, isAvailable]);
 
   // ─── Refresh jobs periodically ───
