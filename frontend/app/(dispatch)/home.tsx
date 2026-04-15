@@ -65,6 +65,9 @@ export default function DispatchHome() {
   const [dropoffSuggestions, setDropoffSuggestions] = useState<any[]>([]);
   const [searchingPickup, setSearchingPickup] = useState(false);
   const [searchingDropoff, setSearchingDropoff] = useState(false);
+  const [savedAddresses, setSavedAddresses] = useState<any[]>([]);
+  const [rememberAddr, setRememberAddr] = useState(false);
+  const [addrLabel, setAddrLabel] = useState('');
 
   // Assign driver state
   const [showAssign, setShowAssign] = useState(false);
@@ -473,7 +476,7 @@ export default function DispatchHome() {
                   <Ionicons name="close-circle" size={26} color={GRAY} />
                 </TouchableOpacity>
               </View>
-              <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+              <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" style={{ overflow: 'visible' }} contentContainerStyle={{ overflow: 'visible' }}>
                 <View style={s.tripTypeRow}>
                   <TouchableOpacity style={[s.tripTypeBtn, newOrder.trip_type === 'full' && { backgroundColor: ACCENT, borderColor: ACCENT }]} onPress={() => setNewOrder(p => ({ ...p, trip_type: 'full' }))}>
                     <Ionicons name="navigate" size={15} color={newOrder.trip_type === 'full' ? '#fff' : GRAY} />
@@ -488,11 +491,53 @@ export default function DispatchHome() {
                   <View style={{ flex: 1 }}><Text style={s.inputLabel}>Nombre</Text><TextInput style={s.input} value={newOrder.rider_name} onChangeText={t => setNewOrder(p => ({ ...p, rider_name: t }))} placeholder="Nombre" placeholderTextColor="#555" /></View>
                   <View style={{ flex: 1 }}><Text style={s.inputLabel}>Teléfono</Text><TextInput style={s.input} value={newOrder.rider_phone} onChangeText={t => setNewOrder(p => ({ ...p, rider_phone: t }))} placeholder="3834..." placeholderTextColor="#555" keyboardType="phone-pad" /></View>
                 </View>
+
+                {/* Saved addresses */}
+                {savedAddresses.length > 0 && (
+                  <View style={{ marginTop: 8 }}>
+                    <Text style={s.inputLabel}>Direcciones guardadas</Text>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 6 }}>
+                      {savedAddresses.map((addr: any, i: number) => (
+                        <TouchableOpacity key={i} style={{ backgroundColor: DARK3, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, marginRight: 6, flexDirection: 'row', alignItems: 'center', gap: 4 }}
+                          onPress={() => setNewOrder(p => ({ ...p, pickup_address: addr.address, pickup_latitude: addr.latitude, pickup_longitude: addr.longitude }))}
+                        >
+                          <Ionicons name="bookmark" size={12} color={GREEN} />
+                          <Text style={{ color: '#ddd', fontSize: 12 }}>{addr.label || addr.address?.substring(0, 25)}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+                  </View>
+                )}
+
                 <Text style={s.inputLabel}>Recogida</Text>
                 <View style={{ zIndex: 20 }}>
                   <View style={s.inputRow}><Ionicons name="location" size={16} color={GREEN} /><TextInput style={s.inputFlex} value={newOrder.pickup_address} onChangeText={onPickupTextChange} placeholder="Buscar dirección..." placeholderTextColor="#555" />{searchingPickup && <ActivityIndicator size="small" color={ACCENT_LIGHT} />}</View>
-                  {pickupSuggestions.length > 0 && (<View style={s.sugBox}>{pickupSuggestions.map((it, i) => (<TouchableOpacity key={i} style={s.sugItem} onPress={() => selectSuggestion(it, 'pickup')}><Ionicons name="location-outline" size={14} color={ACCENT_LIGHT} /><View style={{ flex: 1 }}><Text style={s.sugName} numberOfLines={1}>{it.name}</Text><Text style={s.sugAddr} numberOfLines={1}>{it.address}</Text></View></TouchableOpacity>))}</View>)}
+                  {pickupSuggestions.length > 0 && pickupSuggestions.map((it: any, i: number) => (
+                    <TouchableOpacity key={i} style={{ backgroundColor: DARK2, paddingVertical: 8, paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: DARK3, flexDirection: 'row', alignItems: 'center', gap: 8 }}
+                      onPress={() => selectSuggestion(it, 'pickup')}
+                    >
+                      <Ionicons name="location-outline" size={14} color={ACCENT_LIGHT} />
+                      <View style={{ flex: 1 }}><Text style={s.sugName} numberOfLines={1}>{it.name}</Text><Text style={s.sugAddr} numberOfLines={1}>{it.address}</Text></View>
+                    </TouchableOpacity>
+                  ))}
                 </View>
+
+                {/* Remember address checkbox */}
+                <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6, marginBottom: 6 }}
+                  onPress={() => setRememberAddr(!rememberAddr)}
+                >
+                  <Ionicons name={rememberAddr ? 'checkbox' : 'square-outline'} size={20} color={rememberAddr ? GREEN : GRAY} />
+                  <Text style={{ color: '#ccc', fontSize: 12 }}>Recordar esta dirección</Text>
+                  {rememberAddr && (
+                    <TextInput
+                      style={{ flex: 1, backgroundColor: DARK3, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4, color: '#fff', fontSize: 12, marginLeft: 4 }}
+                      placeholder="Nombre (ej: Casa Juan)"
+                      placeholderTextColor="#666"
+                      value={addrLabel}
+                      onChangeText={setAddrLabel}
+                    />
+                  )}
+                </TouchableOpacity>
                 {newOrder.trip_type === 'full' && (<><Text style={s.inputLabel}>Destino</Text><View style={{ zIndex: 10 }}><View style={s.inputRow}><Ionicons name="flag" size={16} color={RED} /><TextInput style={s.inputFlex} value={newOrder.dropoff_address} onChangeText={onDropoffTextChange} placeholder="Buscar destino..." placeholderTextColor="#555" />{searchingDropoff && <ActivityIndicator size="small" color={ACCENT_LIGHT} />}</View>{dropoffSuggestions.length > 0 && (<View style={s.sugBox}>{dropoffSuggestions.map((it, i) => (<TouchableOpacity key={i} style={s.sugItem} onPress={() => selectSuggestion(it, 'dropoff')}><Ionicons name="flag-outline" size={14} color={RED} /><View style={{ flex: 1 }}><Text style={s.sugName} numberOfLines={1}>{it.name}</Text><Text style={s.sugAddr} numberOfLines={1}>{it.address}</Text></View></TouchableOpacity>))}</View>)}</View></>)}
                 {newOrder.trip_type === 'taximeter' && (<View style={s.taxiBanner}><Ionicons name="speedometer" size={18} color={ORANGE} /><Text style={s.taxiBannerTxt}>Sin destino. Taxímetro se activa al iniciar viaje.</Text></View>)}
                 {/* OSM Map with draggable pin */}
