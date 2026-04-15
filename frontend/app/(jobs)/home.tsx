@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { useRouter } from 'expo-router';
+import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { apiService } from '@/src/services/api';
@@ -79,6 +80,13 @@ export default function JobsHomeScreen() {
   }, []);
 
   useEffect(() => { loadAll(); }, [loadAll]);
+
+  // Reload when screen comes into focus (after setup-profile)
+  useFocusEffect(
+    useCallback(() => {
+      loadAll();
+    }, [loadAll])
+  );
 
   // ─── WebSocket for job notifications ───
   useEffect(() => {
