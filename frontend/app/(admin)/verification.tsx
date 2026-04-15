@@ -159,16 +159,12 @@ export default function AdminVerificationScreen() {
             {/* Show ALL required docs, mark as uploaded or not */}
             {(() => {
               const REQUIRED_DOCS = [
-                { key: 'profile_photo', label: 'Foto de perfil' },
-                { key: 'dni_front', label: 'DNI Frente' },
-                { key: 'dni_back', label: 'DNI Dorso' },
-                { key: 'license_front', label: 'Licencia Frente' },
-                { key: 'license_back', label: 'Licencia Dorso' },
-                { key: 'insurance_front', label: 'Seguro Frente' },
-                { key: 'insurance_back', label: 'Seguro Dorso' },
-                { key: 'vehicle_front', label: 'Vehículo Frente' },
-                { key: 'vehicle_side', label: 'Vehículo Costado' },
-                { key: 'background_check', label: 'Antecedentes penales' },
+                { key: 'license', label: 'Licencia de conducir' },
+                { key: 'id_front', label: 'DNI Frente' },
+                { key: 'id_back', label: 'DNI Dorso' },
+                { key: 'vehicle_registration', label: 'Tarjeta de circulación' },
+                { key: 'insurance', label: 'Seguro del vehículo' },
+                { key: 'criminal_record', label: 'Antecedentes penales' },
               ];
               const uploadedCount = driverDocs.length;
               return (
