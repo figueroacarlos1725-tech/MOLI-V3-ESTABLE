@@ -77,6 +77,11 @@ async def update_professional_profile(
         profile_data["total_jobs"] = 0
         await db.professional_profiles.insert_one(profile_data)
     
+    profile_data.pop("_id", None)
+    # Serialize datetimes
+    for k in ["updated_at", "created_at"]:
+        if k in profile_data and hasattr(profile_data[k], 'isoformat'):
+            profile_data[k] = profile_data[k].isoformat()
     return {"status": "updated", "profile": profile_data}
 
 
@@ -106,6 +111,10 @@ async def create_job_post(
         "updated_at": now,
     }
     await db.job_posts.insert_one(job)
+    job.pop("_id", None)
+    # Serialize datetime for JSON
+    job["created_at"] = job["created_at"].isoformat() if hasattr(job["created_at"], 'isoformat') else str(job["created_at"])
+    job["updated_at"] = job["updated_at"].isoformat() if hasattr(job["updated_at"], 'isoformat') else str(job["updated_at"])
     return {"status": "created", "job": job}
 
 
@@ -221,7 +230,7 @@ async def send_job_offer(
         )
     except: pass
     
-    return {"status": "accepted", "job": {**job, "status": "assigned", "assigned_to": user["user_id"]}}
+    return {"status": "accepted", "job": {k: v for k, v in {**job, "status": "assigned", "assigned_to": user["user_id"]}.items() if k != "_id"}}
 
 
 @router.get("/api/jobs/my-offers")

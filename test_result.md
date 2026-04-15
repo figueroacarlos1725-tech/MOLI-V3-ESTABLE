@@ -102,9 +102,21 @@
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
 
-user_problem_statement: "Test the NEW backend API endpoints for the Molí taxi app cancellation and wallet system - including cancellation config, wallet status, driver block status, cancellation history, and admin settings"
+user_problem_statement: "Quick test of the Moli Trabajos job posting endpoint that was returning 500 errors. This is a critical fix."
 
 backend:
+  - task: "Moli Trabajos Job Posting API"
+    implemented: true
+    working: true
+    file: "/app/backend/routes/jobs.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "CRITICAL FIX VERIFIED ✅ Job posting endpoint 500 error has been completely resolved! TESTED SUCCESSFULLY: ✅ POST /api/auth/login (rider@test.com/test123456) - Authentication working correctly ✅ POST /api/jobs/post - Job creation working perfectly, returns 200 with status 'created' and job object ✅ GET /api/jobs/detail/{job_id} - Job detail retrieval working correctly ✅ GET /api/jobs/my-posts - User's job posts listing working correctly ✅ GET /api/jobs/posts?status=open - Open jobs listing working correctly ✅ GET /api/jobs/categories - Job categories endpoint working correctly. The ObjectId serialization issue has been fixed with proper datetime serialization in the create_job_post function (lines 115-117 in jobs.py). All job posting endpoints are fully functional and ready for production use."
+
   - task: "Vehicle Icons API - Public Endpoint"
     implemented: true
     working: true
@@ -479,12 +491,16 @@ metadata:
   run_ui: false
 
 test_plan:
-  current_focus: []
+  current_focus: 
+    - "Moli Trabajos Job Posting API"
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
 
 agent_communication:
+  - agent: "testing"
+    message: "MOLI TRABAJOS JOB POSTING CRITICAL FIX TESTING COMPLETED ✅ All job posting endpoints tested successfully! The 500 error issue has been completely resolved. TESTED ENDPOINTS: ✅ POST /api/auth/login (rider@test.com/test123456) - Authentication working correctly ✅ POST /api/jobs/post - Job creation working perfectly, returns 200 with status 'created' and job object (previously returning 500 errors) ✅ GET /api/jobs/detail/{job_id} - Job detail retrieval working correctly ✅ GET /api/jobs/my-posts - User's job posts listing working correctly ✅ GET /api/jobs/posts?status=open - Open jobs listing working correctly ✅ GET /api/jobs/categories - Job categories endpoint working correctly. The ObjectId serialization issue has been fixed with proper datetime serialization in the create_job_post function. All job posting endpoints are fully functional and ready for production use. The critical 500 error that was blocking job creation has been completely resolved."
+
   - agent: "main"
     message: "THREE FIXES IMPLEMENTED: 1) ADMIN DASHBOARD STATS FIX: Stats now persist across unmount/remount using module-level _cachedStats variable. Added useFocusEffect for re-fetch on screen focus, AppState listener for app foreground. Shows loading indicator instead of 0 values. Changed revenueCard from purple to green theme. 2) DISPATCH AUTOCOMPLETE FIX: Changed both pickup and dropoff suggestions from absolute positioning to inline rendering - they now render inside the ScrollView as regular elements, avoiding the overflow:hidden clipping issue. 3) SAVED ADDRESSES: NEW backend endpoints GET/POST/DELETE /api/places/saved-addresses. Frontend loads saved addresses on mount, displays as horizontal bookmark chips, saves when 'Recordar dirección' is checked on order create, long press to delete. TEST CREDENTIALS: admin@test.com/admin123456. TESTS TO RUN: 1) GET /api/places/saved-addresses (should return empty initially), 2) POST /api/places/saved-addresses with body {address, latitude, longitude, label}, 3) GET again to verify it's returned, 4) DELETE /api/places/saved-addresses/{addr_id}, 5) GET /api/admin/dashboard should still return stats correctly."
 

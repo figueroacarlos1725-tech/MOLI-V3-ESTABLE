@@ -1,1019 +1,303 @@
 #!/usr/bin/env python3
 """
-Comprehensive Backend API Testing for Moli Refactored Backend
-Tests all critical endpoints across ALL route modules after refactoring.
+Backend API Testing for Moli Trabajos Job Posting System
+Testing the critical job posting endpoints that were returning 500 errors
 """
 
 import requests
 import json
-import time
+import sys
 from datetime import datetime
 
-# Configuration
+# API Configuration
 BASE_URL = "https://taxify-clone.preview.emergentagent.com/api"
-TIMEOUT = 30
 
-# Test credentials from /app/memory/test_credentials.md
-ADMIN_CREDS = {"email": "admin@test.com", "password": "admin123456"}
-RIDER_CREDS = {"email": "rider@test.com", "password": "test123456"}
-DRIVER_CREDS = {"email": "driver@test.com", "password": "test123456"}
+# Test credentials from review request
+RIDER_EMAIL = "rider@test.com"
+RIDER_PASSWORD = "test123456"
 
-# Global tokens
-admin_token = None
-rider_token = None
-driver_token = None
-
-class TestResults:
+class JobPostingTester:
     def __init__(self):
-        self.passed = 0
-        self.failed = 0
-        self.errors = []
-        self.successes = []
-    
-    def add_success(self, test_name):
-        self.passed += 1
-        self.successes.append(f"✅ {test_name}")
-        print(f"✅ {test_name}")
-    
-    def add_failure(self, test_name, error):
-        self.failed += 1
-        self.errors.append(f"❌ {test_name}: {error}")
-        print(f"❌ {test_name}: {error}")
-    
-    def summary(self):
-        print(f"\n{'='*60}")
-        print(f"TEST SUMMARY: {self.passed} passed, {self.failed} failed")
-        print(f"{'='*60}")
+        self.session = requests.Session()
+        self.auth_token = None
+        self.job_id = None
         
-        if self.errors:
-            print("\nFAILED TESTS:")
-            for error in self.errors:
-                print(error)
+    def log(self, message, status="INFO"):
+        timestamp = datetime.now().strftime("%H:%M:%S")
+        print(f"[{timestamp}] {status}: {message}")
         
-        if self.successes:
-            print(f"\nSUCCESSFUL TESTS ({len(self.successes)}):")
-            for success in self.successes:
-                print(success)
-
-results = TestResults()
-
-def make_request(method, endpoint, headers=None, json_data=None, params=None):
-    """Make HTTP request with error handling"""
-    url = f"{BASE_URL}{endpoint}"
-    try:
-        response = requests.request(
-            method=method,
-            url=url,
-            headers=headers,
-            json=json_data,
-            params=params,
-            timeout=TIMEOUT
-        )
-        return response
-    except requests.exceptions.RequestException as e:
-        return None
-
-def test_auth_endpoints():
-    """Test Auth routes (routes/auth.py)"""
-    global admin_token, rider_token, driver_token
-    
-    print(f"\n{'='*20} TESTING AUTH ROUTES {'='*20}")
-    
-    # Test admin login
-    response = make_request("POST", "/auth/login", json_data=ADMIN_CREDS)
-    if response and response.status_code == 200:
-        data = response.json()
-        if "access_token" in data and "user" in data:
-            admin_token = data["access_token"]
-            results.add_success("POST /api/auth/login (admin)")
-        else:
-            results.add_failure("POST /api/auth/login (admin)", "Missing access_token or user in response")
-    else:
-        results.add_failure("POST /api/auth/login (admin)", f"Status: {response.status_code if response else 'No response'}")
-    
-    # Test rider login
-    response = make_request("POST", "/auth/login", json_data=RIDER_CREDS)
-    if response and response.status_code == 200:
-        data = response.json()
-        if "access_token" in data:
-            rider_token = data["access_token"]
-            results.add_success("POST /api/auth/login (rider)")
-        else:
-            results.add_failure("POST /api/auth/login (rider)", "Missing access_token in response")
-    else:
-        results.add_failure("POST /api/auth/login (rider)", f"Status: {response.status_code if response else 'No response'}")
-    
-    # Test driver login
-    response = make_request("POST", "/auth/login", json_data=DRIVER_CREDS)
-    if response and response.status_code == 200:
-        data = response.json()
-        if "access_token" in data:
-            driver_token = data["access_token"]
-            results.add_success("POST /api/auth/login (driver)")
-        else:
-            results.add_failure("POST /api/auth/login (driver)", "Missing access_token in response")
-    else:
-        results.add_failure("POST /api/auth/login (driver)", f"Status: {response.status_code if response else 'No response'}")
-    
-    # Test get current user (admin)
-    if admin_token:
-        headers = {"Authorization": f"Bearer {admin_token}"}
-        response = make_request("GET", "/auth/me", headers=headers)
-        if response and response.status_code == 200:
-            data = response.json()
-            if "user_id" in data and "email" in data:
-                results.add_success("GET /api/auth/me (admin)")
-            else:
-                results.add_failure("GET /api/auth/me (admin)", "Missing user_id or email in response")
-        else:
-            results.add_failure("GET /api/auth/me (admin)", f"Status: {response.status_code if response else 'No response'}")
-
-def test_driver_endpoints():
-    """Test Driver routes (routes/drivers.py)"""
-    print(f"\n{'='*20} TESTING DRIVER ROUTES {'='*20}")
-    
-    if not driver_token:
-        results.add_failure("Driver endpoints", "No driver token available")
-        return
-    
-    headers = {"Authorization": f"Bearer {driver_token}"}
-    
-    # Test driver block status
-    response = make_request("GET", "/driver/block-status", headers=headers)
-    if response and response.status_code == 200:
-        data = response.json()
-        if "is_blocked" in data:
-            results.add_success("GET /api/driver/block-status")
-        else:
-            results.add_failure("GET /api/driver/block-status", "Missing is_blocked field")
-    else:
-        results.add_failure("GET /api/driver/block-status", f"Status: {response.status_code if response else 'No response'}")
-    
-    # Test required documents
-    response = make_request("GET", "/driver/documents/required", headers=headers)
-    if response and response.status_code == 200:
-        data = response.json()
-        if "documents" in data:
-            results.add_success("GET /api/driver/documents/required")
-        else:
-            results.add_failure("GET /api/driver/documents/required", "Missing documents field")
-    else:
-        results.add_failure("GET /api/driver/documents/required", f"Status: {response.status_code if response else 'No response'}")
-    
-    # Test verification status
-    response = make_request("GET", "/driver/verification-status", headers=headers)
-    if response and response.status_code == 200:
-        data = response.json()
-        if "is_verified" in data and "status" in data:
-            results.add_success("GET /api/driver/verification-status")
-        else:
-            results.add_failure("GET /api/driver/verification-status", "Missing is_verified or status field")
-    else:
-        results.add_failure("GET /api/driver/verification-status", f"Status: {response.status_code if response else 'No response'}")
-    
-    # Test driver earnings
-    response = make_request("GET", "/drivers/earnings", headers=headers)
-    if response and response.status_code == 200:
-        data = response.json()
-        if "total_earnings" in data:
-            results.add_success("GET /api/drivers/earnings")
-        else:
-            results.add_failure("GET /api/drivers/earnings", "Missing total_earnings field")
-    else:
-        results.add_failure("GET /api/drivers/earnings", f"Status: {response.status_code if response else 'No response'}")
-
-def test_vehicle_endpoints():
-    """Test Vehicle routes (routes/vehicles.py)"""
-    print(f"\n{'='*20} TESTING VEHICLE ROUTES {'='*20}")
-    
-    # Test vehicle icons (public endpoint)
-    response = make_request("GET", "/vehicle-icons")
-    if response and response.status_code == 200:
-        data = response.json()
-        if "icons" in data:
-            results.add_success("GET /api/vehicle-icons")
-        else:
-            results.add_failure("GET /api/vehicle-icons", "Missing icons field")
-    else:
-        results.add_failure("GET /api/vehicle-icons", f"Status: {response.status_code if response else 'No response'}")
-    
-    # Test get vehicles (requires driver auth)
-    if driver_token:
-        headers = {"Authorization": f"Bearer {driver_token}"}
-        response = make_request("GET", "/vehicles", headers=headers)
-        if response and response.status_code == 200:
-            data = response.json()
-            if "vehicles" in data:
-                results.add_success("GET /api/vehicles")
-            else:
-                results.add_failure("GET /api/vehicles", "Missing vehicles field")
-        else:
-            results.add_failure("GET /api/vehicles", f"Status: {response.status_code if response else 'No response'}")
-
-def test_ride_endpoints():
-    """Test Ride routes (routes/rides.py)"""
-    print(f"\n{'='*20} TESTING RIDE ROUTES {'='*20}")
-    
-    if not rider_token:
-        results.add_failure("Ride endpoints", "No rider token available")
-        return
-    
-    headers = {"Authorization": f"Bearer {rider_token}"}
-    
-    # Test active ride
-    response = make_request("GET", "/rides/active", headers=headers)
-    if response and response.status_code == 200:
-        data = response.json()
-        # Active ride can be null if no active ride
-        results.add_success("GET /api/rides/active")
-    else:
-        results.add_failure("GET /api/rides/active", f"Status: {response.status_code if response else 'No response'}")
-    
-    # Test my rides
-    response = make_request("GET", "/rides/my-rides", headers=headers)
-    if response and response.status_code == 200:
-        data = response.json()
-        if "rides" in data:
-            results.add_success("GET /api/rides/my-rides")
-        else:
-            results.add_failure("GET /api/rides/my-rides", "Missing rides field")
-    else:
-        results.add_failure("GET /api/rides/my-rides", f"Status: {response.status_code if response else 'No response'}")
-    
-    # Test fare estimation
-    estimate_data = {
-        "pickup": {"latitude": -28.46, "longitude": -65.78, "address": "Centro"},
-        "dropoff": {"latitude": -28.47, "longitude": -65.79, "address": "Plaza"},
-        "vehicle_type": "standard",
-        "distance_km": 1.5,
-        "duration_min": 5
-    }
-    response = make_request("POST", "/rides/estimate", headers=headers, json_data=estimate_data)
-    if response and response.status_code == 200:
-        data = response.json()
-        if "estimates" in data:
-            results.add_success("POST /api/rides/estimate")
-        else:
-            results.add_failure("POST /api/rides/estimate", "Missing estimates field")
-    else:
-        results.add_failure("POST /api/rides/estimate", f"Status: {response.status_code if response else 'No response'}")
-
-def test_chat_endpoints():
-    """Test Chat routes (routes/chat.py)"""
-    print(f"\n{'='*20} TESTING CHAT ROUTES {'='*20}")
-    
-    if not rider_token:
-        results.add_failure("Chat endpoints", "No rider token available")
-        return
-    
-    headers = {"Authorization": f"Bearer {rider_token}"}
-    
-    # Test conversations
-    response = make_request("GET", "/chat/conversations", headers=headers)
-    if response and response.status_code == 200:
-        data = response.json()
-        if "conversations" in data:
-            results.add_success("GET /api/chat/conversations")
-        else:
-            results.add_failure("GET /api/chat/conversations", "Missing conversations field")
-    else:
-        results.add_failure("GET /api/chat/conversations", f"Status: {response.status_code if response else 'No response'}")
-
-def test_support_endpoints():
-    """Test Support routes (routes/support.py)"""
-    print(f"\n{'='*20} TESTING SUPPORT ROUTES {'='*20}")
-    
-    if not rider_token:
-        results.add_failure("Support endpoints", "No rider token available")
-        return
-    
-    headers = {"Authorization": f"Bearer {rider_token}"}
-    
-    # Test AI support chat
-    response = make_request("POST", "/support/chat", headers=headers, params={"message": "Hello, I need help with my ride"})
-    if response and response.status_code == 200:
-        data = response.json()
-        if "response" in data:
-            results.add_success("POST /api/support/chat")
-        else:
-            results.add_failure("POST /api/support/chat", "Missing response field")
-    else:
-        # Support chat might fail if EMERGENT_LLM_KEY is not set
-        if response and response.status_code == 500:
-            results.add_success("POST /api/support/chat (MOCKED - LLM key not configured)")
-        else:
-            results.add_failure("POST /api/support/chat", f"Status: {response.status_code if response else 'No response'}")
-
-def test_wallet_endpoints():
-    """Test Wallet routes (routes/wallet.py)"""
-    print(f"\n{'='*20} TESTING WALLET ROUTES {'='*20}")
-    
-    if not rider_token:
-        results.add_failure("Wallet endpoints", "No rider token available")
-        return
-    
-    headers = {"Authorization": f"Bearer {rider_token}"}
-    
-    # Test wallet status
-    response = make_request("GET", "/wallet/status", headers=headers)
-    if response and response.status_code == 200:
-        data = response.json()
-        if "balance" in data:
-            results.add_success("GET /api/wallet/status")
-        else:
-            results.add_failure("GET /api/wallet/status", "Missing balance field")
-    else:
-        results.add_failure("GET /api/wallet/status", f"Status: {response.status_code if response else 'No response'}")
-    
-    # Test wallet balance
-    response = make_request("GET", "/wallet/balance", headers=headers)
-    if response and response.status_code == 200:
-        data = response.json()
-        if "balance" in data:
-            results.add_success("GET /api/wallet/balance")
-        else:
-            results.add_failure("GET /api/wallet/balance", "Missing balance field")
-    else:
-        results.add_failure("GET /api/wallet/balance", f"Status: {response.status_code if response else 'No response'}")
-    
-    # Test cancellation config
-    response = make_request("GET", "/cancellation/config", headers=headers)
-    if response and response.status_code == 200:
-        data = response.json()
-        if "cancel_free_minutes" in data:
-            results.add_success("GET /api/cancellation/config")
-        else:
-            results.add_failure("GET /api/cancellation/config", "Missing cancel_free_minutes field")
-    else:
-        results.add_failure("GET /api/cancellation/config", f"Status: {response.status_code if response else 'No response'}")
-
-def test_admin_endpoints():
-    """Test Admin routes (routes/admin.py)"""
-    print(f"\n{'='*20} TESTING ADMIN ROUTES {'='*20}")
-    
-    if not admin_token:
-        results.add_failure("Admin endpoints", "No admin token available")
-        return
-    
-    headers = {"Authorization": f"Bearer {admin_token}"}
-    
-    # Test dashboard
-    response = make_request("GET", "/admin/dashboard", headers=headers)
-    if response and response.status_code == 200:
-        data = response.json()
-        if "stats" in data and "total_users" in data["stats"]:
-            results.add_success("GET /api/admin/dashboard")
-        else:
-            results.add_failure("GET /api/admin/dashboard", "Missing stats.total_users field")
-    else:
-        results.add_failure("GET /api/admin/dashboard", f"Status: {response.status_code if response else 'No response'}")
-    
-    # Test settings
-    response = make_request("GET", "/admin/settings", headers=headers)
-    if response and response.status_code == 200:
-        data = response.json()
-        if "setting_id" in data:
-            results.add_success("GET /api/admin/settings")
-        else:
-            results.add_failure("GET /api/admin/settings", "Missing setting_id field")
-    else:
-        results.add_failure("GET /api/admin/settings", f"Status: {response.status_code if response else 'No response'}")
-    
-    # Test users list
-    response = make_request("GET", "/admin/users", headers=headers)
-    if response and response.status_code == 200:
-        data = response.json()
-        if "users" in data:
-            results.add_success("GET /api/admin/users")
-        else:
-            results.add_failure("GET /api/admin/users", "Missing users field")
-    else:
-        results.add_failure("GET /api/admin/users", f"Status: {response.status_code if response else 'No response'}")
-    
-    # Test drivers list
-    response = make_request("GET", "/admin/drivers", headers=headers)
-    if response and response.status_code == 200:
-        data = response.json()
-        if "drivers" in data:
-            results.add_success("GET /api/admin/drivers")
-        else:
-            results.add_failure("GET /api/admin/drivers", "Missing drivers field")
-    else:
-        results.add_failure("GET /api/admin/drivers", f"Status: {response.status_code if response else 'No response'}")
-    
-    # Test fares config
-    response = make_request("GET", "/admin/fares", headers=headers)
-    if response and response.status_code == 200:
-        data = response.json()
-        if "fares" in data:
-            results.add_success("GET /api/admin/fares")
-        else:
-            results.add_failure("GET /api/admin/fares", "Missing fares field")
-    else:
-        results.add_failure("GET /api/admin/fares", f"Status: {response.status_code if response else 'No response'}")
-    
-    # Test banners
-    response = make_request("GET", "/admin/banners", headers=headers)
-    if response and response.status_code == 200:
-        data = response.json()
-        if "banners" in data:
-            results.add_success("GET /api/admin/banners")
-        else:
-            results.add_failure("GET /api/admin/banners", "Missing banners field")
-    else:
-        results.add_failure("GET /api/admin/banners", f"Status: {response.status_code if response else 'No response'}")
-    
-    # Test payment config
-    response = make_request("GET", "/admin/payment-config", headers=headers)
-    if response and response.status_code == 200:
-        data = response.json()
-        if "config_id" in data:
-            results.add_success("GET /api/admin/payment-config")
-        else:
-            results.add_failure("GET /api/admin/payment-config", "Missing config_id field")
-    else:
-        results.add_failure("GET /api/admin/payment-config", f"Status: {response.status_code if response else 'No response'}")
-
-def test_places_endpoints():
-    """Test Places routes (routes/places.py)"""
-    print(f"\n{'='*20} TESTING PLACES ROUTES {'='*20}")
-    
-    # Test places search
-    params = {"q": "centro", "lat": -28.46, "lng": -65.78}
-    response = make_request("GET", "/places/search", params=params)
-    if response and response.status_code == 200:
-        data = response.json()
-        if "results" in data:
-            results.add_success("GET /api/places/search")
-        else:
-            results.add_failure("GET /api/places/search", "Missing results field")
-    else:
-        results.add_failure("GET /api/places/search", f"Status: {response.status_code if response else 'No response'}")
-    
-    # Test reverse geocoding
-    params = {"lat": -28.46, "lng": -65.78}
-    response = make_request("GET", "/places/reverse", params=params)
-    if response and response.status_code == 200:
-        data = response.json()
-        if "address" in data:
-            results.add_success("GET /api/places/reverse")
-        else:
-            results.add_failure("GET /api/places/reverse", "Missing address field")
-    else:
-        results.add_failure("GET /api/places/reverse", f"Status: {response.status_code if response else 'No response'}")
-
-
-def test_saved_addresses_endpoints():
-    """Test NEW Saved Addresses CRUD endpoints (routes/places.py)"""
-    print(f"\n{'='*20} TESTING SAVED ADDRESSES ENDPOINTS {'='*20}")
-    
-    if not admin_token:
-        results.add_failure("Saved Addresses", "No admin token available")
-        return
-    
-    admin_headers = {"Authorization": f"Bearer {admin_token}"}
-    
-    # Test 1: GET /api/places/saved-addresses - Should return empty initially
-    response = make_request("GET", "/places/saved-addresses", headers=admin_headers)
-    if response and response.status_code == 200:
-        data = response.json()
-        if "addresses" in data and isinstance(data["addresses"], list):
-            initial_count = len(data["addresses"])
-            results.add_success(f"GET /api/places/saved-addresses - Returns addresses array (initial count: {initial_count})")
-        else:
-            results.add_failure("GET /api/places/saved-addresses", "Missing addresses field or not a list")
-    else:
-        results.add_failure("GET /api/places/saved-addresses", f"Status: {response.status_code if response else 'No response'}")
-        return
-    
-    # Test 2: POST /api/places/saved-addresses - Save first address
-    address_data_1 = {
-        "address": "San Martín 152, Catamarca",
-        "latitude": -28.4696,
-        "longitude": -65.7852,
-        "label": "Terminal"
-    }
-    response = make_request("POST", "/places/saved-addresses", headers=admin_headers, json_data=address_data_1)
-    if response and response.status_code == 200:
-        data = response.json()
-        if "status" in data and "addr_id" in data:
-            if data["status"] == "created":
-                addr_id_1 = data["addr_id"]
-                results.add_success(f"POST /api/places/saved-addresses - Created new address (addr_id: {addr_id_1})")
-            else:
-                results.add_failure("POST /api/places/saved-addresses", f"Expected status 'created', got '{data['status']}'")
-        else:
-            results.add_failure("POST /api/places/saved-addresses", "Missing status or addr_id field")
-    else:
-        results.add_failure("POST /api/places/saved-addresses", f"Status: {response.status_code if response else 'No response'}")
-        return
-    
-    # Test 3: POST same address again - Should return "updated" (deduplication)
-    response = make_request("POST", "/places/saved-addresses", headers=admin_headers, json_data=address_data_1)
-    if response and response.status_code == 200:
-        data = response.json()
-        if "status" in data and data["status"] == "updated":
-            results.add_success("POST /api/places/saved-addresses - Deduplication works (status: updated)")
-        else:
-            results.add_failure("POST /api/places/saved-addresses (dedup)", f"Expected status 'updated', got '{data.get('status')}'")
-    else:
-        results.add_failure("POST /api/places/saved-addresses (dedup)", f"Status: {response.status_code if response else 'No response'}")
-    
-    # Test 4: POST different address
-    address_data_2 = {
-        "address": "Av. Güemes 800, Catamarca",
-        "latitude": -28.4700,
-        "longitude": -65.7800,
-        "label": "Hospital"
-    }
-    response = make_request("POST", "/places/saved-addresses", headers=admin_headers, json_data=address_data_2)
-    if response and response.status_code == 200:
-        data = response.json()
-        if "status" in data and data["status"] == "created":
-            addr_id_2 = data["addr_id"]
-            results.add_success(f"POST /api/places/saved-addresses - Created second address (addr_id: {addr_id_2})")
-        else:
-            results.add_failure("POST /api/places/saved-addresses (second)", f"Expected status 'created', got '{data.get('status')}'")
-    else:
-        results.add_failure("POST /api/places/saved-addresses (second)", f"Status: {response.status_code if response else 'No response'}")
-    
-    # Test 5: GET /api/places/saved-addresses - Should now return 2 addresses
-    response = make_request("GET", "/places/saved-addresses", headers=admin_headers)
-    if response and response.status_code == 200:
-        data = response.json()
-        addresses = data.get("addresses", [])
-        if len(addresses) >= 2:
-            # Check if sorted by use_count (first address should have higher use_count due to deduplication)
-            first_addr = addresses[0]
-            if first_addr.get("use_count", 0) >= 2:
-                results.add_success(f"GET /api/places/saved-addresses - Returns 2+ addresses sorted by use_count")
-            else:
-                results.add_success(f"GET /api/places/saved-addresses - Returns 2+ addresses (use_count sorting may vary)")
-        else:
-            results.add_failure("GET /api/places/saved-addresses (after saves)", f"Expected 2+ addresses, got {len(addresses)}")
-    else:
-        results.add_failure("GET /api/places/saved-addresses (after saves)", f"Status: {response.status_code if response else 'No response'}")
-    
-    # Test 6: DELETE /api/places/saved-addresses/{addr_id}
-    if 'addr_id_1' in locals():
-        response = make_request("DELETE", f"/places/saved-addresses/{addr_id_1}", headers=admin_headers)
-        if response and response.status_code == 200:
-            data = response.json()
-            if "status" in data and data["status"] == "deleted":
-                results.add_success(f"DELETE /api/places/saved-addresses/{addr_id_1} - Successfully deleted")
-            else:
-                results.add_failure("DELETE saved address", f"Expected status 'deleted', got '{data.get('status')}'")
-        else:
-            results.add_failure("DELETE saved address", f"Status: {response.status_code if response else 'No response'}")
-    
-    # Test 7: GET /api/places/saved-addresses - Should now return 1 address
-    response = make_request("GET", "/places/saved-addresses", headers=admin_headers)
-    if response and response.status_code == 200:
-        data = response.json()
-        addresses = data.get("addresses", [])
-        if len(addresses) == 1:
-            results.add_success("GET /api/places/saved-addresses - Returns 1 address after deletion")
-        else:
-            results.add_failure("GET /api/places/saved-addresses (after delete)", f"Expected 1 address, got {len(addresses)}")
-    else:
-        results.add_failure("GET /api/places/saved-addresses (after delete)", f"Status: {response.status_code if response else 'No response'}")
-    
-    # Test 8: Access control test - Login as rider and try to access
-    if rider_token:
-        rider_headers = {"Authorization": f"Bearer {rider_token}"}
-        response = make_request("GET", "/places/saved-addresses", headers=rider_headers)
-        if response:
-            if response.status_code == 403:
-                data = response.json()
-                if "Dispatch access required" in data.get("detail", ""):
-                    results.add_success("GET /api/places/saved-addresses (rider) - Correctly returns 403 'Dispatch access required'")
-                else:
-                    results.add_success("GET /api/places/saved-addresses (rider) - Correctly returns 403 (access denied)")
-            else:
-                results.add_failure("GET /api/places/saved-addresses (rider)", f"Expected 403, got {response.status_code}")
-        else:
-            # Retry once for network issues
-            time.sleep(1)
-            response = make_request("GET", "/places/saved-addresses", headers=rider_headers)
-            if response and response.status_code == 403:
-                results.add_success("GET /api/places/saved-addresses (rider) - Correctly returns 403 (after retry)")
-            else:
-                results.add_failure("GET /api/places/saved-addresses (rider)", f"No response even after retry")
-    
-    # Test 9: Verify admin dashboard still works
-    response = make_request("GET", "/admin/dashboard", headers=admin_headers)
-    if response and response.status_code == 200:
-        data = response.json()
-        if "stats" in data:
-            results.add_success("GET /api/admin/dashboard - Still working after saved addresses operations")
-        else:
-            results.add_failure("GET /api/admin/dashboard (after saved addresses)", "Missing stats field")
-    else:
-        results.add_failure("GET /api/admin/dashboard (after saved addresses)", f"Status: {response.status_code if response else 'No response'}")
-
-def test_push_endpoints():
-    """Test Push routes (routes/push.py)"""
-    print(f"\n{'='*20} TESTING PUSH ROUTES {'='*20}")
-    
-    if not rider_token:
-        results.add_failure("Push endpoints", "No rider token available")
-        return
-    
-    headers = {"Authorization": f"Bearer {rider_token}"}
-    
-    # Test push token registration
-    push_data = {"token": "test_push_token_123", "platform": "web"}
-    response = make_request("POST", "/push-token", headers=headers, json_data=push_data)
-    if response and response.status_code == 200:
-        data = response.json()
-        if "status" in data:
-            results.add_success("POST /api/push-token")
-        else:
-            results.add_failure("POST /api/push-token", "Missing status field")
-    else:
-        results.add_failure("POST /api/push-token", f"Status: {response.status_code if response else 'No response'}")
-
-def test_misc_endpoints():
-    """Test Misc routes (routes/misc.py)"""
-    print(f"\n{'='*20} TESTING MISC ROUTES {'='*20}")
-    
-    # Test health check (public)
-    response = make_request("GET", "/health")
-    if response and response.status_code == 200:
-        data = response.json()
-        if "status" in data:
-            results.add_success("GET /api/health")
-        else:
-            results.add_failure("GET /api/health", "Missing status field")
-    else:
-        results.add_failure("GET /api/health", f"Status: {response.status_code if response else 'No response'}")
-    
-    # Test maps config (public)
-    response = make_request("GET", "/config/maps")
-    if response and response.status_code == 200:
-        data = response.json()
-        if "provider" in data:
-            results.add_success("GET /api/config/maps")
-        else:
-            results.add_failure("GET /api/config/maps", "Missing provider field")
-    else:
-        results.add_failure("GET /api/config/maps", f"Status: {response.status_code if response else 'No response'}")
-    
-    # Test dispatch config (public)
-    response = make_request("GET", "/config/dispatch")
-    if response and response.status_code == 200:
-        data = response.json()
-        if "accept_seconds" in data:
-            results.add_success("GET /api/config/dispatch")
-        else:
-            results.add_failure("GET /api/config/dispatch", "Missing accept_seconds field")
-    else:
-        results.add_failure("GET /api/config/dispatch", f"Status: {response.status_code if response else 'No response'}")
-    
-    # Test public fares (public)
-    response = make_request("GET", "/fares")
-    if response and response.status_code == 200:
-        data = response.json()
-        if "fares" in data:
-            results.add_success("GET /api/fares")
-        else:
-            results.add_failure("GET /api/fares", "Missing fares field")
-    else:
-        results.add_failure("GET /api/fares", f"Status: {response.status_code if response else 'No response'}")
-    
-    # Test version check (public)
-    params = {"current_version": "1.0.0"}
-    response = make_request("GET", "/app/version-check", params=params)
-    if response and response.status_code == 200:
-        data = response.json()
-        if "force_update" in data:
-            results.add_success("GET /api/app/version-check")
-        else:
-            results.add_failure("GET /api/app/version-check", "Missing force_update field")
-    else:
-        results.add_failure("GET /api/app/version-check", f"Status: {response.status_code if response else 'No response'}")
-    
-    # Test public banners (public)
-    response = make_request("GET", "/banners")
-    if response and response.status_code == 200:
-        data = response.json()
-        if "banners" in data:
-            results.add_success("GET /api/banners")
-        else:
-            results.add_failure("GET /api/banners", "Missing banners field")
-    else:
-        results.add_failure("GET /api/banners", f"Status: {response.status_code if response else 'No response'}")
-
-def test_wallet_balance_sync():
-    """Test wallet balance synchronization fixes"""
-    print(f"\n{'='*20} TESTING WALLET BALANCE SYNC {'='*20}")
-    
-    if not admin_token or not driver_token:
-        results.add_failure("Wallet Balance Sync", "Missing admin or driver tokens")
-        return
-    
-    admin_headers = {"Authorization": f"Bearer {admin_token}"}
-    driver_headers = {"Authorization": f"Bearer {driver_token}"}
-    
-    # Get driver user ID first
-    response = make_request("GET", "/auth/me", headers=driver_headers)
-    if not response or response.status_code != 200:
-        results.add_failure("Wallet Balance Sync", "Could not get driver user ID")
-        return
-    
-    driver_user_id = response.json().get("user_id")
-    if not driver_user_id:
-        results.add_failure("Wallet Balance Sync", "Driver user ID not found in response")
-        return
-    
-    # Test 1: Admin Balance Update Sync
-    balance_update = {
-        "amount": 5000,
-        "operation": "add",
-        "reason": "Test sync"
-    }
-    response = make_request("PUT", f"/admin/users/{driver_user_id}/balance", 
-                          headers=admin_headers, json_data=balance_update)
-    if response and response.status_code == 200:
-        data = response.json()
-        if "balance" in data:
-            new_balance = data["balance"]
-            results.add_success("Admin Balance Update - Response includes new balance")
+    def test_login(self):
+        """Test rider login authentication"""
+        self.log("Testing rider login...")
+        
+        url = f"{BASE_URL}/auth/login"
+        data = {
+            "email": RIDER_EMAIL,
+            "password": RIDER_PASSWORD
+        }
+        
+        try:
+            response = self.session.post(url, json=data)
+            self.log(f"Login response status: {response.status_code}")
             
-            # Test 2: Verify admin get user shows synced balance
-            response = make_request("GET", f"/admin/users/{driver_user_id}", headers=admin_headers)
-            if response and response.status_code == 200:
-                user_data = response.json()
-                admin_balance = user_data.get("balance")
-                admin_wallet_balance = user_data.get("wallet_balance")
-                if admin_balance == new_balance and admin_wallet_balance == new_balance:
-                    results.add_success("Admin Get User - Balance and wallet_balance match")
+            if response.status_code == 200:
+                result = response.json()
+                self.auth_token = result.get("access_token") or result.get("token")
+                if self.auth_token:
+                    self.session.headers.update({"Authorization": f"Bearer {self.auth_token}"})
+                    self.log("✅ Login successful - token obtained")
+                    self.log(f"User: {result.get('user', {}).get('name')} ({result.get('user', {}).get('user_type')})")
+                    return True
                 else:
-                    results.add_failure("Admin Get User", f"Balance mismatch: balance={admin_balance}, wallet_balance={admin_wallet_balance}, expected={new_balance}")
+                    self.log("❌ Login failed - no token in response", "ERROR")
+                    self.log(f"Response: {result}", "ERROR")
+                    return False
             else:
-                results.add_failure("Admin Get User", f"Status: {response.status_code if response else 'No response'}")
+                self.log(f"❌ Login failed with status {response.status_code}", "ERROR")
+                try:
+                    self.log(f"Error response: {response.json()}", "ERROR")
+                except:
+                    self.log(f"Error response: {response.text}", "ERROR")
+                return False
+                
+        except Exception as e:
+            self.log(f"❌ Login request failed: {str(e)}", "ERROR")
+            return False
+    
+    def test_job_post_creation(self):
+        """Test job posting creation - the main endpoint that was returning 500 errors"""
+        self.log("Testing job post creation...")
+        
+        url = f"{BASE_URL}/jobs/post"
+        
+        # Job data from review request
+        job_data = {
+            "category": "electricista",
+            "title": "Arreglar enchufe",
+            "description": "Necesito reparar un enchufe en la cocina",
+            "budget": 2000,
+            "location": {"latitude": -28.4696, "longitude": -65.7852},
+            "address": "San Martín 152, Catamarca"
+        }
+        
+        try:
+            response = self.session.post(url, json=job_data)
+            self.log(f"Job post creation response status: {response.status_code}")
             
-            # Test 3: Verify wallet status endpoint shows synced balance
-            response = make_request("GET", "/wallet/status", headers=driver_headers)
-            if response and response.status_code == 200:
-                wallet_data = response.json()
-                wallet_balance = wallet_data.get("balance")
-                if wallet_balance == new_balance:
-                    results.add_success("Wallet Status - Balance matches admin update")
+            if response.status_code == 200:
+                result = response.json()
+                if result.get("status") == "created" and "job" in result:
+                    self.job_id = result["job"].get("job_id")
+                    self.log("✅ Job post created successfully")
+                    self.log(f"Job ID: {self.job_id}")
+                    self.log(f"Job title: {result['job'].get('title')}")
+                    self.log(f"Job status: {result['job'].get('status')}")
+                    return True
                 else:
-                    results.add_failure("Wallet Status", f"Balance mismatch: got={wallet_balance}, expected={new_balance}")
+                    self.log("❌ Job creation failed - unexpected response format", "ERROR")
+                    self.log(f"Response: {result}", "ERROR")
+                    return False
             else:
-                results.add_failure("Wallet Status", f"Status: {response.status_code if response else 'No response'}")
+                self.log(f"❌ Job creation failed with status {response.status_code}", "ERROR")
+                try:
+                    error_response = response.json()
+                    self.log(f"Error response: {error_response}", "ERROR")
+                except:
+                    self.log(f"Error response: {response.text}", "ERROR")
+                return False
+                
+        except Exception as e:
+            self.log(f"❌ Job creation request failed: {str(e)}", "ERROR")
+            return False
+    
+    def test_job_detail(self):
+        """Test job detail retrieval"""
+        if not self.job_id:
+            self.log("❌ Cannot test job detail - no job_id available", "ERROR")
+            return False
             
-            # Test 4: Verify wallet balance endpoint shows synced balance
-            response = make_request("GET", "/wallet/balance", headers=driver_headers)
-            if response and response.status_code == 200:
-                balance_data = response.json()
-                balance = balance_data.get("balance")
-                if balance == new_balance:
-                    results.add_success("Wallet Balance - Balance matches admin update")
+        self.log(f"Testing job detail retrieval for job_id: {self.job_id}")
+        
+        url = f"{BASE_URL}/jobs/detail/{self.job_id}"
+        
+        try:
+            response = self.session.get(url)
+            self.log(f"Job detail response status: {response.status_code}")
+            
+            if response.status_code == 200:
+                result = response.json()
+                if "job" in result:
+                    job = result["job"]
+                    self.log("✅ Job detail retrieved successfully")
+                    self.log(f"Job title: {job.get('title')}")
+                    self.log(f"Job category: {job.get('category')}")
+                    self.log(f"Job budget: {job.get('budget')}")
+                    self.log(f"Job address: {job.get('address')}")
+                    self.log(f"Job status: {job.get('status')}")
+                    return True
                 else:
-                    results.add_failure("Wallet Balance", f"Balance mismatch: got={balance}, expected={new_balance}")
+                    self.log("❌ Job detail failed - no job in response", "ERROR")
+                    self.log(f"Response: {result}", "ERROR")
+                    return False
             else:
-                results.add_failure("Wallet Balance", f"Status: {response.status_code if response else 'No response'}")
-        else:
-            results.add_failure("Admin Balance Update", "Missing balance field in response")
-    else:
-        results.add_failure("Admin Balance Update", f"Status: {response.status_code if response else 'No response'}")
-
-
-def test_chat_send_fix():
-    """Test chat send message bug fix"""
-    print(f"\n{'='*20} TESTING CHAT SEND MESSAGE FIX {'='*20}")
+                self.log(f"❌ Job detail failed with status {response.status_code}", "ERROR")
+                try:
+                    self.log(f"Error response: {response.json()}", "ERROR")
+                except:
+                    self.log(f"Error response: {response.text}", "ERROR")
+                return False
+                
+        except Exception as e:
+            self.log(f"❌ Job detail request failed: {str(e)}", "ERROR")
+            return False
     
-    if not rider_token or not driver_token:
-        results.add_failure("Chat Send Fix", "Missing rider or driver tokens")
-        return
+    def test_my_posts(self):
+        """Test listing user's job posts"""
+        self.log("Testing my job posts listing...")
+        
+        url = f"{BASE_URL}/jobs/my-posts"
+        
+        try:
+            response = self.session.get(url)
+            self.log(f"My posts response status: {response.status_code}")
+            
+            if response.status_code == 200:
+                result = response.json()
+                if "jobs" in result:
+                    jobs = result["jobs"]
+                    self.log(f"✅ My posts retrieved successfully - found {len(jobs)} jobs")
+                    
+                    # Check if our created job is in the list
+                    if self.job_id:
+                        found_job = next((job for job in jobs if job.get("job_id") == self.job_id), None)
+                        if found_job:
+                            self.log(f"✅ Created job found in my posts list")
+                            self.log(f"Job title: {found_job.get('title')}")
+                        else:
+                            self.log("⚠️ Created job not found in my posts list", "WARNING")
+                    
+                    return True
+                else:
+                    self.log("❌ My posts failed - no jobs in response", "ERROR")
+                    self.log(f"Response: {result}", "ERROR")
+                    return False
+            else:
+                self.log(f"❌ My posts failed with status {response.status_code}", "ERROR")
+                try:
+                    self.log(f"Error response: {response.json()}", "ERROR")
+                except:
+                    self.log(f"Error response: {response.text}", "ERROR")
+                return False
+                
+        except Exception as e:
+            self.log(f"❌ My posts request failed: {str(e)}", "ERROR")
+            return False
     
-    rider_headers = {"Authorization": f"Bearer {rider_token}"}
-    driver_headers = {"Authorization": f"Bearer {driver_token}"}
+    def test_job_posts_list(self):
+        """Test listing open job posts"""
+        self.log("Testing job posts listing with status=open...")
+        
+        url = f"{BASE_URL}/jobs/posts?status=open"
+        
+        try:
+            response = self.session.get(url)
+            self.log(f"Job posts list response status: {response.status_code}")
+            
+            if response.status_code == 200:
+                result = response.json()
+                if "jobs" in result:
+                    jobs = result["jobs"]
+                    count = result.get("count", len(jobs))
+                    self.log(f"✅ Job posts list retrieved successfully - found {count} open jobs")
+                    
+                    # Check if our created job is in the list
+                    if self.job_id:
+                        found_job = next((job for job in jobs if job.get("job_id") == self.job_id), None)
+                        if found_job:
+                            self.log(f"✅ Created job found in open jobs list")
+                        else:
+                            self.log("⚠️ Created job not found in open jobs list", "WARNING")
+                    
+                    return True
+                else:
+                    self.log("❌ Job posts list failed - no jobs in response", "ERROR")
+                    self.log(f"Response: {result}", "ERROR")
+                    return False
+            else:
+                self.log(f"❌ Job posts list failed with status {response.status_code}", "ERROR")
+                try:
+                    self.log(f"Error response: {response.json()}", "ERROR")
+                except:
+                    self.log(f"Error response: {response.text}", "ERROR")
+                return False
+                
+        except Exception as e:
+            self.log(f"❌ Job posts list request failed: {str(e)}", "ERROR")
+            return False
     
-    # First, we need to create a ride for testing chat
-    # Step 1: Register driver vehicle
-    vehicle_data = {
-        "make": "Toyota",
-        "model": "Corolla",
-        "year": 2020,
-        "plate_number": "ABC123",
-        "vehicle_type": "economy",
-        "color": "White"
-    }
-    response = make_request("POST", "/vehicles", headers=driver_headers, json_data=vehicle_data)
-    if not response or response.status_code != 200:
-        results.add_failure("Chat Send Fix", "Could not register driver vehicle")
-        return
-    
-    # Step 2: Set driver online with location
-    location_data = {
-        "latitude": -28.4696,
-        "longitude": -65.7852
-    }
-    response = make_request("PUT", "/drivers/availability", 
-                          headers=driver_headers, 
-                          params={"is_online": "true"},
-                          json_data=location_data)
-    if not response or response.status_code != 200:
-        results.add_failure("Chat Send Fix", "Could not set driver online")
-        return
-    
-    # Step 3: Create ride request as rider
-    ride_request = {
-        "pickup_location": {
-            "latitude": -28.4696,
-            "longitude": -65.7852,
-            "address": "Centro, Catamarca"
-        },
-        "dropoff_location": {
-            "latitude": -28.4800,
-            "longitude": -65.7900,
-            "address": "Plaza 25 de Mayo, Catamarca"
-        },
-        "vehicle_type": "economy"
-    }
-    response = make_request("POST", "/rides/request", headers=rider_headers, json_data=ride_request)
-    if not response or response.status_code != 200:
-        results.add_failure("Chat Send Fix", "Could not create ride request")
-        return
-    
-    request_data = response.json()
-    request_id = request_data.get("request_id")
-    if not request_id:
-        results.add_failure("Chat Send Fix", "No request_id in ride request response")
-        return
-    
-    # Step 4: Driver accepts the ride
-    response = make_request("POST", f"/rides/{request_id}/driver-response", 
-                          headers=driver_headers, 
-                          params={"action": "accept"})
-    if not response or response.status_code != 200:
-        results.add_failure("Chat Send Fix", "Driver could not accept ride")
-        return
-    
-    ride_data = response.json()
-    ride_id = ride_data.get("ride_id")
-    if not ride_id:
-        results.add_failure("Chat Send Fix", "No ride_id in driver response")
-        return
-    
-    # Now test the chat send functionality
-    # Test 5: Send message as rider (should not crash with NameError)
-    response = make_request("POST", "/chat/send", 
-                          headers=rider_headers, 
-                          params={"ride_id": ride_id, "message": "Hola"})
-    if response and response.status_code == 200:
-        data = response.json()
-        if "message_id" in data:
-            results.add_success("Chat Send (Rider) - No NameError, returns message_id")
-        else:
-            results.add_failure("Chat Send (Rider)", "Missing message_id in response")
-    else:
-        error_msg = f"Status: {response.status_code if response else 'No response'}"
-        if response and response.status_code == 500:
+    def run_all_tests(self):
+        """Run all job posting tests"""
+        self.log("=" * 60)
+        self.log("STARTING MOLI TRABAJOS JOB POSTING TESTS")
+        self.log("=" * 60)
+        
+        tests = [
+            ("Login Authentication", self.test_login),
+            ("Job Post Creation", self.test_job_post_creation),
+            ("Job Detail Retrieval", self.test_job_detail),
+            ("My Posts Listing", self.test_my_posts),
+            ("Job Posts List", self.test_job_posts_list),
+        ]
+        
+        results = []
+        
+        for test_name, test_func in tests:
+            self.log(f"\n--- {test_name} ---")
             try:
-                error_detail = response.json().get("detail", "")
-                if "NameError" in error_detail or "uuid" in error_detail:
-                    error_msg += f" - NameError detected: {error_detail}"
-            except:
-                pass
-        results.add_failure("Chat Send (Rider)", error_msg)
-    
-    # Test 6: Send message as driver
-    response = make_request("POST", "/chat/send", 
-                          headers=driver_headers, 
-                          params={"ride_id": ride_id, "message": "En camino"})
-    if response and response.status_code == 200:
-        data = response.json()
-        if "message_id" in data:
-            results.add_success("Chat Send (Driver) - No NameError, returns message_id")
-        else:
-            results.add_failure("Chat Send (Driver)", "Missing message_id in response")
-    else:
-        error_msg = f"Status: {response.status_code if response else 'No response'}"
-        if response and response.status_code == 500:
-            try:
-                error_detail = response.json().get("detail", "")
-                if "NameError" in error_detail or "uuid" in error_detail:
-                    error_msg += f" - NameError detected: {error_detail}"
-            except:
-                pass
-        results.add_failure("Chat Send (Driver)", error_msg)
-    
-    # Test 7: Get chat messages to verify both messages appear
-    response = make_request("GET", f"/chat/ride/{ride_id}", headers=rider_headers)
-    if response and response.status_code == 200:
-        data = response.json()
-        messages = data.get("messages", [])
-        if len(messages) >= 2:
-            results.add_success("Chat Get Messages - Both messages appear in chat history")
-        else:
-            results.add_failure("Chat Get Messages", f"Expected 2+ messages, got {len(messages)}")
-    else:
-        results.add_failure("Chat Get Messages", f"Status: {response.status_code if response else 'No response'}")
-
-
-def test_driver_verification_flow():
-    """Test driver document verification flow and blocking gate logic"""
-    print(f"\n{'='*20} TESTING DRIVER VERIFICATION FLOW {'='*20}")
-    
-    if not driver_token or not admin_token:
-        results.add_failure("Driver Verification Flow", "Missing driver or admin tokens")
-        return
-    
-    driver_headers = {"Authorization": f"Bearer {driver_token}"}
-    admin_headers = {"Authorization": f"Bearer {admin_token}"}
-    
-    # Test 1: Driver verification status - should be incomplete for new driver
-    response = make_request("GET", "/driver/verification-status", headers=driver_headers)
-    if response and response.status_code == 200:
-        data = response.json()
-        status = data.get("status")
-        is_verified = data.get("is_verified")
-        uploaded_count = data.get("uploaded_count", 0)
-        required_count = data.get("required_count", 0)
+                success = test_func()
+                results.append((test_name, success))
+            except Exception as e:
+                self.log(f"❌ {test_name} failed with exception: {str(e)}", "ERROR")
+                results.append((test_name, False))
         
-        if status == "incomplete" and is_verified == False:
-            results.add_success(f"Driver Verification Status - Correctly shows incomplete status (is_verified: {is_verified}, status: {status})")
-        else:
-            results.add_failure("Driver Verification Status", f"Expected status='incomplete' and is_verified=False, got status='{status}', is_verified={is_verified}")
+        # Summary
+        self.log("\n" + "=" * 60)
+        self.log("TEST RESULTS SUMMARY")
+        self.log("=" * 60)
         
-        if uploaded_count == 0 and required_count == 6:
-            results.add_success(f"Driver Verification Status - Correct counts (uploaded: {uploaded_count}, required: {required_count})")
-        else:
-            results.add_failure("Driver Verification Status", f"Expected uploaded_count=0, required_count=6, got uploaded={uploaded_count}, required={required_count}")
-    else:
-        results.add_failure("Driver Verification Status", f"Status: {response.status_code if response else 'No response'}")
-    
-    # Test 2: Required documents list - should show 6 documents with upload status
-    response = make_request("GET", "/driver/documents/required", headers=driver_headers)
-    if response and response.status_code == 200:
-        data = response.json()
-        documents = data.get("documents", [])
+        passed = 0
+        failed = 0
         
-        if len(documents) == 6:
-            results.add_success(f"Required Documents - Returns all 6 required documents")
-            
-            # Check document structure
-            expected_docs = ["license", "id_front", "id_back", "vehicle_registration", "insurance", "criminal_record"]
-            doc_keys = [doc.get("key") for doc in documents]
-            
-            if all(key in doc_keys for key in expected_docs):
-                results.add_success("Required Documents - All expected document types present")
+        for test_name, success in results:
+            status = "✅ PASS" if success else "❌ FAIL"
+            self.log(f"{status}: {test_name}")
+            if success:
+                passed += 1
             else:
-                missing = [key for key in expected_docs if key not in doc_keys]
-                results.add_failure("Required Documents", f"Missing document types: {missing}")
-            
-            # Check document structure (each should have key, label, description, status)
-            valid_structure = True
-            for doc in documents:
-                if not all(field in doc for field in ["key", "label", "description", "status"]):
-                    valid_structure = False
-                    break
-            
-            if valid_structure:
-                results.add_success("Required Documents - All documents have correct structure (key, label, description, status)")
-            else:
-                results.add_failure("Required Documents", "Some documents missing required fields")
+                failed += 1
+        
+        self.log(f"\nTotal: {len(results)} tests")
+        self.log(f"Passed: {passed}")
+        self.log(f"Failed: {failed}")
+        
+        if failed == 0:
+            self.log("\n🎉 ALL TESTS PASSED! Job posting system is working correctly.")
+            return True
         else:
-            results.add_failure("Required Documents", f"Expected 6 documents, got {len(documents)}")
-    else:
-        results.add_failure("Required Documents", f"Status: {response.status_code if response else 'No response'}")
-    
-    # Test 3: Verify blocking gate logic - driver with incomplete status should be blocked
-    print("✓ Verification Gate Logic: Driver with status='incomplete' and is_verified=False should be blocked from app usage")
-    
-    # Test 4: Admin dashboard regression check
-    response = make_request("GET", "/admin/dashboard", headers=admin_headers)
-    if response and response.status_code == 200:
-        data = response.json()
-        if "stats" in data and "total_users" in data["stats"]:
-            results.add_success("Admin Dashboard - Still working correctly (regression check)")
-        else:
-            results.add_failure("Admin Dashboard", "Missing stats.total_users field")
-    else:
-        results.add_failure("Admin Dashboard", f"Status: {response.status_code if response else 'No response'}")
+            self.log(f"\n⚠️ {failed} test(s) failed. Please check the errors above.")
+            return False
 
 def main():
-    """Run all tests"""
-    print(f"🚀 Starting Moli Backend API Testing - Driver Document Verification Flow")
-    print(f"Backend URL: {BASE_URL}")
-    print(f"Testing driver document verification flow and blocking gate logic")
+    """Main test execution"""
+    tester = JobPostingTester()
+    success = tester.run_all_tests()
     
-    # Run authentication first
-    test_auth_endpoints()
-    
-    # Run driver verification flow tests (primary focus)
-    test_driver_verification_flow()
-    
-    # Print final summary
-    results.summary()
-    
-    return results.failed == 0
+    if success:
+        print("\n✅ Job posting endpoint testing completed successfully!")
+        sys.exit(0)
+    else:
+        print("\n❌ Job posting endpoint testing failed!")
+        sys.exit(1)
 
 if __name__ == "__main__":
-    success = main()
-    exit(0 if success else 1)
+    main()
