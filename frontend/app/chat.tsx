@@ -10,9 +10,11 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
+  ScrollView,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthStore } from '@/src/stores/authStore';
 import { apiService } from '@/src/services/api';
 import { socketService } from '@/src/services/socket';
@@ -31,12 +33,25 @@ interface ChatMessage {
 export default function RideChatScreen() {
   const { rideId, otherName } = useLocalSearchParams<{ rideId: string; otherName: string }>();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { user } = useAuthStore();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
+  const [showQuick, setShowQuick] = useState(true);
   const flatListRef = useRef<FlatList>(null);
+
+  const QUICK_MESSAGES = [
+    'Estoy en camino',
+    'Ya llegué',
+    'Esperame un momento',
+    'Estoy afuera',
+    '5 minutos más',
+    'Ok, gracias',
+    '¿Dónde estás?',
+    'Voy para allá',
+  ];
 
   useEffect(() => {
     loadMessages();
@@ -193,15 +208,27 @@ export default function RideChatScreen() {
           />
         )}
 
-        <View style={styles.inputContainer}>
+        {/* Quick messages */}
+        {showQuick && (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.quickScroll} contentContainerStyle={{ paddingHorizontal: 12, gap: 6 }}>
+            {QUICK_MESSAGES.map((msg, i) => (
+              <TouchableOpacity key={i} style={styles.quickChip} onPress={() => { setNewMessage(msg); setShowQuick(false); }}>
+                <Text style={styles.quickText}>{msg}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        )}
+
+        <View style={[styles.inputContainer, { paddingBottom: Math.max(insets.bottom, 12) }]}>
           <TextInput
             style={styles.input}
             value={newMessage}
-            onChangeText={setNewMessage}
+            onChangeText={(t) => { setNewMessage(t); if (t.length === 0) setShowQuick(true); }}
             placeholder="Escribe un mensaje..."
             placeholderTextColor="#8E8E93"
             multiline
             maxLength={500}
+            onFocus={() => setShowQuick(true)}
           />
           <TouchableOpacity
             style={[styles.sendButton, newMessage.trim() ? styles.sendButtonActive : {}]}
@@ -278,4 +305,7 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   sendButtonActive: { backgroundColor: '#00C853' },
+  quickScroll: { backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: '#E5E5EA', paddingVertical: 8 },
+  quickChip: { backgroundColor: '#E8F5E9', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 16, borderWidth: 1, borderColor: '#00C853' },
+  quickText: { fontSize: 13, color: '#00C853', fontWeight: '600' },
 });
