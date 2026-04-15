@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, SafeAreaView, TouchableOpacity,
-  ScrollView, FlatList, ActivityIndicator, RefreshControl, Alert, Platform,
+  ScrollView, FlatList, ActivityIndicator, RefreshControl, Alert, Platform, Modal, TextInput,
 } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { Ionicons } from '@expo/vector-icons';
@@ -26,6 +26,11 @@ export default function AdminTrabajosScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [filterStatus, setFilterStatus] = useState<string | null>(null);
 
+  const [selectedJob, setSelectedJob] = useState<any>(null);
+  const [selectedPro, setSelectedPro] = useState<any>(null);
+  const [editingPro, setEditingPro] = useState<any>(null);
+  const [saving, setSaving] = useState(false);
+
   useEffect(() => { loadAll(); }, []);
 
   const loadAll = async () => {
@@ -43,15 +48,49 @@ export default function AdminTrabajosScreen() {
   };
 
   const handleCancelJob = async (jobId: string) => {
-    Alert.alert('Cancelar trabajo', '¿Seguro?', [
+    Alert.alert('Cancelar trabajo', '¿Seguro que querés cancelar este trabajo?', [
       { text: 'No', style: 'cancel' },
       { text: 'Sí, cancelar', style: 'destructive', onPress: async () => {
         try {
-          await apiService.delete(`/admin/jobs/${jobId}`);
+          await apiService.put(`/jobs/${jobId}/status`, { status: 'cancelled' });
+          setSelectedJob(null);
           loadAll();
+          Alert.alert('Trabajo cancelado');
         } catch (e: any) { Alert.alert('Error', e.message); }
       }},
     ]);
+  };
+
+  const handleSavePro = async () => {
+    if (!editingPro) return;
+    setSaving(true);
+    try {
+      // Update user info
+      await apiService.put(`/admin/users/${editingPro.user_id}`, {
+        name: editingPro.name,
+        email: editingPro.email,
+        phone: editingPro.phone,
+      });
+      // Update professional profile
+      await apiService.put('/jobs/professional/profile', {
+        categories: editingPro.categories,
+        description: editingPro.description,
+        hourly_rate: editingPro.hourly_rate,
+        is_available: editingPro.is_available,
+      });
+      // Update wallet if changed
+      if (editingPro._newBalance !== undefined) {
+        await apiService.put(`/admin/users/${editingPro.user_id}/balance`, {
+          balance: parseFloat(editingPro._newBalance),
+          reason: 'Ajuste admin Moli Trabajos',
+        });
+      }
+      Alert.alert('Profesional actualizado');
+      setEditingPro(null);
+      setSelectedPro(null);
+      loadAll();
+    } catch (e: any) { Alert.alert('Error', e.message); }
+    setSaving(false);
   };
 
   const filteredJobs = filterStatus ? jobs.filter(j => j.status === filterStatus) : jobs;
@@ -155,7 +194,7 @@ ${jobMarkers}
             renderItem={({ item }) => {
               const st2 = STATUS_LABELS[item.status] || STATUS_LABELS.open;
               return (
-                <View style={s.jobCard}>
+                <TouchableOpacity style={s.jobCard} onPress={() => setSelectedJob(item)}>
                   <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
                     <Text style={s.jobTitle} numberOfLines={1}>{item.title || 'Sin título'}</Text>
                     <View style={[s.statusBadge, { backgroundColor: st2.bg }]}>
@@ -164,12 +203,9 @@ ${jobMarkers}
                   </View>
                   <Text style={s.jobMeta}>{item.category} · {item.client_name} · ${item.budget?.toLocaleString()}</Text>
                   {item.address ? <Text style={s.jobAddr} numberOfLines={1}>{item.address}</Text> : null}
-                  {item.status === 'open' && (
-                    <TouchableOpacity onPress={() => handleCancelJob(item.job_id)} style={{ alignSelf: 'flex-end', marginTop: 6 }}>
-                      <Text style={{ color: '#FF3B30', fontSize: 13, fontWeight: '600' }}>Cancelar</Text>
-                    </TouchableOpacity>
-                  )}
-                </View>
+                  {item.assigned_name ? <Text style={{ fontSize: 12, color: '#007AFF', marginTop: 2 }}>Profesional: {item.assigned_name}</Text> : null}
+                  <Ionicons name="chevron-forward" size={16} color="#C7C7CC" style={{ position: 'absolute', right: 12, top: '50%' }} />
+                </TouchableOpacity>
               );
             }}
           />
@@ -185,7 +221,7 @@ ${jobMarkers}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadAll(); }} tintColor="#00C853" />}
           ListEmptyComponent={<Text style={s.emptyText}>Sin profesionales registrados</Text>}
           renderItem={({ item }) => (
-            <View style={s.proCard}>
+            <TouchableOpacity style={s.proCard} onPress={() => setSelectedPro(item)}>
               <View style={s.proAvatar}>
                 <Text style={s.proAvatarText}>{(item.name || 'P')[0].toUpperCase()}</Text>
               </View>
@@ -206,7 +242,8 @@ ${jobMarkers}
                 <Text style={{ fontSize: 11, color: '#8E8E93', marginTop: 2 }}>{item.total_jobs || 0} trabajos</Text>
                 <View style={[s.availDot, { backgroundColor: item.is_available ? '#00C853' : '#FF3B30' }]} />
               </View>
-            </View>
+              <Ionicons name="chevron-forward" size={16} color="#C7C7CC" style={{ marginLeft: 4 }} />
+            </TouchableOpacity>
           )}
         />
       )}
@@ -231,6 +268,151 @@ ${jobMarkers}
           </View>
         </View>
       )}
+
+      {/* ═══ JOB DETAIL MODAL ═══ */}
+      <Modal visible={!!selectedJob} transparent animationType="slide">
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}>
+          <View style={{ backgroundColor: '#fff', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, maxHeight: '80%' }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <Text style={{ fontSize: 20, fontWeight: '800', color: '#1C1C1E' }}>Detalle del trabajo</Text>
+              <TouchableOpacity onPress={() => setSelectedJob(null)}><Ionicons name="close-circle" size={28} color="#8E8E93" /></TouchableOpacity>
+            </View>
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {selectedJob && (
+                <>
+                  <View style={{ backgroundColor: (STATUS_LABELS[selectedJob.status]?.bg || '#F2F2F7'), borderRadius: 12, padding: 12, marginBottom: 12, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <Ionicons name="ellipse" size={10} color={STATUS_LABELS[selectedJob.status]?.color || '#8E8E93'} />
+                    <Text style={{ fontWeight: '700', color: STATUS_LABELS[selectedJob.status]?.color || '#8E8E93' }}>{STATUS_LABELS[selectedJob.status]?.label || selectedJob.status}</Text>
+                  </View>
+                  <Text style={{ fontSize: 18, fontWeight: '700', color: '#1C1C1E' }}>{selectedJob.title}</Text>
+                  <Text style={{ fontSize: 14, color: '#636366', marginTop: 4, lineHeight: 20 }}>{selectedJob.description}</Text>
+                  <View style={{ flexDirection: 'row', gap: 16, marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#E5E5EA' }}>
+                    <View><Text style={{ fontSize: 12, color: '#8E8E93' }}>Categoría</Text><Text style={{ fontSize: 14, fontWeight: '600' }}>{selectedJob.category}</Text></View>
+                    <View><Text style={{ fontSize: 12, color: '#8E8E93' }}>Presupuesto</Text><Text style={{ fontSize: 14, fontWeight: '700', color: '#00C853' }}>${selectedJob.budget?.toLocaleString()}</Text></View>
+                    {selectedJob.commission ? <View><Text style={{ fontSize: 12, color: '#8E8E93' }}>Comisión</Text><Text style={{ fontSize: 14, fontWeight: '600', color: '#007AFF' }}>${selectedJob.commission}</Text></View> : null}
+                  </View>
+                  <View style={{ marginTop: 12 }}>
+                    <Text style={{ fontSize: 12, color: '#8E8E93' }}>Cliente</Text>
+                    <Text style={{ fontSize: 14, fontWeight: '600' }}>{selectedJob.client_name} ({selectedJob.client_id})</Text>
+                  </View>
+                  {selectedJob.assigned_name ? (
+                    <View style={{ marginTop: 8 }}>
+                      <Text style={{ fontSize: 12, color: '#8E8E93' }}>Profesional asignado</Text>
+                      <Text style={{ fontSize: 14, fontWeight: '600' }}>{selectedJob.assigned_name} ({selectedJob.assigned_to})</Text>
+                    </View>
+                  ) : null}
+                  {selectedJob.address ? <View style={{ marginTop: 8 }}><Text style={{ fontSize: 12, color: '#8E8E93' }}>Dirección</Text><Text style={{ fontSize: 14 }}>{selectedJob.address}</Text></View> : null}
+                  {selectedJob.cancellation_penalty ? <View style={{ marginTop: 8 }}><Text style={{ fontSize: 12, color: '#8E8E93' }}>Penalización</Text><Text style={{ fontSize: 14, fontWeight: '600', color: '#FF3B30' }}>${selectedJob.cancellation_penalty}</Text></View> : null}
+                  <Text style={{ fontSize: 11, color: '#8E8E93', marginTop: 12 }}>ID: {selectedJob.job_id}</Text>
+                  <Text style={{ fontSize: 11, color: '#8E8E93' }}>Creado: {selectedJob.created_at ? new Date(selectedJob.created_at).toLocaleString('es') : '-'}</Text>
+                </>
+              )}
+            </ScrollView>
+            {selectedJob && !['completed', 'cancelled', 'expired'].includes(selectedJob.status) && (
+              <TouchableOpacity style={{ backgroundColor: '#FF3B30', borderRadius: 14, paddingVertical: 16, alignItems: 'center', marginTop: 16 }} onPress={() => handleCancelJob(selectedJob.job_id)}>
+                <Text style={{ color: '#fff', fontWeight: '700', fontSize: 16 }}>Cancelar este trabajo</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+      </Modal>
+
+      {/* ═══ PROFESSIONAL DETAIL MODAL ═══ */}
+      <Modal visible={!!selectedPro && !editingPro} transparent animationType="slide">
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}>
+          <View style={{ backgroundColor: '#fff', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, maxHeight: '80%' }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <Text style={{ fontSize: 20, fontWeight: '800', color: '#1C1C1E' }}>Profesional</Text>
+              <TouchableOpacity onPress={() => setSelectedPro(null)}><Ionicons name="close-circle" size={28} color="#8E8E93" /></TouchableOpacity>
+            </View>
+            {selectedPro && (
+              <ScrollView showsVerticalScrollIndicator={false}>
+                <View style={{ alignItems: 'center', marginBottom: 16 }}>
+                  <View style={{ width: 72, height: 72, borderRadius: 36, backgroundColor: '#E8F5E9', justifyContent: 'center', alignItems: 'center' }}>
+                    <Text style={{ fontSize: 28, fontWeight: '700', color: '#00C853' }}>{(selectedPro.name || 'P')[0]}</Text>
+                  </View>
+                  <Text style={{ fontSize: 20, fontWeight: '700', marginTop: 8 }}>{selectedPro.name}</Text>
+                  <Text style={{ fontSize: 14, color: '#8E8E93' }}>{selectedPro.email}</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 6 }}>
+                    <Ionicons name="star" size={18} color="#FFD700" />
+                    <Text style={{ fontSize: 16, fontWeight: '700' }}>{(selectedPro.rating || 5).toFixed(1)}</Text>
+                    <Text style={{ fontSize: 13, color: '#8E8E93' }}> · {selectedPro.total_jobs || 0} trabajos</Text>
+                  </View>
+                  <View style={[{ paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, marginTop: 6 }, { backgroundColor: selectedPro.is_available ? '#E8F5E9' : '#FFEBEE' }]}>
+                    <Text style={{ fontSize: 12, fontWeight: '600', color: selectedPro.is_available ? '#00C853' : '#FF3B30' }}>{selectedPro.is_available ? 'Disponible' : 'No disponible'}</Text>
+                  </View>
+                </View>
+                <Text style={{ fontSize: 14, fontWeight: '700', marginBottom: 6 }}>Categorías</Text>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
+                  {(selectedPro.categories || []).length > 0 ? selectedPro.categories.map((c: string) => (
+                    <View key={c} style={s.proCatChip}><Text style={s.proCatText}>{c}</Text></View>
+                  )) : <Text style={{ color: '#8E8E93', fontSize: 13 }}>Sin categorías</Text>}
+                </View>
+                {selectedPro.description ? <><Text style={{ fontSize: 14, fontWeight: '700', marginBottom: 4 }}>Descripción</Text><Text style={{ fontSize: 14, color: '#636366', lineHeight: 20, marginBottom: 12 }}>{selectedPro.description}</Text></> : null}
+                <Text style={{ fontSize: 11, color: '#8E8E93' }}>ID: {selectedPro.user_id}</Text>
+              </ScrollView>
+            )}
+            <TouchableOpacity style={{ backgroundColor: '#00C853', borderRadius: 14, paddingVertical: 16, alignItems: 'center', marginTop: 16 }} onPress={() => setEditingPro({ ...selectedPro, _newBalance: '' })}>
+              <Text style={{ color: '#fff', fontWeight: '700', fontSize: 16 }}>Editar profesional</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ═══ EDIT PROFESSIONAL MODAL ═══ */}
+      <Modal visible={!!editingPro} transparent animationType="fade">
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 16 }}>
+          <View style={{ backgroundColor: '#fff', borderRadius: 20, padding: 20, maxHeight: '90%' }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <Text style={{ fontSize: 18, fontWeight: '800', color: '#1C1C1E' }}>Editar Profesional</Text>
+              <TouchableOpacity onPress={() => setEditingPro(null)}><Ionicons name="close-circle" size={28} color="#8E8E93" /></TouchableOpacity>
+            </View>
+            {editingPro && (
+              <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+                <Text style={{ fontSize: 13, fontWeight: '600', color: '#8E8E93', marginBottom: 4 }}>Nombre</Text>
+                <TextInput style={s.editInput} value={editingPro.name || ''} onChangeText={t => setEditingPro({...editingPro, name: t})} placeholder="Nombre" />
+                <Text style={{ fontSize: 13, fontWeight: '600', color: '#8E8E93', marginBottom: 4, marginTop: 10 }}>Email</Text>
+                <TextInput style={s.editInput} value={editingPro.email || ''} onChangeText={t => setEditingPro({...editingPro, email: t})} placeholder="Email" keyboardType="email-address" />
+                <Text style={{ fontSize: 13, fontWeight: '600', color: '#8E8E93', marginBottom: 4, marginTop: 10 }}>Teléfono</Text>
+                <TextInput style={s.editInput} value={editingPro.phone || ''} onChangeText={t => setEditingPro({...editingPro, phone: t})} placeholder="Teléfono" keyboardType="phone-pad" />
+                <Text style={{ fontSize: 13, fontWeight: '600', color: '#8E8E93', marginBottom: 4, marginTop: 10 }}>Descripción</Text>
+                <TextInput style={[s.editInput, { height: 60 }]} value={editingPro.description || ''} onChangeText={t => setEditingPro({...editingPro, description: t})} placeholder="Descripción" multiline />
+                <Text style={{ fontSize: 13, fontWeight: '600', color: '#8E8E93', marginBottom: 4, marginTop: 10 }}>Tarifa por hora ($)</Text>
+                <TextInput style={s.editInput} value={String(editingPro.hourly_rate || '')} onChangeText={t => setEditingPro({...editingPro, hourly_rate: parseFloat(t) || 0})} placeholder="0" keyboardType="numeric" />
+                <Text style={{ fontSize: 13, fontWeight: '600', color: '#8E8E93', marginBottom: 4, marginTop: 10 }}>Ajustar saldo billetera ($)</Text>
+                <TextInput style={s.editInput} value={editingPro._newBalance || ''} onChangeText={t => setEditingPro({...editingPro, _newBalance: t})} placeholder="Dejar vacío para no cambiar" keyboardType="numeric" />
+                <Text style={{ fontSize: 13, fontWeight: '600', color: '#8E8E93', marginBottom: 6, marginTop: 10 }}>Categorías</Text>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
+                  {['electricista', 'plomero', 'limpieza', 'mudanza', 'pintura', 'jardineria', 'carpinteria', 'mecanica', 'tecnologia', 'otro'].map(cat => {
+                    const sel = (editingPro.categories || []).includes(cat);
+                    return (
+                      <TouchableOpacity key={cat} style={[s.proCatChip, sel && { backgroundColor: '#00C853', borderColor: '#00C853' }]}
+                        onPress={() => {
+                          const cats = editingPro.categories || [];
+                          setEditingPro({...editingPro, categories: sel ? cats.filter((c: string) => c !== cat) : [...cats, cat]});
+                        }}>
+                        <Text style={[s.proCatText, sel && { color: '#fff' }]}>{cat}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                  <Text style={{ fontSize: 14, color: '#1C1C1E' }}>Disponible:</Text>
+                  <TouchableOpacity onPress={() => setEditingPro({...editingPro, is_available: !editingPro.is_available})}
+                    style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                    <Ionicons name={editingPro.is_available ? 'checkbox' : 'square-outline'} size={22} color={editingPro.is_available ? '#00C853' : '#8E8E93'} />
+                    <Text style={{ color: editingPro.is_available ? '#00C853' : '#8E8E93', fontWeight: '600' }}>{editingPro.is_available ? 'Sí' : 'No'}</Text>
+                  </TouchableOpacity>
+                </View>
+              </ScrollView>
+            )}
+            <TouchableOpacity style={{ backgroundColor: '#00C853', borderRadius: 14, paddingVertical: 16, alignItems: 'center', marginTop: 12 }} onPress={handleSavePro} disabled={saving}>
+              {saving ? <ActivityIndicator color="#fff" /> : <Text style={{ color: '#fff', fontWeight: '700', fontSize: 16 }}>Guardar cambios</Text>}
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
     </SafeAreaView>
   );
 }
@@ -264,9 +446,10 @@ const s = StyleSheet.create({
   proAvatarText: { color: '#fff', fontSize: 20, fontWeight: '700' },
   proName: { fontSize: 15, fontWeight: '700', color: '#1C1C1E' },
   proEmail: { fontSize: 12, color: '#8E8E93' },
-  proCatChip: { backgroundColor: '#E8F5E9', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 },
+  proCatChip: { backgroundColor: '#E8F5E9', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, borderWidth: 1, borderColor: '#E8F5E9' },
   proCatText: { fontSize: 10, fontWeight: '600', color: '#00C853' },
   availDot: { width: 8, height: 8, borderRadius: 4, marginTop: 4 },
+  editInput: { backgroundColor: '#F2F2F7', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10, fontSize: 15, color: '#1C1C1E', borderWidth: 1, borderColor: '#E5E5EA' },
   emptyText: { textAlign: 'center', color: '#8E8E93', marginTop: 40, fontSize: 15 },
   mapLegend: { position: 'absolute', bottom: 16, left: 16, right: 16, backgroundColor: '#fff', borderRadius: 12, padding: 12, flexDirection: 'row', gap: 16, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 8, elevation: 4 },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
