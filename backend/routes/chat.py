@@ -172,3 +172,146 @@ async def get_chat_messages(
     ).sort("created_at", 1).to_list(200)
     
     return {"messages": messages}
+
+
+# ─── Job Chat ──────────────────────
+
+import re
+
+PHONE_REGEX = re.compile(r'(\+?\d[\d\s\-]{6,14}\d)')
+EMAIL_REGEX = re.compile(r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}')
+
+def filter_contact_info(text: str):
+    """Check if message contains phone or email, return filtered version"""
+    has_phone = bool(PHONE_REGEX.search(text))
+    has_email = bool(EMAIL_REGEX.search(text))
+    if has_phone or has_email:
+        filtered = PHONE_REGEX.sub('***-***-****', text)
+        filtered = EMAIL_REGEX.sub('***@***.***', filtered)
+        return filtered, True
+    return text, False
+
+
+@router.post("/api/chat/job/send")
+async def send_job_chat_message(
+    data: dict = Body(...),
+    user: dict = Depends(get_current_user),
+):
+    """Send a chat message within a job"""
+    job_id = data.get("job_id", "")
+    message_text = data.get("message", "")
+    
+    if not job_id or not message_text:
+        raise HTTPException(status_code=400, detail="job_id and message required")
+    
+    job = await db.job_posts.find_one({"job_id": job_id}, {"_id": 0})
+    if not job:
+        raise HTTPException(status_code=404, detail="Trabajo no encontrado")
+    
+    # Verify user is part of this job
+    allowed = [job.get("client_id"), job.get("assigned_to")]
+    if user["user_id"] not in allowed and user["user_type"] != "admin":
+        raise HTTPException(status_code=403, detail="No autorizado")
+    
+    # Determine receiver
+    if user["user_id"] == job.get("client_id"):
+        receiver_id = job.get("assigned_to")
+    else:
+        receiver_id = job.get("client_id")
+    
+    if not receiver_id:
+        raise HTTPException(status_code=400, detail="No hay otra parte asignada al trabajo")
+    
+    # Filter contact info
+    filtered_msg, was_filtered = filter_contact_info(message_text)
+    
+    msg = {
+        "message_id": generate_id("msg_"),
+        "job_id": job_id,
+        "sender_id": user["user_id"],
+        "sender_name": user.get("name", "Usuario"),
+        "receiver_id": receiver_id,
+        "message": filtered_msg,
+        "original_message": message_text if was_filtered else None,
+        "is_filtered": was_filtered,
+        "is_ai": False,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    
+    await db.chat_messages.insert_one(msg)
+    
+    ws_msg = {k: v for k, v in msg.items() if k != "_id"}
+    await manager.send_personal_message(
+        {"type": "new_message", **ws_msg},
+        receiver_id
+    )
+    
+    return {"status": "sent", "message_id": msg["message_id"], "was_filtered": was_filtered}
+
+
+@router.get("/api/chat/job/{job_id}")
+async def get_job_chat_messages(
+    job_id: str,
+    user: dict = Depends(get_current_user)
+):
+    """Get chat messages for a job"""
+    job = await db.job_posts.find_one({"job_id": job_id}, {"_id": 0})
+    if not job:
+        raise HTTPException(status_code=404, detail="Trabajo no encontrado")
+    
+    allowed = [job.get("client_id"), job.get("assigned_to")]
+    if user["user_id"] not in allowed and user["user_type"] != "admin":
+        raise HTTPException(status_code=403, detail="No autorizado")
+    
+    messages = await db.chat_messages.find(
+        {"job_id": job_id}, {"_id": 0}
+    ).sort("created_at", 1).to_list(200)
+    
+    return {"messages": messages}
+
+
+@router.post("/api/chat/ride/send-filtered")
+async def send_ride_chat_filtered(
+    data: dict = Body(...),
+    user: dict = Depends(get_current_user),
+):
+    """Send a filtered chat message within a ride"""
+    ride_id = data.get("ride_id", "")
+    message_text = data.get("message", "")
+    
+    if not ride_id or not message_text:
+        raise HTTPException(status_code=400, detail="ride_id and message required")
+    
+    ride = await db.rides.find_one({"ride_id": ride_id}, {"_id": 0})
+    if not ride:
+        raise HTTPException(status_code=404, detail="Viaje no encontrado")
+    
+    if user["user_id"] not in [ride["rider_id"], ride.get("driver_id")]:
+        raise HTTPException(status_code=403, detail="No autorizado")
+    
+    receiver_id = ride["driver_id"] if user["user_id"] == ride["rider_id"] else ride["rider_id"]
+    
+    # Filter contact info
+    filtered_msg, was_filtered = filter_contact_info(message_text)
+    
+    msg = {
+        "message_id": generate_id("msg_"),
+        "ride_id": ride_id,
+        "sender_id": user["user_id"],
+        "sender_name": user.get("name", "Usuario"),
+        "receiver_id": receiver_id,
+        "message": filtered_msg,
+        "is_filtered": was_filtered,
+        "is_ai": False,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    
+    await db.chat_messages.insert_one(msg)
+    
+    ws_msg = {k: v for k, v in msg.items() if k != "_id"}
+    await manager.send_personal_message(
+        {"type": "new_message", **ws_msg},
+        receiver_id
+    )
+    
+    return {"status": "sent", "message_id": msg["message_id"], "was_filtered": was_filtered}

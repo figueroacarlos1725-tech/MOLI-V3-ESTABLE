@@ -41,6 +41,8 @@ export default function ClientProfileScreen() {
 
   const completed = myJobs.filter(j => j.status === 'completed').length;
   const active = myJobs.filter(j => ['open', 'assigned', 'reviewing', 'in_progress'].includes(j.status)).length;
+  const activeJobs = myJobs.filter(j => ['open', 'assigned', 'reviewing', 'in_progress'].includes(j.status));
+  const pastJobs = myJobs.filter(j => !['open', 'assigned', 'reviewing', 'in_progress'].includes(j.status));
 
   if (loading) {
     return (
@@ -100,25 +102,53 @@ export default function ClientProfileScreen() {
           </View>
         </View>
 
-        {/* Recent jobs */}
-        {myJobs.length > 0 && (
+        {/* Active jobs - PROMINENT */}
+        {activeJobs.length > 0 && (
           <View style={s.section}>
-            <Text style={s.sectionTitle}>Mis trabajos recientes</Text>
-            {myJobs.slice(0, 5).map((job, i) => (
-              <View key={i} style={s.jobRow}>
+            <Text style={[s.sectionTitle, { color: '#00C853' }]}>Trabajos activos</Text>
+            {activeJobs.map((job, i) => (
+              <TouchableOpacity key={job.job_id || i} style={[s.jobRow, { borderLeftWidth: 3, borderLeftColor: job.status === 'assigned' ? '#00C853' : '#FF9500' }]}
+                onPress={() => router.push({ pathname: '/(jobs)/job-status', params: { jobId: job.job_id } } as any)}
+              >
                 <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: '#E8F5E9', justifyContent: 'center', alignItems: 'center' }}>
-                  <Ionicons name="briefcase" size={18} color={GREEN} />
+                  <Ionicons name={job.status === 'assigned' ? 'checkmark-circle' : 'search'} size={18} color={job.status === 'assigned' ? '#00C853' : '#FF9500'} />
                 </View>
                 <View style={{ flex: 1, marginLeft: 12 }}>
                   <Text style={{ fontSize: 14, fontWeight: '600', color: '#1C1C1E' }}>{job.title || 'Trabajo'}</Text>
                   <Text style={{ fontSize: 12, color: '#8E8E93' }}>{job.category} · ${job.budget}</Text>
                 </View>
-                <View style={[s.badge, { backgroundColor: job.status === 'completed' ? '#E8F5E9' : job.status === 'assigned' ? '#FFF3E0' : '#F2F2F7' }]}>
-                  <Text style={{ fontSize: 11, fontWeight: '600', color: job.status === 'completed' ? GREEN : job.status === 'assigned' ? '#FF9500' : '#8E8E93' }}>
-                    {job.status === 'completed' ? 'Listo' : job.status === 'assigned' ? 'En curso' : job.status === 'open' ? 'Buscando' : job.status}
+                <View style={[s.badge, { backgroundColor: job.status === 'assigned' ? '#E8F5E9' : '#FFF3E0' }]}>
+                  <Text style={{ fontSize: 11, fontWeight: '600', color: job.status === 'assigned' ? '#00C853' : '#FF9500' }}>
+                    {job.status === 'assigned' ? 'En curso' : 'Buscando'}
                   </Text>
                 </View>
-              </View>
+                <Ionicons name="chevron-forward" size={18} color="#C7C7CC" style={{ marginLeft: 4 }} />
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+
+        {/* Past jobs */}
+        {pastJobs.length > 0 && (
+          <View style={s.section}>
+            <Text style={s.sectionTitle}>Historial</Text>
+            {pastJobs.slice(0, 5).map((job, i) => (
+              <TouchableOpacity key={job.job_id || i} style={s.jobRow}
+                onPress={() => router.push({ pathname: '/(jobs)/job-status', params: { jobId: job.job_id } } as any)}
+              >
+                <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: '#F2F2F7', justifyContent: 'center', alignItems: 'center' }}>
+                  <Ionicons name="briefcase" size={18} color="#8E8E93" />
+                </View>
+                <View style={{ flex: 1, marginLeft: 12 }}>
+                  <Text style={{ fontSize: 14, fontWeight: '600', color: '#1C1C1E' }}>{job.title || 'Trabajo'}</Text>
+                  <Text style={{ fontSize: 12, color: '#8E8E93' }}>{job.category} · ${job.budget}</Text>
+                </View>
+                <View style={[s.badge, { backgroundColor: job.status === 'completed' ? '#E8F5E9' : '#FFF5F5' }]}>
+                  <Text style={{ fontSize: 11, fontWeight: '600', color: job.status === 'completed' ? '#00C853' : '#FF3B30' }}>
+                    {job.status === 'completed' ? 'Listo' : 'Cancelado'}
+                  </Text>
+                </View>
+              </TouchableOpacity>
             ))}
           </View>
         )}
