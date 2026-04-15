@@ -97,8 +97,9 @@ export default function BannerPopup({ target, enabled, intervalMs = 60000 }: Ban
 
   if (!visible || !banner) return null;
 
-  const hasImage = banner.banner_type.includes('image') && banner.image_url;
-  const hasVideo = banner.banner_type.includes('video') && banner.video_url;
+  const bannerType = banner.banner_type || '';
+  const hasImage = bannerType.includes('image') && banner.image_url;
+  const hasVideo = bannerType.includes('video') && banner.video_url;
   const hasText = banner.title || banner.description;
 
   return (

@@ -1001,52 +1001,8 @@ async def admin_get_fares(user: dict = Depends(get_current_user)):
     return {"fares": fares}
 
 
-@router.get("/api/admin/banners")
-async def admin_list_banners(user: dict = Depends(get_current_user)):
-    if user["user_type"] != "admin":
-        raise HTTPException(status_code=403, detail="Admin access required")
-    banners = await db.banners.find({}, {"_id": 0}).sort("created_at", -1).to_list(50)
-    return {"banners": banners}
 
-
-@router.post("/api/admin/banners")
-async def admin_create_banner(data: BannerCreate, user: dict = Depends(get_current_user)):
-    if user["user_type"] != "admin":
-        raise HTTPException(status_code=403, detail="Admin access required")
-    
-    banner = {
-        "banner_id": str(uuid.uuid4()),
-        **data.dict(),
-        "created_at": datetime.now(timezone.utc).isoformat(),
-    }
-    await db.banners.insert_one(banner)
-    return {"message": "Banner creado", "banner_id": banner["banner_id"]}
-
-
-@router.put("/api/admin/banners/{banner_id}")
-async def admin_update_banner(banner_id: str, data: BannerCreate, user: dict = Depends(get_current_user)):
-    if user["user_type"] != "admin":
-        raise HTTPException(status_code=403, detail="Admin access required")
-    
-    result = await db.banners.update_one(
-        {"banner_id": banner_id},
-        {"$set": {**data.dict(), "updated_at": datetime.now(timezone.utc).isoformat()}}
-    )
-    if result.matched_count == 0:
-        raise HTTPException(status_code=404, detail="Banner no encontrado")
-    return {"message": "Banner actualizado"}
-
-
-@router.delete("/api/admin/banners/{banner_id}")
-async def admin_delete_banner(banner_id: str, user: dict = Depends(get_current_user)):
-    if user["user_type"] != "admin":
-        raise HTTPException(status_code=403, detail="Admin access required")
-    
-    result = await db.banners.delete_one({"banner_id": banner_id})
-    if result.deleted_count == 0:
-        raise HTTPException(status_code=404, detail="Banner no encontrado")
-    return {"message": "Banner eliminado"}
-
+# Banner CRUD endpoints are defined below (around line ~1916+)
 
 @router.put("/api/admin/fares/{vehicle_type}")
 async def admin_update_fare(
@@ -1973,8 +1929,10 @@ async def update_banner(
 async def delete_banner(banner_id: str, user: dict = Depends(get_current_user)):
     if user["user_type"] != "admin":
         raise HTTPException(status_code=403, detail="Solo administradores")
-    await db.banners.delete_one({"banner_id": banner_id})
-    return {"status": "deleted"}
+    result = await db.banners.delete_one({"banner_id": banner_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Banner no encontrado")
+    return {"status": "deleted", "message": "Banner eliminado"}
 
 
 @router.post("/api/admin/banners/upload-image")
