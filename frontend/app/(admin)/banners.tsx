@@ -123,15 +123,25 @@ export default function BannersScreen() {
   };
 
   const handleDelete = (bannerId: string) => {
-    Alert.alert('Eliminar banner', '¿Seguro?', [
-      { text: 'No', style: 'cancel' },
-      { text: 'Eliminar', style: 'destructive', onPress: async () => {
-        try {
-          await apiService.delete(`/admin/banners/${bannerId}`);
-          loadBanners();
-        } catch (e: any) { setMsg('Error: ' + e.message); }
-      }},
-    ]);
+    if (Platform.OS === 'web') {
+      const confirmed = window.confirm('¿Seguro que querés eliminar este banner?');
+      if (confirmed) {
+        doDelete(bannerId);
+      }
+    } else {
+      Alert.alert('Eliminar banner', '¿Seguro?', [
+        { text: 'No', style: 'cancel' },
+        { text: 'Eliminar', style: 'destructive', onPress: () => doDelete(bannerId) },
+      ]);
+    }
+  };
+
+  const doDelete = async (bannerId: string) => {
+    try {
+      await apiService.delete(`/admin/banners/${bannerId}`);
+      setMsg('Banner eliminado ✓');
+      loadBanners();
+    } catch (e: any) { setMsg('Error: ' + e.message); }
   };
 
   const toggleActive = async (b: Banner) => {
