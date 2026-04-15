@@ -179,36 +179,49 @@ async def send_job_offer(
     if job["status"] != "open":
         raise HTTPException(status_code=400, detail="Este trabajo ya no está disponible")
     
-    # Check if already offered
-    existing = await db.job_offers.find_one({
-        "job_id": job_id, "professional_id": user["user_id"]
-    })
-    if existing:
-        raise HTTPException(status_code=400, detail="Ya enviaste una oferta para este trabajo")
+    now = datetime.now(timezone.utc)
     
-    pro_profile = await db.professional_profiles.find_one({"user_id": user["user_id"]})
-    
-    offer = {
-        "offer_id": generate_id("offer_"),
-        "job_id": job_id,
-        "professional_id": user["user_id"],
-        "professional_name": user.get("name", "Profesional"),
-        "professional_rating": pro_profile.get("rating", 5.0) if pro_profile else 5.0,
-        "price": data.get("price", 0),
-        "message": data.get("message", ""),
-        "estimated_time": data.get("estimated_time", ""),
-        "status": "pending",  # pending, accepted, rejected
-        "created_at": datetime.now(timezone.utc),
-    }
-    await db.job_offers.insert_one(offer)
-    
-    # Update offers count
-    await db.job_posts.update_one(
-        {"job_id": job_id},
-        {"$inc": {"offers_count": 1}}
+    # Accept directly (first-come-first-served like rides)
+    # Check if already assigned
+    updated = await db.job_posts.find_one_and_update(
+        {"job_id": job_id, "status": "open"},
+        {"$set": {
+            "status": "assigned",
+            "assigned_to": user["user_id"],
+            "assigned_name": user.get("name", "Profesional"),
+            "assigned_at": now,
+            "agreed_price": job["budget"],
+        }},
     )
+    if not updated:
+        raise HTTPException(status_code=400, detail="Otro profesional ya aceptó este trabajo")
     
-    return {"status": "sent", "offer": offer}
+    # Notify client via WebSocket
+    try:
+        from websocket_manager import manager
+        pro_profile = await db.professional_profiles.find_one({"user_id": user["user_id"]})
+        await manager.send_personal_message({
+            "type": "job_accepted",
+            "job_id": job_id,
+            "professional_id": user["user_id"],
+            "professional_name": user.get("name", "Profesional"),
+            "professional_rating": pro_profile.get("rating", 5.0) if pro_profile else 5.0,
+            "message": "¡Un profesional aceptó tu trabajo y está en camino!",
+        }, job["client_id"])
+    except: pass
+    
+    # Send push notification to client
+    try:
+        from notifications import send_push_notification
+        await send_push_notification(
+            job["client_id"],
+            "✅ Profesional encontrado",
+            f"{user.get('name', 'Un profesional')} aceptó tu trabajo y está en camino",
+            {"type": "job_accepted", "job_id": job_id}
+        )
+    except: pass
+    
+    return {"status": "accepted", "job": {**job, "status": "assigned", "assigned_to": user["user_id"]}}
 
 
 @router.get("/api/jobs/my-offers")

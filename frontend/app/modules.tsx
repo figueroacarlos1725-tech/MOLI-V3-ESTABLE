@@ -22,7 +22,11 @@ export default function ModulesScreen() {
   };
 
   const handleTrabajos = () => {
-    router.push('/(jobs)/home');
+    if (isDriver) {
+      router.push('/(jobs)/home');
+    } else {
+      router.push('/(jobs)/request-job');
+    }
   };
 
   return (
