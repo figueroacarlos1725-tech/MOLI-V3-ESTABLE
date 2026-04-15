@@ -9,6 +9,7 @@ import { useRouter } from 'expo-router';
 import { useAuthStore } from '@/src/stores/authStore';
 import { apiService } from '@/src/services/api';
 import DispatchMapPicker from '@/src/components/DispatchMapPicker';
+import DateTimePicker from '@react-native-community/datetimepicker';
 
 const { width, height } = Dimensions.get('window');
 const DARK = '#F2F2F7';
@@ -79,6 +80,16 @@ export default function DispatchHome() {
   // Date filter
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+  const [showDatePicker, setShowDatePicker] = useState<'from' | 'to' | null>(null);
+  const [dateFromObj, setDateFromObj] = useState(new Date());
+  const [dateToObj, setDateToObj] = useState(new Date());
+
+  const formatDate = (d: Date) => d.toISOString().split('T')[0];
+  const formatDateDisplay = (d: string) => {
+    if (!d) return '';
+    const dt = new Date(d + 'T12:00:00');
+    return dt.toLocaleDateString('es', { day: '2-digit', month: 'short', year: 'numeric' });
+  };
 
   // Assign driver state
   const [showAssign, setShowAssign] = useState(false);
@@ -474,20 +485,103 @@ export default function DispatchHome() {
 
       {/* Date filter for completed/cancelled */}
       {(activeTab === 'completed' || activeTab === 'cancelled') && (
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: DARK2, paddingHorizontal: 10, paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: DARK3 }}>
-          <Ionicons name="calendar-outline" size={16} color={ACCENT} />
-          <TextInput style={[s.input, { flex: 1, paddingVertical: 4, fontSize: 12, marginBottom: 0 }]} value={dateFrom} onChangeText={setDateFrom} placeholder="Desde (YYYY-MM-DD)" placeholderTextColor="#999" />
-          <Text style={{ color: GRAY, fontSize: 12 }}>—</Text>
-          <TextInput style={[s.input, { flex: 1, paddingVertical: 4, fontSize: 12, marginBottom: 0 }]} value={dateTo} onChangeText={setDateTo} placeholder="Hasta (YYYY-MM-DD)" placeholderTextColor="#999" />
-          <TouchableOpacity style={{ backgroundColor: ACCENT, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6 }} onPress={() => fetchRides()}>
-            <Ionicons name="search" size={14} color="#fff" />
-          </TouchableOpacity>
-          {(dateFrom || dateTo) ? (
-            <TouchableOpacity onPress={() => { setDateFrom(''); setDateTo(''); setTimeout(() => fetchRides(), 100); }}>
-              <Ionicons name="close-circle" size={18} color={RED} />
+        <View style={{ backgroundColor: DARK2, paddingHorizontal: 10, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: DARK3 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <Ionicons name="calendar-outline" size={16} color={ACCENT} />
+            <TouchableOpacity
+              style={{ flex: 1, backgroundColor: '#F2F2F7', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8, borderWidth: 1, borderColor: '#E5E5EA' }}
+              onPress={() => { setShowDatePicker('from'); }}
+            >
+              <Text style={{ fontSize: 12, color: dateFrom ? '#1C1C1E' : '#999' }}>
+                {dateFrom ? formatDateDisplay(dateFrom) : 'Desde'}
+              </Text>
             </TouchableOpacity>
-          ) : null}
+            <Text style={{ color: GRAY, fontSize: 12 }}>—</Text>
+            <TouchableOpacity
+              style={{ flex: 1, backgroundColor: '#F2F2F7', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8, borderWidth: 1, borderColor: '#E5E5EA' }}
+              onPress={() => { setShowDatePicker('to'); }}
+            >
+              <Text style={{ fontSize: 12, color: dateTo ? '#1C1C1E' : '#999' }}>
+                {dateTo ? formatDateDisplay(dateTo) : 'Hasta'}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={{ backgroundColor: ACCENT, paddingHorizontal: 10, paddingVertical: 8, borderRadius: 6 }} onPress={() => fetchRides()}>
+              <Ionicons name="search" size={14} color="#fff" />
+            </TouchableOpacity>
+            {(dateFrom || dateTo) ? (
+              <TouchableOpacity onPress={() => { setDateFrom(''); setDateTo(''); setTimeout(() => fetchRides(), 100); }}>
+                <Ionicons name="close-circle" size={20} color={RED} />
+              </TouchableOpacity>
+            ) : null}
+          </View>
+          {/* Quick filter buttons */}
+          <View style={{ flexDirection: 'row', gap: 6, marginTop: 6 }}>
+            <TouchableOpacity style={{ backgroundColor: dateFrom === formatDate(new Date()) ? ACCENT : '#F2F2F7', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6 }}
+              onPress={() => { const today = formatDate(new Date()); setDateFrom(today); setDateTo(today); setTimeout(() => fetchRides(), 100); }}>
+              <Text style={{ fontSize: 11, fontWeight: '600', color: dateFrom === formatDate(new Date()) ? '#fff' : '#636366' }}>Hoy</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={{ backgroundColor: '#F2F2F7', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6 }}
+              onPress={() => { const d = new Date(); d.setDate(d.getDate() - 1); const y = formatDate(d); setDateFrom(y); setDateTo(y); setTimeout(() => fetchRides(), 100); }}>
+              <Text style={{ fontSize: 11, fontWeight: '600', color: '#636366' }}>Ayer</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={{ backgroundColor: '#F2F2F7', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6 }}
+              onPress={() => { const d = new Date(); d.setDate(d.getDate() - 7); setDateFrom(formatDate(d)); setDateTo(formatDate(new Date())); setTimeout(() => fetchRides(), 100); }}>
+              <Text style={{ fontSize: 11, fontWeight: '600', color: '#636366' }}>Semana</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={{ backgroundColor: '#F2F2F7', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6 }}
+              onPress={() => { const d = new Date(); d.setDate(1); setDateFrom(formatDate(d)); setDateTo(formatDate(new Date())); setTimeout(() => fetchRides(), 100); }}>
+              <Text style={{ fontSize: 11, fontWeight: '600', color: '#636366' }}>Mes</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={{ backgroundColor: '#F2F2F7', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6 }}
+              onPress={() => { setDateFrom(''); setDateTo(''); setTimeout(() => fetchRides(), 100); }}>
+              <Text style={{ fontSize: 11, fontWeight: '600', color: '#636366' }}>Todo</Text>
+            </TouchableOpacity>
+          </View>
         </View>
+      )}
+
+      {/* Native Date Picker */}
+      {showDatePicker && (
+        Platform.OS === 'web' ? (
+          <Modal visible transparent animationType="fade">
+            <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', alignItems: 'center' }}>
+              <View style={{ backgroundColor: '#fff', borderRadius: 16, padding: 24, alignItems: 'center', width: 300 }}>
+                <Text style={{ fontSize: 16, fontWeight: '700', marginBottom: 12, color: '#1C1C1E' }}>{showDatePicker === 'from' ? 'Fecha desde' : 'Fecha hasta'}</Text>
+                <TextInput
+                  style={{ backgroundColor: '#F2F2F7', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10, width: '100%', fontSize: 16, textAlign: 'center', borderWidth: 1, borderColor: '#E5E5EA', color: '#1C1C1E' }}
+                  value={showDatePicker === 'from' ? dateFrom : dateTo}
+                  onChangeText={t => showDatePicker === 'from' ? setDateFrom(t) : setDateTo(t)}
+                  placeholder="YYYY-MM-DD"
+                  placeholderTextColor="#999"
+                />
+                <View style={{ flexDirection: 'row', gap: 10, marginTop: 16, width: '100%' }}>
+                  <TouchableOpacity style={{ flex: 1, paddingVertical: 12, borderRadius: 10, borderWidth: 1, borderColor: '#E5E5EA', alignItems: 'center' }} onPress={() => setShowDatePicker(null)}>
+                    <Text style={{ color: GRAY }}>Cancelar</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={{ flex: 1, paddingVertical: 12, borderRadius: 10, backgroundColor: ACCENT, alignItems: 'center' }} onPress={() => { setShowDatePicker(null); fetchRides(); }}>
+                    <Text style={{ color: '#fff', fontWeight: '700' }}>Aplicar</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          </Modal>
+        ) : (
+          <DateTimePicker
+            value={showDatePicker === 'from' ? dateFromObj : dateToObj}
+            mode="date"
+            display="default"
+            onChange={(event: any, selectedDate?: Date) => {
+              if (event.type === 'dismissed') { setShowDatePicker(null); return; }
+              if (selectedDate) {
+                const formatted = formatDate(selectedDate);
+                if (showDatePicker === 'from') { setDateFrom(formatted); setDateFromObj(selectedDate); }
+                else { setDateTo(formatted); setDateToObj(selectedDate); }
+              }
+              setShowDatePicker(null);
+              setTimeout(() => fetchRides(), 200);
+            }}
+          />
+        )
       )}
 
       {/* Main content */}
