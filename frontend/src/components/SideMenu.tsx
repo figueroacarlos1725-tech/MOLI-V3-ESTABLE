@@ -33,7 +33,7 @@ export default function SideMenu({ visible, onClose, role }: SideMenuProps) {
   const { user, logout } = useAuthStore();
 
   const riderItems: MenuItem[] = [
-    { icon: 'home', label: 'Inicio', route: '/(rider)/home' },
+    { icon: 'home', label: 'Inicio', route: '/modules' },
     { icon: 'car', label: 'Mis Viajes', route: '/(rider)/rides' },
     { icon: 'wallet', label: 'Billetera', route: '/(rider)/wallet' },
     { icon: 'person', label: 'Mi Perfil', route: '/(rider)/profile' },
