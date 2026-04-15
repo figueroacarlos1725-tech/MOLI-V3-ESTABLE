@@ -582,6 +582,15 @@ async def update_job_status(
         update["status"] = "completed"
         update["completed_at"] = now
         update["confirmed_by"] = user["user_id"]
+        # Commission: 15% of budget to platform
+        commission = round(job.get("budget", 0) * 0.15, 2)
+        update["commission"] = commission
+        if commission > 0 and job.get("assigned_to"):
+            try:
+                from utils import adjust_wallet_balance
+                await adjust_wallet_balance(job["assigned_to"], -commission, f"Comisión Moli Trabajos {job_id}")
+            except:
+                pass
         # Increment professional's total jobs
         if job.get("assigned_to"):
             await db.professional_profiles.update_one(
@@ -603,6 +612,28 @@ async def update_job_status(
     elif new_status == "cancelled":
         update["status"] = "cancelled"
         update["cancelled_by"] = user["user_id"]
+        # Penalty if assigned (20% of budget to the platform)
+        if job.get("status") in ("assigned", "in_progress") and job.get("budget"):
+            penalty = round(job["budget"] * 0.20, 2)
+            update["cancellation_penalty"] = penalty
+            # Debit from canceller's wallet
+            try:
+                from utils import adjust_wallet_balance
+                await adjust_wallet_balance(user["user_id"], -penalty, f"Penalización cancelación trabajo {job_id}")
+            except:
+                pass
+            # Notify the other party
+            other_id = job.get("assigned_to") if user["user_id"] == job["client_id"] else job["client_id"]
+            if other_id:
+                try:
+                    from websocket_manager import manager
+                    await manager.send_personal_message({
+                        "type": "job_cancelled",
+                        "job_id": job_id,
+                        "message": "El trabajo fue cancelado por la otra parte.",
+                    }, other_id)
+                except:
+                    pass
     else:
         update["status"] = new_status
     
@@ -661,8 +692,15 @@ async def admin_jobs_dashboard(user: dict = Depends(get_current_user)):
     available_pros = await db.professional_profiles.count_documents({"is_available": True})
     
     # Revenue from completed jobs
-    completed = await db.job_posts.find({"status": "completed"}, {"_id": 0, "agreed_price": 1, "budget": 1}).to_list(1000)
+    completed = await db.job_posts.find({"status": "completed"}, {"_id": 0, "agreed_price": 1, "budget": 1, "commission": 1}).to_list(1000)
     total_revenue = sum(j.get("agreed_price", j.get("budget", 0)) for j in completed)
+    total_commission = sum(j.get("commission", 0) for j in completed)
+    
+    # Count penalties
+    cancelled_with_penalty = await db.job_posts.count_documents({"status": "cancelled", "cancellation_penalty": {"$gt": 0}})
+    penalties_total = 0
+    penalty_jobs = await db.job_posts.find({"status": "cancelled", "cancellation_penalty": {"$gt": 0}}, {"_id": 0, "cancellation_penalty": 1}).to_list(500)
+    penalties_total = sum(j.get("cancellation_penalty", 0) for j in penalty_jobs)
     
     return {
         "total_jobs": total_jobs,
@@ -673,6 +711,9 @@ async def admin_jobs_dashboard(user: dict = Depends(get_current_user)):
         "total_professionals": total_professionals,
         "available_professionals": available_pros,
         "total_revenue": total_revenue,
+        "total_commission": total_commission,
+        "cancelled_with_penalty": cancelled_with_penalty,
+        "penalties_total": penalties_total,
     }
 
 

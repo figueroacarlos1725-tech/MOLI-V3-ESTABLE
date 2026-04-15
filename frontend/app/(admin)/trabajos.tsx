@@ -115,6 +115,8 @@ ${jobMarkers}
               { label: 'Profesionales', value: dashboard.total_professionals, icon: 'people', color: '#00C853' },
               { label: 'Disponibles', value: dashboard.available_professionals, icon: 'radio-button-on', color: '#34C759' },
               { label: 'Facturación', value: `$${(dashboard.total_revenue || 0).toLocaleString()}`, icon: 'cash', color: '#00C853' },
+              { label: 'Comisión (15%)', value: `$${(dashboard.total_commission || 0).toLocaleString()}`, icon: 'trending-up', color: '#007AFF' },
+              { label: 'Penalizaciones', value: `$${(dashboard.penalties_total || 0).toLocaleString()}`, icon: 'warning', color: '#FF9500' },
             ].map((st, i) => (
               <View key={i} style={s.statCard}>
                 <View style={[s.statIcon, { backgroundColor: st.color + '18' }]}>

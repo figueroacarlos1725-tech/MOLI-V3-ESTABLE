@@ -94,13 +94,22 @@ export default function JobStatusScreen() {
   };
 
   const cancelJob = async () => {
-    Alert.alert('Cancelar trabajo', '¿Seguro que querés cancelar este trabajo?', [
+    const jid = job?.job_id || params.jobId;
+    if (!jid) { Alert.alert('Error', 'No se encontró el ID del trabajo'); return; }
+    
+    const isJobAssigned = job?.status === 'assigned' || job?.status === 'in_progress';
+    const title = isJobAssigned ? 'Cancelar trabajo asignado' : 'Cancelar trabajo';
+    const msg = isJobAssigned
+      ? 'Ya hay un profesional asignado. Se te cobrará una penalización del 20% del presupuesto. ¿Seguro?'
+      : '¿Seguro que querés cancelar este trabajo?';
+    
+    Alert.alert(title, msg, [
       { text: 'No', style: 'cancel' },
-      { text: 'Sí, cancelar', style: 'destructive', onPress: async () => {
+      { text: isJobAssigned ? 'Sí, pagar penalización' : 'Sí, cancelar', style: 'destructive', onPress: async () => {
         setCancelling(true);
         try {
-          await apiService.put(`/jobs/${params.jobId}/status`, { status: 'cancelled' });
-          Alert.alert('Trabajo cancelado');
+          await apiService.put(`/jobs/${jid}/status`, { status: 'cancelled' });
+          Alert.alert('Trabajo cancelado', isJobAssigned ? 'Se aplicó una penalización del 20%.' : '');
           router.back();
         } catch (e: any) {
           Alert.alert('Error', e.message || 'No se pudo cancelar');
