@@ -1,216 +1,148 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  SafeAreaView,
-  ScrollView,
-  TouchableOpacity,
-  ActivityIndicator,
-  Image,
-  RefreshControl,
-  Alert,
+  View, Text, StyleSheet, SafeAreaView, TouchableOpacity, ScrollView,
+  ActivityIndicator, Alert, RefreshControl,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { apiService } from '@/src/services/api';
-import Constants from 'expo-constants';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
-interface DocItem {
-  key: string;
-  label: string;
-  description: string;
-  status: 'not_uploaded' | 'pending' | 'approved' | 'rejected';
-  uploaded_at?: string;
-  reject_reason?: string;
-  document_id?: string;
-}
+const GREEN = '#00C853';
 
-export default function DriverDocumentsScreen() {
+export default function DocumentsScreen() {
   const router = useRouter();
-  const [documents, setDocuments] = useState<DocItem[]>([]);
-  const [verificationStatus, setVerificationStatus] = useState('');
-  const [isVerified, setIsVerified] = useState(false);
+  const [documents, setDocuments] = useState<any[]>([]);
+  const [verificationStatus, setVerificationStatus] = useState('incomplete');
   const [loading, setLoading] = useState(true);
-  const [uploading, setUploading] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [uploading, setUploading] = useState<string | null>(null);
 
-  const fetchDocs = useCallback(async () => {
+  useEffect(() => { fetchDocs(); }, []);
+
+  const fetchDocs = async () => {
     try {
       const res = await apiService.get('/driver/documents/required');
-      setDocuments(res?.documents || []);
-      setVerificationStatus(res?.verification_status || 'incomplete');
-      setIsVerified(res?.is_verified || false);
-    } catch (e) { console.error(e); }
-    finally { setLoading(false); setRefreshing(false); }
-  }, []);
-
-  useEffect(() => { fetchDocs(); }, [fetchDocs]);
-
-  const handleUpload = async (docKey: string) => {
-    try {
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Permiso', 'Necesitamos acceso a tu galería para subir documentos.');
-        return;
-      }
-
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ['images'],
-        quality: 0.7,
-        base64: false,
-      });
-
-      if (result.canceled) return;
-
-      setUploading(docKey);
-      const imageUri = result.assets[0].uri;
-      const token = await AsyncStorage.getItem('auth_token');
-      const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || '';
-
-      const formData = new FormData();
-      if (typeof window !== 'undefined' && (imageUri.startsWith('blob:') || imageUri.startsWith('data:'))) {
-        const resp = await fetch(imageUri);
-        const blob = await resp.blob();
-        formData.append('file', blob, `${docKey}.jpg`);
-      } else {
-        formData.append('file', {
-          uri: imageUri,
-          type: 'image/jpeg',
-          name: `${docKey}.jpg`,
-        } as any);
-      }
-
-      const response = await fetch(`${backendUrl}/api/driver/documents/upload?doc_type=${docKey}`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` },
-        body: formData,
-      });
-
-      const data = await response.json();
-      if (data.status === 'uploaded') {
-        fetchDocs();
-      } else {
-        Alert.alert('Error', data.detail || 'No se pudo subir el documento');
-      }
-    } catch (e: any) {
-      Alert.alert('Error', e.message || 'Error al subir documento');
-    } finally {
-      setUploading(null);
-    }
+      setDocuments(res.documents || []);
+      setVerificationStatus(res.overall_status || 'incomplete');
+    } catch (e) { console.log('Docs fetch error:', e); }
+    setLoading(false);
+    setRefreshing(false);
   };
 
-  const handleCamera = async (docKey: string) => {
+  const uploadDoc = async (docKey: string, useCamera: boolean) => {
     try {
-      const { status } = await ImagePicker.requestCameraPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Permiso', 'Necesitamos acceso a la cámara para tomar fotos de documentos.');
-        return;
+      if (useCamera) {
+        const { status } = await ImagePicker.requestCameraPermissionsAsync();
+        if (status !== 'granted') { Alert.alert('Permiso', 'Necesitamos acceso a la cámara.'); return; }
       }
 
-      const result = await ImagePicker.launchCameraAsync({
-        quality: 0.7,
-        base64: false,
-      });
+      const result = useCamera
+        ? await ImagePicker.launchCameraAsync({ quality: 0.5, base64: true })
+        : await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.5, base64: true });
 
-      if (result.canceled) return;
+      if (result.canceled || !result.assets[0]?.base64) return;
 
       setUploading(docKey);
-      const imageUri = result.assets[0].uri;
-      const token = await AsyncStorage.getItem('auth_token');
-      const backendUrl = Constants.expoConfig?.extra?.EXPO_BACKEND_URL || process.env.EXPO_PUBLIC_API_URL || '';
+      const base64Data = `data:image/jpeg;base64,${result.assets[0].base64}`;
 
-      const formData = new FormData();
-      formData.append('file', {
-        uri: imageUri,
-        type: 'image/jpeg',
-        name: `${docKey}.jpg`,
-      } as any);
-
-      const response = await fetch(`${backendUrl}/api/driver/documents/upload?doc_type=${docKey}`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` },
-        body: formData,
+      const response = await apiService.post('/driver/documents/upload-base64', {
+        doc_type: docKey,
+        file_base64: base64Data,
       });
 
-      const data = await response.json();
-      if (data.status === 'uploaded') {
+      if (response.status === 'uploaded') {
         fetchDocs();
       } else {
-        Alert.alert('Error', data.detail || 'No se pudo subir el documento');
+        Alert.alert('Error', response.detail || 'No se pudo subir');
       }
     } catch (e: any) {
-      Alert.alert('Error', e.message || 'Error al subir documento');
-    } finally {
-      setUploading(null);
+      Alert.alert('Error', e.message || 'Error al subir');
     }
+    setUploading(null);
   };
 
   const getStatusConfig = (status: string) => {
     switch (status) {
-      case 'approved': return { icon: 'checkmark-circle', color: '#00C853', label: 'Aprobado', bg: '#F0FFF0' };
-      case 'rejected': return { icon: 'close-circle', color: '#FF3B30', label: 'Rechazado', bg: '#FFF5F5' };
-      case 'pending': return { icon: 'time', color: '#FF9500', label: 'En revisión', bg: '#FFF8E6' };
+      case 'approved': return { icon: 'checkmark-circle', color: GREEN, label: 'Aprobado', bg: '#E8F5E9' };
+      case 'rejected': return { icon: 'close-circle', color: '#FF3B30', label: 'Rechazado', bg: '#FFEBEE' };
+      case 'pending': return { icon: 'time', color: '#FF9500', label: 'En revisión', bg: '#FFF3E0' };
       default: return { icon: 'cloud-upload-outline', color: '#8E8E93', label: 'Sin subir', bg: '#F2F2F7' };
     }
   };
 
-  const overallConfig = {
-    approved: { icon: 'shield-checkmark', color: '#00C853', text: '¡Verificado! Puedes aceptar viajes.' },
-    pending: { icon: 'hourglass-outline', color: '#FF9500', text: 'Documentos en revisión. Te avisaremos pronto.' },
-    rejected: { icon: 'alert-circle', color: '#FF3B30', text: 'Algunos documentos fueron rechazados. Vuelve a subirlos.' },
-    incomplete: { icon: 'documents-outline', color: '#007AFF', text: 'Sube todos los documentos requeridos para poder aceptar viajes.' },
-  };
-
-  const overall = overallConfig[verificationStatus as keyof typeof overallConfig] || overallConfig.incomplete;
-
+  const anyUploaded = documents.some(d => d.status !== 'not_uploaded');
   const allUploaded = documents.length > 0 && documents.every(d => d.status !== 'not_uploaded');
+  const uploadedCount = documents.filter(d => d.status !== 'not_uploaded').length;
 
-  if (loading) return <SafeAreaView style={st.container}><ActivityIndicator size="large" color="#00C853" style={{ marginTop: 40 }} /></SafeAreaView>;
+  if (loading) return <SafeAreaView style={s.container}><View style={s.center}><ActivityIndicator size="large" color={GREEN} /></View></SafeAreaView>;
 
   return (
-    <SafeAreaView style={st.container}>
-      <View style={st.header}>
-        <TouchableOpacity onPress={() => router.back()} style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: '#F2F2F7', justifyContent: 'center', alignItems: 'center', marginRight: 12 }}>
+    <SafeAreaView style={s.container}>
+      <View style={s.header}>
+        <TouchableOpacity onPress={() => router.back()} style={s.backBtn}>
           <Ionicons name="arrow-back" size={22} color="#1C1C1E" />
         </TouchableOpacity>
-        <Text style={st.title}>Mis Documentos</Text>
+        <Text style={s.headerTitle}>Mis Documentos</Text>
       </View>
 
       <ScrollView
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchDocs(); }} />}
+        contentContainerStyle={{ paddingBottom: 40 }}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchDocs(); }} tintColor={GREEN} />}
       >
-        {/* Overall Status Banner */}
-        <View style={[st.statusBanner, { borderLeftColor: overall.color }]}>
-          <Ionicons name={overall.icon as any} size={28} color={overall.color} />
-          <Text style={st.statusBannerText}>{overall.text}</Text>
-        </View>
-
-        {/* Progress */}
-        <View style={st.progressCard}>
-          <View style={st.progressBar}>
-            <View style={[st.progressFill, { width: `${(documents.filter(d => d.status === 'approved').length / Math.max(documents.length, 1)) * 100}%` }]} />
-          </View>
-          <Text style={st.progressText}>
-            {documents.filter(d => d.status === 'approved').length}/{documents.length} aprobados
+        {/* Status Banner */}
+        <View style={[s.statusBanner, {
+          borderLeftColor: verificationStatus === 'approved' ? GREEN : verificationStatus === 'pending' ? '#FF9500' : '#007AFF',
+        }]}>
+          <Ionicons
+            name={(verificationStatus === 'approved' ? 'shield-checkmark' : verificationStatus === 'pending' ? 'hourglass-outline' : 'documents-outline') as any}
+            size={24}
+            color={verificationStatus === 'approved' ? GREEN : verificationStatus === 'pending' ? '#FF9500' : '#007AFF'}
+          />
+          <Text style={s.statusText}>
+            {verificationStatus === 'approved' ? '¡Verificado! Podés aceptar viajes.' :
+             verificationStatus === 'pending' ? 'Documentos en revisión.' :
+             'Subí tus documentos para poder trabajar.'}
           </Text>
         </View>
 
-        {/* "Continue" button when all docs uploaded */}
-        {allUploaded && verificationStatus !== 'approved' && (
+        {/* Progress */}
+        <View style={s.progressCard}>
+          <View style={s.progressBar}>
+            <View style={[s.progressFill, { width: `${(uploadedCount / Math.max(documents.length, 1)) * 100}%` }]} />
+          </View>
+          <Text style={s.progressText}>{uploadedCount}/{documents.length} subidos</Text>
+        </View>
+
+        {/* Continue button (shows with 1+ uploaded) */}
+        {anyUploaded && verificationStatus !== 'approved' && (
           <TouchableOpacity
-            style={{ marginHorizontal: 16, marginTop: 12, backgroundColor: '#00C853', borderRadius: 14, paddingVertical: 16, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8 }}
+            style={s.continueBtn}
             onPress={() => router.replace('/(driver)/home')}
           >
             <Ionicons name="checkmark-circle" size={20} color="#fff" />
-            <Text style={{ color: '#fff', fontSize: 16, fontWeight: '700' }}>
-              {verificationStatus === 'pending' ? 'Continuar (en revisión)' : 'Volver al inicio'}
+            <Text style={s.continueBtnText}>
+              {allUploaded ? 'Continuar (en revisión)' : `Continuar (${uploadedCount}/${documents.length} subidos)`}
             </Text>
           </TouchableOpacity>
         )}
+
+        {/* Selfie / Profile Photo */}
+        <View style={s.selfieCard}>
+          <View style={s.selfieIcon}>
+            <Ionicons name="camera" size={28} color={GREEN} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={s.selfieTitle}>Foto de perfil (Selfie)</Text>
+            <Text style={s.selfieDesc}>Sacate una selfie para tu perfil de conductor</Text>
+          </View>
+          <TouchableOpacity style={s.selfieBtn} onPress={() => uploadDoc('selfie', true)} disabled={uploading === 'selfie'}>
+            {uploading === 'selfie' ? <ActivityIndicator size="small" color="#fff" /> : (
+              <><Ionicons name="camera" size={16} color="#fff" /><Text style={{ color: '#fff', fontWeight: '600', fontSize: 12 }}>Selfie</Text></>
+            )}
+          </TouchableOpacity>
+        </View>
 
         {/* Document List */}
         {documents.map((doc) => {
@@ -218,76 +150,83 @@ export default function DriverDocumentsScreen() {
           const isUploading = uploading === doc.key;
 
           return (
-            <View key={doc.key} style={st.docCard}>
-              <View style={st.docTop}>
-                <View style={[st.docStatusBadge, { backgroundColor: cfg.bg }]}>
-                  <Ionicons name={cfg.icon as any} size={16} color={cfg.color} />
-                  <Text style={[st.docStatusText, { color: cfg.color }]}>{cfg.label}</Text>
+            <View key={doc.key} style={s.docCard}>
+              <View style={s.docTop}>
+                <View style={[s.docBadge, { backgroundColor: cfg.bg }]}>
+                  <Ionicons name={cfg.icon as any} size={14} color={cfg.color} />
+                  <Text style={[s.docBadgeText, { color: cfg.color }]}>{cfg.label}</Text>
                 </View>
               </View>
-              
-              <Text style={st.docLabel}>{doc.label}</Text>
-              <Text style={st.docDesc}>{doc.description}</Text>
+
+              <Text style={s.docLabel}>{doc.label}</Text>
+              <Text style={s.docDesc}>{doc.description}</Text>
 
               {doc.status === 'rejected' && doc.reject_reason ? (
-                <View style={st.rejectBox}>
+                <View style={s.rejectBox}>
                   <Ionicons name="alert-circle" size={14} color="#FF3B30" />
-                  <Text style={st.rejectText}>{doc.reject_reason}</Text>
+                  <Text style={s.rejectText}>{doc.reject_reason}</Text>
                 </View>
               ) : null}
 
               {(doc.status === 'not_uploaded' || doc.status === 'rejected') && (
-                <View style={st.uploadActions}>
-                  <TouchableOpacity style={st.uploadBtn} onPress={() => handleUpload(doc.key)} disabled={isUploading}>
+                <View style={s.uploadRow}>
+                  <TouchableOpacity style={s.galleryBtn} onPress={() => uploadDoc(doc.key, false)} disabled={isUploading}>
                     {isUploading ? <ActivityIndicator color="#fff" size="small" /> : (
-                      <><Ionicons name="images-outline" size={18} color="#fff" /><Text style={st.uploadBtnText}>Galería</Text></>
+                      <><Ionicons name="images" size={16} color="#fff" /><Text style={s.galleryBtnText}>Galería</Text></>
                     )}
                   </TouchableOpacity>
-                  <TouchableOpacity style={st.cameraBtn} onPress={() => handleCamera(doc.key)} disabled={isUploading}>
-                    <Ionicons name="camera-outline" size={18} color="#00C853" /><Text style={st.cameraBtnText}>Cámara</Text>
+                  <TouchableOpacity style={s.cameraBtn} onPress={() => uploadDoc(doc.key, true)} disabled={isUploading}>
+                    <Ionicons name="camera" size={16} color={GREEN} /><Text style={s.cameraBtnText}>Cámara</Text>
                   </TouchableOpacity>
                 </View>
               )}
 
               {doc.status === 'pending' && (
-                <View style={st.pendingHint}>
+                <View style={s.pendingRow}>
                   <Ionicons name="time-outline" size={14} color="#FF9500" />
-                  <Text style={st.pendingHintText}>En revisión por el equipo de Moli</Text>
+                  <Text style={s.pendingText}>En revisión por Moli</Text>
                 </View>
               )}
             </View>
           );
         })}
-
-        <View style={{ height: 40 }} />
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-const st = StyleSheet.create({
+const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F2F2F7' },
-  header: { backgroundColor: '#fff', paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#E5E5EA', flexDirection: 'row', alignItems: 'center' },
-  title: { fontSize: 24, fontWeight: '800', color: '#1C1C1E' },
-  statusBanner: { marginHorizontal: 16, marginTop: 16, backgroundColor: '#fff', borderRadius: 14, padding: 16, flexDirection: 'row', alignItems: 'center', gap: 12, borderLeftWidth: 4 },
-  statusBannerText: { flex: 1, fontSize: 14, color: '#1C1C1E', fontWeight: '600', lineHeight: 20 },
-  progressCard: { marginHorizontal: 16, marginTop: 12, backgroundColor: '#fff', borderRadius: 14, padding: 16 },
-  progressBar: { height: 8, borderRadius: 4, backgroundColor: '#E5E5EA' },
-  progressFill: { height: 8, borderRadius: 4, backgroundColor: '#00C853' },
-  progressText: { fontSize: 13, color: '#8E8E93', marginTop: 8, fontWeight: '600', textAlign: 'center' },
-  docCard: { marginHorizontal: 16, marginTop: 12, backgroundColor: '#fff', borderRadius: 16, padding: 16 },
-  docTop: { flexDirection: 'row', marginBottom: 8 },
-  docStatusBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
-  docStatusText: { fontSize: 12, fontWeight: '700' },
-  docLabel: { fontSize: 17, fontWeight: '700', color: '#1C1C1E' },
-  docDesc: { fontSize: 13, color: '#8E8E93', marginTop: 4, lineHeight: 18 },
-  rejectBox: { flexDirection: 'row', alignItems: 'flex-start', gap: 6, backgroundColor: '#FFF5F5', padding: 10, borderRadius: 10, marginTop: 10 },
-  rejectText: { flex: 1, fontSize: 13, color: '#FF3B30', fontWeight: '500' },
-  uploadActions: { flexDirection: 'row', gap: 10, marginTop: 14 },
-  uploadBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: '#00C853', borderRadius: 12, paddingVertical: 14 },
-  uploadBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
-  cameraBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: '#F2F2F7', borderRadius: 12, paddingVertical: 14 },
-  cameraBtnText: { color: '#00C853', fontSize: 15, fontWeight: '700' },
-  pendingHint: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 10 },
-  pendingHintText: { fontSize: 13, color: '#FF9500', fontWeight: '500' },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  header: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', paddingHorizontal: 12, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#E5E5EA', gap: 8 },
+  backBtn: { width: 40, height: 40, borderRadius: 12, backgroundColor: '#F2F2F7', justifyContent: 'center', alignItems: 'center' },
+  headerTitle: { fontSize: 18, fontWeight: '700', color: '#1C1C1E' },
+  statusBanner: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#fff', marginHorizontal: 16, marginTop: 16, padding: 14, borderRadius: 14, borderLeftWidth: 4 },
+  statusText: { fontSize: 14, fontWeight: '600', color: '#1C1C1E', flex: 1 },
+  progressCard: { marginHorizontal: 16, marginTop: 10, backgroundColor: '#fff', borderRadius: 12, padding: 12 },
+  progressBar: { height: 8, borderRadius: 4, backgroundColor: '#E5E5EA', overflow: 'hidden' },
+  progressFill: { height: 8, borderRadius: 4, backgroundColor: GREEN },
+  progressText: { fontSize: 12, color: '#8E8E93', marginTop: 6, textAlign: 'center' },
+  continueBtn: { marginHorizontal: 16, marginTop: 12, backgroundColor: GREEN, borderRadius: 14, paddingVertical: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
+  continueBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  selfieCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', marginHorizontal: 16, marginTop: 12, padding: 14, borderRadius: 14, gap: 12, borderWidth: 1, borderColor: '#E5E5EA' },
+  selfieIcon: { width: 48, height: 48, borderRadius: 24, backgroundColor: '#E8F5E9', justifyContent: 'center', alignItems: 'center' },
+  selfieTitle: { fontSize: 14, fontWeight: '700', color: '#1C1C1E' },
+  selfieDesc: { fontSize: 12, color: '#8E8E93', marginTop: 2 },
+  selfieBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: GREEN, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 10 },
+  docCard: { backgroundColor: '#fff', marginHorizontal: 16, marginTop: 10, borderRadius: 14, padding: 16, borderWidth: 1, borderColor: '#E5E5EA' },
+  docTop: { flexDirection: 'row', justifyContent: 'flex-end' },
+  docBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
+  docBadgeText: { fontSize: 11, fontWeight: '600' },
+  docLabel: { fontSize: 16, fontWeight: '700', color: '#1C1C1E', marginTop: 4 },
+  docDesc: { fontSize: 13, color: '#8E8E93', marginTop: 2 },
+  rejectBox: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#FFEBEE', borderRadius: 8, padding: 8, marginTop: 8 },
+  rejectText: { fontSize: 12, color: '#FF3B30', flex: 1 },
+  uploadRow: { flexDirection: 'row', gap: 8, marginTop: 12 },
+  galleryBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: GREEN, borderRadius: 10, paddingVertical: 12 },
+  galleryBtnText: { color: '#fff', fontWeight: '600', fontSize: 14 },
+  cameraBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: '#fff', borderRadius: 10, paddingVertical: 12, borderWidth: 1, borderColor: GREEN },
+  cameraBtnText: { color: GREEN, fontWeight: '600', fontSize: 14 },
+  pendingRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 8 },
+  pendingText: { fontSize: 12, color: '#FF9500' },
 });

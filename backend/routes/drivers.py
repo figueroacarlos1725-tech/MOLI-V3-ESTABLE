@@ -1,5 +1,5 @@
 """Driver routes"""
-from fastapi import APIRouter, HTTPException, Depends, Query, File, UploadFile
+from fastapi import APIRouter, HTTPException, Depends, Query, File, UploadFile, Body
 from typing import Optional
 from datetime import datetime, timezone
 import base64
@@ -337,54 +337,72 @@ async def get_required_documents(user: dict = Depends(get_current_user)):
 @router.post("/api/driver/documents/upload")
 async def upload_driver_document(
     doc_type: str = Query(...),
-    file: UploadFile = File(...),
+    file: UploadFile = File(None),
     user: dict = Depends(get_current_user)
 ):
-    """Upload a required document"""
+    """Upload via FormData"""
     if user["user_type"] != "driver":
         raise HTTPException(status_code=403, detail="Solo conductores")
-    
-    valid_types = [d["key"] for d in REQUIRED_DOCUMENTS]
+    valid_types = [d["key"] for d in REQUIRED_DOCUMENTS] + ["selfie"]
     if doc_type not in valid_types:
-        raise HTTPException(status_code=400, detail=f"Tipo inválido. Usa: {', '.join(valid_types)}")
-    
-    # Read file and store as base64
-    content = await file.read()
+        raise HTTPException(status_code=400, detail="Tipo inválido")
+    if not file:
+        raise HTTPException(status_code=400, detail="No se recibió archivo")
     import base64
+    content = await file.read()
     b64 = base64.b64encode(content).decode("utf-8")
     mime = file.content_type or "image/jpeg"
     data_uri = f"data:{mime};base64,{b64}"
-    
+    return await _save_document(user, doc_type, data_uri)
+
+
+@router.post("/api/driver/documents/upload-base64")
+async def upload_driver_document_base64(
+    data: dict = Body(...),
+    user: dict = Depends(get_current_user)
+):
+    """Upload via JSON base64"""
+    if user["user_type"] != "driver":
+        raise HTTPException(status_code=403, detail="Solo conductores")
+    doc_type = data.get("doc_type", "")
+    file_base64 = data.get("file_base64", "")
+    valid_types = [d["key"] for d in REQUIRED_DOCUMENTS] + ["selfie"]
+    if doc_type not in valid_types:
+        raise HTTPException(status_code=400, detail="Tipo inválido")
+    if not file_base64:
+        raise HTTPException(status_code=400, detail="No se recibió imagen")
+    return await _save_document(user, doc_type, file_base64)
+
+
+async def _save_document(user: dict, doc_type: str, data_uri: str):
+    """Shared save logic for document uploads"""
     now = datetime.now(timezone.utc)
     doc_id = generate_id("doc_")
     
-    # Upsert document
+    if doc_type == "selfie":
+        await db.users.update_one(
+            {"user_id": user["user_id"]},
+            {"$set": {"profile_photo": data_uri, "updated_at": now}}
+        )
+        return {"status": "uploaded", "document_id": doc_id, "type": "selfie"}
+    
     await db.driver_documents.update_one(
         {"driver_id": user["user_id"], "doc_type": doc_type},
         {"$set": {
-            "document_id": doc_id,
-            "driver_id": user["user_id"],
-            "doc_type": doc_type,
-            "file_data": data_uri,
-            "file_name": file.filename,
-            "status": "pending",
-            "uploaded_at": now,
-            "reject_reason": "",
+            "document_id": doc_id, "driver_id": user["user_id"], "doc_type": doc_type,
+            "file_data": data_uri, "file_name": f"{doc_type}.jpg",
+            "status": "pending", "uploaded_at": now, "reject_reason": "",
         }},
         upsert=True
     )
-    
-    # Notify admins
-    admins = await db.users.find({"user_type": "admin"}, {"user_id": 1}).to_list(10)
-    for admin in admins:
-        await manager.send_personal_message({
-            "type": "new_document_upload",
-            "driver_id": user["user_id"],
-            "driver_name": user.get("name", "Conductor"),
-            "doc_type": doc_type,
-            "document_id": doc_id,
-        }, admin["user_id"])
-    
+    try:
+        admins = await db.users.find({"user_type": "admin"}, {"user_id": 1}).to_list(10)
+        for admin in admins:
+            await manager.send_personal_message({
+                "type": "new_document_upload", "driver_id": user["user_id"],
+                "driver_name": user.get("name", "Conductor"), "doc_type": doc_type,
+            }, admin["user_id"])
+    except: pass
     return {"status": "uploaded", "document_id": doc_id}
 
 
