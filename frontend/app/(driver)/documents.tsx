@@ -166,6 +166,8 @@ export default function DriverDocumentsScreen() {
 
   const overall = overallConfig[verificationStatus as keyof typeof overallConfig] || overallConfig.incomplete;
 
+  const allUploaded = documents.length > 0 && documents.every(d => d.status !== 'not_uploaded');
+
   if (loading) return <SafeAreaView style={st.container}><ActivityIndicator size="large" color="#00C853" style={{ marginTop: 40 }} /></SafeAreaView>;
 
   return (
@@ -190,12 +192,25 @@ export default function DriverDocumentsScreen() {
         {/* Progress */}
         <View style={st.progressCard}>
           <View style={st.progressBar}>
-            <View style={[st.progressFill, { width: `${(documents.filter(d => d.status === 'approved').length / documents.length) * 100}%` }]} />
+            <View style={[st.progressFill, { width: `${(documents.filter(d => d.status === 'approved').length / Math.max(documents.length, 1)) * 100}%` }]} />
           </View>
           <Text style={st.progressText}>
             {documents.filter(d => d.status === 'approved').length}/{documents.length} aprobados
           </Text>
         </View>
+
+        {/* "Continue" button when all docs uploaded */}
+        {allUploaded && verificationStatus !== 'approved' && (
+          <TouchableOpacity
+            style={{ marginHorizontal: 16, marginTop: 12, backgroundColor: '#00C853', borderRadius: 14, paddingVertical: 16, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8 }}
+            onPress={() => router.replace('/(driver)/home')}
+          >
+            <Ionicons name="checkmark-circle" size={20} color="#fff" />
+            <Text style={{ color: '#fff', fontSize: 16, fontWeight: '700' }}>
+              {verificationStatus === 'pending' ? 'Continuar (en revisión)' : 'Volver al inicio'}
+            </Text>
+          </TouchableOpacity>
+        )}
 
         {/* Document List */}
         {documents.map((doc) => {

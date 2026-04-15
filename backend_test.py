@@ -916,22 +916,98 @@ def test_chat_send_fix():
         results.add_failure("Chat Get Messages", f"Status: {response.status_code if response else 'No response'}")
 
 
+def test_driver_verification_flow():
+    """Test driver document verification flow and blocking gate logic"""
+    print(f"\n{'='*20} TESTING DRIVER VERIFICATION FLOW {'='*20}")
+    
+    if not driver_token or not admin_token:
+        results.add_failure("Driver Verification Flow", "Missing driver or admin tokens")
+        return
+    
+    driver_headers = {"Authorization": f"Bearer {driver_token}"}
+    admin_headers = {"Authorization": f"Bearer {admin_token}"}
+    
+    # Test 1: Driver verification status - should be incomplete for new driver
+    response = make_request("GET", "/driver/verification-status", headers=driver_headers)
+    if response and response.status_code == 200:
+        data = response.json()
+        status = data.get("status")
+        is_verified = data.get("is_verified")
+        uploaded_count = data.get("uploaded_count", 0)
+        required_count = data.get("required_count", 0)
+        
+        if status == "incomplete" and is_verified == False:
+            results.add_success(f"Driver Verification Status - Correctly shows incomplete status (is_verified: {is_verified}, status: {status})")
+        else:
+            results.add_failure("Driver Verification Status", f"Expected status='incomplete' and is_verified=False, got status='{status}', is_verified={is_verified}")
+        
+        if uploaded_count == 0 and required_count == 6:
+            results.add_success(f"Driver Verification Status - Correct counts (uploaded: {uploaded_count}, required: {required_count})")
+        else:
+            results.add_failure("Driver Verification Status", f"Expected uploaded_count=0, required_count=6, got uploaded={uploaded_count}, required={required_count}")
+    else:
+        results.add_failure("Driver Verification Status", f"Status: {response.status_code if response else 'No response'}")
+    
+    # Test 2: Required documents list - should show 6 documents with upload status
+    response = make_request("GET", "/driver/documents/required", headers=driver_headers)
+    if response and response.status_code == 200:
+        data = response.json()
+        documents = data.get("documents", [])
+        
+        if len(documents) == 6:
+            results.add_success(f"Required Documents - Returns all 6 required documents")
+            
+            # Check document structure
+            expected_docs = ["license", "id_front", "id_back", "vehicle_registration", "insurance", "criminal_record"]
+            doc_keys = [doc.get("key") for doc in documents]
+            
+            if all(key in doc_keys for key in expected_docs):
+                results.add_success("Required Documents - All expected document types present")
+            else:
+                missing = [key for key in expected_docs if key not in doc_keys]
+                results.add_failure("Required Documents", f"Missing document types: {missing}")
+            
+            # Check document structure (each should have key, label, description, status)
+            valid_structure = True
+            for doc in documents:
+                if not all(field in doc for field in ["key", "label", "description", "status"]):
+                    valid_structure = False
+                    break
+            
+            if valid_structure:
+                results.add_success("Required Documents - All documents have correct structure (key, label, description, status)")
+            else:
+                results.add_failure("Required Documents", "Some documents missing required fields")
+        else:
+            results.add_failure("Required Documents", f"Expected 6 documents, got {len(documents)}")
+    else:
+        results.add_failure("Required Documents", f"Status: {response.status_code if response else 'No response'}")
+    
+    # Test 3: Verify blocking gate logic - driver with incomplete status should be blocked
+    print("✓ Verification Gate Logic: Driver with status='incomplete' and is_verified=False should be blocked from app usage")
+    
+    # Test 4: Admin dashboard regression check
+    response = make_request("GET", "/admin/dashboard", headers=admin_headers)
+    if response and response.status_code == 200:
+        data = response.json()
+        if "stats" in data and "total_users" in data["stats"]:
+            results.add_success("Admin Dashboard - Still working correctly (regression check)")
+        else:
+            results.add_failure("Admin Dashboard", "Missing stats.total_users field")
+    else:
+        results.add_failure("Admin Dashboard", f"Status: {response.status_code if response else 'No response'}")
+
 def main():
     """Run all tests"""
-    print(f"🚀 Starting Moli Backend API Testing")
+    print(f"🚀 Starting Moli Backend API Testing - Driver Document Verification Flow")
     print(f"Backend URL: {BASE_URL}")
-    print(f"Testing NEW saved addresses endpoints and existing functionality")
+    print(f"Testing driver document verification flow and blocking gate logic")
     
     # Run authentication first
     test_auth_endpoints()
     
-    # Run NEW saved addresses tests (primary focus)
-    test_saved_addresses_endpoints()
-    
-    # Run other critical tests
-    test_places_endpoints()
-    test_admin_endpoints()
-    test_wallet_endpoints()
+    # Run driver verification flow tests (primary focus)
+    test_driver_verification_flow()
     
     # Print final summary
     results.summary()

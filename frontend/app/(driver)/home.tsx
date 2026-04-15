@@ -86,6 +86,10 @@ export default function DriverHomeScreen() {
   const [driverBlocked, setDriverBlocked] = useState(false);
   const [blockInfo, setBlockInfo] = useState<any>(null);
   const [pendingVerification, setPendingVerification] = useState(false);
+  const [docsIncomplete, setDocsIncomplete] = useState(false);
+  const [docsRejected, setDocsRejected] = useState(false);
+  const [docsUploaded, setDocsUploaded] = useState(0);
+  const [docsRequired, setDocsRequired] = useState(6);
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [cancelConfig, setCancelConfig] = useState<any>(null);
   const [fareConfig, setFareConfig] = useState<any>(null);
@@ -166,12 +170,13 @@ export default function DriverHomeScreen() {
     // Check block status and load cancel config
     const checkBlockAndConfig = async () => {
       try {
-        const [blockRes, configRes, walletRes, faresRes, meRes] = await Promise.all([
+        const [blockRes, configRes, walletRes, faresRes, meRes, docsRes] = await Promise.all([
           apiService.get('/driver/block-status'),
           apiService.get('/cancellation/config'),
           apiService.get('/wallet/status'),
           apiService.get('/fares'),
           apiService.get('/auth/me'),
+          apiService.get('/driver/verification-status'),
         ]);
         if (blockRes.is_blocked) {
           setDriverBlocked(true);
@@ -185,8 +190,27 @@ export default function DriverHomeScreen() {
         if (walletRes.cancel_count_30d !== undefined) {
           setDriverCancelCount(walletRes.cancel_count_30d);
         }
-        // Check verification
-        if (meRes && meRes.is_verified === false) {
+        // Document verification status
+        if (docsRes) {
+          setDocsUploaded(docsRes.uploaded_count || 0);
+          setDocsRequired(docsRes.required_count || 6);
+          if (docsRes.status === 'incomplete') {
+            setDocsIncomplete(true);
+            setPendingVerification(false);
+          } else if (docsRes.status === 'rejected') {
+            setDocsRejected(true);
+            setDocsIncomplete(true);
+            setPendingVerification(false);
+          } else if (docsRes.status === 'pending') {
+            setDocsIncomplete(false);
+            setDocsRejected(false);
+            setPendingVerification(true);
+          } else if (docsRes.status === 'approved') {
+            setDocsIncomplete(false);
+            setDocsRejected(false);
+            setPendingVerification(false);
+          }
+        } else if (meRes && meRes.is_verified === false) {
           setPendingVerification(true);
         }
       } catch (e) { /* silent */ }
@@ -739,6 +763,76 @@ export default function DriverHomeScreen() {
           <ActivityIndicator size="large" color="#00C853" />
           <Text style={{ marginTop: 16, fontSize: 16, color: '#8E8E93' }}>Cargando viaje...</Text>
         </View>
+      </SafeAreaView>
+    );
+  }
+
+  // ==================== DOCUMENT UPLOAD GATE ====================
+  if (docsIncomplete) {
+    const progress = docsRequired > 0 ? (docsUploaded / docsRequired) : 0;
+    return (
+      <SafeAreaView style={styles.container}>
+        <ScrollView contentContainerStyle={{ flexGrow: 1, paddingHorizontal: 24, paddingTop: 40, paddingBottom: 40 }}>
+          <View style={{ alignItems: 'center', marginBottom: 32 }}>
+            <View style={{ width: 80, height: 80, borderRadius: 40, backgroundColor: docsRejected ? '#FFF5F5' : '#E8F5E9', justifyContent: 'center', alignItems: 'center', marginBottom: 16 }}>
+              <Ionicons name={docsRejected ? 'alert-circle' : 'document-text'} size={40} color={docsRejected ? '#FF3B30' : '#00C853'} />
+            </View>
+            <Text style={{ fontSize: 26, fontWeight: '800', color: '#1C1C1E', textAlign: 'center' }}>
+              {docsRejected ? 'Documentos rechazados' : 'Documentos requeridos'}
+            </Text>
+            <Text style={{ fontSize: 15, color: '#8E8E93', textAlign: 'center', marginTop: 8, lineHeight: 22, paddingHorizontal: 16 }}>
+              {docsRejected
+                ? 'Algunos documentos fueron rechazados. Volvé a subirlos para poder aceptar viajes.'
+                : 'Para comenzar a recibir viajes, necesitás subir tus documentos de verificación.'
+              }
+            </Text>
+          </View>
+
+          {/* Progress bar */}
+          <View style={{ marginBottom: 24 }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
+              <Text style={{ fontSize: 13, fontWeight: '700', color: '#1C1C1E' }}>Progreso de documentos</Text>
+              <Text style={{ fontSize: 13, fontWeight: '700', color: '#00C853' }}>{docsUploaded}/{docsRequired}</Text>
+            </View>
+            <View style={{ height: 8, borderRadius: 4, backgroundColor: '#E5E5EA' }}>
+              <View style={{ height: 8, borderRadius: 4, backgroundColor: '#00C853', width: `${progress * 100}%` }} />
+            </View>
+          </View>
+
+          {/* Document list preview */}
+          <View style={{ backgroundColor: '#F8F8FA', borderRadius: 16, padding: 16, marginBottom: 24 }}>
+            <Text style={{ fontSize: 14, fontWeight: '700', color: '#1C1C1E', marginBottom: 12 }}>Documentos necesarios:</Text>
+            {[
+              { icon: 'card', label: 'Licencia de conducir' },
+              { icon: 'id-card', label: 'DNI (frente y dorso)' },
+              { icon: 'car', label: 'Tarjeta de circulación' },
+              { icon: 'shield-checkmark', label: 'Seguro del vehículo' },
+              { icon: 'document-text', label: 'Antecedentes penales' },
+            ].map((doc, i) => (
+              <View key={i} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 10, borderBottomWidth: i < 4 ? 1 : 0, borderBottomColor: '#E5E5EA', gap: 12 }}>
+                <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: '#E8F5E9', justifyContent: 'center', alignItems: 'center' }}>
+                  <Ionicons name={doc.icon as any} size={18} color="#00C853" />
+                </View>
+                <Text style={{ fontSize: 14, color: '#1C1C1E', fontWeight: '500', flex: 1 }}>{doc.label}</Text>
+                <Ionicons name="chevron-forward" size={16} color="#C7C7CC" />
+              </View>
+            ))}
+          </View>
+
+          {/* CTA Button */}
+          <TouchableOpacity
+            style={{ backgroundColor: '#00C853', borderRadius: 14, paddingVertical: 18, alignItems: 'center', marginBottom: 16 }}
+            onPress={() => router.push('/(driver)/documents')}
+          >
+            <Text style={{ color: '#fff', fontSize: 17, fontWeight: '800' }}>
+              {docsRejected ? 'Corregir documentos' : 'Subir documentos'}
+            </Text>
+          </TouchableOpacity>
+
+          <Text style={{ fontSize: 12, color: '#8E8E93', textAlign: 'center', lineHeight: 18 }}>
+            La verificación de documentos puede tardar hasta 24 horas. Te notificaremos cuando esté completa.
+          </Text>
+        </ScrollView>
       </SafeAreaView>
     );
   }

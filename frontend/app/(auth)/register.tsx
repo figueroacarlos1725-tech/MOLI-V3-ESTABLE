@@ -61,7 +61,12 @@ export default function RegisterScreen() {
         password: formData.password,
         user_type: userType,
       });
-      router.replace('/');
+      // Drivers go directly to documents upload, riders go to home
+      if (isDriver) {
+        router.replace('/(driver)/home' as any);
+      } else {
+        router.replace('/');
+      }
     } catch (error: any) {
       Alert.alert('Error', error.message || 'Intentá de nuevo');
     } finally {
