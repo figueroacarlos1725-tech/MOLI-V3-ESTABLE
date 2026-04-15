@@ -912,13 +912,18 @@ export default function RiderHomeScreen() {
 
           {/* Vehicle list */}
           <ScrollView style={s.vehicleList} showsVerticalScrollIndicator={false}>
-            {(fareEstimates.length > 0 ? fareEstimates : [
-              { vehicle_type: 'economy', display_name: 'Auto', estimated_fare: 0 },
-              { vehicle_type: 'moto', display_name: 'Moto', estimated_fare: 0 },
-              { vehicle_type: 'comfort', display_name: 'Confort', estimated_fare: 0 },
-              { vehicle_type: 'premium', display_name: 'Premium', estimated_fare: 0 },
-              { vehicle_type: 'xl', display_name: 'XL', estimated_fare: 0 },
-            ]).map((v: any) => {
+            {(() => {
+              const order = ['economy', 'moto', 'comfort', 'premium', 'xl'];
+              const defaults = [
+                { vehicle_type: 'economy', display_name: 'Auto', estimated_fare: 0 },
+                { vehicle_type: 'moto', display_name: 'Moto', estimated_fare: 0 },
+                { vehicle_type: 'comfort', display_name: 'Confort', estimated_fare: 0 },
+                { vehicle_type: 'premium', display_name: 'Premium', estimated_fare: 0 },
+                { vehicle_type: 'xl', display_name: 'XL', estimated_fare: 0 },
+              ];
+              const list = fareEstimates.length > 0 ? [...fareEstimates].sort((a, b) => order.indexOf(a.vehicle_type) - order.indexOf(b.vehicle_type)) : defaults;
+              return list;
+            })().map((v: any) => {
               const id = v.vehicle_type;
               const sel = selectedVehicle === id;
               const eta = routeInfo ? routeInfo.duration_min + (id === 'economy' ? 3 : id === 'comfort' ? 2 : id === 'premium' ? 1 : 5) : null;

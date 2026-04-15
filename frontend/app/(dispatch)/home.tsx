@@ -73,6 +73,12 @@ export default function DispatchHome() {
   const [addrLabel, setAddrLabel] = useState('');
   const [showPickupSearch, setShowPickupSearch] = useState(false);
   const [showDropoffSearch, setShowDropoffSearch] = useState(false);
+  const [estimatedPrice, setEstimatedPrice] = useState<number | null>(null);
+  const [estimatingPrice, setEstimatingPrice] = useState(false);
+
+  // Date filter
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
 
   // Assign driver state
   const [showAssign, setShowAssign] = useState(false);
@@ -128,7 +134,18 @@ export default function DispatchHome() {
   const onDropoffTextChange = (t: string) => { setNewOrder(p => ({ ...p, dropoff_address: t })); if (dropoffTimerRef.current) clearTimeout(dropoffTimerRef.current); dropoffTimerRef.current = setTimeout(() => searchAddress(t, 'dropoff'), 400); };
   const selectSuggestion = (item: any, type: 'pickup' | 'dropoff') => {
     if (type === 'pickup') { setNewOrder(p => ({ ...p, pickup_address: item.address || item.name, pickup_latitude: item.latitude, pickup_longitude: item.longitude })); setPickupSuggestions([]); }
-    else { setNewOrder(p => ({ ...p, dropoff_address: item.address || item.name, dropoff_latitude: item.latitude, dropoff_longitude: item.longitude })); setDropoffSuggestions([]); }
+    else {
+      setNewOrder(p => ({ ...p, dropoff_address: item.address || item.name, dropoff_latitude: item.latitude, dropoff_longitude: item.longitude })); setDropoffSuggestions([]);
+      estimateManualPrice(newOrder.pickup_latitude, newOrder.pickup_longitude, item.latitude, item.longitude, newOrder.vehicle_type);
+    }
+  };
+
+  const estimateManualPrice = async (pLat: number, pLng: number, dLat: number, dLng: number, vType: string) => {
+    setEstimatingPrice(true); setEstimatedPrice(null);
+    try {
+      const res = await apiService.post('/rides/estimate', { pickup: { latitude: pLat, longitude: pLng }, dropoff: { latitude: dLat, longitude: dLng }, vehicle_type: vType });
+      setEstimatedPrice(res?.estimated_fare || res?.fare || null);
+    } catch {} setEstimatingPrice(false);
   };
 
   const handleCreateOrder = async () => {
@@ -163,11 +180,14 @@ export default function DispatchHome() {
   const fetchRides = useCallback(async (tab?: TabKey) => {
     try {
       const t = tab || activeTab;
-      const data = await apiService.get(`/dispatch/rides?tab=${t}`);
+      let url = `/dispatch/rides?tab=${t}`;
+      if ((t === 'completed' || t === 'cancelled') && dateFrom) url += `&date_from=${dateFrom}`;
+      if ((t === 'completed' || t === 'cancelled') && dateTo) url += `&date_to=${dateTo}`;
+      const data = await apiService.get(url);
       setRides(data?.rides || []);
       setCounts(prev => ({ ...prev, [t]: data?.count || 0 }));
     } catch {} finally { setLoading(false); setRefreshing(false); }
-  }, [activeTab]);
+  }, [activeTab, dateFrom, dateTo]);
 
   useEffect(() => { setLoading(true); fetchRides(); const iv = setInterval(() => { if (activeTab === 'new' || activeTab === 'active') fetchRides(); }, 5000); return () => clearInterval(iv); }, [activeTab]);
   useEffect(() => { const fc = async () => { for (const t of ['new', 'active', 'completed', 'cancelled'] as TabKey[]) { try { const d = await apiService.get(`/dispatch/rides?tab=${t}`); setCounts(p => ({ ...p, [t]: d?.count || 0 })); } catch {} } }; fc(); loadSavedAddresses(); }, []);
@@ -452,6 +472,24 @@ export default function DispatchHome() {
         ))}
       </View>
 
+      {/* Date filter for completed/cancelled */}
+      {(activeTab === 'completed' || activeTab === 'cancelled') && (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: DARK2, paddingHorizontal: 10, paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: DARK3 }}>
+          <Ionicons name="calendar-outline" size={16} color={ACCENT} />
+          <TextInput style={[s.input, { flex: 1, paddingVertical: 4, fontSize: 12, marginBottom: 0 }]} value={dateFrom} onChangeText={setDateFrom} placeholder="Desde (YYYY-MM-DD)" placeholderTextColor="#999" />
+          <Text style={{ color: GRAY, fontSize: 12 }}>—</Text>
+          <TextInput style={[s.input, { flex: 1, paddingVertical: 4, fontSize: 12, marginBottom: 0 }]} value={dateTo} onChangeText={setDateTo} placeholder="Hasta (YYYY-MM-DD)" placeholderTextColor="#999" />
+          <TouchableOpacity style={{ backgroundColor: ACCENT, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6 }} onPress={() => fetchRides()}>
+            <Ionicons name="search" size={14} color="#fff" />
+          </TouchableOpacity>
+          {(dateFrom || dateTo) ? (
+            <TouchableOpacity onPress={() => { setDateFrom(''); setDateTo(''); setTimeout(() => fetchRides(), 100); }}>
+              <Ionicons name="close-circle" size={18} color={RED} />
+            </TouchableOpacity>
+          ) : null}
+        </View>
+      )}
+
       {/* Main content */}
       <View style={s.mainRow}>
         <View style={s.listPanel}>
@@ -695,7 +733,24 @@ export default function DispatchHome() {
                 </View>
 
                 <Text style={s.inputLabel}>Notas</Text>
-                <TextInput style={[s.input, { height: 50 }]} value={newOrder.notes} onChangeText={t => setNewOrder(p => ({ ...p, notes: t }))} placeholder="Notas..." placeholderTextColor="#555" multiline />
+                <TextInput style={[s.input, { height: 50 }]} value={newOrder.notes} onChangeText={t => setNewOrder(p => ({ ...p, notes: t }))} placeholder="Notas..." placeholderTextColor="#999" multiline />
+
+                {/* Estimated price */}
+                {newOrder.trip_type === 'full' && newOrder.dropoff_address ? (
+                  <View style={{ backgroundColor: '#E8F5E9', borderRadius: 10, padding: 12, marginTop: 8, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <View>
+                      <Text style={{ fontSize: 11, fontWeight: '600', color: '#636366' }}>Precio estimado</Text>
+                      {estimatingPrice ? (
+                        <ActivityIndicator size="small" color={ACCENT} />
+                      ) : estimatedPrice ? (
+                        <Text style={{ fontSize: 24, fontWeight: '800', color: ACCENT }}>${estimatedPrice.toLocaleString()}</Text>
+                      ) : (
+                        <Text style={{ fontSize: 14, color: '#8E8E93' }}>No disponible</Text>
+                      )}
+                    </View>
+                    <Text style={{ fontSize: 11, color: '#636366', maxWidth: 140, textAlign: 'right' }}>Este monto se cobrará al pasajero</Text>
+                  </View>
+                ) : null}
               </ScrollView>
               <TouchableOpacity style={[s.createBtn, creating && { opacity: 0.5 }]} onPress={handleCreateOrder} disabled={creating}>
                 {creating ? <ActivityIndicator color="#fff" /> : <><Ionicons name={newOrder.trip_type === 'taximeter' ? 'speedometer' : 'send'} size={16} color="#fff" /><Text style={s.createBtnTxt}>{newOrder.trip_type === 'taximeter' ? 'Crear taxímetro' : 'Crear pedido'}</Text></>}

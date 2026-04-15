@@ -651,20 +651,32 @@ async def update_dispatcher_permissions(
 @router.get("/api/dispatch/rides")
 async def get_dispatch_rides(
     tab: str = Query("new"),
+    date_from: Optional[str] = Query(None),
+    date_to: Optional[str] = Query(None),
     user: dict = Depends(get_current_user)
 ):
     """Get rides for dispatch dashboard. Tabs: new, active, completed, cancelled"""
     if user["user_type"] not in ("admin", "dispatcher"):
         raise HTTPException(status_code=403, detail="Dispatch access required")
     
+    # Build date filter
+    date_query = {}
+    if tab in ("completed", "cancelled"):
+        if date_from:
+            date_query["$gte"] = date_from
+        else:
+            # Default: today only
+            today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+            date_query["$gte"] = today
+        if date_to:
+            date_query["$lte"] = date_to + "T23:59:59"
+    
     if tab == "new":
-        # Rides being dispatched (pending/searching)
         rides = await db.ride_requests.find(
             {"status": {"$in": ["pending", "searching"]}},
             {"_id": 0}
         ).sort("created_at", -1).to_list(50)
         
-        # Also get active offers info
         for ride in rides:
             ride_doc = await db.rides.find_one(
                 {"request_id": ride.get("request_id")},
@@ -676,13 +688,11 @@ async def get_dispatch_rides(
         return {"rides": rides, "count": len(rides)}
     
     elif tab == "active":
-        # Rides in progress
         rides = await db.rides.find(
             {"status": {"$in": ["accepted", "arrived", "started"]}},
             {"_id": 0}
         ).sort("created_at", -1).to_list(50)
         
-        # Enrich with driver info
         for ride in rides:
             if ride.get("driver_id"):
                 driver = await db.users.find_one(
@@ -696,17 +706,17 @@ async def get_dispatch_rides(
         return {"rides": rides, "count": len(rides)}
     
     elif tab == "completed":
-        rides = await db.rides.find(
-            {"status": "completed"},
-            {"_id": 0}
-        ).sort("completed_at", -1).to_list(100)
+        query: dict = {"status": "completed"}
+        if date_query:
+            query["completed_at"] = date_query
+        rides = await db.rides.find(query, {"_id": 0}).sort("completed_at", -1).to_list(200)
         return {"rides": rides, "count": len(rides)}
     
     elif tab == "cancelled":
-        rides = await db.rides.find(
-            {"status": "cancelled"},
-            {"_id": 0}
-        ).sort("cancelled_at", -1).to_list(100)
+        query = {"status": "cancelled"}
+        if date_query:
+            query["cancelled_at"] = date_query
+        rides = await db.rides.find(query, {"_id": 0}).sort("cancelled_at", -1).to_list(200)
         
         # Also include cancelled requests without rides
         cancelled_requests = await db.ride_requests.find(
