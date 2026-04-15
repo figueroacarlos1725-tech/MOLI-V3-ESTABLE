@@ -227,7 +227,7 @@ export default function AdminVerificationScreen() {
                     }
                   })}
 
-                  {/* VERIFY DRIVER BUTTON */}
+                  {/* VERIFY / REJECT DRIVER BUTTONS */}
                   <TouchableOpacity
                     style={{ backgroundColor: '#00C853', paddingVertical: 16, borderRadius: 14, alignItems: 'center', marginTop: 20 }}
                     onPress={async () => {
@@ -244,13 +244,68 @@ export default function AdminVerificationScreen() {
                     disabled={processing}
                   >
                     <Text style={{ color: '#fff', fontSize: 16, fontWeight: '700' }}>
-                      {processing ? 'Procesando...' : 'Verificar conductor'}
+                      {processing ? 'Procesando...' : '✅ Verificar conductor'}
                     </Text>
                   </TouchableOpacity>
 
+                  {!showRejectInput ? (
+                    <TouchableOpacity
+                      style={{ backgroundColor: '#FFEBEE', paddingVertical: 14, borderRadius: 14, alignItems: 'center', marginTop: 10 }}
+                      onPress={() => setShowRejectInput(true)}
+                    >
+                      <Text style={{ color: '#FF3B30', fontSize: 15, fontWeight: '700' }}>❌ Rechazar conductor</Text>
+                    </TouchableOpacity>
+                  ) : (
+                    <View style={{ marginTop: 10, backgroundColor: '#FFF5F5', borderRadius: 14, padding: 14 }}>
+                      <Text style={{ fontSize: 14, fontWeight: '700', color: '#FF3B30', marginBottom: 8 }}>Motivo del rechazo:</Text>
+                      <TextInput
+                        style={{ backgroundColor: '#fff', borderRadius: 10, padding: 12, fontSize: 14, color: '#1C1C1E', borderWidth: 1, borderColor: '#FFD1D1', minHeight: 60 }}
+                        placeholder="Ej: DNI ilegible, seguro vencido..."
+                        placeholderTextColor="#C7C7CC"
+                        value={rejectReason}
+                        onChangeText={setRejectReason}
+                        multiline
+                      />
+                      <View style={{ flexDirection: 'row', gap: 10, marginTop: 10 }}>
+                        <TouchableOpacity
+                          style={{ flex: 1, paddingVertical: 12, borderRadius: 10, backgroundColor: '#F2F2F7', alignItems: 'center' }}
+                          onPress={() => { setShowRejectInput(false); setRejectReason(''); }}
+                        >
+                          <Text style={{ color: '#636366', fontWeight: '600' }}>Cancelar</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={{ flex: 1, paddingVertical: 12, borderRadius: 10, backgroundColor: '#FF3B30', alignItems: 'center' }}
+                          onPress={async () => {
+                            if (!rejectReason.trim()) { Alert.alert('Error', 'Ingresá un motivo'); return; }
+                            setProcessing(true);
+                            try {
+                              await apiService.put(`/admin/drivers/${selectedDriver!.driver_id}/verify?verified=false`);
+                              // Send rejection message to inbox
+                              await apiService.post('/inbox/send', {
+                                recipient_id: selectedDriver!.driver_id,
+                                subject: 'Verificación rechazada',
+                                body: `Tu verificación fue rechazada. Motivo: ${rejectReason.trim()}. Por favor corregí los documentos y volvé a subirlos.`,
+                              });
+                              Alert.alert('Conductor rechazado', 'Se envió el motivo a su bandeja de entrada');
+                              setSelectedDriver(null);
+                              setDriverDocs([]);
+                              setShowRejectInput(false);
+                              setRejectReason('');
+                              fetchDrivers();
+                            } catch (e: any) { Alert.alert('Error', e.message); }
+                            finally { setProcessing(false); }
+                          }}
+                          disabled={processing}
+                        >
+                          <Text style={{ color: '#fff', fontWeight: '700' }}>Rechazar</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  )}
+
                   <TouchableOpacity
                     style={{ paddingVertical: 14, alignItems: 'center', marginTop: 8 }}
-                    onPress={() => { setSelectedDriver(null); setDriverDocs([]); }}
+                    onPress={() => { setSelectedDriver(null); setDriverDocs([]); setShowRejectInput(false); setRejectReason(''); }}
                   >
                     <Text style={{ color: '#636366', fontSize: 14 }}>Cerrar</Text>
                   </TouchableOpacity>

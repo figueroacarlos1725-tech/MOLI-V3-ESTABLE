@@ -83,6 +83,7 @@ export default function RiderHomeScreen() {
   const [serviceType, setServiceType] = useState<'ride' | 'delivery'>('ride');
   const [showSnake, setShowSnake] = useState(false);
   const [bannerInterval, setBannerInterval] = useState(90000);
+  const [vehicleIcons, setVehicleIcons] = useState<Record<string, any>>({});
 
   // Banners
   const [banners, setBanners] = useState<any[]>([]);
@@ -144,6 +145,16 @@ export default function RiderHomeScreen() {
       .then(r => r.json())
       .then(d => {
         if (d.banner_interval_seconds) setBannerInterval(d.banner_interval_seconds * 1000);
+      }).catch(() => {});
+    // Load vehicle icons from admin
+    fetch(`${process.env.EXPO_PUBLIC_BACKEND_URL || ''}/api/vehicle-icons`)
+      .then(r => r.json())
+      .then(d => {
+        if (d.icons) {
+          const map: Record<string, any> = {};
+          d.icons.forEach((ic: any) => { map[ic.vehicle_type] = ic; });
+          setVehicleIcons(map);
+        }
       }).catch(() => {});
   }, []);
 
@@ -913,7 +924,11 @@ export default function RiderHomeScreen() {
               const eta = routeInfo ? routeInfo.duration_min + (id === 'economy' ? 3 : id === 'comfort' ? 2 : id === 'premium' ? 1 : 5) : null;
               return (
                 <TouchableOpacity key={id} style={[s.vehicleItem, sel && s.vehicleItemSel]} onPress={() => setSelectedVehicle(id)}>
-                  <Text style={s.vehicleEmoji}>{emojiMap[id] || '🚗'}</Text>
+                  {vehicleIcons[id]?.image_data ? (
+                    <Image source={{ uri: vehicleIcons[id].image_data }} style={{ width: 36, height: 36, borderRadius: 6 }} resizeMode="contain" />
+                  ) : (
+                    <Text style={s.vehicleEmoji}>{emojiMap[id] || '🚗'}</Text>
+                  )}
                   <View style={{ flex: 1, marginLeft: 12 }}>
                     <Text style={[s.vehicleName, sel && { color: '#2D7600' }]}>{v.display_name || nameMap[id]}</Text>
                     {eta && <Text style={s.vehicleEta}>{eta} min</Text>}
