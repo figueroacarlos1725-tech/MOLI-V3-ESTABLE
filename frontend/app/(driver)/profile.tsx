@@ -210,7 +210,23 @@ export default function DriverProfileScreen() {
 
         <View style={styles.section}>
           <View style={styles.menuCard}>
-            <TouchableOpacity style={styles.menuItem}>
+            <TouchableOpacity style={[styles.menuItem, { backgroundColor: '#FFF3E0' }]} onPress={() => router.push('/(driver)/taximeter' as any)}>
+              <View style={styles.menuItemLeft}>
+                <Ionicons name="speedometer" size={22} color="#FF9500" />
+                <Text style={[styles.menuItemText, { color: '#FF9500', fontWeight: '700' }]}>Taxímetro</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color="#FF9500" />
+            </TouchableOpacity>
+            <View style={styles.menuDivider} />
+            <TouchableOpacity style={styles.menuItem} onPress={() => router.push('/(jobs)/home' as any)}>
+              <View style={styles.menuItemLeft}>
+                <Ionicons name="briefcase" size={22} color="#007AFF" />
+                <Text style={styles.menuItemText}>Moli Trabajos</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color="#C7C7CC" />
+            </TouchableOpacity>
+            <View style={styles.menuDivider} />
+            <TouchableOpacity style={styles.menuItem} onPress={() => router.push('/(driver)/documents' as any)}>
               <View style={styles.menuItemLeft}>
                 <Ionicons name="document-text-outline" size={22} color="#00C853" />
                 <Text style={styles.menuItemText}>Documentos</Text>

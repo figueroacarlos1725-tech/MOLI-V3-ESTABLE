@@ -196,7 +196,7 @@ export default function RiderHomeScreen() {
             Vibration.vibrate([0, 300, 150, 300, 150, 300]);
             setPhase('completed');
             clearInterval(pollInterval);
-            setTimeout(() => { handleFinishRide(); }, 4000);
+            // No auto-dismiss - let user rate first
             return;
           } else if (newStatus === 'cancelled') {
             showError('El viaje fue cancelado');

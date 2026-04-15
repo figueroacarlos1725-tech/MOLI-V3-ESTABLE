@@ -52,6 +52,7 @@ export default function JobsHomeScreen() {
   const [accepting, setAccepting] = useState(false);
   const [acceptedJob, setAcceptedJob] = useState<any>(null);
   const [mapReady, setMapReady] = useState(false);
+  const [myActiveJobs, setMyActiveJobs] = useState<any[]>([]);
 
   // ─── Load data ───
   const loadAll = useCallback(async () => {
@@ -68,6 +69,11 @@ export default function JobsHomeScreen() {
         setIsAvailable(profileRes.profile.is_available || false);
         setMyCats(profileRes.profile.categories || []);
       }
+      // Load active jobs for this professional
+      try {
+        const activeRes = await apiService.get('/jobs/my-active');
+        setMyActiveJobs(activeRes.jobs || []);
+      } catch {}
     } catch (e) { console.log('Jobs load error', e); }
     finally { setLoading(false); }
   }, []);
@@ -267,7 +273,7 @@ function addJobMarker(lat,lng,jobId,emoji,title,budget,cat){
     <View style={[s.container, { paddingTop: insets.top }]}>
       {/* Header with GO button */}
       <View style={s.header}>
-        <TouchableOpacity onPress={() => router.back()} style={s.backBtn}>
+        <TouchableOpacity onPress={() => router.replace('/modules')} style={s.backBtn}>
           <Ionicons name="arrow-back" size={22} color="#1C1C1E" />
         </TouchableOpacity>
         <Text style={s.headerTitle}>Moli Trabajos</Text>
@@ -293,6 +299,25 @@ function addJobMarker(lat,lng,jobId,emoji,title,budget,cat){
           )}
         </TouchableOpacity>
       </View>
+
+      {/* Professional's active jobs banner */}
+      {myActiveJobs.length > 0 && (
+        <View style={{ backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#E5E5EA', paddingHorizontal: 12, paddingVertical: 8 }}>
+          <Text style={{ fontSize: 13, fontWeight: '700', color: '#1C1C1E', marginBottom: 4 }}>Mis trabajos activos</Text>
+          {myActiveJobs.map(j => (
+            <TouchableOpacity key={j.job_id} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#E8F5E9', borderRadius: 10, padding: 10, marginBottom: 4, gap: 8 }}
+              onPress={() => { setAcceptedJob(j); }}>
+              <Ionicons name="briefcase" size={18} color={GREEN} />
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 13, fontWeight: '600', color: '#1C1C1E' }} numberOfLines={1}>{j.title}</Text>
+                <Text style={{ fontSize: 11, color: '#636366' }}>{j.client_name} · ${j.budget}</Text>
+              </View>
+              <Text style={{ fontSize: 11, fontWeight: '600', color: GREEN }}>{j.status === 'pending_completion' ? 'Finalizando' : 'Activo'}</Text>
+              <Ionicons name="chevron-forward" size={16} color="#C7C7CC" />
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
 
       {/* My categories indicator */}
       {myCats.length > 0 ? (
@@ -402,7 +427,7 @@ function addJobMarker(lat,lng,jobId,emoji,title,budget,cat){
           <Ionicons name="settings-outline" size={22} color="#8E8E93" />
           <Text style={s.navLabel}>Categorías</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={s.navBtn} onPress={() => router.back()}>
+        <TouchableOpacity style={s.navBtn} onPress={() => router.replace('/modules')}>
           <Ionicons name="home-outline" size={22} color="#8E8E93" />
           <Text style={s.navLabel}>Inicio</Text>
         </TouchableOpacity>

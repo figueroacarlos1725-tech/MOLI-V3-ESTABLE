@@ -137,7 +137,7 @@ function updatePin(lat,lng){pin.setLatLng([lat,lng]);map.setView([lat,lng],15);}
     <View style={[s.container, { paddingTop: insets.top }]}>
       {/* Header */}
       <View style={s.header}>
-        <TouchableOpacity onPress={() => router.back()} style={s.backBtn}>
+        <TouchableOpacity onPress={() => router.replace('/modules')} style={s.backBtn}>
           <Ionicons name="arrow-back" size={22} color="#1C1C1E" />
         </TouchableOpacity>
         <Text style={s.headerTitle}>Moli Trabajos</Text>

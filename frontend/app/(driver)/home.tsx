@@ -633,6 +633,9 @@ export default function DriverHomeScreen() {
   // Payment confirmation modal
   const [showPaymentConfirm, setShowPaymentConfirm] = useState(false);
   const [paymentConfirmed, setPaymentConfirmed] = useState(false);
+  const [showDriverRating, setShowDriverRating] = useState(false);
+  const [driverRating, setDriverRating] = useState(0);
+  const [lastCompletedRide, setLastCompletedRide] = useState<any>(null);
 
   const handleUpdateRideStatus = async (status: string) => {
     if (!currentRide) return;
@@ -677,13 +680,10 @@ export default function DriverHomeScreen() {
       setPaymentConfirmed(false);
       setShowNavigation(false);
       
-      let msg = `¡Viaje completado! Cobrar $${Math.round(finalFare)}`;
-      if (response?.penalty_surcharge) {
-        msg += ` (incluye $${response.penalty_surcharge} en multas del pasajero)`;
-      }
-      setStatusMessage(msg);
+      // Save ride info for rating before clearing
+      setLastCompletedRide({ ...currentRide, finalFare: Math.round(finalFare) });
+      setShowDriverRating(true);
       setTaximeterFare(0);
-      fetchActiveRide();
     } catch (error: any) {
       setStatusMessage(error.message || 'Error al completar viaje');
       setPaymentConfirmed(false);
@@ -1086,6 +1086,49 @@ export default function DriverHomeScreen() {
               
               <TouchableOpacity style={styles.paymentCancelBtn} onPress={() => setShowPaymentConfirm(false)}>
                 <Text style={styles.paymentCancelText}>Volver</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+
+        {/* Driver Rating Modal */}
+        <Modal visible={showDriverRating} transparent animationType="fade">
+          <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center', padding: 24 }}>
+            <View style={{ backgroundColor: '#fff', borderRadius: 24, padding: 28, width: '100%', alignItems: 'center' }}>
+              <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: '#E8F5E9', justifyContent: 'center', alignItems: 'center', marginBottom: 12 }}>
+                <Ionicons name="checkmark-circle" size={40} color="#00C853" />
+              </View>
+              <Text style={{ fontSize: 22, fontWeight: '800', color: '#1C1C1E' }}>¡Viaje completado!</Text>
+              {lastCompletedRide && (
+                <Text style={{ fontSize: 16, color: '#636366', marginTop: 4 }}>Cobrado: ${lastCompletedRide.finalFare?.toLocaleString()}</Text>
+              )}
+              <Text style={{ fontSize: 16, fontWeight: '600', color: '#1C1C1E', marginTop: 20, marginBottom: 10 }}>
+                ¿Cómo fue el pasajero?
+              </Text>
+              <View style={{ flexDirection: 'row', gap: 8, marginBottom: 20 }}>
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <TouchableOpacity key={star} onPress={() => setDriverRating(star)}>
+                    <Ionicons name={star <= driverRating ? 'star' : 'star-outline'} size={40} color={star <= driverRating ? '#FFD700' : '#D1D1D6'} />
+                  </TouchableOpacity>
+                ))}
+              </View>
+              <TouchableOpacity
+                style={{ width: '100%', backgroundColor: '#00C853', borderRadius: 14, paddingVertical: 16, alignItems: 'center' }}
+                onPress={async () => {
+                  if (driverRating > 0 && lastCompletedRide?.ride_id) {
+                    try {
+                      await apiService.post(`/rides/${lastCompletedRide.ride_id}/rate`, { rating: driverRating, rated_user_type: 'rider' });
+                    } catch {}
+                  }
+                  setShowDriverRating(false);
+                  setDriverRating(0);
+                  setLastCompletedRide(null);
+                  fetchActiveRide();
+                }}
+              >
+                <Text style={{ color: '#fff', fontSize: 16, fontWeight: '700' }}>
+                  {driverRating > 0 ? 'Calificar y continuar' : 'Omitir'}
+                </Text>
               </TouchableOpacity>
             </View>
           </View>

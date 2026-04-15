@@ -249,6 +249,17 @@ async def get_my_job_posts(user: dict = Depends(get_current_user)):
     return {"jobs": jobs}
 
 
+@router.get("/api/jobs/my-active")
+async def get_my_active_jobs(user: dict = Depends(get_current_user)):
+    """Get active jobs assigned to this professional"""
+    jobs = await db.job_posts.find(
+        {"assigned_to": user["user_id"], "status": {"$in": ["assigned", "in_progress", "pending_completion"]}},
+        {"_id": 0}
+    ).sort("updated_at", -1).to_list(20)
+    return {"jobs": jobs}
+
+
+
 @router.get("/api/jobs/detail/{job_id}")
 async def get_job_detail(job_id: str, user: dict = Depends(get_current_user)):
     job = await db.job_posts.find_one({"job_id": job_id}, {"_id": 0})
