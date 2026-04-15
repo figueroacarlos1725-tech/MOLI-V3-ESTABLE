@@ -365,6 +365,26 @@ function addJobMarker(lat,lng,jobId,emoji,title,budget,cat){
         </View>
       )}
 
+      {/* ═══ Bottom navigation bar ═══ */}
+      <View style={s.bottomNav}>
+        <TouchableOpacity style={s.navBtn} onPress={() => {}}>
+          <Ionicons name="map" size={22} color={GREEN} />
+          <Text style={[s.navLabel, { color: GREEN }]}>Mapa</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={s.navBtn} onPress={() => router.push('/(jobs)/pro-profile')}>
+          <Ionicons name="person-circle-outline" size={22} color="#8E8E93" />
+          <Text style={s.navLabel}>Perfil</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={s.navBtn} onPress={() => router.push('/(jobs)/setup-profile')}>
+          <Ionicons name="settings-outline" size={22} color="#8E8E93" />
+          <Text style={s.navLabel}>Categorías</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={s.navBtn} onPress={() => router.back()}>
+          <Ionicons name="home-outline" size={22} color="#8E8E93" />
+          <Text style={s.navLabel}>Inicio</Text>
+        </TouchableOpacity>
+      </View>
+
       {/* ═══ Incoming job alert popup ═══ */}
       <Modal visible={!!incomingJob && !reviewingJob} transparent animationType="slide">
         <View style={s.alertOverlay}>
@@ -511,4 +531,7 @@ const s = StyleSheet.create({
   setupSubtitle: { fontSize: 15, color: '#8E8E93', textAlign: 'center', marginTop: 8, paddingHorizontal: 40, lineHeight: 22 },
   setupBtn: { backgroundColor: GREEN, paddingHorizontal: 32, paddingVertical: 16, borderRadius: 14, marginTop: 28 },
   setupBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  bottomNav: { flexDirection: 'row', backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: '#E5E5EA', paddingVertical: 6, paddingHorizontal: 8 },
+  navBtn: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 6, gap: 2 },
+  navLabel: { fontSize: 10, fontWeight: '600', color: '#8E8E93' },
 });

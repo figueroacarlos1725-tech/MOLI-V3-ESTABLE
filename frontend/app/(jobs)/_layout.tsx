@@ -8,6 +8,7 @@ export default function JobsLayout() {
       <Stack.Screen name="setup-profile" />
       <Stack.Screen name="job-detail" />
       <Stack.Screen name="request-job" />
+      <Stack.Screen name="pro-profile" />
     </Stack>
   );
 }
