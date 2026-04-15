@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, Modal,
-  ActivityIndicator, ScrollView, Dimensions, Platform, Alert, Vibration,
+  ActivityIndicator, ScrollView, Dimensions, Platform, Alert, Vibration, Image,
 } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { useRouter } from 'expo-router';
@@ -50,6 +50,8 @@ export default function JobsHomeScreen() {
   const [reviewTimer, setReviewTimer] = useState(REVIEW_SECONDS);
   const [selectedJob, setSelectedJob] = useState<any>(null);
   const [accepting, setAccepting] = useState(false);
+  const [acceptedJob, setAcceptedJob] = useState<any>(null);
+  const [mapReady, setMapReady] = useState(false);
 
   // ─── Load data ───
   const loadAll = useCallback(async () => {
@@ -95,19 +97,18 @@ export default function JobsHomeScreen() {
     return () => clearInterval(iv);
   }, [isAvailable, loadAll]);
 
-  // ─── Map markers ───
+  // ─── Map markers (wait for map ready) ───
   useEffect(() => {
-    if (webViewRef.current && jobs.length > 0) {
-      const filtered = selectedCat ? jobs.filter(j => j.category === selectedCat) : jobs;
-      const markersJs = filtered.map(j => {
-        const lat = j.location?.latitude || -28.47;
-        const lng = j.location?.longitude || -65.78;
-        const cat = CAT_ICONS[j.category] || CAT_ICONS.otro;
-        return `addJobMarker(${lat}, ${lng}, '${j.job_id}', '${cat.icon}', '${j.title?.replace(/'/g, '')}', ${j.budget || 0}, '${j.category}');`;
-      }).join('\n');
-      webViewRef.current.injectJavaScript(`clearMarkers(); ${markersJs}; true;`);
-    }
-  }, [jobs, selectedCat]);
+    if (!mapReady || !webViewRef.current || jobs.length === 0) return;
+    const filtered = selectedCat ? jobs.filter(j => j.category === selectedCat) : jobs;
+    const markersJs = filtered.map(j => {
+      const lat = j.location?.latitude || -28.47;
+      const lng = j.location?.longitude || -65.78;
+      const cat = CAT_ICONS[j.category] || CAT_ICONS.otro;
+      return `addJobMarker(${lat}, ${lng}, '${j.job_id}', '${cat.icon}', '${j.title?.replace(/'/g, '')}', ${j.budget || 0}, '${j.category}');`;
+    }).join('\n');
+    webViewRef.current.injectJavaScript(`clearMarkers(); ${markersJs}; true;`);
+  }, [jobs, selectedCat, mapReady]);
 
   // ─── 30-sec review timer ───
   useEffect(() => {
@@ -161,10 +162,9 @@ export default function JobsHomeScreen() {
     try {
       await apiService.post(`/jobs/${reviewingJob.job_id}/accept`, {});
       clearInterval(timerRef.current);
-      Alert.alert('¡Trabajo aceptado!', `Trabajo "${reviewingJob.title}" asignado a vos.`);
+      setAcceptedJob(reviewingJob);
       setReviewingJob(null);
       setSelectedJob(null);
-      loadAll();
     } catch (e: any) {
       Alert.alert('Error', e.message || 'No se pudo aceptar');
     }
@@ -343,6 +343,7 @@ function addJobMarker(lat,lng,jobId,emoji,title,budget,cat){
             ref={webViewRef}
             source={{ html: getMapHtml() }}
             onMessage={handleWebViewMessage}
+            onLoadEnd={() => setTimeout(() => setMapReady(true), 500)}
             style={{ flex: 1 }}
             javaScriptEnabled
           />
@@ -456,6 +457,17 @@ function addJobMarker(lat,lng,jobId,emoji,title,budget,cat){
               </View>
               <Text style={s.reviewDescTitle}>Descripción</Text>
               <Text style={s.reviewDesc}>{reviewingJob?.description}</Text>
+              {/* Job images */}
+              {reviewingJob?.images?.length > 0 && (
+                <View style={{ marginTop: 12 }}>
+                  <Text style={s.reviewDescTitle}>Fotos del trabajo</Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 6 }}>
+                    {reviewingJob.images.map((img: string, i: number) => (
+                      <Image key={i} source={{ uri: img }} style={{ width: 120, height: 90, borderRadius: 10, marginRight: 8 }} resizeMode="cover" />
+                    ))}
+                  </ScrollView>
+                </View>
+              )}
               {reviewingJob?.address ? (
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 12 }}>
                   <Ionicons name="location" size={16} color={GREEN} />
@@ -476,6 +488,105 @@ function addJobMarker(lat,lng,jobId,emoji,title,budget,cat){
                     <Text style={s.acceptBtnText}>Aceptar</Text>
                   </>
                 )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ═══ Accepted job - Active work screen ═══ */}
+      <Modal visible={!!acceptedJob} transparent animationType="slide">
+        <View style={s.alertOverlay}>
+          <View style={[s.reviewCard, { maxHeight: '85%' }]}>
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {/* Success header */}
+              <View style={{ alignItems: 'center', marginBottom: 16 }}>
+                <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: '#E8F5E9', justifyContent: 'center', alignItems: 'center', marginBottom: 12 }}>
+                  <Ionicons name="checkmark-circle" size={40} color={GREEN} />
+                </View>
+                <Text style={{ fontSize: 22, fontWeight: '800', color: '#1C1C1E' }}>¡Trabajo aceptado!</Text>
+                <Text style={{ fontSize: 13, color: '#8E8E93', marginTop: 4 }}>Dirigite a la ubicación del cliente</Text>
+              </View>
+
+              {/* Job details */}
+              <View style={{ backgroundColor: '#F8F8FA', borderRadius: 16, padding: 16, marginBottom: 12 }}>
+                <Text style={{ fontSize: 18, fontWeight: '700', color: '#1C1C1E' }}>{acceptedJob?.title}</Text>
+                <Text style={{ fontSize: 14, color: '#636366', marginTop: 4 }}>{acceptedJob?.description}</Text>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#E5E5EA' }}>
+                  <View>
+                    <Text style={{ fontSize: 12, color: '#8E8E93' }}>Presupuesto</Text>
+                    <Text style={{ fontSize: 20, fontWeight: '800', color: GREEN }}>${acceptedJob?.budget?.toLocaleString()}</Text>
+                  </View>
+                  <View style={{ alignItems: 'flex-end' }}>
+                    <Text style={{ fontSize: 12, color: '#8E8E93' }}>Cliente</Text>
+                    <Text style={{ fontSize: 16, fontWeight: '600', color: '#1C1C1E' }}>{acceptedJob?.client_name}</Text>
+                  </View>
+                </View>
+              </View>
+
+              {/* Location */}
+              {acceptedJob?.address ? (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#F8F8FA', borderRadius: 14, padding: 14, marginBottom: 12 }}>
+                  <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: '#E8F5E9', justifyContent: 'center', alignItems: 'center' }}>
+                    <Ionicons name="navigate" size={20} color={GREEN} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 12, color: '#8E8E93' }}>Dirección</Text>
+                    <Text style={{ fontSize: 14, fontWeight: '600', color: '#1C1C1E' }}>{acceptedJob.address}</Text>
+                  </View>
+                </View>
+              ) : null}
+
+              {/* Images */}
+              {acceptedJob?.images?.length > 0 && (
+                <View style={{ marginBottom: 12 }}>
+                  <Text style={{ fontSize: 14, fontWeight: '700', color: '#1C1C1E', marginBottom: 6 }}>Fotos</Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                    {acceptedJob.images.map((img: string, i: number) => (
+                      <Image key={i} source={{ uri: img }} style={{ width: 140, height: 100, borderRadius: 12, marginRight: 8 }} resizeMode="cover" />
+                    ))}
+                  </ScrollView>
+                </View>
+              )}
+            </ScrollView>
+
+            {/* Action buttons */}
+            <View style={{ gap: 10, marginTop: 16 }}>
+              <TouchableOpacity
+                style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: GREEN, paddingVertical: 16, borderRadius: 14 }}
+                onPress={() => {
+                  if (acceptedJob?.location) {
+                    const lat = acceptedJob.location.latitude;
+                    const lng = acceptedJob.location.longitude;
+                    const url = Platform.select({
+                      ios: `maps:0,0?q=${lat},${lng}`,
+                      android: `geo:${lat},${lng}?q=${lat},${lng}`,
+                      default: `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`,
+                    });
+                    import('react-native').then(({ Linking }) => Linking.openURL(url || ''));
+                  }
+                }}
+              >
+                <Ionicons name="navigate" size={20} color="#fff" />
+                <Text style={{ color: '#fff', fontSize: 16, fontWeight: '700' }}>Abrir navegación</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: '#007AFF', paddingVertical: 16, borderRadius: 14 }}
+                onPress={() => {
+                  setAcceptedJob(null);
+                  router.push({ pathname: '/chat', params: { rideId: acceptedJob?.job_id, otherName: acceptedJob?.client_name || 'Cliente' } } as any);
+                }}
+              >
+                <Ionicons name="chatbubble" size={20} color="#fff" />
+                <Text style={{ color: '#fff', fontSize: 16, fontWeight: '700' }}>Chatear con cliente</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={{ paddingVertical: 12, alignItems: 'center' }}
+                onPress={() => { setAcceptedJob(null); loadAll(); }}
+              >
+                <Text style={{ color: '#8E8E93', fontSize: 14, fontWeight: '600' }}>Volver al mapa</Text>
               </TouchableOpacity>
             </View>
           </View>
