@@ -132,62 +132,22 @@ export default function BannersAdmin() {
     setSaving(true);
     setMsg('');
     try {
-      let finalImageUrl = imageUri;
-      let finalVideoUrl = videoUri;
-      
-      // Upload image if it's a local/base64 URI
-      if (imageUri && (imageUri.startsWith('data:') || imageUri.startsWith('file:'))) {
-        try {
-          const token = await AsyncStorage.getItem('auth_token');
-          const backendUrl = Constants.expoConfig?.extra?.EXPO_BACKEND_URL || process.env.EXPO_PUBLIC_API_URL || '';
-          
-          // Convert base64 to blob
-          const response = await fetch(imageUri);
-          const blob = await response.blob();
-          
-          const formData = new FormData();
-          formData.append('file', {
-            uri: imageUri,
-            type: 'image/jpeg',
-            name: 'banner_image.jpg',
-          } as any);
-          
-          const uploadRes = await fetch(`${backendUrl}/api/admin/banners/upload-image`, {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${token}`,
-            },
-            body: formData,
-          });
-          const uploadData = await uploadRes.json();
-          if (uploadData.url) {
-            finalImageUrl = uploadData.url;
-          }
-        } catch (uploadErr) {
-          console.log('Image upload fallback to base64:', uploadErr);
-          // Keep base64 as fallback
-        }
-      }
-      
-      const params = new URLSearchParams();
-      if (title) params.append('title', title);
-      if (description) params.append('description', description);
-      params.append('banner_type', bannerType);
-      if (finalImageUrl) params.append('image_url', finalImageUrl);
-      if (finalVideoUrl) params.append('video_url', finalVideoUrl);
-      if (buttonText) params.append('button_text', buttonText);
-      if (buttonLink) params.append('button_link', buttonLink);
-      params.append('target', target);
-      params.append('active', String(active));
-
-      const url = editingBanner
-        ? `/admin/banners/${editingBanner.banner_id}?${params.toString()}`
-        : `/admin/banners?${params.toString()}`;
+      const payload: any = {
+        title: title || null,
+        description: description || null,
+        banner_type: bannerType,
+        image_url: imageUri || null,
+        video_url: videoUri || null,
+        button_text: buttonText || null,
+        button_link: buttonLink || null,
+        target,
+        active,
+      };
 
       if (editingBanner) {
-        await apiService.put(url);
+        await apiService.put(`/admin/banners/${editingBanner.banner_id}`, payload);
       } else {
-        await apiService.post(url);
+        await apiService.post('/admin/banners', payload);
       }
       setShowForm(false);
       resetForm();
