@@ -90,6 +90,8 @@ export default function DriverHomeScreen() {
   const [docsRejected, setDocsRejected] = useState(false);
   const [docsUploaded, setDocsUploaded] = useState(0);
   const [docsRequired, setDocsRequired] = useState(6);
+  const [radiusKm, setRadiusKm] = useState(4);
+  const [showRadiusControl, setShowRadiusControl] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [cancelConfig, setCancelConfig] = useState<any>(null);
   const [fareConfig, setFareConfig] = useState<any>(null);
@@ -124,6 +126,11 @@ export default function DriverHomeScreen() {
       }
     };
     checkTutorial();
+    
+    // Load saved radius
+    AsyncStorage.getItem('driver_radius_km').then(saved => {
+      if (saved) setRadiusKm(parseInt(saved) || 4);
+    });
     
     initializeLocation();
     
@@ -400,7 +407,7 @@ export default function DriverHomeScreen() {
         socketService.sendLocation(location.latitude, location.longitude);
         // Also update via API
         try {
-          await apiService.put(`/drivers/location?latitude=${location.latitude}&longitude=${location.longitude}`);
+          await apiService.put(`/drivers/location?latitude=${location.latitude}&longitude=${location.longitude}&radius_km=${radiusKm}`);
         } catch (e) { /* ignore */ }
       }
     }, 10000);
@@ -726,12 +733,14 @@ export default function DriverHomeScreen() {
 
   const getMapMarkers = () => {
     const markers = [];
+    const vt = currentRide?.vehicle_type || 'economy';
     if (userLocation) {
       markers.push({
         latitude: userLocation.latitude,
         longitude: userLocation.longitude,
         title: 'Tu ubicación',
         type: 'driver' as const,
+        vehicleType: vt,
       });
     }
     if (currentRide) {
@@ -1147,7 +1156,7 @@ export default function DriverHomeScreen() {
       <View style={styles.fullMap}>
         <MapView
           initialRegion={userLocation}
-          markers={userLocation ? [{ ...userLocation, title: 'Tu ubicación', type: 'driver' }] : []}
+          markers={userLocation ? [{ ...userLocation, title: 'Tu ubicación', type: 'driver', vehicleType: 'economy' }] : []}
         />
       </View>
 
@@ -1181,6 +1190,50 @@ export default function DriverHomeScreen() {
           </View>
         )}
       </View>
+
+      {/* Radius Control */}
+      {showRadiusControl && (
+        <View style={{ position: 'absolute', top: 150, left: 16, right: 16, backgroundColor: '#fff', borderRadius: 16, padding: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 12, elevation: 8, zIndex: 100 }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+            <Text style={{ fontSize: 16, fontWeight: '700', color: '#1C1C1E' }}>Radio de búsqueda</Text>
+            <TouchableOpacity onPress={() => setShowRadiusControl(false)}>
+              <Ionicons name="close" size={22} color="#8E8E93" />
+            </TouchableOpacity>
+          </View>
+          <Text style={{ fontSize: 13, color: '#8E8E93', marginBottom: 16 }}>Recibir viajes dentro de {radiusKm} km a la redonda</Text>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center' }}>
+            {[2, 4, 8, 15, 50].map(km => (
+              <TouchableOpacity 
+                key={km}
+                onPress={async () => { 
+                  setRadiusKm(km); 
+                  await AsyncStorage.setItem('driver_radius_km', String(km));
+                  setShowRadiusControl(false);
+                }}
+                style={{ 
+                  width: 52, height: 52, borderRadius: 26, 
+                  backgroundColor: radiusKm === km ? '#00C853' : '#F2F2F7',
+                  justifyContent: 'center', alignItems: 'center',
+                }}
+              >
+                <Text style={{ fontSize: 14, fontWeight: '700', color: radiusKm === km ? '#fff' : '#1C1C1E' }}>{km}</Text>
+                <Text style={{ fontSize: 9, color: radiusKm === km ? 'rgba(255,255,255,0.8)' : '#8E8E93' }}>km</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+      )}
+
+      {/* Radius button floating */}
+      {!currentRide && isOnline && !showRadiusControl && (
+        <TouchableOpacity
+          style={{ position: 'absolute', top: 150, right: 16, backgroundColor: '#fff', borderRadius: 22, paddingHorizontal: 12, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', gap: 6, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.12, shadowRadius: 6, elevation: 4, zIndex: 50 }}
+          onPress={() => setShowRadiusControl(true)}
+        >
+          <Ionicons name="locate" size={16} color="#00C853" />
+          <Text style={{ fontSize: 12, fontWeight: '600', color: '#1C1C1E' }}>{radiusKm} km</Text>
+        </TouchableOpacity>
+      )}
 
       {/* Status message */}
       {statusMessage ? (

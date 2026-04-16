@@ -106,6 +106,7 @@ async def update_availability(
 async def update_location(
     latitude: float,
     longitude: float,
+    radius_km: float = 4.0,
     user: dict = Depends(get_current_user)
 ):
     if user["user_type"] != "driver":
@@ -118,7 +119,8 @@ async def update_location(
                 "latitude": latitude,
                 "longitude": longitude,
                 "updated_at": datetime.now(timezone.utc)
-            }
+            },
+            "radius_km": radius_km
         }}
     )
     return {"status": "success"}
@@ -147,6 +149,10 @@ async def get_nearby_drivers(
                 loc.get("latitude", 0), loc.get("longitude", 0)
             )
             if distance <= radius_km:
+                # Also check driver's own radius preference
+                driver_radius = driver.get("radius_km", 50)
+                if distance > driver_radius:
+                    continue
                 # Get driver's vehicle
                 vehicle = await db.vehicles.find_one(
                     {"driver_id": driver["driver_id"], "is_active": True},
