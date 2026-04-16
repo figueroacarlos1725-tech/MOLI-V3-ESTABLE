@@ -19,8 +19,9 @@ import { MOLI_COLORS, MOLI_RADIUS } from '@/src/theme/colors';
 
 export default function RegisterScreen() {
   const router = useRouter();
-  const { role } = useLocalSearchParams<{ role: string }>();
+  const { role, isPro } = useLocalSearchParams<{ role: string; isPro?: string }>();
   const { register } = useAuthStore();
+  const isProfessional = isPro === '1';
   
   const [formData, setFormData] = useState({
     name: '',
@@ -38,7 +39,7 @@ export default function RegisterScreen() {
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const userType = role || 'rider';
-  const isDriver = userType === 'driver';
+  const isDriver = userType === 'driver' && !isProfessional;
 
   const validate = () => {
     const newErrors: Record<string, string> = {};
@@ -71,6 +72,7 @@ export default function RegisterScreen() {
         phone: formData.phone,
         password: formData.password,
         user_type: userType,
+        is_professional: isProfessional,
         ...(isDriver ? {
           vehicle_make: formData.vehicle_make,
           vehicle_model: formData.vehicle_model,
@@ -118,21 +120,23 @@ export default function RegisterScreen() {
           </TouchableOpacity>
 
           <View style={styles.headerSection}>
-            <View style={[styles.roleChip, isDriver && styles.roleChipDriver]}>
+            <View style={[styles.roleChip, (isDriver || isProfessional) && styles.roleChipDriver]}>
               <Ionicons
-                name={isDriver ? 'car-sport' : 'person'}
+                name={isProfessional ? 'construct' : isDriver ? 'car-sport' : 'person'}
                 size={18}
                 color={MOLI_COLORS.primary}
               />
               <Text style={styles.roleChipText}>
-                {isDriver ? 'Conductor' : 'Pasajero'}
+                {isProfessional ? 'Profesional' : isDriver ? 'Conductor' : 'Pasajero'}
               </Text>
             </View>
             <Text style={styles.title}>Creá tu cuenta</Text>
             <Text style={styles.subtitle}>
-              {isDriver
-                ? 'Unite a Moli y empezá a ganar'
-                : 'Registrate para pedir tu primer viaje'
+              {isProfessional
+                ? 'Ofrecé tus servicios en Moli Trabajos'
+                : isDriver
+                  ? 'Unite a Moli y empezá a ganar'
+                  : 'Registrate para pedir tu primer viaje'
               }
             </Text>
           </View>

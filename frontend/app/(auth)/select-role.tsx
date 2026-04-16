@@ -11,7 +11,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Button } from '@/src/components/Button';
 import { MOLI_COLORS, MOLI_RADIUS } from '@/src/theme/colors';
 
-type UserRole = 'rider' | 'driver';
+type UserRole = 'rider' | 'driver' | 'professional';
 
 export default function SelectRoleScreen() {
   const router = useRouter();
@@ -21,7 +21,7 @@ export default function SelectRoleScreen() {
     if (selectedRole) {
       router.push({
         pathname: '/(auth)/register',
-        params: { role: selectedRole },
+        params: { role: selectedRole === 'professional' ? 'driver' : selectedRole, isPro: selectedRole === 'professional' ? '1' : '0' },
       });
     }
   };
@@ -107,6 +107,48 @@ export default function SelectRoleScreen() {
             </View>
             <View style={[styles.radio, isSelected('driver') && styles.radioSelected]}>
               {isSelected('driver') && <View style={styles.radioDot} />}
+            </View>
+          </TouchableOpacity>
+
+          {/* Professional option - highlighted */}
+          <TouchableOpacity
+            style={[
+              styles.optionCard,
+              isSelected('professional') && styles.optionCardSelected,
+              !isSelected('professional') && { borderColor: '#FF9500', borderWidth: 1.5 },
+            ]}
+            onPress={() => setSelectedRole('professional')}
+            activeOpacity={0.7}
+          >
+            <View style={[
+              styles.iconContainer,
+              isSelected('professional') && styles.iconContainerSelected,
+              !isSelected('professional') && { backgroundColor: '#FFF8E1' },
+            ]}>
+              <Ionicons
+                name="construct"
+                size={32}
+                color={isSelected('professional') ? MOLI_COLORS.primary : '#FF9500'}
+              />
+            </View>
+            <View style={styles.optionTextContainer}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                <Text style={[
+                  styles.optionTitle,
+                  isSelected('professional') && styles.optionTitleSelected,
+                ]}>
+                  Profesional
+                </Text>
+                <View style={{ backgroundColor: '#FF9500', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 }}>
+                  <Text style={{ color: '#fff', fontSize: 10, fontWeight: '800' }}>NUEVO</Text>
+                </View>
+              </View>
+              <Text style={styles.optionDescription}>
+                Ofrecé tus servicios en Moli Trabajos
+              </Text>
+            </View>
+            <View style={[styles.radio, isSelected('professional') && styles.radioSelected]}>
+              {isSelected('professional') && <View style={styles.radioDot} />}
             </View>
           </TouchableOpacity>
         </View>

@@ -133,9 +133,13 @@ export default function DriverHomeScreen() {
       if (saved) setRadiusKm(parseInt(saved) || 4);
     });
     
-    // Check if driver has vehicle registered
+    // Check if driver has vehicle registered (skip for professionals)
     apiService.get('/driver/vehicle').then(res => {
-      if (!res.has_vehicle) setNeedsVehicle(true);
+      if (!res.has_vehicle) {
+        // Check if user is professional - they don't need vehicle
+        const isPro = user?.is_professional;
+        if (!isPro) setNeedsVehicle(true);
+      }
     }).catch(() => {});
     
     initializeLocation();

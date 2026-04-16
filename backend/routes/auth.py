@@ -34,6 +34,7 @@ async def register(user_data: UserCreate):
         "total_rides": 0,
         "is_verified": False,
         "is_active": True,
+        "is_professional": getattr(user_data, 'is_professional', False) or False,
         "created_at": now,
         "updated_at": now
     }
@@ -48,6 +49,7 @@ async def register(user_data: UserCreate):
             "is_online": False,
             "is_available": False,
             "current_location": None,
+            "is_professional": getattr(user_data, 'is_professional', False) or False,
             "vehicle_make": getattr(user_data, 'vehicle_make', '') or '',
             "vehicle_model": getattr(user_data, 'vehicle_model', '') or '',
             "vehicle_year": getattr(user_data, 'vehicle_year', '') or '',
