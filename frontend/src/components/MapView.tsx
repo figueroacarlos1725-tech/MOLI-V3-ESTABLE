@@ -282,7 +282,7 @@ function setMarkers(arr){
     currentMarkers.push(mk);
     bounds.extend(opts.position);
   });
-  if(arr.length>1)map.fitBounds(bounds,{top:60,bottom:60,left:40,right:40});
+  if(arr.length>1)map.fitBounds(bounds,{top:80,bottom:80,left:60,right:60});
   else if(arr.length===1)map.setCenter({lat:arr[0].latitude,lng:arr[0].longitude});
   var hasP=arr.some(function(m){return m.type==='pickup'});
   var hasD=arr.some(function(m){return m.type==='dropoff'});

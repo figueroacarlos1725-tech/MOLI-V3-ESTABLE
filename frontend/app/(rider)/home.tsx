@@ -539,8 +539,8 @@ export default function RiderHomeScreen() {
   const markers = useMemo(() => {
     const m: any[] = [];
     const isDraggable = phase === 'confirm' || phase === 'idle';
-    if (pickupLocation) m.push({ latitude: pickupLocation.latitude, longitude: pickupLocation.longitude, title: 'Recogida', type: 'pickup' as const, draggable: isDraggable });
-    if (dropoffLocation) m.push({ latitude: dropoffLocation.latitude, longitude: dropoffLocation.longitude, title: 'Destino', type: 'dropoff' as const, draggable: phase === 'confirm' });
+    if (pickupLocation) m.push({ latitude: pickupLocation.latitude, longitude: pickupLocation.longitude, title: phase === 'confirm' ? (pickupAddress || 'Recogida') : '', type: 'pickup' as const, draggable: isDraggable });
+    if (dropoffLocation) m.push({ latitude: dropoffLocation.latitude, longitude: dropoffLocation.longitude, title: phase === 'confirm' ? (dropoffAddress || 'Destino') : '', type: 'dropoff' as const, draggable: phase === 'confirm' });
     if (currentRide?.driver_location) m.push({ latitude: currentRide.driver_location.latitude, longitude: currentRide.driver_location.longitude, title: 'Conductor', type: 'driver' as const });
     return m;
   }, [pickupLocation?.latitude, pickupLocation?.longitude, dropoffLocation?.latitude, dropoffLocation?.longitude, currentRide?.driver_location?.latitude, phase]);
