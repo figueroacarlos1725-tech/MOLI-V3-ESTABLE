@@ -1,327 +1,518 @@
 #!/usr/bin/env python3
 """
-Comprehensive Backend Testing for Moli Trabajos Job Flow
-Testing the complete 30-second review system flow
+Backend Testing for WhatsApp Integration API Endpoints
+Tests the new WhatsApp integration endpoints without affecting existing functionality.
 """
 
-import requests
+import asyncio
+import httpx
 import json
-import time
 from datetime import datetime
 
 # Configuration
-BASE_URL = "https://taxify-clone.preview.emergentagent.com/api"
-HEADERS = {"Content-Type": "application/json"}
+BASE_URL = "https://taxify-clone.preview.emergentagent.com"
+API_KEY = "moli-whatsapp-2025"
+HEADERS_WITH_KEY = {"X-API-Key": API_KEY}
+HEADERS_WITHOUT_KEY = {}
 
-# Test credentials
-RIDER_EMAIL = "rider@test.com"
-RIDER_PASSWORD = "test123456"
-DRIVER_EMAIL = "driver@test.com"
-DRIVER_PASSWORD = "test123456"
-ADMIN_EMAIL = "admin@test.com"
-ADMIN_PASSWORD = "admin123456"
+# Test data
+TEST_PICKUP = {
+    "latitude": -28.4696,
+    "longitude": -65.7852,
+    "address": "Centro Catamarca"
+}
 
-class TestResults:
+TEST_DROPOFF = {
+    "latitude": -28.48,
+    "longitude": -65.79,
+    "address": "Parque de los Niños"
+}
+
+TEST_PHONE = "+5493834001234"
+TEST_PASSENGER_NAME = "Test WhatsApp"
+
+class WhatsAppAPITester:
     def __init__(self):
-        self.passed = 0
-        self.failed = 0
-        self.errors = []
+        self.client = httpx.AsyncClient(timeout=30.0)
+        self.test_results = []
         
-    def log_pass(self, test_name):
-        print(f"✅ {test_name}")
-        self.passed += 1
+    async def log_test(self, test_name, success, details, response_data=None):
+        """Log test results"""
+        status = "✅ PASS" if success else "❌ FAIL"
+        print(f"{status} {test_name}")
+        if details:
+            print(f"   Details: {details}")
+        if response_data and not success:
+            print(f"   Response: {response_data}")
+        print()
         
-    def log_fail(self, test_name, error):
-        print(f"❌ {test_name}: {error}")
-        self.failed += 1
-        self.errors.append(f"{test_name}: {error}")
-        
-    def summary(self):
-        total = self.passed + self.failed
-        print(f"\n=== TEST SUMMARY ===")
-        print(f"Total tests: {total}")
-        print(f"Passed: {self.passed}")
-        print(f"Failed: {self.failed}")
-        if self.errors:
-            print(f"\nErrors:")
-            for error in self.errors:
-                print(f"  - {error}")
-
-def login_user(email, password):
-    """Login and return token"""
-    try:
-        response = requests.post(
-            f"{BASE_URL}/auth/login",
-            headers=HEADERS,
-            json={"email": email, "password": password}
-        )
-        if response.status_code == 200:
-            data = response.json()
-            return data.get("access_token"), data.get("user")
-        else:
-            print(f"Login failed for {email}: {response.status_code} - {response.text}")
-            return None, None
-    except Exception as e:
-        print(f"Login error for {email}: {e}")
-        return None, None
-
-def make_request(method, endpoint, token=None, json_data=None, params=None):
-    """Make authenticated request"""
-    headers = HEADERS.copy()
-    if token:
-        headers["Authorization"] = f"Bearer {token}"
+        self.test_results.append({
+            "test": test_name,
+            "success": success,
+            "details": details,
+            "response": response_data
+        })
     
-    try:
-        if method == "GET":
-            response = requests.get(f"{BASE_URL}{endpoint}", headers=headers, params=params)
-        elif method == "POST":
-            response = requests.post(f"{BASE_URL}{endpoint}", headers=headers, json=json_data, params=params)
-        elif method == "PUT":
-            response = requests.put(f"{BASE_URL}{endpoint}", headers=headers, json=json_data, params=params)
-        elif method == "DELETE":
-            response = requests.delete(f"{BASE_URL}{endpoint}", headers=headers, params=params)
-        
-        return response
-    except Exception as e:
-        print(f"Request error: {e}")
-        return None
-
-def test_moli_trabajos_flow():
-    """Test the complete Moli Trabajos job flow with 30-second review system"""
-    results = TestResults()
-    
-    print("🚀 Starting Moli Trabajos Job Flow Testing...")
-    print("=" * 60)
-    
-    # Step 1: Login as driver
-    print("\n1. Testing driver login...")
-    driver_token, driver_user = login_user(DRIVER_EMAIL, DRIVER_PASSWORD)
-    if driver_token:
-        results.log_pass("Driver login successful")
-    else:
-        results.log_fail("Driver login", "Failed to authenticate")
-        return results
-    
-    # Step 2: Toggle driver availability ON (should NOT overwrite other profile fields)
-    print("\n2. Testing driver availability toggle...")
-    response = make_request("PUT", "/jobs/professional/profile", driver_token, {"is_available": True})
-    if response and response.status_code == 200:
-        data = response.json()
-        if data.get("status") == "updated":
-            results.log_pass("Driver availability toggle ON")
-        else:
-            results.log_fail("Driver availability toggle", f"Unexpected response: {data}")
-    else:
-        results.log_fail("Driver availability toggle", f"HTTP {response.status_code if response else 'None'}: {response.text if response else 'No response'}")
-    
-    # Step 3: Verify profile still has categories and is_available is true
-    print("\n3. Testing driver profile verification...")
-    response = make_request("GET", "/jobs/professional/profile", driver_token)
-    if response and response.status_code == 200:
-        data = response.json()
-        profile = data.get("profile")
-        if profile:
-            is_available = profile.get("is_available")
-            categories = profile.get("categories", [])
-            if is_available is True:
-                results.log_pass("Driver is_available is True")
-            else:
-                results.log_fail("Driver profile verification", f"is_available is {is_available}, expected True")
+    async def test_whatsapp_estimate(self):
+        """Test 1: POST /api/whatsapp/estimate"""
+        try:
+            payload = {
+                "pickup": TEST_PICKUP,
+                "dropoff": TEST_DROPOFF
+            }
             
-            # Check that other fields are preserved (categories should exist if previously set)
-            if "categories" in profile:
-                results.log_pass("Driver profile categories preserved")
-            else:
-                results.log_pass("Driver profile structure intact (no categories field yet)")
-        else:
-            results.log_fail("Driver profile verification", "No profile found")
-    else:
-        results.log_fail("Driver profile verification", f"HTTP {response.status_code if response else 'None'}")
-    
-    # Step 4: Login as rider
-    print("\n4. Testing rider login...")
-    rider_token, rider_user = login_user(RIDER_EMAIL, RIDER_PASSWORD)
-    if rider_token:
-        results.log_pass("Rider login successful")
-    else:
-        results.log_fail("Rider login", "Failed to authenticate")
-        return results
-    
-    # Step 5: Post a job
-    print("\n5. Testing job posting...")
-    job_data = {
-        "category": "electricista",
-        "title": "Arreglar enchufe",
-        "description": "Enchufe roto en cocina",
-        "budget": 1500,
-        "location": {"latitude": -28.4696, "longitude": -65.7852},
-        "address": "San Martín 152"
-    }
-    response = make_request("POST", "/jobs/post", rider_token, job_data)
-    job_id = None
-    if response and response.status_code == 200:
-        data = response.json()
-        if data.get("status") == "created":
-            job_id = data.get("job", {}).get("job_id")
-            if job_id:
-                results.log_pass(f"Job posting successful (ID: {job_id})")
-            else:
-                results.log_fail("Job posting", "No job_id returned")
-        else:
-            results.log_fail("Job posting", f"Unexpected status: {data.get('status')}")
-    else:
-        results.log_fail("Job posting", f"HTTP {response.status_code if response else 'None'}: {response.text if response else 'No response'}")
-        return results
-    
-    # Step 6: Login as driver again (refresh token)
-    print("\n6. Re-authenticating driver...")
-    driver_token, driver_user = login_user(DRIVER_EMAIL, DRIVER_PASSWORD)
-    if driver_token:
-        results.log_pass("Driver re-authentication successful")
-    else:
-        results.log_fail("Driver re-authentication", "Failed")
-        return results
-    
-    # Step 7: Get open jobs and verify the posted job is visible
-    print("\n7. Testing open jobs listing...")
-    response = make_request("GET", "/jobs/posts", driver_token, params={"status": "open"})
-    if response and response.status_code == 200:
-        data = response.json()
-        jobs = data.get("jobs", [])
-        job_found = any(job.get("job_id") == job_id for job in jobs)
-        if job_found:
-            results.log_pass("Posted job visible in open jobs list")
-        else:
-            results.log_fail("Open jobs listing", f"Posted job {job_id} not found in {len(jobs)} jobs")
-    else:
-        results.log_fail("Open jobs listing", f"HTTP {response.status_code if response else 'None'}")
-    
-    # Step 8: Start 30-second review lock
-    print("\n8. Testing 30-second review lock...")
-    response = make_request("POST", f"/jobs/{job_id}/review", driver_token)
-    if response and response.status_code == 200:
-        data = response.json()
-        if data.get("status") == "reviewing" and data.get("review_seconds") == 30:
-            results.log_pass("30-second review lock started successfully")
-        else:
-            results.log_fail("30-second review lock", f"Unexpected response: {data}")
-    else:
-        results.log_fail("30-second review lock", f"HTTP {response.status_code if response else 'None'}: {response.text if response else 'No response'}")
-    
-    # Step 9: Check job status during review
-    print("\n9. Testing job status during review...")
-    response = make_request("GET", f"/jobs/detail/{job_id}", driver_token)
-    if response and response.status_code == 200:
-        data = response.json()
-        job = data.get("job", {})
-        status = job.get("status")
-        reviewing_by = job.get("reviewing_by")
-        if status == "reviewing" and reviewing_by == driver_user.get("user_id"):
-            results.log_pass("Job status is 'reviewing' with correct reviewing_by")
-        else:
-            results.log_fail("Job status during review", f"Status: {status}, reviewing_by: {reviewing_by}, expected: reviewing/{driver_user.get('user_id')}")
-    else:
-        results.log_fail("Job status during review", f"HTTP {response.status_code if response else 'None'}")
-    
-    # Step 10: Accept the job
-    print("\n10. Testing job acceptance...")
-    response = make_request("POST", f"/jobs/{job_id}/accept", driver_token)
-    if response and response.status_code == 200:
-        data = response.json()
-        if data.get("status") == "accepted":
-            results.log_pass("Job acceptance successful")
-        else:
-            results.log_fail("Job acceptance", f"Unexpected status: {data.get('status')}")
-    else:
-        results.log_fail("Job acceptance", f"HTTP {response.status_code if response else 'None'}: {response.text if response else 'No response'}")
-    
-    # Step 11: Verify job is assigned
-    print("\n11. Testing job assignment verification...")
-    response = make_request("GET", f"/jobs/detail/{job_id}", driver_token)
-    if response and response.status_code == 200:
-        data = response.json()
-        job = data.get("job", {})
-        status = job.get("status")
-        assigned_to = job.get("assigned_to")
-        if status == "assigned" and assigned_to == driver_user.get("user_id"):
-            results.log_pass("Job successfully assigned to driver")
-        else:
-            results.log_fail("Job assignment verification", f"Status: {status}, assigned_to: {assigned_to}, expected: assigned/{driver_user.get('user_id')}")
-    else:
-        results.log_fail("Job assignment verification", f"HTTP {response.status_code if response else 'None'}")
-    
-    # Step 12: Test decline flow with another job
-    print("\n12. Testing decline flow...")
-    
-    # Create another job as rider
-    job_data_2 = {
-        "category": "plomero",
-        "title": "Reparar grifo",
-        "description": "Grifo que gotea en baño",
-        "budget": 800,
-        "location": {"latitude": -28.4696, "longitude": -65.7852},
-        "address": "Rivadavia 234"
-    }
-    response = make_request("POST", "/jobs/post", rider_token, job_data_2)
-    job_id_2 = None
-    if response and response.status_code == 200:
-        data = response.json()
-        job_id_2 = data.get("job", {}).get("job_id")
-        if job_id_2:
-            results.log_pass(f"Second job created for decline test (ID: {job_id_2})")
-        else:
-            results.log_fail("Second job creation", "No job_id returned")
-    else:
-        results.log_fail("Second job creation", f"HTTP {response.status_code if response else 'None'}")
-    
-    if job_id_2:
-        # Start review on second job
-        response = make_request("POST", f"/jobs/{job_id_2}/review", driver_token)
-        if response and response.status_code == 200:
-            results.log_pass("Second job review started")
+            response = await self.client.post(
+                f"{BASE_URL}/api/whatsapp/estimate",
+                json=payload,
+                headers=HEADERS_WITH_KEY
+            )
             
-            # Decline the job
-            response = make_request("POST", f"/jobs/{job_id_2}/decline", driver_token)
-            if response and response.status_code == 200:
+            if response.status_code == 200:
                 data = response.json()
-                if data.get("status") == "declined":
-                    results.log_pass("Job decline successful")
-                    
-                    # Verify job is back to open status
-                    response = make_request("GET", f"/jobs/detail/{job_id_2}", driver_token)
-                    if response and response.status_code == 200:
-                        data = response.json()
-                        job = data.get("job", {})
-                        if job.get("status") == "open":
-                            results.log_pass("Declined job returned to 'open' status")
-                        else:
-                            results.log_fail("Decline flow verification", f"Job status is {job.get('status')}, expected 'open'")
-                    else:
-                        results.log_fail("Decline flow verification", "Failed to get job detail after decline")
-                else:
-                    results.log_fail("Job decline", f"Unexpected status: {data.get('status')}")
+                required_fields = ["status", "distance_km", "duration_min", "estimates"]
+                missing_fields = [field for field in required_fields if field not in data]
+                
+                if missing_fields:
+                    await self.log_test(
+                        "POST /api/whatsapp/estimate",
+                        False,
+                        f"Missing required fields: {missing_fields}",
+                        data
+                    )
+                    return False
+                
+                # Check estimates array structure
+                if not data.get("estimates") or not isinstance(data["estimates"], list):
+                    await self.log_test(
+                        "POST /api/whatsapp/estimate",
+                        False,
+                        "estimates field should be a non-empty array",
+                        data
+                    )
+                    return False
+                
+                # Check first estimate structure
+                estimate = data["estimates"][0]
+                estimate_fields = ["vehicle_type", "display_name", "price", "currency"]
+                missing_estimate_fields = [field for field in estimate_fields if field not in estimate]
+                
+                if missing_estimate_fields:
+                    await self.log_test(
+                        "POST /api/whatsapp/estimate",
+                        False,
+                        f"Missing estimate fields: {missing_estimate_fields}",
+                        data
+                    )
+                    return False
+                
+                await self.log_test(
+                    "POST /api/whatsapp/estimate",
+                    True,
+                    f"Returns {len(data['estimates'])} estimates, distance: {data['distance_km']}km, duration: {data['duration_min']}min"
+                )
+                return True
             else:
-                results.log_fail("Job decline", f"HTTP {response.status_code if response else 'None'}")
-        else:
-            results.log_fail("Second job review", f"HTTP {response.status_code if response else 'None'}")
+                await self.log_test(
+                    "POST /api/whatsapp/estimate",
+                    False,
+                    f"HTTP {response.status_code}",
+                    response.text
+                )
+                return False
+                
+        except Exception as e:
+            await self.log_test(
+                "POST /api/whatsapp/estimate",
+                False,
+                f"Exception: {str(e)}"
+            )
+            return False
     
-    # Step 13: Test driver verification status
-    print("\n13. Testing driver verification status...")
-    response = make_request("GET", "/driver/verification-status", driver_token)
-    if response and response.status_code == 200:
-        data = response.json()
-        is_verified = data.get("is_verified")
-        status = data.get("status")
-        if is_verified is True and status == "approved":
-            results.log_pass("Driver verification status: verified and approved")
-        else:
-            results.log_pass(f"Driver verification status retrieved (is_verified: {is_verified}, status: {status})")
+    async def test_whatsapp_geocode(self):
+        """Test 2: GET /api/whatsapp/geocode"""
+        try:
+            response = await self.client.get(
+                f"{BASE_URL}/api/whatsapp/geocode",
+                params={"address": "Caseros 670 Catamarca"},
+                headers=HEADERS_WITH_KEY
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                required_fields = ["status", "results"]
+                missing_fields = [field for field in required_fields if field not in data]
+                
+                if missing_fields:
+                    await self.log_test(
+                        "GET /api/whatsapp/geocode",
+                        False,
+                        f"Missing required fields: {missing_fields}",
+                        data
+                    )
+                    return False
+                
+                # Check results array
+                if not isinstance(data.get("results"), list):
+                    await self.log_test(
+                        "GET /api/whatsapp/geocode",
+                        False,
+                        "results field should be an array",
+                        data
+                    )
+                    return False
+                
+                # If results exist, check structure
+                if data["results"]:
+                    result = data["results"][0]
+                    result_fields = ["latitude", "longitude", "address"]
+                    missing_result_fields = [field for field in result_fields if field not in result]
+                    
+                    if missing_result_fields:
+                        await self.log_test(
+                            "GET /api/whatsapp/geocode",
+                            False,
+                            f"Missing result fields: {missing_result_fields}",
+                            data
+                        )
+                        return False
+                
+                await self.log_test(
+                    "GET /api/whatsapp/geocode",
+                    True,
+                    f"Returns {len(data['results'])} geocoding results"
+                )
+                return True
+            else:
+                await self.log_test(
+                    "GET /api/whatsapp/geocode",
+                    False,
+                    f"HTTP {response.status_code}",
+                    response.text
+                )
+                return False
+                
+        except Exception as e:
+            await self.log_test(
+                "GET /api/whatsapp/geocode",
+                False,
+                f"Exception: {str(e)}"
+            )
+            return False
+    
+    async def test_whatsapp_request_ride(self):
+        """Test 3: POST /api/whatsapp/request-ride"""
+        try:
+            payload = {
+                "phone": TEST_PHONE,
+                "passenger_name": TEST_PASSENGER_NAME,
+                "pickup": TEST_PICKUP,
+                "dropoff": TEST_DROPOFF,
+                "vehicle_type": "economy"
+            }
+            
+            response = await self.client.post(
+                f"{BASE_URL}/api/whatsapp/request-ride",
+                json=payload,
+                headers=HEADERS_WITH_KEY
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                required_fields = ["status", "request_id", "estimated_fare"]
+                missing_fields = [field for field in required_fields if field not in data]
+                
+                if missing_fields:
+                    await self.log_test(
+                        "POST /api/whatsapp/request-ride",
+                        False,
+                        f"Missing required fields: {missing_fields}",
+                        data
+                    )
+                    return False, None
+                
+                await self.log_test(
+                    "POST /api/whatsapp/request-ride",
+                    True,
+                    f"Created ride request {data['request_id']}, fare: ${data['estimated_fare']}"
+                )
+                return True, data["request_id"]
+            else:
+                await self.log_test(
+                    "POST /api/whatsapp/request-ride",
+                    False,
+                    f"HTTP {response.status_code}",
+                    response.text
+                )
+                return False, None
+                
+        except Exception as e:
+            await self.log_test(
+                "POST /api/whatsapp/request-ride",
+                False,
+                f"Exception: {str(e)}"
+            )
+            return False, None
+    
+    async def test_whatsapp_rides_by_phone(self):
+        """Test 4: GET /api/whatsapp/rides-by-phone"""
+        try:
+            response = await self.client.get(
+                f"{BASE_URL}/api/whatsapp/rides-by-phone/{TEST_PHONE}",
+                headers=HEADERS_WITH_KEY
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                required_fields = ["status"]
+                missing_fields = [field for field in required_fields if field not in data]
+                
+                if missing_fields:
+                    await self.log_test(
+                        "GET /api/whatsapp/rides-by-phone",
+                        False,
+                        f"Missing required fields: {missing_fields}",
+                        data
+                    )
+                    return False
+                
+                # Check if rider_id exists (should exist after request-ride test)
+                rider_info = ""
+                if "rider_id" in data:
+                    rider_info = f", rider_id: {data['rider_id']}"
+                
+                active_info = ""
+                if "active_request" in data and data["active_request"]:
+                    active_info = f", active request: {data['active_request'].get('request_id', 'unknown')}"
+                elif "active_ride" in data and data["active_ride"]:
+                    active_info = f", active ride: {data['active_ride'].get('ride_id', 'unknown')}"
+                
+                await self.log_test(
+                    "GET /api/whatsapp/rides-by-phone",
+                    True,
+                    f"Returns rider info{rider_info}{active_info}"
+                )
+                return True
+            else:
+                await self.log_test(
+                    "GET /api/whatsapp/rides-by-phone",
+                    False,
+                    f"HTTP {response.status_code}",
+                    response.text
+                )
+                return False
+                
+        except Exception as e:
+            await self.log_test(
+                "GET /api/whatsapp/rides-by-phone",
+                False,
+                f"Exception: {str(e)}"
+            )
+            return False
+    
+    async def test_without_api_key(self):
+        """Test 5: Test without API key - should return 422 (missing header)"""
+        try:
+            payload = {
+                "pickup": TEST_PICKUP,
+                "dropoff": TEST_DROPOFF
+            }
+            
+            response = await self.client.post(
+                f"{BASE_URL}/api/whatsapp/estimate",
+                json=payload,
+                headers=HEADERS_WITHOUT_KEY
+            )
+            
+            if response.status_code == 422:
+                await self.log_test(
+                    "POST /api/whatsapp/estimate (no API key)",
+                    True,
+                    "Correctly returns 422 for missing required header"
+                )
+                return True
+            else:
+                await self.log_test(
+                    "POST /api/whatsapp/estimate (no API key)",
+                    False,
+                    f"Expected 422, got HTTP {response.status_code}",
+                    response.text
+                )
+                return False
+                
+        except Exception as e:
+            await self.log_test(
+                "POST /api/whatsapp/estimate (no API key)",
+                False,
+                f"Exception: {str(e)}"
+            )
+            return False
+    
+    async def test_invalid_api_key(self):
+        """Test 5b: Test with invalid API key - should return 401"""
+        try:
+            payload = {
+                "pickup": TEST_PICKUP,
+                "dropoff": TEST_DROPOFF
+            }
+            
+            invalid_headers = {"X-API-Key": "invalid-key-123"}
+            
+            response = await self.client.post(
+                f"{BASE_URL}/api/whatsapp/estimate",
+                json=payload,
+                headers=invalid_headers
+            )
+            
+            if response.status_code == 401:
+                await self.log_test(
+                    "POST /api/whatsapp/estimate (invalid API key)",
+                    True,
+                    "Correctly returns 401 Unauthorized for invalid key"
+                )
+                return True
+            else:
+                await self.log_test(
+                    "POST /api/whatsapp/estimate (invalid API key)",
+                    False,
+                    f"Expected 401, got HTTP {response.status_code}",
+                    response.text
+                )
+                return False
+                
+        except Exception as e:
+            await self.log_test(
+                "POST /api/whatsapp/estimate (invalid API key)",
+                False,
+                f"Exception: {str(e)}"
+            )
+            return False
+    
+    async def test_existing_auth_endpoint(self):
+        """Test 6: Test existing endpoints still work"""
+        try:
+            payload = {
+                "email": "admin@test.com",
+                "password": "admin123456"
+            }
+            
+            response = await self.client.post(
+                f"{BASE_URL}/api/auth/login",
+                json=payload
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                if "access_token" in data:
+                    await self.log_test(
+                        "POST /api/auth/login (existing endpoint)",
+                        True,
+                        "Existing auth endpoint working correctly"
+                    )
+                    return True
+                else:
+                    await self.log_test(
+                        "POST /api/auth/login (existing endpoint)",
+                        False,
+                        "Missing access_token in response",
+                        data
+                    )
+                    return False
+            else:
+                await self.log_test(
+                    "POST /api/auth/login (existing endpoint)",
+                    False,
+                    f"HTTP {response.status_code}",
+                    response.text
+                )
+                return False
+                
+        except Exception as e:
+            await self.log_test(
+                "POST /api/auth/login (existing endpoint)",
+                False,
+                f"Exception: {str(e)}"
+            )
+            return False
+    
+    async def run_all_tests(self):
+        """Run all WhatsApp integration tests"""
+        print("🚀 Starting WhatsApp Integration API Tests")
+        print(f"Base URL: {BASE_URL}")
+        print(f"API Key: {API_KEY}")
+        print("=" * 60)
+        print()
+        
+        # Test 1: Estimate endpoint
+        test1_success = await self.test_whatsapp_estimate()
+        
+        # Test 2: Geocode endpoint
+        test2_success = await self.test_whatsapp_geocode()
+        
+        # Test 3: Request ride endpoint
+        test3_success, request_id = await self.test_whatsapp_request_ride()
+        
+        # Test 4: Rides by phone endpoint
+        test4_success = await self.test_whatsapp_rides_by_phone()
+        
+        # Test 5: No API key test
+        test5_success = await self.test_without_api_key()
+        
+        # Test 5b: Invalid API key test
+        test5b_success = await self.test_invalid_api_key()
+        
+        # Test 6: Existing endpoint test
+        test6_success = await self.test_existing_auth_endpoint()
+        
+        # Summary
+        print("=" * 60)
+        print("📊 TEST SUMMARY")
+        print("=" * 60)
+        
+        total_tests = len(self.test_results)
+        passed_tests = sum(1 for result in self.test_results if result["success"])
+        failed_tests = total_tests - passed_tests
+        
+        print(f"Total Tests: {total_tests}")
+        print(f"Passed: {passed_tests} ✅")
+        print(f"Failed: {failed_tests} ❌")
+        print()
+        
+        if failed_tests > 0:
+            print("FAILED TESTS:")
+            for result in self.test_results:
+                if not result["success"]:
+                    print(f"❌ {result['test']}: {result['details']}")
+            print()
+        
+        # Test specific scenarios
+        print("🔍 SPECIFIC TEST SCENARIOS:")
+        print(f"1. WhatsApp estimate endpoint: {'✅' if test1_success else '❌'}")
+        print(f"2. WhatsApp geocode endpoint: {'✅' if test2_success else '❌'}")
+        print(f"3. WhatsApp request-ride endpoint: {'✅' if test3_success else '❌'}")
+        print(f"4. WhatsApp rides-by-phone endpoint: {'✅' if test4_success else '❌'}")
+        print(f"5. API key authentication (missing header = 422): {'✅' if test5_success else '❌'}")
+        print(f"6. API key authentication (invalid key = 401): {'✅' if test5b_success else '❌'}")
+        print(f"7. Existing endpoints not broken: {'✅' if test6_success else '❌'}")
+        
+        if request_id:
+            print(f"\n📝 Created test ride request: {request_id}")
+        
+        await self.client.aclose()
+        
+        return passed_tests == total_tests
+
+async def main():
+    """Main test runner"""
+    tester = WhatsAppAPITester()
+    success = await tester.run_all_tests()
+    
+    if success:
+        print("\n🎉 ALL TESTS PASSED! WhatsApp integration is working correctly.")
+        return 0
     else:
-        results.log_fail("Driver verification status", f"HTTP {response.status_code if response else 'None'}: {response.text if response else 'No response'}")
-    
-    print("\n" + "=" * 60)
-    results.summary()
-    return results
+        print("\n💥 SOME TESTS FAILED! Check the details above.")
+        return 1
 
 if __name__ == "__main__":
-    test_moli_trabajos_flow()
+    exit_code = asyncio.run(main())
+    exit(exit_code)

@@ -28,6 +28,7 @@ from routes.misc import router as misc_router
 from routes.navigation import router as navigation_router
 from routes.legal import router as legal_router
 from routes.jobs import router as jobs_router
+from routes.whatsapp import router as whatsapp_router
 
 app = FastAPI(title="Moli API", version="2.0.0")
 
@@ -55,6 +56,7 @@ app.include_router(misc_router)
 app.include_router(navigation_router)
 app.include_router(legal_router)
 app.include_router(jobs_router)
+app.include_router(whatsapp_router)
 
 
 # ======================= STARTUP =======================

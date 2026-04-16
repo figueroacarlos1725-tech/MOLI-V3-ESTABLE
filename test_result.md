@@ -105,6 +105,18 @@
 user_problem_statement: "Test the complete Moli Trabajos job flow with the new 30-second review system. This is a critical test."
 
 backend:
+  - task: "WhatsApp Integration API Endpoints (NEW)"
+    implemented: true
+    working: true
+    file: "/app/backend/routes/whatsapp.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "WHATSAPP INTEGRATION API TESTING COMPLETED ✅ All 7 tests passed successfully! TESTED ENDPOINTS: ✅ POST /api/whatsapp/estimate - Returns fare estimates for all vehicle types (5 estimates, distance: 1.75km, duration: 5min) ✅ GET /api/whatsapp/geocode?address=Caseros 670 Catamarca - Returns geocoding results with lat/lng coordinates ✅ POST /api/whatsapp/request-ride - Creates ride requests from WhatsApp (created request req_2fa3e4c36909, fare: $1475.0) ✅ GET /api/whatsapp/rides-by-phone/+5493834001234 - Returns rider info and active requests ✅ API key authentication (missing header) - Correctly returns 422 for missing X-API-Key header ✅ API key authentication (invalid key) - Correctly returns 401 Unauthorized for invalid API key ✅ POST /api/auth/login - Existing endpoints not broken by WhatsApp integration. FIXED CRITICAL ISSUE: Fixed ImportError in request-ride endpoint by replacing non-existent 'start_dispatch' import with proper 'assign_ride_to_drivers' function and nearby drivers lookup. All WhatsApp endpoints have proper API key authentication (X-API-Key: moli-whatsapp-2025), create/find users by phone number, integrate with existing dispatch system, and maintain compatibility with existing functionality."
+
   - task: "Moli Trabajos Job Posting API"
     implemented: true
     working: true
@@ -507,12 +519,14 @@ metadata:
 
 test_plan:
   current_focus: 
-    - "Moli Trabajos 30-Second Review System"
+    - "WhatsApp Integration API Endpoints (NEW)"
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
 
 agent_communication:
+  - agent: "testing"
+    message: "WHATSAPP INTEGRATION API TESTING COMPLETED ✅ All 7 comprehensive tests passed successfully! TESTED ENDPOINTS: ✅ POST /api/whatsapp/estimate - Returns fare estimates for all vehicle types with proper distance/duration calculations ✅ GET /api/whatsapp/geocode - Geocoding service working with Nominatim integration ✅ POST /api/whatsapp/request-ride - Creates ride requests from WhatsApp, integrates with dispatch system ✅ GET /api/whatsapp/rides-by-phone - Returns rider info and active requests by phone number ✅ API key authentication - Proper validation with X-API-Key header (422 for missing, 401 for invalid) ✅ Existing endpoints compatibility - Auth login still working correctly. CRITICAL FIX APPLIED: Fixed ImportError in request-ride endpoint by replacing non-existent 'start_dispatch' import with proper 'assign_ride_to_drivers' function and nearby drivers lookup. All WhatsApp endpoints are fully functional, properly authenticated, and ready for production use with WhatsApp bot integration."
   - agent: "testing"
     message: "MOLI TRABAJOS JOB POSTING CRITICAL FIX TESTING COMPLETED ✅ All job posting endpoints tested successfully! The 500 error issue has been completely resolved. TESTED ENDPOINTS: ✅ POST /api/auth/login (rider@test.com/test123456) - Authentication working correctly ✅ POST /api/jobs/post - Job creation working perfectly, returns 200 with status 'created' and job object (previously returning 500 errors) ✅ GET /api/jobs/detail/{job_id} - Job detail retrieval working correctly ✅ GET /api/jobs/my-posts - User's job posts listing working correctly ✅ GET /api/jobs/posts?status=open - Open jobs listing working correctly ✅ GET /api/jobs/categories - Job categories endpoint working correctly. The ObjectId serialization issue has been fixed with proper datetime serialization in the create_job_post function. All job posting endpoints are fully functional and ready for production use. The critical 500 error that was blocking job creation has been completely resolved."
 
