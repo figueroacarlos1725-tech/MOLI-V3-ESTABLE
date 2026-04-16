@@ -167,6 +167,8 @@ class SettingsUpdate(BaseModel):
     min_app_version: Optional[str] = None
     update_message: Optional[str] = None
     trabajos_mode: Optional[str] = None
+    broadcast_enabled: Optional[bool] = None
+    broadcast_after_rounds: Optional[int] = None
 
 
 # ─── Admin inline models ─────────────────────────────────

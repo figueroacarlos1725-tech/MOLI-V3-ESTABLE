@@ -27,6 +27,8 @@ async def get_dispatch_config():
     return {
         "accept_seconds": settings.get("driver_accept_seconds", DEFAULT_ACCEPT_SECONDS),
         "max_before_ask": settings.get("max_dispatch_attempts", DEFAULT_MAX_BEFORE_ASK),
+        "broadcast_enabled": settings.get("broadcast_enabled", True),
+        "broadcast_after_rounds": settings.get("broadcast_after_rounds", 3),
     }
 
 
@@ -40,7 +42,10 @@ async def assign_ride_to_drivers(request_id: str, rider_id: str, sorted_drivers:
     dispatch_config = await get_dispatch_config()
     accept_seconds = dispatch_config["accept_seconds"]
     MAX_BEFORE_ASK = dispatch_config["max_before_ask"]
+    broadcast_enabled = dispatch_config["broadcast_enabled"]
+    broadcast_after = dispatch_config["broadcast_after_rounds"]
     total_attempts = 0
+    broadcast_mode = broadcast_enabled and broadcast_after == 0  # Start in broadcast if 0 rounds
 
     try:
         while True:
@@ -72,10 +77,22 @@ async def assign_ride_to_drivers(request_id: str, rider_id: str, sorted_drivers:
             if total_attempts > 0 or not sorted_drivers or len(sorted_drivers) == 0:
                 try:
                     pickup = request_doc.get("pickup_location", {})
+                    # Check if broadcast mode should activate
+                    if broadcast_enabled and not broadcast_mode and broadcast_after > 0 and total_attempts >= broadcast_after:
+                        broadcast_mode = True
+                        await manager.send_personal_message({
+                            "type": "searching_driver",
+                            "request_id": request_id,
+                            "driver_index": total_attempts,
+                            "total_drivers": 0,
+                            "message": "Modo auxilio: buscando todos los conductores disponibles..."
+                        }, rider_id)
+                    
                     result = await get_nearby_drivers(
                         pickup.get("latitude", 0), pickup.get("longitude", 0),
                         radius_km=50,
-                        vehicle_type=request_doc.get("vehicle_type")
+                        vehicle_type=request_doc.get("vehicle_type"),
+                        ignore_driver_radius=broadcast_mode
                     )
                     fresh_drivers = result.get("drivers", [])
                 except Exception:

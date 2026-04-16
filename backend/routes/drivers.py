@@ -131,7 +131,8 @@ async def get_nearby_drivers(
     latitude: float,
     longitude: float,
     radius_km: float = 5.0,
-    vehicle_type: Optional[str] = None
+    vehicle_type: Optional[str] = None,
+    ignore_driver_radius: bool = False
 ):
     """Get available drivers near a location"""
     drivers = await db.drivers.find({
@@ -149,9 +150,9 @@ async def get_nearby_drivers(
                 loc.get("latitude", 0), loc.get("longitude", 0)
             )
             if distance <= radius_km:
-                # Also check driver's own radius preference
+                # Also check driver's own radius preference (unless in broadcast mode)
                 driver_radius = driver.get("radius_km", 50)
-                if distance > driver_radius:
+                if not ignore_driver_radius and distance > driver_radius:
                     continue
                 # Get driver's vehicle
                 vehicle = await db.vehicles.find_one(

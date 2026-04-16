@@ -331,6 +331,33 @@ export default function AdminSettingsScreen() {
             </View>
           </View>
 
+          {/* Broadcast / Modo Auxilio */}
+          <View style={s.section}>
+            <View style={s.sectionHeader}>
+              <Ionicons name="megaphone-outline" size={18} color="#FF9500" />
+              <Text style={s.sectionTitle}>Modo Auxilio (Broadcast)</Text>
+            </View>
+            <View style={s.card}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 16 }}>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 14, fontWeight: '600', color: '#1C1C1E' }}>Activar modo auxilio</Text>
+                  <Text style={{ fontSize: 11, color: '#8E8E93', marginTop: 2 }}>Buscar todos los conductores cuando no hay cercanos</Text>
+                </View>
+                <TouchableOpacity
+                  style={{ width: 52, height: 30, borderRadius: 15, backgroundColor: (editMode ? formData.broadcast_enabled : settings?.broadcast_enabled) !== false ? '#00C853' : '#E5E5EA', justifyContent: 'center', padding: 2 }}
+                  onPress={() => editMode && setFormData({ ...formData, broadcast_enabled: formData.broadcast_enabled === false ? true : false })}
+                >
+                  <View style={{ width: 26, height: 26, borderRadius: 13, backgroundColor: '#fff', alignSelf: (editMode ? formData.broadcast_enabled : settings?.broadcast_enabled) !== false ? 'flex-end' : 'flex-start' }} />
+                </TouchableOpacity>
+              </View>
+              {renderField('Rondas antes de broadcast (0 = siempre)', 'broadcast_after_rounds', { placeholder: '3', numeric: true })}
+              <Text style={{ fontSize: 11, color: '#8E8E93', paddingHorizontal: 16, paddingBottom: 12 }}>
+                Si es 0: envia a todos los conductores desde el inicio.{'\n'}
+                Si es 3: despues de 3 rondas sin aceptacion, envia a todos.
+              </Text>
+            </View>
+          </View>
+
           {/* App Version */}
           <View style={s.section}>
             <View style={s.sectionHeader}>
