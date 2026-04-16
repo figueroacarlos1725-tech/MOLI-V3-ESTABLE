@@ -45,10 +45,46 @@ export default function DriverProfileScreen() {
     vehicle_type: 'economy',
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [vehicleInfo, setVehicleInfo] = useState({ vehicle_make: '', vehicle_model: '', vehicle_year: '', vehicle_color: '', plate_number: '', has_vehicle: false, pending_changes: null as any });
+  const [editingVehicle, setEditingVehicle] = useState(false);
+  const [vehicleForm, setVehicleForm] = useState({ vehicle_make: '', vehicle_model: '', vehicle_year: '', vehicle_color: '', plate_number: '' });
 
   useEffect(() => {
     fetchVehicles();
+    fetchVehicleInfo();
   }, []);
+
+  const fetchVehicleInfo = async () => {
+    try {
+      const res = await apiService.get('/driver/vehicle');
+      setVehicleInfo(res);
+      setVehicleForm({
+        vehicle_make: res.vehicle_make || '',
+        vehicle_model: res.vehicle_model || '',
+        vehicle_year: res.vehicle_year || '',
+        vehicle_color: res.vehicle_color || '',
+        plate_number: res.plate_number || '',
+      });
+    } catch (e) { console.error(e); }
+  };
+
+  const handleSaveVehicle = async () => {
+    if (!vehicleForm.vehicle_make || !vehicleForm.vehicle_model || !vehicleForm.plate_number || !vehicleForm.vehicle_color) {
+      Alert.alert('Error', 'Marca, modelo, color y patente son obligatorios');
+      return;
+    }
+    setIsSubmitting(true);
+    try {
+      const res = await apiService.put('/driver/vehicle', vehicleForm);
+      Alert.alert('✅', res.message);
+      setEditingVehicle(false);
+      fetchVehicleInfo();
+    } catch (e: any) {
+      Alert.alert('Error', e.message || 'No se pudo guardar');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   const fetchVehicles = async () => {
     try {
@@ -146,9 +182,71 @@ export default function DriverProfileScreen() {
           </View>
         </View>
 
+        {/* Vehicle Info Section */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Mis vehiculos</Text>
+            <Text style={styles.sectionTitle}>Mi vehículo</Text>
+            {vehicleInfo.has_vehicle && !editingVehicle && (
+              <TouchableOpacity style={styles.addButton} onPress={() => setEditingVehicle(true)}>
+                <Ionicons name="create-outline" size={18} color="#00C853" />
+                <Text style={styles.addButtonText}>Editar</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+
+          {vehicleInfo.pending_changes && (
+            <View style={{ backgroundColor: '#FFF8E1', borderRadius: 12, padding: 14, marginBottom: 12, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+              <Ionicons name="time" size={20} color="#FF9500" />
+              <Text style={{ fontSize: 13, color: '#8E8E93', flex: 1 }}>Cambios pendientes de aprobación del administrador</Text>
+            </View>
+          )}
+
+          {editingVehicle || !vehicleInfo.has_vehicle ? (
+            <View style={{ backgroundColor: '#fff', borderRadius: 16, padding: 16 }}>
+              {!vehicleInfo.has_vehicle && (
+                <View style={{ backgroundColor: '#FFF5F5', borderRadius: 10, padding: 12, marginBottom: 16, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <Ionicons name="warning" size={18} color="#FF3B30" />
+                  <Text style={{ fontSize: 12, color: '#FF3B30', flex: 1 }}>Cargá los datos de tu vehículo para poder recibir viajes</Text>
+                </View>
+              )}
+              <Input label="Marca" placeholder="Ej: Toyota" value={vehicleForm.vehicle_make} onChangeText={(v) => setVehicleForm({...vehicleForm, vehicle_make: v})} leftIcon="car-outline" autoCapitalize="words" />
+              <Input label="Modelo" placeholder="Ej: Corolla" value={vehicleForm.vehicle_model} onChangeText={(v) => setVehicleForm({...vehicleForm, vehicle_model: v})} leftIcon="car-sport-outline" autoCapitalize="words" />
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                <View style={{ flex: 1 }}>
+                  <Input label="Año" placeholder="2020" value={vehicleForm.vehicle_year} onChangeText={(v) => setVehicleForm({...vehicleForm, vehicle_year: v})} keyboardType="number-pad" leftIcon="calendar-outline" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Input label="Color" placeholder="Blanco" value={vehicleForm.vehicle_color} onChangeText={(v) => setVehicleForm({...vehicleForm, vehicle_color: v})} leftIcon="color-palette-outline" autoCapitalize="words" />
+                </View>
+              </View>
+              <Input label="Patente" placeholder="AB 123 CD" value={vehicleForm.plate_number} onChangeText={(v) => setVehicleForm({...vehicleForm, plate_number: v.toUpperCase()})} leftIcon="document-text-outline" autoCapitalize="characters" />
+              <View style={{ flexDirection: 'row', gap: 12, marginTop: 12 }}>
+                {vehicleInfo.has_vehicle && (
+                  <TouchableOpacity style={{ flex: 1, padding: 14, borderRadius: 12, backgroundColor: '#F2F2F7', alignItems: 'center' }} onPress={() => setEditingVehicle(false)}>
+                    <Text style={{ fontSize: 14, fontWeight: '600', color: '#8E8E93' }}>Cancelar</Text>
+                  </TouchableOpacity>
+                )}
+                <TouchableOpacity style={{ flex: 1, padding: 14, borderRadius: 12, backgroundColor: '#00C853', alignItems: 'center' }} onPress={handleSaveVehicle} disabled={isSubmitting}>
+                  <Text style={{ fontSize: 14, fontWeight: '700', color: '#fff' }}>{isSubmitting ? 'Guardando...' : vehicleInfo.has_vehicle ? 'Enviar cambios' : 'Guardar vehículo'}</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          ) : (
+            <View style={styles.vehicleCard}>
+              <View style={styles.vehicleIcon}>
+                <Ionicons name="car-sport" size={28} color="#00C853" />
+              </View>
+              <View style={styles.vehicleInfo}>
+                <Text style={styles.vehicleName}>{vehicleInfo.vehicle_year ? vehicleInfo.vehicle_year + ' ' : ''}{vehicleInfo.vehicle_make} {vehicleInfo.vehicle_model}</Text>
+                <Text style={styles.vehicleDetails}>{vehicleInfo.vehicle_color} · {vehicleInfo.plate_number}</Text>
+              </View>
+            </View>
+          )}
+        </View>
+
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Otros vehiculos</Text>
             <TouchableOpacity
               style={styles.addButton}
               onPress={() => setShowAddVehicleModal(true)}

@@ -93,6 +93,7 @@ export default function DriverHomeScreen() {
   const [radiusKm, setRadiusKm] = useState(4);
   const [showRadiusControl, setShowRadiusControl] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
+  const [needsVehicle, setNeedsVehicle] = useState(false);
   const [cancelConfig, setCancelConfig] = useState<any>(null);
   const [fareConfig, setFareConfig] = useState<any>(null);
   const [taximeterFare, setTaximeterFare] = useState(0);
@@ -131,6 +132,11 @@ export default function DriverHomeScreen() {
     AsyncStorage.getItem('driver_radius_km').then(saved => {
       if (saved) setRadiusKm(parseInt(saved) || 4);
     });
+    
+    // Check if driver has vehicle registered
+    apiService.get('/driver/vehicle').then(res => {
+      if (!res.has_vehicle) setNeedsVehicle(true);
+    }).catch(() => {});
     
     initializeLocation();
     
@@ -780,6 +786,32 @@ export default function DriverHomeScreen() {
   }
 
   // ==================== DOCUMENT UPLOAD GATE ====================
+  if (needsVehicle) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <ScrollView contentContainerStyle={{ flexGrow: 1, paddingHorizontal: 24, paddingTop: 40, paddingBottom: 40 }}>
+          <View style={{ alignItems: 'center', marginBottom: 32 }}>
+            <View style={{ width: 80, height: 80, borderRadius: 40, backgroundColor: '#FFF8E1', justifyContent: 'center', alignItems: 'center', marginBottom: 16 }}>
+              <Ionicons name="car" size={40} color="#FF9500" />
+            </View>
+            <Text style={{ fontSize: 26, fontWeight: '800', color: '#1C1C1E', textAlign: 'center' }}>
+              Registrá tu vehículo
+            </Text>
+            <Text style={{ fontSize: 14, color: '#8E8E93', textAlign: 'center', marginTop: 8, lineHeight: 20, paddingHorizontal: 20 }}>
+              Necesitás cargar la información de tu vehículo para poder recibir viajes. Esta información se mostrará al pasajero.
+            </Text>
+          </View>
+          <TouchableOpacity
+            style={{ backgroundColor: '#00C853', borderRadius: 14, padding: 18, alignItems: 'center' }}
+            onPress={() => router.push('/(driver)/profile' as any)}
+          >
+            <Text style={{ color: '#fff', fontSize: 16, fontWeight: '700' }}>Cargar datos del vehículo</Text>
+          </TouchableOpacity>
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
+
   if (docsIncomplete) {
     const progress = docsRequired > 0 ? (docsUploaded / docsRequired) : 0;
     return (

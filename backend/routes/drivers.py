@@ -455,3 +455,132 @@ async def get_driver_verification_status(user: dict = Depends(get_current_user))
         "uploaded_count": len(uploaded_types & required_types),
         "required_count": len(required_types),
     }
+
+
+
+# ─── Vehicle Info Endpoints ──────────────────────────────
+
+@router.get("/api/driver/vehicle")
+async def get_driver_vehicle(user: dict = Depends(get_current_user)):
+    """Get driver's vehicle info"""
+    if user["user_type"] != "driver":
+        raise HTTPException(status_code=403, detail="Solo conductores")
+    
+    driver = await db.drivers.find_one({"driver_id": user["user_id"]}, {"_id": 0})
+    if not driver:
+        raise HTTPException(status_code=404, detail="Perfil de conductor no encontrado")
+    
+    # Check for pending changes
+    pending = await db.vehicle_changes.find_one(
+        {"driver_id": user["user_id"], "status": "pending"},
+        {"_id": 0}
+    )
+    
+    return {
+        "vehicle_make": driver.get("vehicle_make", ""),
+        "vehicle_model": driver.get("vehicle_model", ""),
+        "vehicle_year": driver.get("vehicle_year", ""),
+        "vehicle_color": driver.get("vehicle_color", ""),
+        "plate_number": driver.get("plate_number", ""),
+        "has_vehicle": bool(driver.get("plate_number")),
+        "pending_changes": pending,
+    }
+
+
+@router.put("/api/driver/vehicle")
+async def update_driver_vehicle(data: dict = Body(...), user: dict = Depends(get_current_user)):
+    """
+    Update vehicle info. 
+    - If driver has NO vehicle yet: saves directly (first-time setup)
+    - If driver already has vehicle: creates a pending change for admin approval
+    """
+    if user["user_type"] != "driver":
+        raise HTTPException(status_code=403, detail="Solo conductores")
+    
+    driver = await db.drivers.find_one({"driver_id": user["user_id"]})
+    if not driver:
+        raise HTTPException(status_code=404, detail="Perfil no encontrado")
+    
+    vehicle_data = {
+        "vehicle_make": data.get("vehicle_make", "").strip(),
+        "vehicle_model": data.get("vehicle_model", "").strip(),
+        "vehicle_year": data.get("vehicle_year", "").strip(),
+        "vehicle_color": data.get("vehicle_color", "").strip(),
+        "plate_number": data.get("plate_number", "").strip().upper(),
+    }
+    
+    # Validate required fields
+    if not vehicle_data["vehicle_make"] or not vehicle_data["vehicle_model"] or not vehicle_data["plate_number"] or not vehicle_data["vehicle_color"]:
+        raise HTTPException(status_code=400, detail="Marca, modelo, color y patente son obligatorios")
+    
+    has_existing = bool(driver.get("plate_number"))
+    
+    if not has_existing:
+        # First time: save directly
+        await db.drivers.update_one(
+            {"driver_id": user["user_id"]},
+            {"$set": vehicle_data}
+        )
+        return {"status": "saved", "message": "Vehículo registrado correctamente"}
+    else:
+        # Has vehicle: create pending change request
+        await db.vehicle_changes.delete_many({"driver_id": user["user_id"], "status": "pending"})
+        change_doc = {
+            "change_id": generate_id("vc_"),
+            "driver_id": user["user_id"],
+            "driver_name": user.get("name", ""),
+            "current": {
+                "vehicle_make": driver.get("vehicle_make", ""),
+                "vehicle_model": driver.get("vehicle_model", ""),
+                "vehicle_year": driver.get("vehicle_year", ""),
+                "vehicle_color": driver.get("vehicle_color", ""),
+                "plate_number": driver.get("plate_number", ""),
+            },
+            "requested": vehicle_data,
+            "status": "pending",
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        }
+        await db.vehicle_changes.insert_one(change_doc)
+        return {"status": "pending", "message": "Cambios enviados para aprobación del administrador"}
+
+
+# ─── Admin: Vehicle Change Approval ─────────────────────
+
+@router.get("/api/admin/vehicle-changes")
+async def get_vehicle_changes(user: dict = Depends(get_current_user)):
+    """Get all pending vehicle change requests"""
+    if user["user_type"] != "admin":
+        raise HTTPException(status_code=403, detail="Solo administradores")
+    
+    changes = await db.vehicle_changes.find({"status": "pending"}, {"_id": 0}).to_list(50)
+    return {"changes": changes}
+
+
+@router.put("/api/admin/vehicle-changes/{change_id}")
+async def approve_vehicle_change(change_id: str, data: dict = Body(...), user: dict = Depends(get_current_user)):
+    """Approve or reject a vehicle change"""
+    if user["user_type"] != "admin":
+        raise HTTPException(status_code=403, detail="Solo administradores")
+    
+    action = data.get("action", "approve")  # approve or reject
+    change = await db.vehicle_changes.find_one({"change_id": change_id, "status": "pending"})
+    if not change:
+        raise HTTPException(status_code=404, detail="Solicitud no encontrada")
+    
+    if action == "approve":
+        # Apply the changes
+        await db.drivers.update_one(
+            {"driver_id": change["driver_id"]},
+            {"$set": change["requested"]}
+        )
+        await db.vehicle_changes.update_one(
+            {"change_id": change_id},
+            {"$set": {"status": "approved", "reviewed_at": datetime.now(timezone.utc).isoformat()}}
+        )
+        return {"status": "approved", "message": "Cambios de vehículo aprobados"}
+    else:
+        await db.vehicle_changes.update_one(
+            {"change_id": change_id},
+            {"$set": {"status": "rejected", "reviewed_at": datetime.now(timezone.utc).isoformat()}}
+        )
+        return {"status": "rejected", "message": "Cambios de vehículo rechazados"}

@@ -1746,11 +1746,19 @@ async def get_pending_verifications(user: dict = Depends(get_current_user)):
         
         pending_count = sum(1 for d in driver_docs if d.get("status") == "pending")
         
+        # Get vehicle info from drivers collection
+        driver_profile = await db.drivers.find_one({"driver_id": did}, {"_id": 0, "vehicle_make": 1, "vehicle_model": 1, "vehicle_year": 1, "vehicle_color": 1, "plate_number": 1})
+        
         drivers_data.append({
             "driver_id": did,
             "name": driver_user.get("name", "Sin nombre"),
             "email": driver_user.get("email", ""),
             "phone": driver_user.get("phone", ""),
+            "vehicle_make": (driver_profile or {}).get("vehicle_make", ""),
+            "vehicle_model": (driver_profile or {}).get("vehicle_model", ""),
+            "vehicle_year": (driver_profile or {}).get("vehicle_year", ""),
+            "vehicle_color": (driver_profile or {}).get("vehicle_color", ""),
+            "plate_number": (driver_profile or {}).get("plate_number", ""),
             "documents": [{
                 **doc,
                 "uploaded_at": doc["uploaded_at"].isoformat() if isinstance(doc.get("uploaded_at"), datetime) else str(doc.get("uploaded_at", "")),

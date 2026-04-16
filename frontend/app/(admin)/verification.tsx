@@ -55,11 +55,17 @@ export default function AdminVerificationScreen() {
   const [rejectReason, setRejectReason] = useState('');
   const [showRejectInput, setShowRejectInput] = useState(false);
   const [processing, setProcessing] = useState(false);
+  const [vehicleChanges, setVehicleChanges] = useState<any[]>([]);
 
   const fetchDrivers = useCallback(async () => {
     try {
       const res = await apiService.get('/admin/drivers/pending-verification');
       setDrivers(res?.drivers || []);
+      // Also fetch vehicle changes
+      try {
+        const vcRes = await apiService.get('/admin/vehicle-changes');
+        setVehicleChanges(vcRes?.changes || []);
+      } catch (e) {}
     } catch (e) { console.error(e); }
     finally { setLoading(false); setRefreshing(false); }
   }, []);
@@ -156,6 +162,51 @@ export default function AdminVerificationScreen() {
           </View>
 
           <ScrollView contentContainerStyle={{ padding: 16 }}>
+            {/* Vehicle Info */}
+            {selectedDriver && (
+              <View style={{ backgroundColor: '#F2F2F7', borderRadius: 16, padding: 16, marginBottom: 16 }}>
+                <Text style={{ fontSize: 15, fontWeight: '700', color: '#1C1C1E', marginBottom: 8 }}>Datos del vehículo</Text>
+                <Text style={{ fontSize: 13, color: '#3C3C43' }}>
+                  {selectedDriver.vehicle_make ? `${selectedDriver.vehicle_color || ''} ${selectedDriver.vehicle_make} ${selectedDriver.vehicle_model} ${selectedDriver.vehicle_year || ''}`.trim() : 'Sin vehículo registrado'}
+                </Text>
+                {selectedDriver.plate_number ? (
+                  <Text style={{ fontSize: 15, fontWeight: '700', color: '#00C853', marginTop: 4 }}>{selectedDriver.plate_number}</Text>
+                ) : null}
+              </View>
+            )}
+
+            {/* Pending Vehicle Changes */}
+            {vehicleChanges.filter(vc => vc.driver_id === selectedDriver?.driver_id).map(vc => (
+              <View key={vc.change_id} style={{ backgroundColor: '#FFF8E1', borderRadius: 16, padding: 16, marginBottom: 16 }}>
+                <Text style={{ fontSize: 14, fontWeight: '700', color: '#FF9500', marginBottom: 8 }}>Cambio de vehículo pendiente</Text>
+                <View style={{ flexDirection: 'row', gap: 12 }}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 11, color: '#8E8E93', marginBottom: 2 }}>Actual</Text>
+                    <Text style={{ fontSize: 12, color: '#1C1C1E' }}>{vc.current.vehicle_make} {vc.current.vehicle_model}</Text>
+                    <Text style={{ fontSize: 12, color: '#1C1C1E' }}>{vc.current.vehicle_color} · {vc.current.plate_number}</Text>
+                  </View>
+                  <Ionicons name="arrow-forward" size={16} color="#8E8E93" style={{ alignSelf: 'center' }} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 11, color: '#FF9500', marginBottom: 2 }}>Nuevo</Text>
+                    <Text style={{ fontSize: 12, color: '#1C1C1E', fontWeight: '600' }}>{vc.requested.vehicle_make} {vc.requested.vehicle_model}</Text>
+                    <Text style={{ fontSize: 12, color: '#1C1C1E', fontWeight: '600' }}>{vc.requested.vehicle_color} · {vc.requested.plate_number}</Text>
+                  </View>
+                </View>
+                <View style={{ flexDirection: 'row', gap: 10, marginTop: 12 }}>
+                  <TouchableOpacity style={{ flex: 1, padding: 10, borderRadius: 10, backgroundColor: '#FF3B30', alignItems: 'center' }} onPress={async () => {
+                    try { await apiService.put(`/admin/vehicle-changes/${vc.change_id}`, { action: 'reject' }); Alert.alert('Rechazado'); fetchDrivers(); setSelectedDriver(null); } catch(e) {}
+                  }}>
+                    <Text style={{ color: '#fff', fontWeight: '600', fontSize: 13 }}>Rechazar</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={{ flex: 1, padding: 10, borderRadius: 10, backgroundColor: '#00C853', alignItems: 'center' }} onPress={async () => {
+                    try { await apiService.put(`/admin/vehicle-changes/${vc.change_id}`, { action: 'approve' }); Alert.alert('Aprobado', 'Datos de vehículo actualizados'); fetchDrivers(); setSelectedDriver(null); } catch(e) {}
+                  }}>
+                    <Text style={{ color: '#fff', fontWeight: '600', fontSize: 13 }}>Aprobar</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ))}
+
             {/* Show ALL required docs, mark as uploaded or not */}
             {(() => {
               const REQUIRED_DOCS = [
