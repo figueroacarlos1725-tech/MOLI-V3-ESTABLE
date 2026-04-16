@@ -15,6 +15,11 @@ class UserBase(BaseModel):
 class UserCreate(UserBase):
     password: str
     user_type: str = "rider"
+    vehicle_make: Optional[str] = None
+    vehicle_model: Optional[str] = None
+    vehicle_year: Optional[str] = None
+    vehicle_color: Optional[str] = None
+    plate_number: Optional[str] = None
 
 class UserLogin(BaseModel):
     email: EmailStr

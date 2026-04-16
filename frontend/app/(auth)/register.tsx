@@ -28,6 +28,11 @@ export default function RegisterScreen() {
     phone: '',
     password: '',
     confirmPassword: '',
+    vehicle_make: '',
+    vehicle_model: '',
+    vehicle_year: '',
+    vehicle_color: '',
+    plate_number: '',
   });
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -46,6 +51,12 @@ export default function RegisterScreen() {
     if (formData.password !== formData.confirmPassword) {
       newErrors.confirmPassword = 'No coinciden';
     }
+    if (isDriver) {
+      if (!formData.vehicle_make.trim()) newErrors.vehicle_make = 'Requerido';
+      if (!formData.vehicle_model.trim()) newErrors.vehicle_model = 'Requerido';
+      if (!formData.plate_number.trim()) newErrors.plate_number = 'Requerido';
+      if (!formData.vehicle_color.trim()) newErrors.vehicle_color = 'Requerido';
+    }
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -60,6 +71,13 @@ export default function RegisterScreen() {
         phone: formData.phone,
         password: formData.password,
         user_type: userType,
+        ...(isDriver ? {
+          vehicle_make: formData.vehicle_make,
+          vehicle_model: formData.vehicle_model,
+          vehicle_year: formData.vehicle_year,
+          vehicle_color: formData.vehicle_color,
+          plate_number: formData.plate_number,
+        } : {}),
       });
       // Drivers go directly to documents upload, riders go to home
       if (isDriver) {
@@ -170,6 +188,65 @@ export default function RegisterScreen() {
               leftIcon="lock-closed-outline"
               error={errors.confirmPassword}
             />
+
+            {isDriver && (
+              <>
+                <View style={{ marginTop: 16, marginBottom: 8 }}>
+                  <Text style={{ fontSize: 16, fontWeight: '700', color: '#1C1C1E' }}>Datos del vehículo</Text>
+                  <Text style={{ fontSize: 12, color: '#8E8E93', marginTop: 2 }}>Esta información se mostrará al pasajero</Text>
+                </View>
+                <Input
+                  label="Marca"
+                  placeholder="Ej: Toyota, Volkswagen, Honda"
+                  value={formData.vehicle_make}
+                  onChangeText={(v) => updateField('vehicle_make', v)}
+                  leftIcon="car-outline"
+                  autoCapitalize="words"
+                  error={errors.vehicle_make}
+                />
+                <Input
+                  label="Modelo"
+                  placeholder="Ej: Corolla, Gol, CBR"
+                  value={formData.vehicle_model}
+                  onChangeText={(v) => updateField('vehicle_model', v)}
+                  leftIcon="car-sport-outline"
+                  autoCapitalize="words"
+                  error={errors.vehicle_model}
+                />
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  <View style={{ flex: 1 }}>
+                    <Input
+                      label="Año"
+                      placeholder="2020"
+                      value={formData.vehicle_year}
+                      onChangeText={(v) => updateField('vehicle_year', v)}
+                      keyboardType="number-pad"
+                      leftIcon="calendar-outline"
+                    />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Input
+                      label="Color"
+                      placeholder="Blanco, Negro..."
+                      value={formData.vehicle_color}
+                      onChangeText={(v) => updateField('vehicle_color', v)}
+                      leftIcon="color-palette-outline"
+                      autoCapitalize="words"
+                      error={errors.vehicle_color}
+                    />
+                  </View>
+                </View>
+                <Input
+                  label="Patente"
+                  placeholder="ABC 123 o AB 123 CD"
+                  value={formData.plate_number}
+                  onChangeText={(v) => updateField('plate_number', v.toUpperCase())}
+                  leftIcon="document-text-outline"
+                  autoCapitalize="characters"
+                  error={errors.plate_number}
+                />
+              </>
+            )}
 
             <Button
               title="Crear cuenta"
