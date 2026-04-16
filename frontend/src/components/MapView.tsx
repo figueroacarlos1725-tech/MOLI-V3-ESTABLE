@@ -260,7 +260,19 @@ function setMarkers(arr){
       if(ic)opts.icon=ic;
     }
     var mk=new google.maps.Marker(opts);
-    if(m.title){var iw=new google.maps.InfoWindow({content:'<b style="font:600 13px sans-serif">'+m.title+'</b>'});mk.addListener('click',function(){iw.open(map,mk)});}
+    if((m.type==='pickup'||m.type==='dropoff')&&m.title){
+      var color=m.type==='pickup'?'#00C853':'#EF4444';
+      var shortTitle=m.title.length>25?m.title.substring(0,25)+'...':m.title;
+      var iw=new google.maps.InfoWindow({
+        content:'<div onclick="onLabelClick(\''+m.type+'\')" style="cursor:pointer;font:600 12px -apple-system,sans-serif;color:#1C1C1E;padding:2px 4px;border-left:3px solid '+color+';min-width:100px">'+shortTitle+'</div>',
+        disableAutoPan:true
+      });
+      iw.open(map,mk);
+      mk.addListener('click',function(){sendMsg({type:'labelTap',markerType:m.type});});
+    }else if(m.title){
+      var iw2=new google.maps.InfoWindow({content:'<b style="font:600 13px sans-serif">'+m.title+'</b>'});
+      mk.addListener('click',function(){iw2.open(map,mk)});
+    }
     if(m.draggable){
       mk.addListener('dragend',function(){
         var pos=mk.getPosition();
@@ -278,6 +290,10 @@ function setMarkers(arr){
 }
 
 var emojiMap={'economy':'🚗','comfort':'🚙','premium':'🏎️','xl':'🚌'};
+
+function onLabelClick(type){
+  sendMsg({type:'labelTap',markerType:type});
+}
 
 function drawRoute(arr){
   var p=arr.find(function(m){return m.type==='pickup'});
