@@ -739,6 +739,19 @@ export default function RiderHomeScreen() {
           showRoute={!!pickupLocation && !!dropoffLocation}
           onMapPress={phase === 'idle' ? handleMapPress : undefined}
           onMarkerDrag={phase === 'confirm' || phase === 'idle' ? handleMarkerDrag : undefined}
+          onLabelTap={(markerType) => {
+            const isPickup = markerType === 'pickup';
+            const label = isPickup ? 'origen' : 'destino';
+            Alert.alert(
+              `Editar ${label}`,
+              isPickup ? (pickupAddress || 'Origen') : (dropoffAddress || 'Destino'),
+              [
+                { text: 'Cancelar', style: 'cancel' },
+                { text: 'Editar dirección', onPress: () => { setPhase('destination'); if (isPickup) { setPickupLocation(null); setPickupAddress(''); } else { setDropoffLocation(null); setDropoffAddress(''); } } },
+                { text: 'Mover en mapa', onPress: () => { setPhase('confirm'); } },
+              ]
+            );
+          }}
         />
 
         {/* Drag hint */}

@@ -29,6 +29,7 @@ interface MapViewProps {
   onMapPress?: (coords: { latitude: number; longitude: number }) => void;
   onMarkerDrag?: (markerId: string, coords: { latitude: number; longitude: number }) => void;
   onRouteInfo?: (info: { distance_km: number; duration_min: number }) => void;
+  onLabelTap?: (markerType: string) => void;
   style?: any;
 }
 
@@ -66,6 +67,17 @@ html,body,#map{width:100%;height:100%}
 .leaflet-div-icon{background:none!important;border:none!important}
 .m-pickup{width:22px;height:22px;border-radius:50%;background:#00C853;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.4);cursor:grab}
 .m-dropoff{width:16px;height:16px;border-radius:50%;background:#EF4444;border:3px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.3)}
+.m-label-wrap{display:flex;align-items:center;gap:6px;white-space:nowrap}
+.m-label{background:rgba(255,255,255,0.95);backdrop-filter:blur(8px);padding:6px 12px;border-radius:12px;font:600 12px -apple-system,BlinkMacSystemFont,sans-serif;color:#1C1C1E;box-shadow:0 2px 10px rgba(0,0,0,0.18);max-width:180px;overflow:hidden;text-overflow:ellipsis;cursor:pointer;border:1.5px solid rgba(0,0,0,0.06);transition:transform 0.15s}
+.m-label:active{transform:scale(0.96)}
+.m-label-pickup{border-left:3px solid #00C853}
+.m-label-dropoff{border-left:3px solid #EF4444}
+.m-menu{position:absolute;top:32px;left:0;background:#fff;border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,0.25);padding:4px 0;z-index:9999;min-width:160px;display:none;animation:fadeIn 0.2s}
+.m-menu.active{display:block}
+.m-menu-item{padding:10px 14px;font:500 13px -apple-system,sans-serif;color:#1C1C1E;cursor:pointer;display:flex;align-items:center;gap:8px}
+.m-menu-item:hover{background:#F2F2F7}
+.m-menu-item .icon{font-size:16px}
+@keyframes fadeIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}
 .m-user{width:14px;height:14px;border-radius:50%;background:#007AFF;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,0.3)}
 .m-driver{display:flex;align-items:center;justify-content:center;width:44px;height:44px;filter:drop-shadow(0 3px 6px rgba(0,0,0,0.4))}
 .m-driver img{width:44px;height:44px;object-fit:contain}
@@ -85,9 +97,15 @@ L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r
 var currentMarkers=[];
 var routeLayer=null;
 
-function getIcon(type,vt){
-  if(type==='pickup')return L.divIcon({className:'leaflet-div-icon',html:'<div class="m-pickup"></div>',iconSize:[22,22],iconAnchor:[11,11]});
-  if(type==='dropoff')return L.divIcon({className:'leaflet-div-icon',html:'<div class="m-dropoff"></div>',iconSize:[16,16],iconAnchor:[8,8]});
+function getIcon(type,vt,title){
+  if(type==='pickup'){
+    var lbl=title?'<div class="m-label m-label-pickup" onclick="onLabelClick(event,\'pickup\')">'+title+'</div>':'';
+    return L.divIcon({className:'leaflet-div-icon',html:'<div class="m-label-wrap"><div class="m-pickup"></div>'+lbl+'</div>',iconSize:[200,32],iconAnchor:[11,16]});
+  }
+  if(type==='dropoff'){
+    var lbl2=title?'<div class="m-label m-label-dropoff" onclick="onLabelClick(event,\'dropoff\')">'+title+'</div>':'';
+    return L.divIcon({className:'leaflet-div-icon',html:'<div class="m-label-wrap"><div class="m-dropoff"></div>'+lbl2+'</div>',iconSize:[200,32],iconAnchor:[8,16]});
+  }
   if(type==='user')return L.divIcon({className:'leaflet-div-icon',html:'<div class="m-user"></div>',iconSize:[14,14],iconAnchor:[7,7]});
   if(type==='driver'){
     var v=vt||'economy';
@@ -116,7 +134,7 @@ function setMarkers(arr){
   if(!arr||arr.length===0)return;
   var bounds=L.latLngBounds([]);
   arr.forEach(function(m){
-    var ic=getIcon(m.type||'user',m.vehicleType);
+    var ic=getIcon(m.type||'user',m.vehicleType,m.title||'');
     var mk=L.marker([m.latitude,m.longitude],{icon:ic,draggable:m.draggable||false}).addTo(map);
     if(m.title)mk.bindPopup('<div class="popup-content">'+m.title+'</div>');
     if(m.draggable){
@@ -161,6 +179,13 @@ ${enableClick ? `map.on('click',function(e){
 window.updateMarkers=function(arr){setMarkers(arr)};
 window.panTo=function(lat,lng,z){map.setView([lat,lng],z||14)};
 window.fitView=function(){_firstFit=true};
+window.zoomToPoint=function(lat,lng){map.flyTo([lat,lng],17,{duration:0.8})};
+window.resetZoom=function(){_firstFit=true;if(currentMarkers.length>1){var b=L.latLngBounds([]);currentMarkers.forEach(function(m){b.extend(m.getLatLng())});map.flyToBounds(b,{padding:[60,40],maxZoom:15,duration:0.8})}};
+
+function onLabelClick(e,type){
+  e.stopPropagation();
+  sendMsg({type:'labelTap',markerType:type});
+}
 
 if(navigator.geolocation){
   navigator.geolocation.getCurrentPosition(function(p){
@@ -391,7 +416,7 @@ function WebMapView({ initialRegion, markers = [], showRoute = false, onMapPress
   );
 }
 
-function NativeMapView({ initialRegion, markers = [], showRoute = false, onMapPress, onMarkerDrag, onRouteInfo, style, vehicleIcons = [], mapProvider = 'osm', googleKey = '' }: MapViewProps & { vehicleIcons: VehicleIconConfig[]; mapProvider?: string; googleKey?: string }) {
+function NativeMapView({ initialRegion, markers = [], showRoute = false, onMapPress, onMarkerDrag, onRouteInfo, onLabelTap, style, vehicleIcons = [], mapProvider = 'osm', googleKey = '' }: MapViewProps & { vehicleIcons: VehicleIconConfig[]; mapProvider?: string; googleKey?: string }) {
   const WebView = require('react-native-webview').WebView;
   const webViewRef = useRef<any>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -422,6 +447,8 @@ function NativeMapView({ initialRegion, markers = [], showRoute = false, onMapPr
           routeInfoSent.current = true;
           onRouteInfo({ distance_km: data.distance_km, duration_min: data.duration_min });
         }
+      } else if (data.type === 'labelTap' && onLabelTap) {
+        onLabelTap(data.markerType);
       }
     } catch (error) {
       // Silently ignore
