@@ -264,7 +264,7 @@ function setMarkers(arr){
       var color=m.type==='pickup'?'#00C853':'#EF4444';
       var shortTitle=m.title.length>25?m.title.substring(0,25)+'...':m.title;
       var iw=new google.maps.InfoWindow({
-        content:'<div onclick="onLabelClick(\''+m.type+'\')" style="cursor:pointer;font:600 12px -apple-system,sans-serif;color:#1C1C1E;padding:2px 4px;border-left:3px solid '+color+';min-width:100px">'+shortTitle+'</div>',
+        content:'<div onclick="onLabelClick(&quot;'+m.type+'&quot;)" style="cursor:pointer;font:600 12px -apple-system,sans-serif;color:#1C1C1E;padding:2px 4px;border-left:3px solid '+color+';min-width:100px">'+shortTitle+'</div>',
         disableAutoPan:true
       });
       iw.open(map,mk);
