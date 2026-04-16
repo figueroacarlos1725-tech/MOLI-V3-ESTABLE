@@ -239,34 +239,10 @@ function getMarkerIcon(type,vt){
 }
 
 function clearAll(){
-  currentMarkers.forEach(function(m){if(m.setMap)m.setMap(null);if(m.remove)m.remove()});
+  currentMarkers.forEach(function(m){m.setMap(null)});
   currentMarkers=[];
   if(directionsRenderer)directionsRenderer.setMap(null);
 }
-
-function LabelOverlay(pos,text,type,map){
-  this.pos=pos;this.text=text;this.type=type;
-  this.div=null;this.setMap(map);
-}
-LabelOverlay.prototype=new google.maps.OverlayView();
-LabelOverlay.prototype.onAdd=function(){
-  var d=document.createElement('div');
-  var color=this.type==='pickup'?'#00C853':'#EF4444';
-  var short=this.text.length>22?this.text.substring(0,22)+'...':this.text;
-  d.style.cssText='position:absolute;background:rgba(255,255,255,0.92);padding:4px 8px;border-radius:8px;font:600 10px -apple-system,sans-serif;color:#1C1C1E;box-shadow:0 1px 4px rgba(0,0,0,0.2);border-left:2.5px solid '+color+';white-space:nowrap;pointer-events:auto;cursor:pointer;max-width:150px;overflow:hidden;text-overflow:ellipsis;z-index:999';
-  d.textContent=short;
-  var self=this;
-  d.addEventListener('click',function(){sendMsg({type:'labelTap',markerType:self.type})});
-  this.div=d;
-  this.getPanes().floatPane.appendChild(d);
-};
-LabelOverlay.prototype.draw=function(){
-  if(!this.div)return;
-  var p=this.getProjection().fromLatLngToDivPixel(this.pos);
-  if(p){this.div.style.left=(p.x+16)+'px';this.div.style.top=(p.y-12)+'px';}
-};
-LabelOverlay.prototype.onRemove=function(){if(this.div){this.div.remove();this.div=null;}};
-LabelOverlay.prototype.remove=function(){this.setMap(null);};
 
 function setMarkers(arr){
   clearAll();
@@ -284,16 +260,7 @@ function setMarkers(arr){
       if(ic)opts.icon=ic;
     }
     var mk=new google.maps.Marker(opts);
-    if((m.type==='pickup'||m.type==='dropoff')&&m.title){
-      var lbl=new LabelOverlay(mk.getPosition(),m.title,m.type,map);
-      currentMarkers.push(lbl);
-      mk.addListener('click',function(){sendMsg({type:'labelTap',markerType:m.type});});
-    }else if(m.title){
-      mk.addListener('click',function(){
-        var iw=new google.maps.InfoWindow({content:'<b style="font:600 13px sans-serif">'+m.title+'</b>'});
-        iw.open(map,mk);
-      });
-    }
+    if(m.title){var iw=new google.maps.InfoWindow({content:'<b style="font:600 13px sans-serif">'+m.title+'</b>'});mk.addListener('click',function(){iw.open(map,mk)});}
     if(m.draggable){
       mk.addListener('dragend',function(){
         var pos=mk.getPosition();
@@ -311,10 +278,6 @@ function setMarkers(arr){
 }
 
 var emojiMap={'economy':'🚗','comfort':'🚙','premium':'🏎️','xl':'🚌'};
-
-function onLabelClick(type){
-  sendMsg({type:'labelTap',markerType:type});
-}
 
 function drawRoute(arr){
   var p=arr.find(function(m){return m.type==='pickup'});
