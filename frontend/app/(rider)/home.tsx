@@ -1154,7 +1154,7 @@ const s = StyleSheet.create({
   moliBannerText: { flex: 1, fontSize: 13, color: '#5B21B6' },
 
   // ─── Confirm Panel ───
-  confirmPanel: { backgroundColor: '#fff', borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingTop: 16, paddingBottom: 24, maxHeight: SH * 0.55, shadowColor: '#000', shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 8 },
+  confirmPanel: { backgroundColor: '#fff', borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingTop: 16, paddingBottom: 40, maxHeight: SH * 0.58, shadowColor: '#000', shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 8 },
   routeSummary: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: '#F2F2F7' },
   routeDots: { alignItems: 'center', marginRight: 12 },
   dotLine: { width: 2, height: 20, backgroundColor: '#E5E5EA', marginVertical: 3 },
