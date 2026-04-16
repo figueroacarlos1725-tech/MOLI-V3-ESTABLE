@@ -110,6 +110,7 @@ function clearAll(){
   if(routeLayer){map.removeLayer(routeLayer);routeLayer=null;}
 }
 
+var _firstFit=true;
 function setMarkers(arr){
   clearAll();
   if(!arr||arr.length===0)return;
@@ -127,8 +128,11 @@ function setMarkers(arr){
     currentMarkers.push(mk);
     bounds.extend([m.latitude,m.longitude]);
   });
-  if(arr.length>1)map.fitBounds(bounds,{padding:[60,40],maxZoom:15});
-  else if(arr.length===1)map.setView([arr[0].latitude,arr[0].longitude],14);
+  if(_firstFit){
+    if(arr.length>1)map.fitBounds(bounds,{padding:[60,40],maxZoom:15});
+    else if(arr.length===1)map.setView([arr[0].latitude,arr[0].longitude],14);
+    _firstFit=false;
+  }
   var hasP=arr.some(function(m){return m.type==='pickup'});
   var hasD=arr.some(function(m){return m.type==='dropoff'});
   if(hasP&&hasD)drawRoute(arr);
@@ -156,6 +160,7 @@ ${enableClick ? `map.on('click',function(e){
 
 window.updateMarkers=function(arr){setMarkers(arr)};
 window.panTo=function(lat,lng,z){map.setView([lat,lng],z||14)};
+window.fitView=function(){_firstFit=true};
 
 if(navigator.geolocation){
   navigator.geolocation.getCurrentPosition(function(p){

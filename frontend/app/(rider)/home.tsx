@@ -267,7 +267,27 @@ export default function RiderHomeScreen() {
       clearRequest();
     });
 
-    return () => { unsub1(); unsub2(); unsub3(); unsub4(); unsub5(); unsub6(); unsub7(); };
+    // Ride completed via WebSocket - immediate rating
+    const unsub8 = socketService.on('ride_completed', () => {
+      playSound('completed');
+      Vibration.vibrate([0, 300, 150, 300, 150, 300]);
+      fetchActiveRide();
+      setPhase('completed');
+    });
+    const unsub9 = socketService.on('ride_status_update', (d: any) => {
+      if (d.status === 'completed') {
+        playSound('completed');
+        Vibration.vibrate([0, 300, 150, 300, 150, 300]);
+        fetchActiveRide();
+        setPhase('completed');
+      } else if (d.status === 'arrived') {
+        playSound('arrived');
+        Vibration.vibrate([0, 500, 200, 500]);
+        fetchActiveRide();
+      }
+    });
+
+    return () => { unsub1(); unsub2(); unsub3(); unsub4(); unsub5(); unsub6(); unsub7(); unsub8(); unsub9(); };
   }, [user]);
 
   // ─── Polling fallback when searching ──────

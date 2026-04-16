@@ -971,6 +971,11 @@ async def update_ride_status(
         elif status == "completed":
             final_fare = update_data.get("fare", ride.get("fare", 0))
             await notify_ride_completed(ride["rider_id"], final_fare, ride_id)
+            # Also send direct WS event for ride_completed
+            await manager.send_personal_message(
+                {"type": "ride_completed", "ride_id": ride_id, "fare": final_fare},
+                ride["rider_id"]
+            )
         elif status == "cancelled":
             cancelled_by = "conductor" if user["user_type"] == "driver" else "pasajero"
             await notify_ride_cancelled(other_user_id, cancelled_by, ride_id)

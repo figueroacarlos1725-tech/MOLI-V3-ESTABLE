@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView,
-  TextInput, ActivityIndicator, Alert, KeyboardAvoidingView, Platform,
+  TextInput, ActivityIndicator, Alert, KeyboardAvoidingView, Platform, Vibration,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -71,11 +71,27 @@ export default function JobStatusScreen() {
     });
 
     const unsubCompletion = socketService.on('job_completion_request', (msg: any) => {
-      if (msg.job_id === params.jobId) loadJob();
+      if (msg.job_id === params.jobId) {
+        loadJob();
+        // Alert the user that the other party marked the job as done
+        Vibration.vibrate([0, 500, 200, 500]);
+        Alert.alert(
+          '¡Trabajo finalizado!',
+          msg.requested_by === user?.user_id 
+            ? 'Esperando confirmación de la otra parte...'
+            : 'La otra parte marcó el trabajo como terminado. ¿Confirmás que se completó?',
+          [{ text: 'Ver detalles', style: 'default' }]
+        );
+      }
     });
 
     const unsubCompleted = socketService.on('job_completed', (msg: any) => {
-      if (msg.job_id === params.jobId) { loadJob(); setShowRating(true); }
+      if (msg.job_id === params.jobId) { 
+        loadJob(); 
+        Vibration.vibrate([0, 300, 150, 300, 150, 300]);
+        Alert.alert('✅ Trabajo completado', '¡Ambas partes confirmaron! Calificá tu experiencia.');
+        setShowRating(true); 
+      }
     });
 
     // Poll job status
