@@ -36,6 +36,8 @@ export default function SideMenu({ visible, onClose, role }: SideMenuProps) {
     { icon: 'home', label: 'Inicio', route: '/modules' },
     { icon: 'car', label: 'Mis Viajes', route: '/(rider)/rides' },
     { icon: 'wallet', label: 'Billetera', route: '/(rider)/wallet' },
+    { icon: 'pricetag', label: 'Cupones', route: '/(rider)/wallet', color: '#FF9500' },
+    { icon: 'chatbubbles', label: 'Soporte', route: '/support', color: '#007AFF' },
     { icon: 'person', label: 'Mi Perfil', route: '/(rider)/profile' },
   ];
 
@@ -43,10 +45,12 @@ export default function SideMenu({ visible, onClose, role }: SideMenuProps) {
     { icon: 'home', label: 'Inicio', route: '/modules' },
     { icon: 'speedometer', label: 'Taxímetro', route: '/(driver)/taximeter', color: '#FF9500' },
     { icon: 'briefcase', label: 'Moli Trabajos', route: '/(jobs)/home', color: '#007AFF' },
+    { icon: 'car-sport', label: 'Mi Vehículo', route: '/(driver)/profile', color: '#00C853' },
     { icon: 'list', label: 'Solicitudes', route: '/(driver)/rides' },
     { icon: 'wallet', label: 'Billetera', route: '/(driver)/earnings' },
     { icon: 'mail', label: 'Bandeja de entrada', route: '/(driver)/inbox' },
     { icon: 'document-text', label: 'Mis Documentos', route: '/(driver)/documents' },
+    { icon: 'chatbubbles', label: 'Soporte', route: '/support', color: '#007AFF' },
     { icon: 'person', label: 'Mi Perfil', route: '/(driver)/profile' },
   ];
 
@@ -72,17 +76,19 @@ export default function SideMenu({ visible, onClose, role }: SideMenuProps) {
         <View style={styles.menu}>
           <SafeAreaView style={{ flex: 1 }}>
             {/* Profile header */}
-            <View style={styles.profileHeader}>
-              <View style={styles.avatarCircle}>
-                <Ionicons name="person" size={32} color="#fff" />
+            <TouchableOpacity style={styles.profileHeader} onPress={() => navigateTo(role === 'driver' ? '/(driver)/profile' : '/(rider)/profile')} activeOpacity={0.7}>
+              <View style={[styles.avatarCircle, { backgroundColor: '#00C853' }]}>
+                <Text style={{ fontSize: 28, fontWeight: '800', color: '#fff' }}>
+                  {(user?.name || 'U').charAt(0).toUpperCase()}
+                </Text>
               </View>
               <Text style={styles.userName}>{user?.name || 'Usuario'}</Text>
-              <Text style={styles.userEmail}>{user?.email || ''}</Text>
+              <Text style={styles.userEmail}>{user?.phone || user?.email || ''}</Text>
               <View style={styles.ratingBadge}>
                 <Ionicons name="star" size={14} color="#FFD700" />
                 <Text style={styles.ratingText}>{(user?.rating || 5).toFixed(1)}</Text>
               </View>
-            </View>
+            </TouchableOpacity>
 
             <View style={styles.divider} />
 

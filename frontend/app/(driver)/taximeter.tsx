@@ -1,13 +1,14 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View, Text, StyleSheet, SafeAreaView, TouchableOpacity,
-  Vibration, Platform, ScrollView,
+  Vibration, Platform, ScrollView, TextInput, Modal, Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '@/src/stores/authStore';
 import { apiService } from '@/src/services/api';
 import { useRouter } from 'expo-router';
 import * as Location from 'expo-location';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 interface TaxiConfig {
   base_fare: number;
@@ -29,11 +30,17 @@ export default function TaximeterScreen() {
   const [isRunning, setIsRunning] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
-  const [distance, setDistance] = useState(0); // in meters
+  const [distance, setDistance] = useState(0);
   const [fare, setFare] = useState(0);
   const [config, setConfig] = useState<TaxiConfig>(DEFAULT_CONFIG);
   const [history, setHistory] = useState<any[]>([]);
   const [gpsStatus, setGpsStatus] = useState<'waiting' | 'active' | 'error'>('waiting');
+  const [showSettings, setShowSettings] = useState(false);
+  const [customDay, setCustomDay] = useState({ base_fare: '', per_km: '', per_min: '', min_fare: '' });
+  const [customNight, setCustomNight] = useState({ base_fare: '', per_km: '', per_min: '', min_fare: '' });
+  const [useCustom, setUseCustom] = useState(false);
+  const [isNightMode, setIsNightMode] = useState(false);
+  const [isDispatchRide, setIsDispatchRide] = useState(false);
   const timerRef = useRef<any>(null);
   const lastPosition = useRef<{ lat: number; lng: number } | null>(null);
   const locationSub = useRef<Location.LocationSubscription | null>(null);
@@ -41,8 +48,42 @@ export default function TaximeterScreen() {
 
   useEffect(() => {
     fetchConfig();
+    loadCustomRates();
     return () => { stopTracking(); };
   }, []);
+
+  const loadCustomRates = async () => {
+    try {
+      const saved = await AsyncStorage.getItem('taximeter_custom');
+      if (saved) {
+        const data = JSON.parse(saved);
+        setCustomDay(data.day || { base_fare: '', per_km: '', per_min: '', min_fare: '' });
+        setCustomNight(data.night || { base_fare: '', per_km: '', per_min: '', min_fare: '' });
+        setUseCustom(data.useCustom || false);
+      }
+    } catch (e) {}
+  };
+
+  const saveCustomRates = async () => {
+    const data = { day: customDay, night: customNight, useCustom: true };
+    await AsyncStorage.setItem('taximeter_custom', JSON.stringify(data));
+    setUseCustom(true);
+    applyCustomConfig();
+    setShowSettings(false);
+    Alert.alert('✅', 'Tarifas personalizadas guardadas');
+  };
+
+  const applyCustomConfig = () => {
+    const rates = isNightMode ? customNight : customDay;
+    if (rates.base_fare && rates.per_km) {
+      setConfig({
+        base_fare: parseFloat(rates.base_fare) || DEFAULT_CONFIG.base_fare,
+        per_km: parseFloat(rates.per_km) || DEFAULT_CONFIG.per_km,
+        per_min: parseFloat(rates.per_min) || DEFAULT_CONFIG.per_min,
+        min_fare: parseFloat(rates.min_fare) || DEFAULT_CONFIG.min_fare,
+      });
+    }
+  };
 
   useEffect(() => {
     calculateFare();
@@ -238,6 +279,11 @@ export default function TaximeterScreen() {
             </View>
             <Text style={styles.headerTitle}>Taxímetro</Text>
           </View>
+          {!isRunning && (
+            <TouchableOpacity onPress={() => setShowSettings(true)} style={{ padding: 8 }}>
+              <Ionicons name="settings-outline" size={22} color="#1C1C1E" />
+            </TouchableOpacity>
+          )}
           {isRunning && (
             <View style={[styles.gpsChip, gpsStatus === 'active' && styles.gpsActive, gpsStatus === 'error' && styles.gpsError]}>
               <View style={[styles.gpsDot, gpsStatus === 'active' && styles.gpsDotActive, gpsStatus === 'error' && styles.gpsDotError]} />
@@ -247,6 +293,24 @@ export default function TaximeterScreen() {
             </View>
           )}
         </View>
+
+        {/* Day/Night toggle */}
+        {useCustom && !isRunning && (
+          <View style={{ flexDirection: 'row', marginHorizontal: 20, marginBottom: 8, backgroundColor: '#F2F2F7', borderRadius: 12, padding: 3 }}>
+            <TouchableOpacity
+              style={{ flex: 1, paddingVertical: 8, borderRadius: 10, backgroundColor: !isNightMode ? '#00C853' : 'transparent', alignItems: 'center' }}
+              onPress={() => { setIsNightMode(false); setTimeout(applyCustomConfig, 50); }}
+            >
+              <Text style={{ fontSize: 13, fontWeight: '600', color: !isNightMode ? '#fff' : '#8E8E93' }}>☀️ Diurna</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={{ flex: 1, paddingVertical: 8, borderRadius: 10, backgroundColor: isNightMode ? '#1C1C1E' : 'transparent', alignItems: 'center' }}
+              onPress={() => { setIsNightMode(true); setTimeout(applyCustomConfig, 50); }}
+            >
+              <Text style={{ fontSize: 13, fontWeight: '600', color: isNightMode ? '#fff' : '#8E8E93' }}>🌙 Nocturna</Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
         {/* Fare Display */}
         <View style={styles.fareSection}>
@@ -338,6 +402,82 @@ export default function TaximeterScreen() {
           </View>
         )}
       </ScrollView>
+      {/* Settings Modal */}
+      <Modal visible={showSettings} transparent animationType="slide">
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}>
+          <View style={{ backgroundColor: '#fff', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, paddingBottom: 40, maxHeight: '80%' }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <Text style={{ fontSize: 20, fontWeight: '800', color: '#1C1C1E' }}>Ajustes de tarifa</Text>
+              <TouchableOpacity onPress={() => setShowSettings(false)}>
+                <Ionicons name="close" size={24} color="#8E8E93" />
+              </TouchableOpacity>
+            </View>
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <Text style={{ fontSize: 14, color: '#8E8E93', marginBottom: 16 }}>Configura tus tarifas para viajes propios. Los viajes del despacho usan las tarifas de admin.</Text>
+
+              <Text style={{ fontSize: 16, fontWeight: '700', color: '#1C1C1E', marginBottom: 8 }}>☀️ Tarifa Diurna</Text>
+              <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 11, color: '#8E8E93', marginBottom: 4 }}>Base ($)</Text>
+                  <TextInput style={{ backgroundColor: '#F2F2F7', borderRadius: 10, padding: 12, fontSize: 15, fontWeight: '600' }} keyboardType="numeric" placeholder="500" value={customDay.base_fare} onChangeText={v => setCustomDay({...customDay, base_fare: v})} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 11, color: '#8E8E93', marginBottom: 4 }}>$/km</Text>
+                  <TextInput style={{ backgroundColor: '#F2F2F7', borderRadius: 10, padding: 12, fontSize: 15, fontWeight: '600' }} keyboardType="numeric" placeholder="150" value={customDay.per_km} onChangeText={v => setCustomDay({...customDay, per_km: v})} />
+                </View>
+              </View>
+              <View style={{ flexDirection: 'row', gap: 8, marginBottom: 20 }}>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 11, color: '#8E8E93', marginBottom: 4 }}>$/min</Text>
+                  <TextInput style={{ backgroundColor: '#F2F2F7', borderRadius: 10, padding: 12, fontSize: 15, fontWeight: '600' }} keyboardType="numeric" placeholder="50" value={customDay.per_min} onChangeText={v => setCustomDay({...customDay, per_min: v})} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 11, color: '#8E8E93', marginBottom: 4 }}>Mínimo ($)</Text>
+                  <TextInput style={{ backgroundColor: '#F2F2F7', borderRadius: 10, padding: 12, fontSize: 15, fontWeight: '600' }} keyboardType="numeric" placeholder="800" value={customDay.min_fare} onChangeText={v => setCustomDay({...customDay, min_fare: v})} />
+                </View>
+              </View>
+
+              <Text style={{ fontSize: 16, fontWeight: '700', color: '#1C1C1E', marginBottom: 8 }}>🌙 Tarifa Nocturna</Text>
+              <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 11, color: '#8E8E93', marginBottom: 4 }}>Base ($)</Text>
+                  <TextInput style={{ backgroundColor: '#F2F2F7', borderRadius: 10, padding: 12, fontSize: 15, fontWeight: '600' }} keyboardType="numeric" placeholder="700" value={customNight.base_fare} onChangeText={v => setCustomNight({...customNight, base_fare: v})} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 11, color: '#8E8E93', marginBottom: 4 }}>$/km</Text>
+                  <TextInput style={{ backgroundColor: '#F2F2F7', borderRadius: 10, padding: 12, fontSize: 15, fontWeight: '600' }} keyboardType="numeric" placeholder="200" value={customNight.per_km} onChangeText={v => setCustomNight({...customNight, per_km: v})} />
+                </View>
+              </View>
+              <View style={{ flexDirection: 'row', gap: 8, marginBottom: 20 }}>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 11, color: '#8E8E93', marginBottom: 4 }}>$/min</Text>
+                  <TextInput style={{ backgroundColor: '#F2F2F7', borderRadius: 10, padding: 12, fontSize: 15, fontWeight: '600' }} keyboardType="numeric" placeholder="70" value={customNight.per_min} onChangeText={v => setCustomNight({...customNight, per_min: v})} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 11, color: '#8E8E93', marginBottom: 4 }}>Mínimo ($)</Text>
+                  <TextInput style={{ backgroundColor: '#F2F2F7', borderRadius: 10, padding: 12, fontSize: 15, fontWeight: '600' }} keyboardType="numeric" placeholder="1000" value={customNight.min_fare} onChangeText={v => setCustomNight({...customNight, min_fare: v})} />
+                </View>
+              </View>
+
+              <TouchableOpacity style={{ backgroundColor: '#00C853', borderRadius: 14, padding: 16, alignItems: 'center', marginBottom: 8 }} onPress={saveCustomRates}>
+                <Text style={{ color: '#fff', fontSize: 16, fontWeight: '700' }}>Guardar tarifas</Text>
+              </TouchableOpacity>
+
+              {useCustom && (
+                <TouchableOpacity style={{ padding: 12, alignItems: 'center' }} onPress={async () => {
+                  await AsyncStorage.removeItem('taximeter_custom');
+                  setUseCustom(false);
+                  fetchConfig();
+                  setShowSettings(false);
+                  Alert.alert('✅', 'Usando tarifa de admin por defecto');
+                }}>
+                  <Text style={{ color: '#FF3B30', fontSize: 14, fontWeight: '600' }}>Restaurar tarifa de admin</Text>
+                </TouchableOpacity>
+              )}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
