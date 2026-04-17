@@ -767,25 +767,14 @@ export default function RiderHomeScreen() {
       {/* ═══ Bottom Panel ═══ */}
       {phase === 'idle' && (
         <View style={s.bottomPanel}>
-          {/* Service type selector */}
-          <View style={{ flexDirection: 'row', backgroundColor: '#F2F2F7', borderRadius: 12, padding: 3, marginBottom: 14 }}>
-            <TouchableOpacity
-              style={{ flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: 'center', backgroundColor: serviceType === 'ride' ? '#fff' : 'transparent' }}
-              onPress={() => setServiceType('ride')}
-            >
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                <Ionicons name="car" size={18} color={serviceType === 'ride' ? '#00C853' : '#8E8E93'} />
-                <Text style={{ fontSize: 14, fontWeight: '700', color: serviceType === 'ride' ? '#1C1C1E' : '#8E8E93' }}>Viaje</Text>
-              </View>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={{ flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: 'center', backgroundColor: serviceType === 'delivery' ? '#fff' : 'transparent' }}
-              onPress={() => setServiceType('delivery')}
-            >
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                <Ionicons name="cube" size={18} color={serviceType === 'delivery' ? '#00C853' : '#8E8E93'} />
-                <Text style={{ fontSize: 14, fontWeight: '700', color: serviceType === 'delivery' ? '#1C1C1E' : '#8E8E93' }}>Envíos</Text>
-              </View>
+          {/* Header with greeting */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+            <View>
+              <Text style={{ fontSize: 22, fontWeight: '800', color: '#1C1C1E' }}>¡Hola, {user?.name?.split(' ')[0] || 'ahí'}!</Text>
+              <Text style={{ fontSize: 13, color: '#8E8E93', marginTop: 2 }}>¿A dónde te llevamos hoy?</Text>
+            </View>
+            <TouchableOpacity style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: '#F2F2F7', justifyContent: 'center', alignItems: 'center' }} onPress={() => router.push('/support' as any)}>
+              <Ionicons name="headset" size={20} color="#00C853" />
             </TouchableOpacity>
           </View>
 
@@ -793,6 +782,11 @@ export default function RiderHomeScreen() {
           <TouchableOpacity style={s.searchBar} onPress={() => { setSearchType('dropoff'); setSearchModal(true); }}>
             <View style={s.searchIcon}><Ionicons name="search" size={20} color="#00C853" /></View>
             <Text style={s.searchPlaceholder}>¿A dónde vamos?</Text>
+            <View style={{ flexDirection: 'row', gap: 4 }}>
+              <TouchableOpacity style={{ paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8, backgroundColor: '#E8F5E9' }} onPress={() => { setSearchType('dropoff'); setSearchModal(true); }}>
+                <Text style={{ fontSize: 11, fontWeight: '600', color: '#00C853' }}>Ahora</Text>
+              </TouchableOpacity>
+            </View>
           </TouchableOpacity>
 
           {/* Origin row */}
@@ -804,9 +798,55 @@ export default function RiderHomeScreen() {
             </TouchableOpacity>
           </TouchableOpacity>
 
+          {/* Quick actions: Viaje / Envíos */}
+          <View style={{ flexDirection: 'row', gap: 10, marginTop: 14 }}>
+            <TouchableOpacity
+              style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14, borderRadius: 14, backgroundColor: serviceType === 'ride' ? '#E8F5E9' : '#F2F2F7', borderWidth: serviceType === 'ride' ? 1.5 : 0, borderColor: '#00C853' }}
+              onPress={() => setServiceType('ride')}
+            >
+              <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: serviceType === 'ride' ? '#00C853' : '#E5E5EA', justifyContent: 'center', alignItems: 'center' }}>
+                <Ionicons name="car" size={20} color={serviceType === 'ride' ? '#fff' : '#8E8E93'} />
+              </View>
+              <View>
+                <Text style={{ fontSize: 14, fontWeight: '700', color: '#1C1C1E' }}>Viaje</Text>
+                <Text style={{ fontSize: 11, color: '#8E8E93' }}>Ir a algún lugar</Text>
+              </View>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14, borderRadius: 14, backgroundColor: serviceType === 'delivery' ? '#FFF8E1' : '#F2F2F7', borderWidth: serviceType === 'delivery' ? 1.5 : 0, borderColor: '#FF9500' }}
+              onPress={() => setServiceType('delivery')}
+            >
+              <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: serviceType === 'delivery' ? '#FF9500' : '#E5E5EA', justifyContent: 'center', alignItems: 'center' }}>
+                <Ionicons name="cube" size={20} color={serviceType === 'delivery' ? '#fff' : '#8E8E93'} />
+              </View>
+              <View>
+                <Text style={{ fontSize: 14, fontWeight: '700', color: '#1C1C1E' }}>Envíos</Text>
+                <Text style={{ fontSize: 11, color: '#8E8E93' }}>Mandar paquetes</Text>
+              </View>
+            </TouchableOpacity>
+          </View>
+
+          {/* Suggestions: Casa, Trabajo, Aeropuerto */}
+          <View style={{ flexDirection: 'row', gap: 8, marginTop: 14 }}>
+            {[
+              { icon: 'home', label: 'Casa', color: '#007AFF' },
+              { icon: 'briefcase', label: 'Trabajo', color: '#FF9500' },
+              { icon: 'airplane', label: 'Aeropuerto', color: '#AF52DE' },
+            ].map((sug, i) => (
+              <TouchableOpacity
+                key={i}
+                style={{ flex: 1, alignItems: 'center', paddingVertical: 12, borderRadius: 12, backgroundColor: '#F8F8FA' }}
+                onPress={() => { setSearchType('dropoff'); setSearchModal(true); }}
+              >
+                <Ionicons name={sug.icon as any} size={20} color={sug.color} />
+                <Text style={{ fontSize: 11, fontWeight: '600', color: '#1C1C1E', marginTop: 4 }}>{sug.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
           {/* Recent addresses */}
           {addressHistory.length > 0 && (
-            <View style={{ marginTop: 12 }}>
+            <View style={{ marginTop: 14 }}>
               <Text style={{ fontSize: 12, fontWeight: '600', color: '#8E8E93', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 }}>Recientes</Text>
               {addressHistory.slice(0, 3).map((h, i) => (
                 <TouchableOpacity
@@ -820,17 +860,19 @@ export default function RiderHomeScreen() {
                     }
                   }}
                 >
-                  <Ionicons name={h.type === 'saved' ? 'bookmark' : 'time-outline'} size={18} color={h.type === 'saved' ? '#00C853' : '#8E8E93'} />
+                  <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: '#F2F2F7', justifyContent: 'center', alignItems: 'center' }}>
+                    <Ionicons name={h.type === 'saved' ? 'bookmark' : 'time-outline'} size={16} color={h.type === 'saved' ? '#00C853' : '#8E8E93'} />
+                  </View>
                   <Text style={{ flex: 1, fontSize: 14, color: '#1C1C1E' }} numberOfLines={1}>{h.address || 'Dirección'}</Text>
+                  <Ionicons name="chevron-forward" size={16} color="#C7C7CC" />
                 </TouchableOpacity>
               ))}
             </View>
           )}
 
-          {/* Novedades carousel */}
+          {/* Banners carousel */}
           {banners.length > 0 && (
-            <View style={{ marginTop: 16 }}>
-              <Text style={{ fontSize: 12, fontWeight: '600', color: '#8E8E93', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 }}>Novedades</Text>
+            <View style={{ marginTop: 14 }}>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -4 }}>
                 {banners.map((b: any, i: number) => (
                   <TouchableOpacity
@@ -855,8 +897,6 @@ export default function RiderHomeScreen() {
               </ScrollView>
             </View>
           )}
-
-          {/* Moli+ Banner - Hidden for now */}
         </View>
       )}
 
