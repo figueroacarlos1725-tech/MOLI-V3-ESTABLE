@@ -3,7 +3,7 @@
     "name": "Moli",
     "slug": "moli",
     "version": "1.0.0",
-    "orientation": "portrait",
+    "orientation": "default",
     "icon": "./assets/icon.png",
     "scheme": "moli",
     "userInterfaceStyle": "automatic",
