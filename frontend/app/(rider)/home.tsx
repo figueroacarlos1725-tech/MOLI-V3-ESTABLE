@@ -653,39 +653,105 @@ export default function RiderHomeScreen() {
           <MapView initialRegion={pickupLocation || undefined} markers={markers} showRoute={true} />
         </View>
         <View style={s.activeCard}>
+          {/* Status badge */}
           <View style={s.activeStatusBadge}>
             <View style={[s.statusDot, currentRide.status === 'arrived' ? { backgroundColor: '#FF9500' } : currentRide.status === 'started' ? { backgroundColor: '#007AFF' } : { backgroundColor: '#34C759' }]} />
             <Text style={s.activeStatusText}>{statusLabels[currentRide.status] || currentRide.status}</Text>
           </View>
+
+          {/* Plate number - BIG and prominent */}
+          {currentRide.vehicle_info?.plate_number && (
+            <View style={{ alignItems: 'center', marginVertical: 10 }}>
+              <View style={{ backgroundColor: '#1C1C1E', borderRadius: 10, paddingHorizontal: 20, paddingVertical: 8 }}>
+                <Text style={{ fontSize: 22, fontWeight: '900', color: '#fff', letterSpacing: 2 }}>{currentRide.vehicle_info.plate_number}</Text>
+              </View>
+              {currentRide.vehicle_info && (
+                <Text style={{ fontSize: 13, color: '#8E8E93', marginTop: 6 }}>
+                  {currentRide.vehicle_info.color} {currentRide.vehicle_info.make} {currentRide.vehicle_info.model}
+                </Text>
+              )}
+            </View>
+          )}
+
+          {/* Driver info row - Didi style */}
           {currentRide.driver_info && (
-            <View style={s.driverRow}>
-              <View style={s.driverAvatar}><Ionicons name="person" size={28} color="#fff" /></View>
-              <View style={{ flex: 1, marginLeft: 12 }}>
-                <Text style={s.driverName}>{currentRide.driver_info.name}</Text>
-                <View style={s.ratingRow}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#F8F8FA', borderRadius: 16, padding: 14, marginBottom: 12 }}>
+              <View style={{ width: 52, height: 52, borderRadius: 26, backgroundColor: '#00C853', justifyContent: 'center', alignItems: 'center', marginRight: 12 }}>
+                <Text style={{ fontSize: 24, fontWeight: '800', color: '#fff' }}>
+                  {(currentRide.driver_info.name || 'C').charAt(0).toUpperCase()}
+                </Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 16, fontWeight: '700', color: '#1C1C1E' }}>{currentRide.driver_info.name}</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 }}>
                   <Ionicons name="star" size={14} color="#FFD700" />
-                  <Text style={s.ratingVal}>{(currentRide.driver_info.rating || 5).toFixed(1)}</Text>
+                  <Text style={{ fontSize: 13, color: '#8E8E93', fontWeight: '600' }}>{(currentRide.driver_info.rating || 5).toFixed(1)}</Text>
+                  <Text style={{ fontSize: 11, color: '#C7C7CC', marginLeft: 4 }}>{currentRide.driver_info.total_rides || 0} viajes</Text>
                 </View>
               </View>
-              <TouchableOpacity style={s.iconBtn} onPress={() => router.push({ pathname: '/chat', params: { rideId: currentRide.ride_id, otherName: currentRide.driver_info?.name || 'Conductor' } })}>
-                <Ionicons name="chatbubble-ellipses" size={22} color="#00C853" />
-              </TouchableOpacity>
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                <TouchableOpacity 
+                  style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: '#E8F5E9', justifyContent: 'center', alignItems: 'center' }}
+                  onPress={() => router.push({ pathname: '/chat', params: { rideId: currentRide.ride_id, otherName: currentRide.driver_info?.name || 'Conductor' } })}
+                >
+                  <Ionicons name="chatbubble-ellipses" size={20} color="#00C853" />
+                </TouchableOpacity>
+                {currentRide.driver_info.phone && (
+                  <TouchableOpacity 
+                    style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: '#E3F2FD', justifyContent: 'center', alignItems: 'center' }}
+                    onPress={() => Linking.openURL(`tel:${currentRide.driver_info.phone}`)}
+                  >
+                    <Ionicons name="call" size={20} color="#007AFF" />
+                  </TouchableOpacity>
+                )}
+              </View>
             </View>
           )}
-          {currentRide.vehicle_info && (
-            <View style={s.vehicleRow}>
-              <Text style={s.vehiclePlate}>{currentRide.vehicle_info.plate_number}</Text>
-              <Text style={s.vehicleDesc}>{currentRide.vehicle_info.color} {currentRide.vehicle_info.make} {currentRide.vehicle_info.model}</Text>
+
+          {/* Fare and ride info */}
+          <View style={{ flexDirection: 'row', justifyContent: 'space-around', paddingVertical: 10, borderTopWidth: 1, borderTopColor: '#F0F0F0' }}>
+            <View style={{ alignItems: 'center' }}>
+              <Text style={{ fontSize: 11, color: '#8E8E93', textTransform: 'uppercase', letterSpacing: 0.5 }}>Tarifa</Text>
+              <Text style={{ fontSize: 20, fontWeight: '800', color: '#00C853', marginTop: 2 }}>${currentRide.fare?.toFixed(0)}</Text>
             </View>
-          )}
-          <View style={s.fareRow}>
-            <Text style={s.fareLabel}>Tarifa estimada</Text>
-            <Text style={s.fareVal}>${currentRide.fare?.toFixed(0)}</Text>
+            {currentRide.estimated_distance && (
+              <View style={{ alignItems: 'center' }}>
+                <Text style={{ fontSize: 11, color: '#8E8E93', textTransform: 'uppercase', letterSpacing: 0.5 }}>Distancia</Text>
+                <Text style={{ fontSize: 20, fontWeight: '800', color: '#1C1C1E', marginTop: 2 }}>{currentRide.estimated_distance.toFixed(1)} km</Text>
+              </View>
+            )}
+            <View style={{ alignItems: 'center' }}>
+              <Text style={{ fontSize: 11, color: '#8E8E93', textTransform: 'uppercase', letterSpacing: 0.5 }}>Pago</Text>
+              <Text style={{ fontSize: 14, fontWeight: '700', color: '#1C1C1E', marginTop: 4 }}>
+                {currentRide.payment_method === 'cash' ? '💵 Efectivo' : currentRide.payment_method === 'wallet' ? '💳 Billetera' : '💳 Tarjeta'}
+              </Text>
+            </View>
+          </View>
+
+          {/* Safety actions */}
+          <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
+            <TouchableOpacity 
+              style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10, borderRadius: 10, backgroundColor: '#F2F2F7' }}
+              onPress={() => {
+                const msg = `Estoy en un viaje con ${currentRide.driver_info?.name || 'un conductor'}. Patente: ${currentRide.vehicle_info?.plate_number || 'N/A'}. ${currentRide.vehicle_info?.color || ''} ${currentRide.vehicle_info?.make || ''} ${currentRide.vehicle_info?.model || ''}`;
+                Linking.openURL(`sms:?body=${encodeURIComponent(msg)}`);
+              }}
+            >
+              <Ionicons name="share-outline" size={16} color="#007AFF" />
+              <Text style={{ fontSize: 12, fontWeight: '600', color: '#007AFF' }}>Compartir viaje</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10, borderRadius: 10, backgroundColor: '#FFF5F5' }}
+              onPress={() => Linking.openURL('tel:911')}
+            >
+              <Ionicons name="shield-outline" size={16} color="#FF3B30" />
+              <Text style={{ fontSize: 12, fontWeight: '600', color: '#FF3B30' }}>Emergencia</Text>
+            </TouchableOpacity>
           </View>
           
           {/* Cancel ride - only before trip starts */}
           {(currentRide.status === 'accepted' || currentRide.status === 'arrived') && (
-            <TouchableOpacity style={s.cancelActiveBtn} onPress={() => setShowCancelModal(true)}>
+            <TouchableOpacity style={[s.cancelActiveBtn, { marginTop: 10 }]} onPress={() => setShowCancelModal(true)}>
               <Ionicons name="close-circle-outline" size={18} color="#FF3B30" />
               <Text style={s.cancelActiveText}>Cancelar viaje</Text>
             </TouchableOpacity>
