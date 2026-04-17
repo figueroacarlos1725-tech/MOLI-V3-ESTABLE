@@ -38,10 +38,10 @@ export default function DocumentsScreen() {
       }
 
       const result = useCamera
-        ? await ImagePicker.launchCameraAsync({ quality: 0.5, base64: true })
-        : await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.5, base64: true });
+        ? await ImagePicker.launchCameraAsync({ quality: 0.3, base64: true, allowsEditing: true, aspect: [1, 1] })
+        : await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.3, base64: true });
 
-      if (result.canceled || !result.assets[0]?.base64) return;
+      if (result.canceled || !result.assets || !result.assets[0]?.base64) return;
 
       setUploading(docKey);
       const base64Data = `data:image/jpeg;base64,${result.assets[0].base64}`;

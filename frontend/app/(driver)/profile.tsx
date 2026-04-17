@@ -139,9 +139,11 @@ export default function DriverProfileScreen() {
   };
 
   const vehicleTypes = [
-    { id: 'economy', name: 'Economico' },
+    { id: 'economy', name: 'Auto' },
+    { id: 'moto', name: 'Moto' },
     { id: 'comfort', name: 'Confort' },
     { id: 'premium', name: 'Premium' },
+    { id: 'xl', name: 'XL' },
     { id: 'xl', name: 'XL' },
   ];
 

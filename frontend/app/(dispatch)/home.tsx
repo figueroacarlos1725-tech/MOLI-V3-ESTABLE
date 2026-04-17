@@ -888,7 +888,7 @@ export default function DispatchHome() {
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: DARK },
+  container: { flex: 1, backgroundColor: DARK, paddingBottom: 32 },
   // Header
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: DARK2, paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: DARK3 },
   headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
