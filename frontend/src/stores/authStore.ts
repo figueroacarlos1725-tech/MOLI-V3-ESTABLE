@@ -13,6 +13,7 @@ export interface User {
   rating: number;
   is_verified: boolean;
   is_professional?: boolean;
+  total_rides?: number;
   created_at: string;
 }
 
@@ -27,6 +28,7 @@ interface AuthState {
   logout: () => Promise<void>;
   loadStoredAuth: () => Promise<void>;
   updateUser: (userData: Partial<User>) => void;
+  refreshUser: () => Promise<void>;
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -108,5 +110,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       set({ user: updatedUser });
       AsyncStorage.setItem('user', JSON.stringify(updatedUser));
     }
+  },
+
+  refreshUser: async () => {
+    const currentUser = get().user;
+    if (!currentUser) return;
+    const response = await apiService.get('/auth/me');
+    const refreshedUser: User = { ...currentUser, ...(response.user ?? response) };
+    await AsyncStorage.setItem('user', JSON.stringify(refreshedUser));
+    set({ user: refreshedUser });
   },
 }));

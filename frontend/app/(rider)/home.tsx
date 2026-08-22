@@ -577,7 +577,7 @@ export default function RiderHomeScreen() {
               <Text style={s.completedLabel}>Tarifa total</Text>
               <Text style={s.completedFare}>${currentRide.fare?.toFixed(0)}</Text>
             </View>
-            {currentRide.penalty_surcharge > 0 && (
+            {(currentRide.penalty_surcharge ?? 0) > 0 && (
               <>
                 <View style={s.completedDivider} />
                 <View style={s.completedRow}>

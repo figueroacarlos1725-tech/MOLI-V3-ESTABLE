@@ -91,3 +91,15 @@ def settlement_snapshot(pricing: dict, rules: Iterable[dict]) -> dict:
 
 def dispatch_vehicle_order(round_number: int) -> list[str]:
     return ["motorcycle"] if round_number <= 1 else ["motorcycle", "car", "taxi", "other"]
+
+
+def public_merchant_query() -> dict:
+    """Canonical visibility filter; pending/rejected shops must never leak."""
+    return {"approval_status": "approved"}
+
+
+def merchant_orders_query(merchant_id: str, status: str | None = None) -> dict:
+    query = {"merchant_id": merchant_id}
+    if status:
+        query["status"] = status
+    return query

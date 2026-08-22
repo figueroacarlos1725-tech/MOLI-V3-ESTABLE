@@ -1,354 +1,57 @@
-import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  SafeAreaView,
-  TouchableOpacity,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  Alert,
-} from 'react-native';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import React, { useMemo, useState } from 'react';
+import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Input } from '@/src/components/Input';
-import { Button } from '@/src/components/Button';
-import { useAuthStore } from '@/src/stores/authStore';
-import { MOLI_COLORS, MOLI_RADIUS } from '@/src/theme/colors';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { apiService } from '@/src/services/api';
+import { MOLI_COLORS } from '@/src/theme/colors';
+
+type Channel = 'email' | 'whatsapp';
+type Capability = 'ride_driver' | 'moto_driver' | 'taxi_driver' | 'professional' | 'tramites' | 'parcel' | 'delivery' | 'merchant';
+const CAPABILITIES: { id: Capability; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
+  { id: 'ride_driver', label: 'Conductor de auto', icon: 'car' }, { id: 'moto_driver', label: 'Conductor de moto', icon: 'bicycle' },
+  { id: 'taxi_driver', label: 'Taxi', icon: 'car-sport' }, { id: 'professional', label: 'Profesional', icon: 'construct' },
+  { id: 'tramites', label: 'Trámites', icon: 'document-text' }, { id: 'parcel', label: 'Encomiendas', icon: 'cube' },
+  { id: 'delivery', label: 'Repartos', icon: 'fast-food' }, { id: 'merchant', label: 'Comercio', icon: 'storefront' },
+];
 
 export default function RegisterScreen() {
   const router = useRouter();
-  const { role, isPro } = useLocalSearchParams<{ role: string; isPro?: string }>();
-  const { register } = useAuthStore();
-  const isProfessional = isPro === '1';
-  
-  const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    phone: '',
-    password: '',
-    confirmPassword: '',
-    vehicle_make: '',
-    vehicle_model: '',
-    vehicle_year: '',
-    vehicle_color: '',
-    plate_number: '',
-  });
-  const [isLoading, setIsLoading] = useState(false);
-  const [errors, setErrors] = useState<Record<string, string>>({});
-
-  const userType = role || 'rider';
-  const isDriver = userType === 'driver' && !isProfessional;
-
+  const params = useLocalSearchParams<{ capabilities?: string; role?: string; isPro?: string }>();
+  const initial = useMemo(() => {
+    const explicit = (params.capabilities || '').split(',').filter(Boolean) as Capability[];
+    if (explicit.length) return explicit;
+    if (params.isPro === '1') return ['professional'] as Capability[];
+    if (params.role === 'driver') return ['ride_driver'] as Capability[];
+    return [];
+  }, [params.capabilities, params.isPro, params.role]);
+  const [form, setForm] = useState({ name: '', phone: '', email: '', password: '', confirm: '', code: '' });
+  const [capabilities, setCapabilities] = useState<Capability[]>(initial);
+  const [channel, setChannel] = useState<Channel>('whatsapp');
+  const [step, setStep] = useState<'details' | 'otp' | 'verified' | 'pending'>('details');
+  const [verificationToken, setVerificationToken] = useState('');
+  const [busy, setBusy] = useState(false);
+  const set = (key: keyof typeof form, value: string) => setForm(prev => ({ ...prev, [key]: value }));
+  const toggle = (id: Capability) => setCapabilities(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
   const validate = () => {
-    const newErrors: Record<string, string> = {};
-    if (!formData.name.trim()) newErrors.name = 'Requerido';
-    if (!formData.email.trim()) newErrors.email = 'Requerido';
-    else if (!/\S+@\S+\.\S+/.test(formData.email)) newErrors.email = 'Email inválido';
-    if (!formData.phone.trim()) newErrors.phone = 'Requerido';
-    if (!formData.password) newErrors.password = 'Requerido';
-    else if (formData.password.length < 6) newErrors.password = 'Mínimo 6 caracteres';
-    if (formData.password !== formData.confirmPassword) {
-      newErrors.confirmPassword = 'No coinciden';
-    }
-    if (isDriver) {
-      if (!formData.vehicle_make.trim()) newErrors.vehicle_make = 'Requerido';
-      if (!formData.vehicle_model.trim()) newErrors.vehicle_model = 'Requerido';
-      if (!formData.plate_number.trim()) newErrors.plate_number = 'Requerido';
-      if (!formData.vehicle_color.trim()) newErrors.vehicle_color = 'Requerido';
-    }
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    if (form.name.trim().length < 2) return 'Ingresá tu nombre completo';
+    if (!/^\S+@\S+\.\S+$/.test(form.email.trim())) return 'Ingresá un email válido';
+    if (!/^\+[1-9]\d{7,14}$/.test(form.phone.replace(/[\s().-]/g, ''))) return 'Usá formato internacional, por ejemplo +549...';
+    if (form.password.length < 8) return 'La contraseña debe tener al menos 8 caracteres';
+    if (form.password !== form.confirm) return 'Las contraseñas no coinciden';
+    return null;
   };
-
-  const handleRegister = async () => {
-    if (!validate()) return;
-    setIsLoading(true);
-    try {
-      await register({
-        name: formData.name,
-        email: formData.email,
-        phone: formData.phone,
-        password: formData.password,
-        user_type: userType,
-        is_professional: isProfessional,
-        ...(isDriver ? {
-          vehicle_make: formData.vehicle_make,
-          vehicle_model: formData.vehicle_model,
-          vehicle_year: formData.vehicle_year,
-          vehicle_color: formData.vehicle_color,
-          plate_number: formData.plate_number,
-        } : {}),
-      });
-      // Drivers go directly to documents upload, riders go to home
-      if (isDriver) {
-        router.replace('/(driver)/home' as any);
-      } else {
-        router.replace('/');
-      }
-    } catch (error: any) {
-      Alert.alert('Error', error.message || 'Intentá de nuevo');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const updateField = (field: string, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-    if (errors[field]) {
-      setErrors(prev => ({ ...prev, [field]: '' }));
-    }
-  };
-
-  return (
-    <SafeAreaView style={styles.container}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.keyboardView}
-      >
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-        >
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => router.back()}
-          >
-            <Ionicons name="arrow-back" size={24} color={MOLI_COLORS.darkGray} />
-          </TouchableOpacity>
-
-          <View style={styles.headerSection}>
-            <View style={[styles.roleChip, (isDriver || isProfessional) && styles.roleChipDriver]}>
-              <Ionicons
-                name={isProfessional ? 'construct' : isDriver ? 'car-sport' : 'person'}
-                size={18}
-                color={MOLI_COLORS.primary}
-              />
-              <Text style={styles.roleChipText}>
-                {isProfessional ? 'Profesional' : isDriver ? 'Conductor' : 'Pasajero'}
-              </Text>
-            </View>
-            <Text style={styles.title}>Creá tu cuenta</Text>
-            <Text style={styles.subtitle}>
-              {isProfessional
-                ? 'Ofrecé tus servicios en Moli Trabajos'
-                : isDriver
-                  ? 'Unite a Moli y empezá a ganar'
-                  : 'Registrate para pedir tu primer viaje'
-              }
-            </Text>
-          </View>
-
-          <View style={styles.formSection}>
-            <Input
-              label="Nombre completo"
-              placeholder="Tu nombre"
-              value={formData.name}
-              onChangeText={(v) => updateField('name', v)}
-              leftIcon="person-outline"
-              autoCapitalize="words"
-              error={errors.name}
-            />
-
-            <Input
-              label="Email"
-              placeholder="tu@email.com"
-              value={formData.email}
-              onChangeText={(v) => updateField('email', v)}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              leftIcon="mail-outline"
-              error={errors.email}
-            />
-
-            <Input
-              label="Teléfono"
-              placeholder="+54 9 XXX XXX XXXX"
-              value={formData.phone}
-              onChangeText={(v) => updateField('phone', v)}
-              keyboardType="phone-pad"
-              leftIcon="call-outline"
-              error={errors.phone}
-            />
-
-            <Input
-              label="Contraseña"
-              placeholder="Mínimo 6 caracteres"
-              value={formData.password}
-              onChangeText={(v) => updateField('password', v)}
-              secureTextEntry
-              leftIcon="lock-closed-outline"
-              error={errors.password}
-            />
-
-            <Input
-              label="Confirmar contraseña"
-              placeholder="Repetí tu contraseña"
-              value={formData.confirmPassword}
-              onChangeText={(v) => updateField('confirmPassword', v)}
-              secureTextEntry
-              leftIcon="lock-closed-outline"
-              error={errors.confirmPassword}
-            />
-
-            {isDriver && (
-              <>
-                <View style={{ marginTop: 16, marginBottom: 8 }}>
-                  <Text style={{ fontSize: 16, fontWeight: '700', color: '#1C1C1E' }}>Datos del vehículo</Text>
-                  <Text style={{ fontSize: 12, color: '#8E8E93', marginTop: 2 }}>Esta información se mostrará al pasajero</Text>
-                </View>
-                <Input
-                  label="Marca"
-                  placeholder="Ej: Toyota, Volkswagen, Honda"
-                  value={formData.vehicle_make}
-                  onChangeText={(v) => updateField('vehicle_make', v)}
-                  leftIcon="car-outline"
-                  autoCapitalize="words"
-                  error={errors.vehicle_make}
-                />
-                <Input
-                  label="Modelo"
-                  placeholder="Ej: Corolla, Gol, CBR"
-                  value={formData.vehicle_model}
-                  onChangeText={(v) => updateField('vehicle_model', v)}
-                  leftIcon="car-sport-outline"
-                  autoCapitalize="words"
-                  error={errors.vehicle_model}
-                />
-                <View style={{ flexDirection: 'row', gap: 8 }}>
-                  <View style={{ flex: 1 }}>
-                    <Input
-                      label="Año"
-                      placeholder="2020"
-                      value={formData.vehicle_year}
-                      onChangeText={(v) => updateField('vehicle_year', v)}
-                      keyboardType="number-pad"
-                      leftIcon="calendar-outline"
-                    />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Input
-                      label="Color"
-                      placeholder="Blanco, Negro..."
-                      value={formData.vehicle_color}
-                      onChangeText={(v) => updateField('vehicle_color', v)}
-                      leftIcon="color-palette-outline"
-                      autoCapitalize="words"
-                      error={errors.vehicle_color}
-                    />
-                  </View>
-                </View>
-                <Input
-                  label="Patente"
-                  placeholder="ABC 123 o AB 123 CD"
-                  value={formData.plate_number}
-                  onChangeText={(v) => updateField('plate_number', v.toUpperCase())}
-                  leftIcon="document-text-outline"
-                  autoCapitalize="characters"
-                  error={errors.plate_number}
-                />
-              </>
-            )}
-
-            <Button
-              title="Crear cuenta"
-              onPress={handleRegister}
-              loading={isLoading}
-              size="large"
-              style={styles.registerButton}
-            />
-          </View>
-
-          <View style={styles.footerSection}>
-            <Text style={styles.footerText}>¿Ya tenés cuenta? </Text>
-            <TouchableOpacity onPress={() => router.push('/(auth)/login')}>
-              <Text style={styles.signInText}>Iniciá sesión</Text>
-            </TouchableOpacity>
-          </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
-  );
+  const requestOtp = async () => { const error = validate(); if (error) return Alert.alert('Revisá tus datos', error); setBusy(true); try { const r = await apiService.post('/registration/otp/request', { phone: form.phone, email: form.email.trim(), channel, purpose: 'register' }); setChannel(r.channel); setStep('otp'); } catch (e: any) { Alert.alert('No pudimos enviar el código', e.message); } finally { setBusy(false); } };
+  const verifyOtp = async () => { if (!/^\d{6}$/.test(form.code)) return Alert.alert('Código inválido', 'Ingresá los 6 números.'); setBusy(true); try { const r = await apiService.post('/registration/otp/verify', { phone: form.phone, code: form.code, purpose: 'register' }); setVerificationToken(r.verification_token); setStep('verified'); } catch (e: any) { Alert.alert('No se pudo verificar', e.message); } finally { setBusy(false); } };
+  const submit = async () => { setBusy(true); try { const r = await apiService.post('/registration/submit', { verification_token: verificationToken, phone: form.phone, email: form.email.trim(), name: form.name.trim(), password: form.password, capabilities }); if (r.status === 'pending') setStep('pending'); else Alert.alert('Cuenta creada', r.message || 'Ya podés iniciar sesión.', [{ text: 'Continuar', onPress: () => router.replace('/(auth)/login') }]); } catch (e: any) { Alert.alert('No se pudo registrar', e.message); } finally { setBusy(false); } };
+  if (step === 'pending') return <SafeAreaView style={s.center}><Ionicons name="time" size={72} color="#FF9500" /><Text style={s.title}>Registro en revisión</Text><Text style={s.centerText}>Administración revisará tus capacidades de proveedor y te avisaremos cuando sean aprobadas.</Text><TouchableOpacity style={s.primary} onPress={() => router.replace('/(auth)/welcome')}><Text style={s.primaryText}>Volver al inicio</Text></TouchableOpacity></SafeAreaView>;
+  return <SafeAreaView style={s.container}><KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}><ScrollView contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
+    <TouchableOpacity onPress={() => router.back()}><Ionicons name="arrow-back" size={26} color="#1C1C1E" /></TouchableOpacity><Text style={s.title}>Creá tu cuenta</Text><Text style={s.subtitle}>Elegí varios servicios con la misma identidad.</Text>
+    {step === 'details' && <><TextInput style={s.input} placeholder="Nombre completo" value={form.name} onChangeText={v => set('name', v)} /><TextInput style={s.input} placeholder="Teléfono +549..." keyboardType="phone-pad" value={form.phone} onChangeText={v => set('phone', v)} /><TextInput style={s.input} placeholder="Email" keyboardType="email-address" autoCapitalize="none" value={form.email} onChangeText={v => set('email', v)} />
+      <Text style={s.label}>Recibir el código por</Text><View style={s.row}>{(['whatsapp', 'email'] as Channel[]).map(c => <TouchableOpacity key={c} style={[s.choice, channel === c && s.selected]} onPress={() => setChannel(c)}><Ionicons name={c === 'whatsapp' ? 'logo-whatsapp' : 'mail'} size={20} color={channel === c ? '#fff' : MOLI_COLORS.primary} /><Text style={[s.choiceText, channel === c && { color: '#fff' }]}>{c === 'whatsapp' ? 'WhatsApp' : 'Email'}</Text></TouchableOpacity>)}</View>
+      <TextInput style={s.input} placeholder="Contraseña (mínimo 8)" secureTextEntry value={form.password} onChangeText={v => set('password', v)} /><TextInput style={s.input} placeholder="Repetir contraseña" secureTextEntry value={form.confirm} onChangeText={v => set('confirm', v)} />
+      <Text style={s.label}>Servicios opcionales</Text><View style={s.caps}>{CAPABILITIES.map(c => <TouchableOpacity key={c.id} style={[s.cap, capabilities.includes(c.id) && s.capSelected]} onPress={() => toggle(c.id)}><Ionicons name={c.icon} size={18} color={capabilities.includes(c.id) ? '#fff' : '#636366'} /><Text style={[s.capText, capabilities.includes(c.id) && { color: '#fff' }]}>{c.label}</Text></TouchableOpacity>)}</View><TouchableOpacity style={s.primary} onPress={requestOtp} disabled={busy}>{busy ? <ActivityIndicator color="#fff" /> : <Text style={s.primaryText}>Enviar código</Text>}</TouchableOpacity></>}
+    {step === 'otp' && <View><Text style={s.label}>Código enviado por {channel === 'whatsapp' ? 'WhatsApp' : 'email'}</Text><TextInput style={[s.input, { textAlign: 'center', fontSize: 26, letterSpacing: 8 }]} placeholder="000000" keyboardType="number-pad" maxLength={6} value={form.code} onChangeText={v => set('code', v.replace(/\D/g, ''))} /><TouchableOpacity style={s.primary} onPress={verifyOtp} disabled={busy}>{busy ? <ActivityIndicator color="#fff" /> : <Text style={s.primaryText}>Verificar código</Text>}</TouchableOpacity><TouchableOpacity onPress={requestOtp}><Text style={s.link}>Reenviar código</Text></TouchableOpacity></View>}
+    {step === 'verified' && <View style={s.center}><Ionicons name="checkmark-circle" size={64} color={MOLI_COLORS.primary} /><Text style={s.title}>Datos verificados</Text><Text style={s.centerText}>{capabilities.length ? 'La solicitud de proveedor quedará pendiente de aprobación.' : 'Tu cuenta de cliente se activará inmediatamente.'}</Text><TouchableOpacity style={s.primary} onPress={submit} disabled={busy}>{busy ? <ActivityIndicator color="#fff" /> : <Text style={s.primaryText}>Completar registro</Text>}</TouchableOpacity></View>}
+  </ScrollView></KeyboardAvoidingView></SafeAreaView>;
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: MOLI_COLORS.white,
-  },
-  keyboardView: {
-    flex: 1,
-  },
-  scrollContent: {
-    flexGrow: 1,
-    paddingHorizontal: 28,
-    paddingTop: 16,
-    paddingBottom: 32,
-  },
-  backButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    backgroundColor: MOLI_COLORS.offWhite,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  headerSection: {
-    marginTop: 20,
-    marginBottom: 32,
-  },
-  roleChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: MOLI_COLORS.primaryGlow,
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: MOLI_RADIUS.full,
-    alignSelf: 'flex-start',
-    marginBottom: 16,
-    gap: 6,
-  },
-  roleChipDriver: {
-    backgroundColor: MOLI_COLORS.primaryGlow,
-  },
-  roleChipText: {
-    color: MOLI_COLORS.primary,
-    fontWeight: '700',
-    fontSize: 13,
-  },
-  title: {
-    fontSize: 34,
-    fontWeight: '800',
-    color: MOLI_COLORS.darkGray,
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: MOLI_COLORS.mediumGray,
-    lineHeight: 22,
-  },
-  formSection: {
-    flex: 1,
-  },
-  registerButton: {
-    marginTop: 16,
-    marginBottom: 20,
-  },
-  footerSection: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    paddingTop: 16,
-    paddingBottom: 40,
-  },
-  footerText: {
-    color: MOLI_COLORS.mediumGray,
-    fontSize: 15,
-  },
-  signInText: {
-    color: MOLI_COLORS.primary,
-    fontSize: 15,
-    fontWeight: '700',
-  },
-});
+const s = StyleSheet.create({ container:{flex:1,backgroundColor:'#fff'},content:{padding:24,gap:14},center:{flex:1,justifyContent:'center',alignItems:'center',padding:28,gap:18,backgroundColor:'#fff'},title:{fontSize:28,fontWeight:'800',color:'#1C1C1E',marginTop:12},subtitle:{fontSize:15,color:'#636366',marginBottom:6},centerText:{fontSize:15,color:'#636366',textAlign:'center',lineHeight:22},label:{fontSize:14,fontWeight:'700',color:'#1C1C1E',marginTop:6},input:{borderWidth:1,borderColor:'#E5E5EA',borderRadius:13,padding:14,fontSize:16,color:'#1C1C1E',backgroundColor:'#FAFAFA'},row:{flexDirection:'row',gap:10},choice:{flex:1,flexDirection:'row',gap:8,justifyContent:'center',alignItems:'center',padding:13,borderRadius:12,borderWidth:1,borderColor:MOLI_COLORS.primary},selected:{backgroundColor:MOLI_COLORS.primary},choiceText:{fontWeight:'700',color:MOLI_COLORS.primary},caps:{flexDirection:'row',flexWrap:'wrap',gap:8},cap:{flexDirection:'row',alignItems:'center',gap:6,paddingHorizontal:11,paddingVertical:9,borderRadius:18,backgroundColor:'#F2F2F7'},capSelected:{backgroundColor:MOLI_COLORS.primary},capText:{fontSize:12,fontWeight:'600',color:'#636366'},primary:{backgroundColor:MOLI_COLORS.primary,borderRadius:14,padding:16,alignItems:'center',marginTop:12,minWidth:220},primaryText:{color:'#fff',fontSize:16,fontWeight:'800'},link:{textAlign:'center',color:MOLI_COLORS.primary,fontWeight:'700',padding:16} });

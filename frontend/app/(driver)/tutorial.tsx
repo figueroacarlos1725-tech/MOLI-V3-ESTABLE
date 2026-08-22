@@ -167,7 +167,7 @@ export default function DriverTutorialScreen() {
   }));
 
   const progressStyle = useAnimatedStyle(() => ({
-    width: `${progressWidth.value}%`,
+    width: `${progressWidth.value}%` as `${number}%`,
   }));
 
   const config = STEP_CONFIG[step];
@@ -303,8 +303,8 @@ export default function DriverTutorialScreen() {
           {step === 'waiting' && (
             <View style={s.waitingRow}>
               <View style={s.waitingDot} />
-              <View style={[s.waitingDot, { animationDelay: '0.2s' }]} />
-              <View style={[s.waitingDot, { animationDelay: '0.4s' }]} />
+              <View style={[s.waitingDot, { opacity: 0.45 }]} />
+              <View style={[s.waitingDot, { opacity: 0.3 }]} />
               <Text style={s.waitingText}>Buscando pasajeros cercanos...</Text>
             </View>
           )}

@@ -254,6 +254,8 @@ export default function DriverHomeScreen() {
         Notifications.setNotificationHandler({
           handleNotification: async () => ({
             shouldShowAlert: true,
+            shouldShowBanner: true,
+            shouldShowList: true,
             shouldPlaySound: true,
             shouldSetBadge: true,
           }),
@@ -843,7 +845,7 @@ export default function DriverHomeScreen() {
               <Text style={{ fontSize: 13, fontWeight: '700', color: '#00C853' }}>{docsUploaded}/{docsRequired}</Text>
             </View>
             <View style={{ height: 8, borderRadius: 4, backgroundColor: '#E5E5EA' }}>
-              <View style={{ height: 8, borderRadius: 4, backgroundColor: '#00C853', width: `${progress * 100}%` }} />
+              <View style={{ height: 8, borderRadius: 4, backgroundColor: '#00C853', width: `${progress * 100}%` as `${number}%` }} />
             </View>
           </View>
 

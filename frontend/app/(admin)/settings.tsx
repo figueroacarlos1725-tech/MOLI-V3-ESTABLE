@@ -372,6 +372,10 @@ export default function AdminSettingsScreen() {
 
           {/* Account */}
           <View style={s.section}>
+            <TouchableOpacity style={[s.logoutBtn, { backgroundColor: '#E8F5E9', marginBottom: 10 }]} onPress={() => router.push('/(admin)/verification')}>
+              <Ionicons name="shield-checkmark" size={20} color="#00C853" />
+              <Text style={[s.logoutText, { color: '#00C853' }]}>Revisar registros y capacidades pendientes</Text>
+            </TouchableOpacity>
             <TouchableOpacity style={s.logoutBtn} onPress={handleLogout}>
               <Ionicons name="log-out-outline" size={20} color="#FF3B30" />
               <Text style={s.logoutText}>Cerrar sesion</Text>

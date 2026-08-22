@@ -13,6 +13,7 @@ import {
   Image,
   TextInput,
   Alert,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { apiService } from '@/src/services/api';
@@ -35,6 +36,7 @@ interface PendingDriver {
   documents: DriverDoc[];
   pending_count: number;
 }
+interface PendingRegistration { user_id: string; name: string; email: string; phone?: string; capabilities?: string[]; }
 
 const DOC_LABELS: Record<string, string> = {
   license: 'Licencia de conducir',
@@ -56,6 +58,7 @@ export default function AdminVerificationScreen() {
   const [showRejectInput, setShowRejectInput] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [vehicleChanges, setVehicleChanges] = useState<any[]>([]);
+  const [registrations, setRegistrations] = useState<PendingRegistration[]>([]);
 
   const fetchDrivers = useCallback(async () => {
     try {
@@ -65,6 +68,10 @@ export default function AdminVerificationScreen() {
       try {
         const vcRes = await apiService.get('/admin/vehicle-changes');
         setVehicleChanges(vcRes?.changes || []);
+      } catch (e) {}
+      try {
+        const registrationRes = await apiService.get('/admin/registrations?status=pending');
+        setRegistrations(registrationRes?.registrations || []);
       } catch (e) {}
     } catch (e) { console.error(e); }
     finally { setLoading(false); setRefreshing(false); }
@@ -126,6 +133,21 @@ export default function AdminVerificationScreen() {
     </TouchableOpacity>
   );
 
+  const decideRegistration = async (item: PendingRegistration, decision: 'approve' | 'reject') => {
+    const run = async (reason = '') => {
+      setProcessing(true);
+      try {
+        await apiService.post(`/admin/registrations/${item.user_id}/decision?decision=${decision}&reason=${encodeURIComponent(reason)}`);
+        Alert.alert(decision === 'approve' ? 'Registro aprobado' : 'Registro rechazado');
+        fetchDrivers();
+      } catch (e: any) { Alert.alert('Error', e.message || 'No se pudo revisar'); }
+      finally { setProcessing(false); }
+    };
+    if (decision === 'approve') return run();
+    Alert.prompt?.('Rechazar registro', 'Indicá el motivo', text => run(text || ''), 'plain-text');
+    if (Platform.OS !== 'ios') run('No cumple los requisitos');
+  };
+
   if (loading) return <SafeAreaView style={st.container}><ActivityIndicator size="large" color="#00C853" style={{ marginTop: 40 }} /></SafeAreaView>;
 
   return (
@@ -141,6 +163,7 @@ export default function AdminVerificationScreen() {
         renderItem={renderDriver}
         contentContainerStyle={{ padding: 16 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchDrivers(); }} />}
+        ListHeaderComponent={registrations.length ? <View style={{ marginBottom: 18 }}><Text style={{ fontSize: 18, fontWeight: '800', marginBottom: 10 }}>Registros de proveedores</Text>{registrations.map(item => <View key={item.user_id} style={st.docCard}><Text style={st.driverName}>{item.name}</Text><Text style={st.driverEmail}>{item.phone} · {item.email}</Text><View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginVertical: 10 }}>{(item.capabilities || []).map(cap => <View key={cap} style={st.pendingBadge}><Text style={st.pendingText}>{cap}</Text></View>)}</View><View style={st.docActions}><TouchableOpacity style={st.rejectBtn} disabled={processing} onPress={() => decideRegistration(item, 'reject')}><Text style={st.rejectBtnText}>Rechazar</Text></TouchableOpacity><TouchableOpacity style={st.approveBtn} disabled={processing} onPress={() => decideRegistration(item, 'approve')}><Text style={st.approveBtnText}>Aprobar capacidades</Text></TouchableOpacity></View></View>)}</View> : null}
         ListEmptyComponent={
           <View style={st.empty}>
             <Ionicons name="checkmark-circle" size={56} color="#00C853" />

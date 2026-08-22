@@ -59,7 +59,7 @@ export default function Index() {
 
   // Otherwise go directly to the appropriate home
   if (user?.user_type === 'driver') {
-    return <Redirect href="/(driver)/home" />;
+    return <Redirect href="/provider-hub" />;
   }
   return <Redirect href="/(rider)/home" />;
 }

@@ -37,3 +37,7 @@
 - Android quedó configurado como `com.digigo.app`, versión `1.0.22` (25), con perfiles separados para APK QA y AAB de tienda; la carga continúa bloqueada hasta aprobarse la nueva upload key.
 - El OTP de alta se amplió a teléfono más email, canal seleccionable WhatsApp/email, fallback automático e inicio de sesión sin contraseña con tokens de propósito único.
 - Se configuró en el entorno QA, sin exponer secretos, el proveedor Resend ya disponible en Comprax; ambas aplicaciones permanecen aisladas a nivel de datos.
+- Se completó la interfaz de alta con teléfono, email, OTP WhatsApp/email, fallback, capacidades múltiples y aprobación administrativa.
+- Se añadió el MVP móvil de Marketplace, el panel operativo de comercio y la bandeja unificada para prestadores multirrol.
+- Se añadieron listados públicos de comercios aprobados y una bandeja de pedidos aislada por propietario del comercio.
+- Se crearon seis identidades maestras de QA en el VPS y se validaron login, trabajo profesional y pedido Marketplace mediante la API real; sus claves permanecen fuera de Git.

@@ -9,7 +9,7 @@ import Animated, {
   withSpring,
   Easing,
   interpolate,
-  runOnJS,
+  type SharedValue,
 } from 'react-native-reanimated';
 
 const { width, height } = Dimensions.get('window');
@@ -117,7 +117,7 @@ export default function AnimatedSplash({ onFinish }: AnimatedSplashProps) {
   }));
 
   // Particles
-  const makeParticleStyle = (val: Animated.SharedValue<number>, offsetX: number, offsetY: number) =>
+  const useParticleStyle = (val: SharedValue<number>, offsetX: number, offsetY: number) =>
     useAnimatedStyle(() => ({
       transform: [
         { translateX: interpolate(val.value, [0, 1], [0, offsetX]) },
@@ -127,9 +127,9 @@ export default function AnimatedSplash({ onFinish }: AnimatedSplashProps) {
       opacity: interpolate(val.value, [0, 0.3, 0.7, 1], [0, 0.8, 0.6, 0]),
     }));
 
-  const p1Style = makeParticleStyle(particle1, -60, -80);
-  const p2Style = makeParticleStyle(particle2, 70, -50);
-  const p3Style = makeParticleStyle(particle3, -30, 60);
+  const p1Style = useParticleStyle(particle1, -60, -80);
+  const p2Style = useParticleStyle(particle2, 70, -50);
+  const p3Style = useParticleStyle(particle3, -30, 60);
 
   return (
     <Animated.View style={[st.container, containerStyle]}>

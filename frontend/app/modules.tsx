@@ -29,6 +29,8 @@ export default function ModulesScreen() {
     }
   };
 
+  const handleMarketplace = () => router.push('/(marketplace)');
+
   return (
     <SafeAreaView style={s.container}>
       <View style={s.content}>
@@ -76,6 +78,24 @@ export default function ModulesScreen() {
               <Ionicons name="arrow-forward" size={20} color="#007AFF" />
             </View>
           </TouchableOpacity>
+
+          <TouchableOpacity style={s.card} onPress={handleMarketplace} activeOpacity={0.85}>
+            <View style={[s.cardIcon, { backgroundColor: 'rgba(255,149,0,0.1)' }]}>
+              <Ionicons name="storefront" size={34} color="#FF9500" />
+            </View>
+            <View style={s.cardTextBlock}>
+              <Text style={s.cardTitle}>Moli Market</Text>
+              <Text style={s.cardDesc}>Comprá en comercios cerca tuyo</Text>
+            </View>
+            <View style={[s.cardArrow, { backgroundColor: 'rgba(255,149,0,0.1)' }]}>
+              <Ionicons name="arrow-forward" size={20} color="#FF9500" />
+            </View>
+          </TouchableOpacity>
+
+          {isDriver && <TouchableOpacity style={s.providerLink} onPress={() => router.push('/provider-hub')}>
+            <Ionicons name="grid-outline" size={18} color="#111" />
+            <Text style={s.providerLinkText}>Centro de oportunidades</Text>
+          </TouchableOpacity>}
         </View>
 
         {/* Logout */}
@@ -134,4 +154,6 @@ const s = StyleSheet.create({
     paddingVertical: 12,
   },
   logoutText: { fontSize: 14, color: '#8E8E93' },
+  providerLink: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8, paddingVertical: 12 },
+  providerLinkText: { fontSize: 13, color: '#1C1C1E', fontWeight: '700' },
 });

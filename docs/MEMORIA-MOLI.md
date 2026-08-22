@@ -146,6 +146,8 @@ Moli reúne movilidad y contratación de servicios en una misma identidad:
 
 Los datos concretos de acceso se guardan en un almacén local/seguro, nunca en este archivo. Cada flujo debe registrar IDs de prueba, estados recorridos, resultado y defecto encontrado sin copiar tokens.
 
+El registro móvil exige teléfono y email. El canal `auto` intenta WhatsApp y utiliza correo como respaldo; también puede elegirse email explícitamente. Los perfiles con capacidades operativas quedan pendientes de aprobación administrativa, mientras el cliente sin capacidades puede habilitarse directamente.
+
 ## Próximos hitos
 
 1. Levantar y verificar backend/Mongo aislados.

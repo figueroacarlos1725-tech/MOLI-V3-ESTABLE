@@ -37,11 +37,21 @@ export interface Ride {
   ride_id: string;
   request_id: string;
   rider_id: string;
-  driver_id: string;
+  driver_id?: string;
   pickup_location: Location;
-  dropoff_location: Location;
+  dropoff_location?: Location;
   status: string;
   fare: number;
+  vehicle_type?: string;
+  service_type?: string;
+  payment_method?: string;
+  accepted_at?: string;
+  estimated_distance?: number;
+  distance?: number;
+  penalty_surcharge?: number;
+  driver_earnings?: number;
+  is_taximeter?: boolean;
+  is_ticketera?: boolean;
   driver_info?: any;
   rider_info?: any;
   vehicle_info?: any;
@@ -58,12 +68,16 @@ interface RideState {
   isLoading: boolean;
   
   createRideRequest: (data: any) => Promise<RideRequest>;
-  fetchActiveRide: () => Promise<void>;
+  fetchActiveRide: () => Promise<Ride | null>;
   fetchRideHistory: () => Promise<void>;
   fetchPendingRequests: (lat: number, lng: number) => Promise<void>;
   submitBid: (requestId: string, fareAmount: number, estimatedArrival: number) => Promise<void>;
   acceptBid: (bidId: string) => Promise<void>;
-  updateRideStatus: (rideId: string, status: string) => Promise<any>;
+  updateRideStatus: (
+    rideId: string,
+    status: string,
+    extra?: { taximeter_fare?: number; taximeter_distance?: number; taximeter_wait?: number },
+  ) => Promise<any>;
   rateRide: (rideId: string, rating: number, comment?: string) => Promise<void>;
   addBid: (bid: Bid) => void;
   setCurrentRide: (ride: Ride | null) => void;
@@ -93,8 +107,9 @@ export const useRideStore = create<RideState>((set, get) => ({
   fetchActiveRide: async () => {
     try {
       const response = await apiService.get('/rides/active');
-      set({ currentRide: response.ride });
-      return response.ride;
+      const ride = (response.ride ?? null) as Ride | null;
+      set({ currentRide: ride });
+      return ride;
     } catch (error) {
       console.error('Error fetching active ride:', error);
       return null;

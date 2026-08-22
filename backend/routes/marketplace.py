@@ -11,7 +11,8 @@ from pymongo.errors import DuplicateKeyError
 from database import db
 from utils import get_current_user
 from marketplace_core import (
-    dispatch_vehicle_order, price_snapshot, require_transition, settlement_snapshot,
+    dispatch_vehicle_order, merchant_orders_query, price_snapshot,
+    public_merchant_query, require_transition, settlement_snapshot,
 )
 
 router = APIRouter(prefix="/api/marketplace", tags=["marketplace"])
@@ -120,6 +121,46 @@ async def owned_merchant(user):
     if not merchant:
         raise HTTPException(403, "Approved merchant required")
     return merchant
+
+
+@router.get("/merchants")
+async def list_merchants(limit: int = Query(100, ge=1, le=200),
+                         skip: int = Query(0, ge=0)):
+    """Public storefront discovery; operational and payout data stay private."""
+    projection = {
+        "_id": 0, "merchant_id": 1, "name": 1, "description": 1,
+        "address": 1, "latitude": 1, "longitude": 1, "image_url": 1,
+        "approval_status": 1, "capabilities": 1, "delivery_fee_cents": 1,
+    }
+    merchants = await db.marketplace_merchants.find(
+        public_merchant_query(), projection
+    ).sort("name", 1).skip(skip).limit(limit).to_list(limit)
+    return {"merchants": merchants, "limit": limit, "skip": skip}
+
+
+@router.get("/merchant/orders")
+async def list_owned_merchant_orders(
+    status: Optional[str] = Query(None),
+    limit: int = Query(100, ge=1, le=200),
+    skip: int = Query(0, ge=0),
+    user=Depends(get_current_user),
+):
+    """Operational inbox scoped to the authenticated approved merchant."""
+    merchant = await owned_merchant(user)
+    allowed_statuses = {
+        "pending_merchant", "accepted", "preparing", "ready", "picked_up",
+        "delivering", "completed", "cancelled", "rejected",
+    }
+    if status and status not in allowed_statuses:
+        raise HTTPException(422, "Invalid order status")
+    query = merchant_orders_query(merchant["merchant_id"], status)
+    orders = await db.marketplace_orders.find(query, {"_id": 0}).sort(
+        "created_at", -1
+    ).skip(skip).limit(limit).to_list(limit)
+    return {
+        "merchant_id": merchant["merchant_id"], "orders": orders,
+        "limit": limit, "skip": skip,
+    }
 
 
 @router.post("/products")

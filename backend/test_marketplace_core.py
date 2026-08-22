@@ -1,8 +1,12 @@
+import asyncio
+from types import SimpleNamespace
+
 import pytest
+from fastapi import HTTPException
 
 from marketplace_core import (
     commission_amount, dispatch_vehicle_order, price_snapshot, require_transition,
-    settlement_snapshot,
+    settlement_snapshot, public_merchant_query, merchant_orders_query,
 )
 
 
@@ -54,3 +58,45 @@ def test_fsm_distinguishes_pickup_and_delivery():
 def test_dispatch_prioritizes_motorcycle_before_fallback():
     assert dispatch_vehicle_order(1) == ["motorcycle"]
     assert dispatch_vehicle_order(2) == ["motorcycle", "car", "taxi", "other"]
+
+
+def test_public_discovery_only_exposes_approved_merchants():
+    assert public_merchant_query() == {"approval_status": "approved"}
+
+
+def test_merchant_inbox_is_always_scoped_to_owner_shop():
+    assert merchant_orders_query("mer_owned") == {"merchant_id": "mer_owned"}
+    assert merchant_orders_query("mer_owned", "ready") == {
+        "merchant_id": "mer_owned", "status": "ready",
+    }
+
+
+def test_merchant_inbox_requires_an_approved_owned_shop(monkeypatch):
+    from routes import marketplace
+
+    class Merchants:
+        async def find_one(self, query, projection):
+            assert query == {"owner_id": "usr_1", "approval_status": "approved"}
+            return None
+
+    monkeypatch.setattr(
+        marketplace, "db", SimpleNamespace(marketplace_merchants=Merchants())
+    )
+    with pytest.raises(HTTPException) as error:
+        asyncio.run(marketplace.owned_merchant({"user_id": "usr_1"}))
+    assert error.value.status_code == 403
+
+
+def test_merchant_inbox_accepts_the_authenticated_approved_owner(monkeypatch):
+    from routes import marketplace
+
+    expected = {"merchant_id": "mer_1", "owner_id": "usr_1"}
+
+    class Merchants:
+        async def find_one(self, query, projection):
+            return expected
+
+    monkeypatch.setattr(
+        marketplace, "db", SimpleNamespace(marketplace_merchants=Merchants())
+    )
+    assert asyncio.run(marketplace.owned_merchant({"user_id": "usr_1"})) == expected
