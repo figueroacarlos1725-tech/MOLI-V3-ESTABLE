@@ -45,6 +45,10 @@ async def places_search(q: str, lat: float = -28.4696, lng: float = -65.7852):
     try:
         if provider == "google":
             api_result = await google_places_search(q, lat, lng)
+            # A configured provider without a usable key/quota must not leave
+            # passengers unable to choose a destination.
+            if not api_result.get("results"):
+                api_result = await nominatim_search(q, lat, lng)
         else:
             api_result = await nominatim_search(q, lat, lng)
         

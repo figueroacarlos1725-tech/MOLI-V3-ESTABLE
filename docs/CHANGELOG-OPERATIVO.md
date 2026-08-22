@@ -12,7 +12,8 @@
 - Se asignó un alias Mongo exclusivo a QA para evitar colisión DNS con el bot legado en la red compartida.
 - Se documentaron producto, infraestructura, continuidad de Play y matriz de pruebas.
 - Se confirmó en Play Console el acceso a pruebas abiertas/producción, Play App Signing y la versión máxima `1.0.21` (24) de `com.digigo.app`.
-- Se creó una nueva upload key fuera del repositorio y se envió su certificado público para restablecer la clave de carga; Play Console dejó la solicitud en estado pendiente.
+- Se creó una nueva upload key fuera del repositorio y se envió su certificado público para restablecer la clave de carga. Play Console confirmó que la nueva clave entra en vigencia el 2026-08-24 a las 06:06 UTC; hasta entonces bloquea la carga de AAB/APK.
+- Play Console confirmó acceso a producción para `com.digigo.app` y habilitación de pruebas abiertas. El segmento abierto aún requiere seleccionar países/regiones, cargar la versión, revisar la vista previa y enviarla a revisión.
 - Se restringió el registro público a los roles `rider` y `driver`; administradores y operadores ya no pueden autogenerarse desde la API pública.
 - Se confirmó que el repositorio recuperado no incluye Marketplace. Se agregó al alcance obligatorio el rol comercio, aprobación administrativa, catálogo, carrito, pedidos y entrega mediante conductores Moli.
 - Se fijó la operación del Marketplace: panel comercial estilo PedidosYa, entrega Moli obligatoria y despacho automático al conductor en línea/disponible más cercano sin restringirlo a auto, moto o taxi.
@@ -43,3 +44,8 @@
 - Se crearon seis identidades maestras de QA en el VPS y se validaron login, trabajo profesional y pedido Marketplace mediante la API real; sus claves permanecen fuera de Git.
 - Se aprobó y aplicó el nuevo sistema visual Moli: naranja cálido `#FF7733`, carbón `#202124`, superficies blancas/grises cálidas, mapas claros, sombras suaves y marca naranja/negra propia.
 - Se rediseñaron acceso, movilidad, bandeja multirrol, trabajos, Marketplace y administración; el selector de vehículo ahora utiliza iconos reutilizables propios en lugar de emojis.
+- Se corrigió la búsqueda de destinos: cuando Google no entrega resultados, la API usa OpenStreetMap/Nominatim con consultas codificadas y cabecera identificable.
+- El checkout cliente de Marketplace geocodifica delivery mediante la API unificada, conserva una clave idempotente por intento y abre una pantalla de confirmación/seguimiento tras crear la orden.
+- Se añadieron endpoints autenticados para que cada cliente liste y consulte únicamente sus propios pedidos de Marketplace.
+- El selector de módulos ahora muestra Moli Trámites y abre el formulario con la categoría de trámites preseleccionada.
+- Perfil cliente usa diálogos compatibles con web para métodos de pago y cierre de sesión, manteniendo el color primario `#FF7733`.

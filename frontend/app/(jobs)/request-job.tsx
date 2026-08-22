@@ -13,6 +13,7 @@ import { socketService } from '@/src/services/socket';
 import { WebView } from 'react-native-webview';
 
 const CATEGORIES = [
+  { id: 'tramites', name: 'Trámites y gestiones', icon: 'document-text', color: '#FF7733' },
   { id: 'electricista', name: 'Electricista', icon: 'flash', color: '#FF9500' },
   { id: 'plomero', name: 'Plomero', icon: 'water', color: '#007AFF' },
   { id: 'limpieza', name: 'Limpieza', icon: 'sparkles', color: '#34C759' },
@@ -30,9 +31,10 @@ type Phase = 'category' | 'details' | 'searching' | 'matched' | 'active';
 export default function RequestJobScreen() {
   const router = useRouter();
   const { user } = useAuthStore();
-  const params = useLocalSearchParams<{ lat?: string; lng?: string; addr?: string }>();
-  const [phase, setPhase] = useState<Phase>('category');
-  const [category, setCategory] = useState('');
+  const params = useLocalSearchParams<{ lat?: string; lng?: string; addr?: string; service?: string }>();
+  const isTramite = params.service === 'tramites';
+  const [phase, setPhase] = useState<Phase>(isTramite ? 'details' : 'category');
+  const [category, setCategory] = useState(isTramite ? 'tramites' : '');
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [budget, setBudget] = useState('');

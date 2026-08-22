@@ -251,6 +251,25 @@ async def checkout(data: CheckoutInput, idempotency_key: str = Header(..., alias
     return public(order)
 
 
+@router.get("/orders")
+async def list_customer_orders(limit: int = Query(30, ge=1, le=100),
+                               user=Depends(get_current_user)):
+    orders = await db.marketplace_orders.find(
+        {"customer_id": user["user_id"]}, {"_id": 0}
+    ).sort("created_at", -1).limit(limit).to_list(limit)
+    return {"orders": orders}
+
+
+@router.get("/orders/{order_id}")
+async def get_customer_order(order_id: str, user=Depends(get_current_user)):
+    order = await db.marketplace_orders.find_one(
+        {"order_id": order_id, "customer_id": user["user_id"]}, {"_id": 0}
+    )
+    if not order:
+        raise HTTPException(404, "Order not found")
+    return order
+
+
 @router.put("/orders/{order_id}/status")
 async def transition_order(order_id: str, data: TransitionInput, user=Depends(get_current_user)):
     order = await db.marketplace_orders.find_one({"order_id": order_id}, {"_id": 0})

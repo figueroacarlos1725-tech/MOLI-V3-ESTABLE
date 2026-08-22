@@ -140,8 +140,10 @@ async def google_places_search(q: str, lat: float, lng: float):
 async def nominatim_search(q: str, lat: float, lng: float):
     try:
         async with httpx.AsyncClient(timeout=10) as client:
-            url = f"https://nominatim.openstreetmap.org/search?format=json&q={q}&countrycodes=ar&limit=5&accept-language=es&viewbox=-68.5,-25.5,-64.5,-30.0&bounded=1"
-            resp = await client.get(url, headers={"User-Agent": "MoliApp/1.0"})
+            headers = {"User-Agent": "MoliApp/1.0 (support@moli.app)", "Accept-Language": "es"}
+            params = {"format": "json", "q": q, "countrycodes": "ar", "limit": 5,
+                      "accept-language": "es", "viewbox": "-68.5,-25.5,-64.5,-30.0", "bounded": 1}
+            resp = await client.get("https://nominatim.openstreetmap.org/search", params=params, headers=headers)
             local = resp.json() if resp.status_code == 200 else []
 
             results = []
@@ -157,8 +159,10 @@ async def nominatim_search(q: str, lat: float, lng: float):
                 })
 
             if len(results) < 3:
-                url2 = f"https://nominatim.openstreetmap.org/search?format=json&q={q}&countrycodes=ar&limit=4&accept-language=es"
-                resp2 = await client.get(url2, headers={"User-Agent": "MoliApp/1.0"})
+                broad_params = {"format": "json", "q": q, "countrycodes": "ar", "limit": 4,
+                                "accept-language": "es"}
+                resp2 = await client.get("https://nominatim.openstreetmap.org/search",
+                                         params=broad_params, headers=headers)
                 broad = resp2.json() if resp2.status_code == 200 else []
                 for f in (broad or []):
                     pid = str(f.get("place_id"))

@@ -2,6 +2,13 @@
 
 Última actualización: 2026-08-22
 
+## Estado de Google Play
+
+- La ficha existente es `Moli` con package `com.digigo.app`; no se debe crear otra aplicación.
+- Google Play ya otorgó acceso a producción, por lo que no corresponde repetir la etapa de verificadores de prueba cerrada.
+- La nueva clave de carga entra en vigencia el 2026-08-24 a las 06:06 UTC (03:06 de Argentina). Play bloquea cargas nuevas hasta ese momento.
+- La próxima entrega prevista es `1.0.22` con `versionCode 25`, en el segmento de prueba abierta existente. Antes del envío se deben elegir países/regiones, verificar firma, SDK objetivo y AAB.
+
 ## Producto
 
 Moli reúne movilidad y contratación de servicios en una misma identidad:
@@ -105,6 +112,9 @@ Moli reúne movilidad y contratación de servicios en una misma identidad:
 - El despacho informa al pasajero qué conductor está revisando con cuenta regresiva y entrega solo coordenadas aproximadas antes de aceptar.
 - Se incorporó el núcleo backend de Marketplace: comercio y aprobación, catálogo, carrito, retiro/delivery, prioridad moto, estados de pago y comisiones idempotentes.
 - Se incorporó el backend unificado de campañas con targeting, frecuencia, cuenta regresiva, destinos seguros, métricas e importación controlada de banners legados.
+- El geocodificador de destinos usa fallback Google→OpenStreetMap; el cliente no depende de la geocodificación nativa del dispositivo para crear un delivery.
+- Después del checkout, Marketplace conserva el pedido creado y abre una vista autenticada de confirmación/seguimiento; un cliente solo puede consultar sus propias órdenes.
+- Moli Trámites aparece como módulo cliente independiente y reutiliza el flujo seguro de trabajos con la categoría `tramites` preseleccionada.
 
 ## Registro y aprobación por WhatsApp
 

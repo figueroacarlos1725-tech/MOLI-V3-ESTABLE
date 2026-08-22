@@ -22,6 +22,7 @@ export default function RiderProfileScreen() {
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [darkMode, setDarkMode] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [showPayments, setShowPayments] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
@@ -73,7 +74,7 @@ export default function RiderProfileScreen() {
       icon: 'cash-outline',
       title: 'Métodos de pago',
       subtitle: 'Efectivo',
-      onPress: () => Alert.alert('Métodos de pago', 'Actualmente solo está disponible el pago en efectivo. Próximamente más opciones.'),
+      onPress: () => setShowPayments(true),
     },
     {
       icon: 'help-circle-outline',
@@ -179,12 +180,7 @@ export default function RiderProfileScreen() {
         <View style={styles.logoutSection}>
           <TouchableOpacity
             style={{ backgroundColor: '#EF4444', paddingVertical: 14, borderRadius: 12, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8 }}
-            onPress={() => {
-              Alert.alert('Cerrar sesión', '¿Seguro que querés cerrar sesión?', [
-                { text: 'Cancelar', style: 'cancel' },
-                { text: 'Sí, salir', style: 'destructive', onPress: doLogout },
-              ]);
-            }}
+            onPress={() => setShowLogoutConfirm(true)}
           >
             <Ionicons name="log-out-outline" size={20} color="#fff" />
             <Text style={{ fontWeight: '700', color: '#fff', fontSize: 15 }}>Cerrar sesión</Text>
@@ -233,6 +229,27 @@ export default function RiderProfileScreen() {
             </View>
           </View>
         </View>
+      </Modal>
+
+      <Modal visible={showPayments} transparent animationType="fade" onRequestClose={() => setShowPayments(false)}>
+        <View style={styles.modalBackdrop}><View style={styles.modalCard}>
+          <View style={styles.modalIcon}><Ionicons name="wallet" size={28} color="#FF7733" /></View>
+          <Text style={styles.modalTitle}>Métodos de pago</Text>
+          {[
+            ['cash-outline','Efectivo','Disponible'],
+            ['swap-horizontal-outline','Transferencia','Alias informado durante el servicio'],
+            ['card-outline','Mercado Pago','Disponible según el servicio'],
+          ].map(([icon,title,copy])=><View key={title} style={styles.paymentRow}><Ionicons name={icon as any} size={21} color="#FF7733"/><View style={{flex:1}}><Text style={styles.paymentTitle}>{title}</Text><Text style={styles.paymentCopy}>{copy}</Text></View></View>)}
+          <TouchableOpacity style={styles.modalPrimary} onPress={() => setShowPayments(false)}><Text style={styles.modalPrimaryText}>Entendido</Text></TouchableOpacity>
+        </View></View>
+      </Modal>
+
+      <Modal visible={showLogoutConfirm} transparent animationType="fade" onRequestClose={() => setShowLogoutConfirm(false)}>
+        <View style={styles.modalBackdrop}><View style={styles.modalCard}>
+          <View style={styles.modalIcon}><Ionicons name="log-out-outline" size={28} color="#FF7733" /></View>
+          <Text style={styles.modalTitle}>¿Cerrar sesión?</Text><Text style={styles.modalCopy}>Vas a tener que volver a ingresar para usar Moli.</Text>
+          <View style={styles.modalActions}><TouchableOpacity style={styles.modalCancel} onPress={() => setShowLogoutConfirm(false)}><Text style={styles.modalCancelText}>Cancelar</Text></TouchableOpacity><TouchableOpacity style={styles.modalPrimarySmall} onPress={doLogout}><Text style={styles.modalPrimaryText}>Sí, salir</Text></TouchableOpacity></View>
+        </View></View>
       </Modal>
     </SafeAreaView>
   );
@@ -400,4 +417,13 @@ const styles = StyleSheet.create({
     color: '#8E8E93',
     marginBottom: 32,
   },
+  modalBackdrop:{flex:1,backgroundColor:'rgba(0,0,0,.48)',justifyContent:'center',alignItems:'center',padding:24},
+  modalCard:{width:'100%',maxWidth:380,backgroundColor:'#FFF',borderRadius:22,padding:22},
+  modalIcon:{width:52,height:52,borderRadius:17,backgroundColor:'#FFF0EC',alignItems:'center',justifyContent:'center',alignSelf:'center'},
+  modalTitle:{fontSize:21,fontWeight:'800',color:'#202124',textAlign:'center',marginTop:13},
+  modalCopy:{fontSize:14,lineHeight:20,color:'#6B6F76',textAlign:'center',marginTop:7},
+  paymentRow:{flexDirection:'row',alignItems:'center',gap:12,paddingVertical:13,borderBottomWidth:1,borderBottomColor:'#F0EDEA'},
+  paymentTitle:{fontSize:15,fontWeight:'700',color:'#202124'},paymentCopy:{fontSize:11,color:'#81858B',marginTop:2},
+  modalPrimary:{backgroundColor:'#FF7733',borderRadius:14,padding:15,alignItems:'center',marginTop:18},
+  modalActions:{flexDirection:'row',gap:10,marginTop:20},modalCancel:{flex:1,backgroundColor:'#F2EFEC',borderRadius:14,padding:14,alignItems:'center'},modalCancelText:{fontWeight:'700',color:'#555B62'},modalPrimarySmall:{flex:1,backgroundColor:'#FF7733',borderRadius:14,padding:14,alignItems:'center'},modalPrimaryText:{fontWeight:'800',color:'#FFF'},
 });

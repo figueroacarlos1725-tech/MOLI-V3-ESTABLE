@@ -3,7 +3,7 @@ import {
   View, Text, StyleSheet, TouchableOpacity, TextInput,
   ActivityIndicator, ScrollView, Platform, Alert, Animated, Easing,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -15,6 +15,8 @@ const GREEN = '#FF7733';
 
 export default function ClientHomeScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ service?: string }>();
+  const isTramite = params.service === 'tramites';
   const insets = useSafeAreaInsets();
   const { user } = useAuthStore();
   const webViewRef = useRef<any>(null);
@@ -115,7 +117,7 @@ export default function ClientHomeScreen() {
   const handleConfirmLocation = () => {
     router.push({
       pathname: '/(jobs)/request-job',
-      params: { lat: String(latitude), lng: String(longitude), addr: address },
+      params: { lat: String(latitude), lng: String(longitude), addr: address, service: isTramite ? 'tramites' : 'trabajos' },
     } as any);
   };
 
@@ -143,7 +145,7 @@ function updatePin(lat,lng){pin.setLatLng([lat,lng]);map.setView([lat,lng],15);}
         <TouchableOpacity onPress={() => router.replace('/modules')} style={s.backBtn}>
           <Ionicons name="arrow-back" size={22} color="#1C1C1E" />
         </TouchableOpacity>
-        <Text style={s.headerTitle}>Moli Trabajos</Text>
+        <Text style={s.headerTitle}>{isTramite ? 'Moli Trámites' : 'Moli Trabajos'}</Text>
         <TouchableOpacity onPress={() => router.push('/(jobs)/client-profile' as any)} style={s.profileBtn}>
           <Ionicons name="person-circle" size={28} color={GREEN} />
         </TouchableOpacity>
@@ -251,8 +253,8 @@ function updatePin(lat,lng){pin.setLatLng([lat,lng]);map.setView([lat,lng],15);}
 
         {/* Confirm button */}
         <TouchableOpacity style={s.confirmBtn} onPress={handleConfirmLocation}>
-          <Ionicons name="briefcase" size={20} color="#fff" />
-          <Text style={s.confirmBtnText}>Solicitar un trabajo aquí</Text>
+          <Ionicons name={isTramite ? 'document-text' : 'briefcase'} size={20} color="#fff" />
+          <Text style={s.confirmBtnText}>{isTramite ? 'Solicitar un trámite aquí' : 'Solicitar un trabajo aquí'}</Text>
         </TouchableOpacity>
       </View>
     </View>
