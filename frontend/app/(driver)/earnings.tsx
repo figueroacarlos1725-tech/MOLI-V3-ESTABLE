@@ -258,7 +258,7 @@ export default function DriverEarningsScreen() {
             <Text style={st.explainText}>
               • Viaje en <Text style={{ fontWeight: '700' }}>efectivo</Text>: Cobras directamente al pasajero. La comisión del sistema se descuenta de tu billetera (saldo negativo).{'\n'}
               • Viaje con <Text style={{ fontWeight: '700' }}>tarjeta</Text>: El sistema cobra al pasajero. Tu ganancia (tarifa - comisión) se acredita a tu billetera.{'\n'}
-              • Puedes pagar tu deuda en cualquier momento con "Pagar deuda".
+              • Puedes pagar tu deuda en cualquier momento con «Pagar deuda».
             </Text>
           </View>
         </View>

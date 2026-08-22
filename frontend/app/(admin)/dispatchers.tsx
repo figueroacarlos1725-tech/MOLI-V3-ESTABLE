@@ -97,7 +97,7 @@ export default function DispatchersScreen() {
             <View style={s.empty}>
               <Ionicons name="people-outline" size={48} color="#636366" />
               <Text style={s.emptyText}>No hay despachadores creados</Text>
-              <Text style={s.emptySubtext}>Creá uno con el botón "Nuevo"</Text>
+              <Text style={s.emptySubtext}>Creá uno con el botón «Nuevo»</Text>
             </View>
           ) : (
             dispatchers.map((d) => {

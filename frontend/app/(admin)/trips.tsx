@@ -209,7 +209,7 @@ export default function AdminTripsScreen() {
               {form.trip_type === 'destination_only' && (
                 <View style={s.infoBox}>
                   <Ionicons name="speedometer" size={18} color="#F59E0B" />
-                  <Text style={s.infoBoxText}>Al conductor le aparecera como "Viaje de ticketera" y se activara el taximetro automaticamente</Text>
+                  <Text style={s.infoBoxText}>Al conductor le aparecerá como «Viaje de ticketera» y se activará el taxímetro automáticamente</Text>
                 </View>
               )}
               {form.trip_type === 'full' && (
