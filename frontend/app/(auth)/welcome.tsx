@@ -102,7 +102,6 @@ const styles = StyleSheet.create({
     paddingBottom: 32,
   },
   heroSection: {
-    alignItems: 'center',
     alignItems: 'flex-start',
     marginBottom: 10,
   },
@@ -115,7 +114,6 @@ const styles = StyleSheet.create({
   headline: { color: MOLI_COLORS.black, fontSize: 34, lineHeight: 40, fontWeight: '800', maxWidth: 480 },
   orbTop: { position: 'absolute', width: 300, height: 300, borderRadius: 150, backgroundColor: 'rgba(255,90,60,.08)', top: -140, right: -130 },
   orbBottom: { position: 'absolute', width: 260, height: 260, borderRadius: 130, backgroundColor: 'rgba(32,33,36,.035)', bottom: -150, left: -100 },
-  },
   subtitle: {
     fontSize: 17,
     color: MOLI_COLORS.gray,
