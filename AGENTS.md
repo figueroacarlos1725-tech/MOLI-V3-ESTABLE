@@ -29,6 +29,9 @@ For backend changes, run Python compilation/tests and exercise the relevant API 
 5. professional accept/start/complete lifecycle;
 6. combined driver-professional navigation in one session;
 7. cancellations, ratings, permissions and negative cases.
+8. commerce approval, catalog, cart, pickup and delivery order lifecycles;
+9. cash, transfer and Mercado Pago payment states plus commission idempotency;
+10. advertising targeting, countdown/close behavior, frequency limits and safe internal destinations.
 
 ## Git workflow
 

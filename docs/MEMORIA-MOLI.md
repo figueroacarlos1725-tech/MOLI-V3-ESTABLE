@@ -26,6 +26,36 @@ Moli reúne movilidad y contratación de servicios en una misma identidad:
 - El mismo conductor usa su sesión Moli habitual y recibe una tarjeta de “Entrega de pedido”, sin otra cuenta ni aplicación.
 - Para delivery, la relación pedido-entrega debe ser idempotente: un pedido genera una sola solicitud activa, una sola asignación y una sola liquidación, incluso ante reintentos o doble toque.
 
+## Pagos, alias y comisiones
+
+- Métodos admitidos en viajes, trabajos/trámites y Marketplace: `efectivo`, `transferencia` y `mercadopago`.
+- Conductores, profesionales y comercios pueden registrar sus propios datos de cobro permitidos, incluido alias de transferencia. Esos datos se validan, pueden desactivarse y solo se muestran a las partes de una operación asignada.
+- El checkout o solicitud debe mostrar con claridad quién recibe cada componente: servicio/productos, costo de envío, propina y comisión, sin exponer credenciales privadas.
+- Moli cobra comisión a los conductores por todos los servicios que realizan.
+- En Marketplace, el administrador elige la política de comisión: `solo_conductor` o `conductor_y_comercio`. Las tasas del conductor y del comercio se configuran por separado.
+- El panel administrador configura comisiones por módulo, tipo de servicio, comercio o conductor cuando corresponda; también mínimos, vigencia, impuestos/recargos y excepciones auditadas.
+- Cada operación financiera debe tener referencia única e idempotente. Reintentos, dobles toques o webhooks repetidos no pueden duplicar comisión, saldo, devolución ni ganancia.
+- Efectivo y transferencia requieren estado de confirmación/conciliación; Mercado Pago requiere webhook verificado y credenciales fuera de Git.
+- Efectivo o transferencia directa no significan que la plataforma haya cobrado: el receptor cobra el bruto y Moli registra su comisión como deuda/liquidación. Una transferencia necesita confirmación de las partes o intervención auditada; una captura de pantalla por sí sola no prueba el pago.
+- En Marketplace, la comisión del conductor se calcula sobre el componente de entrega y la del comercio sobre el subtotal de productos; nunca se cobra por error al conductor sobre la mercadería.
+- Toda operación guarda una copia de la regla de comisión y los datos de cobro vigentes al aceptarse. Cambios posteriores en Admin solo afectan operaciones nuevas.
+- El panel financiero de Admin incluye resumen, métodos por módulo, matriz de comisiones, simulador, versiones, pagos/liquidaciones, alias, conciliación y auditoría. Los secretos de Mercado Pago se muestran únicamente como “configurado” y nunca se devuelven completos.
+
+## Publicidad y campañas
+
+- El administrador dispone de un módulo profesional de campañas estilo historias/interstitial.
+- Una campaña admite imagen o video, título/texto opcional, botón, URL externa permitida o destino interno de Marketplace (comercio o producto).
+- El administrador configura audiencia y contexto: clientes de viajes, clientes de trabajos/trámites, profesionales, conductores y usuarios de Marketplace.
+- También configura disparadores, por ejemplo al iniciar un viaje, una solicitud de trámite/trabajo o una etapa elegida del Marketplace.
+- La pieza muestra una cuenta regresiva configurable y recién después habilita la `X` para cerrar. Debe tener límites razonables y nunca impedir acciones críticas, seguridad, soporte ni una emergencia.
+- Se configuran fecha de inicio/fin, prioridad, cantidad máxima de impresiones por usuario, frecuencia, intervalo entre vistas y máximo por sesión/día.
+- Los destinos internos usan deep links controlados: al tocar un producto o comercio, la app abre directamente su pantalla dentro del Marketplace.
+- Se registran impresiones, cierres, clics, conversiones y errores sin guardar datos sensibles innecesarios. La selección de campaña y el conteo deben ser atómicos para respetar límites.
+- Ya existe un módulo legado de banners con contratos duplicados e incompatibles. Debe migrarse a una única API de campañas conservando compatibilidad temporal; los banners antiguos no se activan automáticamente durante la migración.
+- Las campañas siguen estados `borrador`, `programada`, `activa`, `pausada`, `finalizada` y `archivada`; el servidor decide la pieza elegible y reserva cada impresión de forma idempotente.
+- Videos comienzan silenciados, tienen poster/fallback y no reproducen audio automáticamente. Si falla el contenido, se habilita el cierre inmediato.
+- URLs externas solo admiten HTTPS validado; productos y comercios usan destinos internos tipados, nunca esquemas arbitrarios provenientes del panel.
+
 ## Repositorio y rama de recuperación
 
 - Repositorio: `figueroacarlos1725-tech/MOLI-V3-ESTABLE`
