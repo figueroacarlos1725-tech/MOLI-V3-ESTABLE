@@ -7,6 +7,8 @@ Authentication: API Key via X-API-Key header
 """
 
 import math
+import os
+import hmac
 from datetime import datetime, timezone, timedelta
 from fastapi import APIRouter, HTTPException, Header, Body
 from pydantic import BaseModel, Field
@@ -21,8 +23,10 @@ router = APIRouter()
 async def verify_api_key(x_api_key: str = Header(..., alias="X-API-Key")):
     """Verify the WhatsApp integration API key"""
     settings = await db.settings.find_one({"setting_id": "global"}) or {}
-    valid_key = settings.get("whatsapp_api_key", "moli-whatsapp-2025")
-    if x_api_key != valid_key:
+    valid_key = os.getenv("WHATSAPP_INTEGRATION_API_KEY") or settings.get("whatsapp_api_key")
+    if not valid_key:
+        raise HTTPException(status_code=503, detail="WhatsApp integration is not configured")
+    if not hmac.compare_digest(x_api_key, valid_key):
         raise HTTPException(status_code=401, detail="Invalid API Key")
     return True
 
@@ -408,9 +412,10 @@ async def whatsapp_get_config(x_api_key: str = Header(..., alias="X-API-Key")):
     """Get WhatsApp integration config (for admin/debugging)"""
     await verify_api_key(x_api_key)
     settings = await db.settings.find_one({"setting_id": "global"}) or {}
+    valid_key = os.getenv("WHATSAPP_INTEGRATION_API_KEY") or settings.get("whatsapp_api_key")
     return {
         "status": "ok",
         "broadcast_enabled": settings.get("broadcast_enabled", True),
         "broadcast_after_rounds": settings.get("broadcast_after_rounds", 3),
-        "whatsapp_api_key": "***configured***",
+        "whatsapp_api_key": "***configured***" if valid_key else "not_configured",
     }

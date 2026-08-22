@@ -2,7 +2,7 @@
   "expo": {
     "name": "Moli",
     "slug": "moli",
-    "version": "1.0.0",
+    "version": "1.0.22",
     "orientation": "default",
     "icon": "./assets/icon.png",
     "scheme": "moli",
@@ -20,7 +20,8 @@
       }
     },
     "android": {
-      "package": "com.moli.movelibre",
+      "package": "com.digigo.app",
+      "versionCode": 25,
       "adaptiveIcon": {
         "foregroundImage": "./assets/icon.png",
         "backgroundColor": "#FFFFFF"

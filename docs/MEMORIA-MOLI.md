@@ -100,6 +100,19 @@ Moli reúne movilidad y contratación de servicios en una misma identidad:
 - Se agregó la categoría base `tramites` para solicitudes profesionales.
 - Las proyecciones administrativas excluyen tanto contraseñas antiguas como hashes.
 - `emergentintegrations` es una dependencia privada del entorno original. QA la excluye del build; solo queda indisponible el soporte IA hasta sustituir el proveedor.
+- Trabajos y trámites aplican autorización por participante, revisión/aceptación atómicas, máquina de estados, calificación única y redacción del domicilio desde el servidor.
+- Los chats redactan teléfonos, correos, enlaces y contactos antes de almacenarlos o entregarlos; el texto original sensible no se conserva en mensajes nuevos.
+- El despacho informa al pasajero qué conductor está revisando con cuenta regresiva y entrega solo coordenadas aproximadas antes de aceptar.
+- Se incorporó el núcleo backend de Marketplace: comercio y aprobación, catálogo, carrito, retiro/delivery, prioridad moto, estados de pago y comisiones idempotentes.
+- Se incorporó el backend unificado de campañas con targeting, frecuencia, cuenta regresiva, destinos seguros, métricas e importación controlada de banners legados.
+
+## Registro y aprobación por WhatsApp
+
+- El alta comienza verificando un teléfono en formato internacional mediante un código de seis dígitos enviado por la API de WhatsApp de Moli Tecnologías.
+- Comprax actúa únicamente como proveedor/canal de mensajería cuando se configure su endpoint; Moli no lee ni reutiliza la base de datos de Comprax.
+- Los códigos vencen, tienen límite de intentos, espera entre reenvíos y se guardan mediante digest seguro. URLs, claves y plantillas del proveedor viven fuera de Git.
+- Un cliente sin capacidades operativas queda habilitado al verificar el teléfono y completar sus datos. Conductores, profesionales, gestores de trámites, repartidores y comercios quedan `pending` hasta revisión de Admin.
+- Una misma persona selecciona múltiples capacidades: viajes, moto, taxi, profesional, trámites, paquetería, delivery y comercio. Admin visualiza la solicitud, documentación, vehículo y capacidades, y aprueba o rechaza con motivo y auditoría.
 
 ## Infraestructura
 
@@ -114,7 +127,7 @@ Moli reúne movilidad y contratación de servicios en una misma identidad:
 - Cuenta/desarrollador seleccionada por Carlo: aplicación llamada “Moli”.
 - Paquete publicado observado: `com.digigo.app`.
 - Alpha cerrada observada: versión `1.0.21`, versionCode `24`, API objetivo 36.
-- El repositorio recuperado declaraba `com.moli.movelibre`; no cambiar el paquete ni publicar hasta alinear identidad, firma de subida y continuidad de versionCode.
+- El repositorio recuperado declaraba `com.moli.movelibre`; la rama QA ya alineó Android a `com.digigo.app`, pero no se publica hasta verificar la nueva firma de subida y la continuidad completa.
 - El 2026-08-22 se generó una nueva clave de carga bajo control de Carlo y se envió a Play Console la solicitud de restablecimiento, con motivo “se fue de la empresa un desarrollador con acceso al almacén de claves”. La clave privada y su contraseña permanecen fuera de Git. Play Console confirmó que la solicitud está pendiente; el plazo habitual informado por Google es de unas 48 horas.
 - Próximo artefacto previsto: `1.0.22`, versionCode `25`, paquete `com.digigo.app`, AAB para prueba abierta. No cargar hasta que Play confirme la activación del nuevo certificado y el backend de destino esté validado.
 

@@ -29,3 +29,9 @@
 - Se fijó la dirección UX/UI: combinar claridad premium y confianza tipo Cabify con velocidad operativa y estados visibles tipo DiDi, bajo una identidad Moli propia, accesible y compartida por movilidad, profesionales, trámites y Marketplace.
 - Se consolidó una única bandeja operativa para usuarios multirrol: viajes, trabajos, trámites, paquetería, envíos y reparto se reciben en la misma pantalla, sin cambiar de cuenta o módulo.
 - Se definió protección antielusión en chats: teléfonos y otros contactos se redactan en servidor y se muestran difuminados; las imágenes pasan por OCR y bloqueo/difuminado antes de ser accesibles al destinatario.
+- Se implementó hardening de trabajos/trámites: autorización, privacidad del domicilio, revisión y aceptación atómicas, FSM, cancelación y calificación segura.
+- Se implementó el núcleo Marketplace con aprobación comercial, catálogo, carrito mono-comercio, retiro/delivery, prioridad moto con fallback y liquidación de comisiones idempotente.
+- Se implementó la API unificada de campañas con targeting, frecuencia, countdown, métricas y destinos HTTPS/Marketplace validados.
+- Se agregó registro telefónico con OTP por WhatsApp, capacidades múltiples, cola de aprobación administrativa y auditoría, configurable sin guardar credenciales en Git.
+- Se eliminó la clave predeterminada insegura del adaptador WhatsApp legado.
+- Android quedó configurado como `com.digigo.app`, versión `1.0.22` (25), con perfiles separados para APK QA y AAB de tienda; la carga continúa bloqueada hasta aprobarse la nueva upload key.

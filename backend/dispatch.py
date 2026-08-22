@@ -123,6 +123,14 @@ async def assign_ride_to_drivers(request_id: str, rider_id: str, sorted_drivers:
                 driver_id = driver["driver_id"]
                 total_attempts += 1
                 now = datetime.now(timezone.utc)
+                driver_user = await db.users.find_one(
+                    {"user_id": driver_id},
+                    {"_id": 0, "name": 1, "profile_picture": 1},
+                ) or {}
+                driver_vehicle = await db.vehicles.find_one(
+                    {"driver_id": driver_id, "is_active": True},
+                    {"_id": 0, "vehicle_type": 1, "make": 1, "model": 1},
+                ) or {}
 
                 # Mark current offer
                 await db.ride_requests.update_one(
@@ -143,12 +151,12 @@ async def assign_ride_to_drivers(request_id: str, rider_id: str, sorted_drivers:
                     "request_id": request_id,
                     "countdown": accept_seconds,
                     "pickup": {
-                        "latitude": pickup_loc.get("latitude", 0),
-                        "longitude": pickup_loc.get("longitude", 0),
+                        "latitude": round(float(pickup_loc.get("latitude", 0)), 2),
+                        "longitude": round(float(pickup_loc.get("longitude", 0)), 2),
                     },
                     "dropoff": {
-                        "latitude": dropoff_loc.get("latitude", 0) if dropoff_loc else 0,
-                        "longitude": dropoff_loc.get("longitude", 0) if dropoff_loc else 0,
+                        "latitude": round(float(dropoff_loc.get("latitude", 0)), 2) if dropoff_loc else 0,
+                        "longitude": round(float(dropoff_loc.get("longitude", 0)), 2) if dropoff_loc else 0,
                     } if dropoff_loc else None,
                     "fare": request_doc.get("estimated_fare", 0),
                     "distance_km": request_doc.get("estimated_distance", 0),
@@ -162,7 +170,7 @@ async def assign_ride_to_drivers(request_id: str, rider_id: str, sorted_drivers:
 
                 # Send PUSH NOTIFICATION to driver (works even if app is in background)
                 try:
-                    pickup_addr = pickup_loc.get("address", "Recogida cercana")
+                    pickup_addr = "Recogida en tu zona"
                     fare_amount = request_doc.get("estimated_fare", 0)
                     svc = request_doc.get("service_type", "ride")
                     push_title = "📦 ¡Nuevo envío!" if svc == "delivery" else "🚗 ¡Nuevo viaje!"
@@ -173,11 +181,14 @@ async def assign_ride_to_drivers(request_id: str, rider_id: str, sorted_drivers:
 
                 # Notify rider
                 await manager.send_personal_message({
-                    "type": "searching_driver",
+                    "type": "driver_reviewing",
                     "request_id": request_id,
-                    "driver_index": total_attempts,
-                    "total_drivers": max(len(fresh_drivers), total_attempts),
-                    "message": f"Ofreciendo viaje a conductor {total_attempts}..."
+                    "driver_name": (driver_user.get("name") or "Un conductor").split(" ")[0],
+                    "driver_photo": driver_user.get("profile_picture"),
+                    "vehicle_type": driver_vehicle.get("vehicle_type") or request_doc.get("vehicle_type"),
+                    "vehicle_label": " ".join(filter(None, [driver_vehicle.get("make"), driver_vehicle.get("model")])),
+                    "countdown": accept_seconds,
+                    "message": f"{(driver_user.get('name') or 'Un conductor').split(' ')[0]} está viendo tu viaje"
                 }, rider_id)
 
                 # Wait for configurable seconds for response
@@ -185,7 +196,11 @@ async def assign_ride_to_drivers(request_id: str, rider_id: str, sorted_drivers:
                 try:
                     await asyncio.wait_for(event.wait(), timeout=float(accept_seconds))
                 except asyncio.TimeoutError:
-                    pass
+                    await manager.send_personal_message({
+                        "type": "driver_review_ended",
+                        "request_id": request_id,
+                        "message": "Buscando otro conductor...",
+                    }, rider_id)
 
                 # Check result
                 updated = await db.ride_requests.find_one({"request_id": request_id}, {"_id": 0})

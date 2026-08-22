@@ -1,11 +1,40 @@
 """Moli Trabajos - Jobs marketplace routes"""
 from fastapi import APIRouter, HTTPException, Depends, Query, Body
 from typing import Optional, List
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
+from pymongo import ReturnDocument
 from database import db
 from utils import generate_id, get_current_user, get_settings
 
 router = APIRouter()
+
+PRIVATE_JOB_FIELDS = {"address", "location", "images"}
+
+def _is_admin(user: dict) -> bool:
+    return user.get("user_type") == "admin"
+
+def _is_participant(job: dict, user: dict) -> bool:
+    return user.get("user_id") in {job.get("client_id"), job.get("assigned_to")}
+
+def _can_view_exact_job(job: dict, user: dict) -> bool:
+    return _is_admin(user) or _is_participant(job, user)
+
+def _redact_job(job: dict) -> dict:
+    result = dict(job)
+    for field in PRIVATE_JOB_FIELDS:
+        result.pop(field, None)
+    return result
+
+def _job_for_user(job: dict, user: dict) -> dict:
+    return dict(job) if _can_view_exact_job(job, user) else _redact_job(job)
+
+async def _require_professional(user: dict, *, available: bool = False) -> dict:
+    profile = await db.professional_profiles.find_one({"user_id": user["user_id"]})
+    if not profile:
+        raise HTTPException(status_code=403, detail="Se requiere un perfil profesional")
+    if available and not profile.get("is_available", False):
+        raise HTTPException(status_code=403, detail="El profesional no está disponible")
+    return profile
 
 # ─── Default categories ────────────────
 DEFAULT_CATEGORIES = [
@@ -159,7 +188,6 @@ async def create_job_post(
                         "category": category,
                         "title": job["title"],
                         "budget": job["budget"],
-                        "address": job["address"],
                         "client_name": job["client_name"],
                     }, pro["user_id"])
                     notified += 1
@@ -218,7 +246,9 @@ async def list_job_posts(
     if category:
         query["category"] = category
     
+    await _require_professional(user)
     jobs = await db.job_posts.find(query, {"_id": 0}).sort("created_at", -1).to_list(50)
+    jobs = [_job_for_user(job, user) for job in jobs]
     return {"jobs": jobs, "count": len(jobs)}
 
 
@@ -230,12 +260,11 @@ async def get_my_offers(user: dict = Depends(get_current_user)):
     
     # Enrich with job details
     for o in offers:
-        job = await db.job_posts.find_one({"job_id": o["job_id"]}, {"_id": 0, "title": 1, "status": 1, "category": 1, "address": 1})
+        job = await db.job_posts.find_one({"job_id": o["job_id"]}, {"_id": 0, "title": 1, "status": 1, "category": 1})
         if job:
             o["job_title"] = job.get("title")
             o["job_status"] = job.get("status")
             o["job_category"] = job.get("category")
-            o["job_address"] = job.get("address")
         if isinstance(o.get("created_at"), datetime):
             o["created_at"] = o["created_at"].isoformat()
     
@@ -267,10 +296,11 @@ async def get_job_detail(job_id: str, user: dict = Depends(get_current_user)):
     if not job:
         raise HTTPException(status_code=404, detail="Trabajo no encontrado")
     
-    # Get offers for this job
-    offers = await db.job_offers.find({"job_id": job_id}, {"_id": 0}).to_list(20)
+    offers = []
+    if job.get("client_id") == user["user_id"] or _is_admin(user):
+        offers = await db.job_offers.find({"job_id": job_id}, {"_id": 0}).to_list(20)
     
-    return {"job": job, "offers": offers}
+    return {"job": _job_for_user(job, user), "offers": offers}
 
 
 # ─── JOB REVIEW (30-second lock) ────────────────
@@ -281,37 +311,34 @@ async def start_job_review(
     user: dict = Depends(get_current_user)
 ):
     """Professional starts reviewing a job - 30 second lock"""
-    from datetime import timedelta
     now = datetime.now(timezone.utc)
+    now_iso = now.isoformat()
+    await _require_professional(user, available=True)
     
     job = await db.job_posts.find_one({"job_id": job_id})
     if not job:
         raise HTTPException(status_code=404, detail="Trabajo no encontrado")
     
-    # Check if job is available (open or review expired)
-    if job["status"] == "assigned":
-        raise HTTPException(status_code=400, detail="Este trabajo ya fue asignado")
-    
-    # Check if another pro is reviewing and lock hasn't expired
-    if job.get("reviewing_by") and job["reviewing_by"] != user["user_id"]:
-        review_until = job.get("reviewing_until")
-        if review_until:
-            if isinstance(review_until, str):
-                review_until = datetime.fromisoformat(review_until.replace("Z", "+00:00"))
-            if review_until > now:
-                raise HTTPException(status_code=409, detail="Otro profesional está revisando este trabajo")
+    if job.get("client_id") == user["user_id"]:
+        raise HTTPException(status_code=403, detail="No podés revisar tu propio trabajo")
     
     # Lock job for 30 seconds
     review_until = now + timedelta(seconds=30)
-    await db.job_posts.update_one(
-        {"job_id": job_id},
+    locked = await db.job_posts.find_one_and_update(
+        {"job_id": job_id, "$or": [
+            {"status": "open"},
+            {"status": "reviewing", "reviewing_by": user["user_id"]},
+            {"status": "reviewing", "reviewing_until": {"$lte": now_iso}},
+        ]},
         {"$set": {
             "status": "reviewing",
             "reviewing_by": user["user_id"],
             "reviewing_until": review_until.isoformat(),
             "updated_at": now,
-        }}
+        }}, return_document=ReturnDocument.AFTER
     )
+    if not locked:
+        raise HTTPException(status_code=409, detail="El trabajo no está disponible para revisión")
     
     # Notify client that someone is reviewing
     try:
@@ -335,21 +362,20 @@ async def accept_job_after_review(
 ):
     """Professional accepts job after reviewing"""
     now = datetime.now(timezone.utc)
+    now_iso = now.isoformat()
+    await _require_professional(user, available=True)
     
     job = await db.job_posts.find_one({"job_id": job_id})
     if not job:
         raise HTTPException(status_code=404, detail="Trabajo no encontrado")
     
-    if job.get("status") == "assigned":
-        raise HTTPException(status_code=400, detail="Este trabajo ya fue asignado")
-    
-    # Verify this pro was reviewing
-    if job.get("reviewing_by") != user["user_id"]:
-        raise HTTPException(status_code=403, detail="No estás revisando este trabajo")
+    if job.get("client_id") == user["user_id"]:
+        raise HTTPException(status_code=403, detail="No podés aceptar tu propio trabajo")
     
     # Accept - assign to this professional
-    await db.job_posts.update_one(
-        {"job_id": job_id},
+    assigned = await db.job_posts.find_one_and_update(
+        {"job_id": job_id, "status": "reviewing", "reviewing_by": user["user_id"],
+         "reviewing_until": {"$gt": now_iso}},
         {"$set": {
             "status": "assigned",
             "assigned_to": user["user_id"],
@@ -358,8 +384,10 @@ async def accept_job_after_review(
             "agreed_price": job["budget"],
             "reviewing_by": None,
             "reviewing_until": None,
-        }}
+        }}, return_document=ReturnDocument.AFTER
     )
+    if not assigned:
+        raise HTTPException(status_code=409, detail="La revisión venció o el trabajo ya no está disponible")
     
     # Notify client
     try:
@@ -398,22 +426,23 @@ async def decline_job_after_review(
 ):
     """Professional declines job after reviewing - release back to pool"""
     now = datetime.now(timezone.utc)
+    await _require_professional(user)
     
     job = await db.job_posts.find_one({"job_id": job_id})
     if not job:
         raise HTTPException(status_code=404, detail="Trabajo no encontrado")
     
-    # Release the job back to open
-    if job.get("reviewing_by") == user["user_id"]:
-        await db.job_posts.update_one(
-            {"job_id": job_id},
+    released = await db.job_posts.find_one_and_update(
+            {"job_id": job_id, "status": "reviewing", "reviewing_by": user["user_id"]},
             {"$set": {
                 "status": "open",
                 "reviewing_by": None,
                 "reviewing_until": None,
                 "updated_at": now,
-            }}
+            }}, return_document=ReturnDocument.AFTER
         )
+    if not released:
+        raise HTTPException(status_code=409, detail="No estás revisando este trabajo")
     
     # Notify client
     try:
@@ -434,9 +463,12 @@ async def send_job_offer(
     data: dict = Body(...),
     user: dict = Depends(get_current_user)
 ):
+    await _require_professional(user, available=True)
     job = await db.job_posts.find_one({"job_id": job_id})
     if not job:
         raise HTTPException(status_code=404, detail="Trabajo no encontrado")
+    if job.get("client_id") == user["user_id"]:
+        raise HTTPException(status_code=403, detail="No podés aceptar tu propio trabajo")
     if job["status"] != "open":
         raise HTTPException(status_code=400, detail="Este trabajo ya no está disponible")
     
@@ -493,12 +525,11 @@ async def get_my_offers(user: dict = Depends(get_current_user)):
     
     # Enrich with job details
     for o in offers:
-        job = await db.job_posts.find_one({"job_id": o["job_id"]}, {"_id": 0, "title": 1, "status": 1, "category": 1, "address": 1})
+        job = await db.job_posts.find_one({"job_id": o["job_id"]}, {"_id": 0, "title": 1, "status": 1, "category": 1})
         if job:
             o["job_title"] = job.get("title")
             o["job_status"] = job.get("status")
             o["job_category"] = job.get("category")
-            o["job_address"] = job.get("address")
         if isinstance(o.get("created_at"), datetime):
             o["created_at"] = o["created_at"].isoformat()
     
@@ -520,9 +551,11 @@ async def accept_job_offer(
         raise HTTPException(status_code=403, detail="Solo el cliente puede aceptar ofertas")
     
     offer_id = data.get("offer_id")
-    offer = await db.job_offers.find_one({"offer_id": offer_id})
+    offer = await db.job_offers.find_one({"offer_id": offer_id, "job_id": job_id, "status": "pending"})
     if not offer:
         raise HTTPException(status_code=404, detail="Oferta no encontrada")
+    if job.get("status") != "open":
+        raise HTTPException(status_code=409, detail="El trabajo ya no acepta ofertas")
     
     now = datetime.now(timezone.utc)
     
@@ -559,8 +592,27 @@ async def update_job_status(
     job = await db.job_posts.find_one({"job_id": job_id})
     if not job:
         raise HTTPException(status_code=404, detail="Trabajo no encontrado")
+    if not _is_participant(job, user) and not _is_admin(user):
+        raise HTTPException(status_code=403, detail="No autorizado")
     
     new_status = data.get("status")
+    current_status = job.get("status")
+    if new_status == "in_progress":
+        if user["user_id"] != job.get("assigned_to") or current_status != "assigned":
+            raise HTTPException(status_code=409, detail="Solo el profesional asignado puede iniciar el trabajo")
+    elif new_status == "mark_completed":
+        if current_status not in {"assigned", "in_progress"} or not _is_participant(job, user):
+            raise HTTPException(status_code=409, detail="Transición de finalización inválida")
+    elif new_status == "confirm_completed":
+        if current_status != "pending_completion" or not _is_participant(job, user):
+            raise HTTPException(status_code=409, detail="Transición de confirmación inválida")
+    elif new_status == "cancelled":
+        if current_status not in {"open", "reviewing", "assigned", "in_progress"}:
+            raise HTTPException(status_code=409, detail="Este trabajo ya no se puede cancelar")
+        if current_status in {"open", "reviewing"} and user["user_id"] != job.get("client_id") and not _is_admin(user):
+            raise HTTPException(status_code=403, detail="Solo el cliente puede cancelar antes de la asignación")
+    else:
+        raise HTTPException(status_code=400, detail="Estado de trabajo inválido")
     now = datetime.now(timezone.utc)
     update: dict = {"updated_at": now}
     
@@ -646,10 +698,11 @@ async def update_job_status(
                     }, other_id)
                 except:
                     pass
-    else:
-        update["status"] = new_status
-    
-    await db.job_posts.update_one({"job_id": job_id}, {"$set": update})
+    updated = await db.job_posts.update_one(
+        {"job_id": job_id, "status": current_status}, {"$set": update}
+    )
+    if updated.modified_count != 1:
+        raise HTTPException(status_code=409, detail="El trabajo cambió de estado; actualizá e intentá de nuevo")
     return {"status": "updated", "job_status": update.get("status", new_status)}
 
 
@@ -662,8 +715,17 @@ async def rate_job(
     job = await db.job_posts.find_one({"job_id": job_id})
     if not job:
         raise HTTPException(status_code=404, detail="Trabajo no encontrado")
+    if not _is_participant(job, user):
+        raise HTTPException(status_code=403, detail="Solo los participantes pueden calificar")
+    if job.get("status") != "completed":
+        raise HTTPException(status_code=409, detail="Solo se puede calificar un trabajo completado")
     
     rating = data.get("rating", 5)
+    if isinstance(rating, bool) or not isinstance(rating, (int, float)) or not 1 <= rating <= 5:
+        raise HTTPException(status_code=400, detail="La calificación debe estar entre 1 y 5")
+    existing_rating = await db.job_ratings.find_one({"job_id": job_id, "rater_id": user["user_id"]})
+    if existing_rating:
+        raise HTTPException(status_code=409, detail="Ya calificaste este trabajo")
     
     await db.job_ratings.insert_one({
         "job_id": job_id,

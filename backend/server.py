@@ -29,6 +29,9 @@ from routes.navigation import router as navigation_router
 from routes.legal import router as legal_router
 from routes.jobs import router as jobs_router
 from routes.whatsapp import router as whatsapp_router
+from routes.registration import router as registration_router
+from routes.marketplace import router as marketplace_router
+from routes.ads import router as ads_router, ensure_ad_indexes
 
 app = FastAPI(title="Moli API", version="2.0.0")
 
@@ -57,6 +60,9 @@ app.include_router(navigation_router)
 app.include_router(legal_router)
 app.include_router(jobs_router)
 app.include_router(whatsapp_router)
+app.include_router(registration_router)
+app.include_router(marketplace_router)
+app.include_router(ads_router)
 
 
 # ======================= STARTUP =======================
@@ -71,6 +77,17 @@ async def startup_db():
         await db.vehicles.create_index("vehicle_id", unique=True)
         await db.rides.create_index("ride_id", unique=True)
         await db.ride_requests.create_index("request_id", unique=True)
+        await db.registration_otps.create_index("phone", unique=True)
+        await db.registration_otps.create_index("expires_at", expireAfterSeconds=0)
+        await db.marketplace_merchants.create_index("owner_id", unique=True)
+        await db.marketplace_products.create_index([("merchant_id", 1), ("active", 1)])
+        await db.marketplace_orders.create_index([("customer_id", 1), ("idempotency_key", 1)], unique=True)
+        await db.marketplace_orders.create_index([("merchant_id", 1), ("status", 1), ("created_at", -1)])
+        await db.marketplace_deliveries.create_index("order_id", unique=True)
+        await db.marketplace_settlements.create_index("order_id", unique=True)
+        await db.marketplace_settlements.create_index("idempotency_key", unique=True)
+        await db.marketplace_commission_rules.create_index([("rule_id", 1), ("version", 1)], unique=True)
+        await ensure_ad_indexes()
         print("Database indexes created")
     except Exception as e:
         print(f"Index creation note: {e}")

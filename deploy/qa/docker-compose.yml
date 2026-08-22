@@ -16,6 +16,11 @@ services:
       MONGO_URL: mongodb://qa-mongo:27017
       DB_NAME: moli_qa
       SECRET_KEY: ${SECRET_KEY:?SECRET_KEY is required}
+      OTP_SECRET: ${OTP_SECRET:-}
+      WHATSAPP_OTP_SEND_URL: ${WHATSAPP_OTP_SEND_URL:-}
+      WHATSAPP_OTP_API_KEY: ${WHATSAPP_OTP_API_KEY:-}
+      WHATSAPP_OTP_TEMPLATE: ${WHATSAPP_OTP_TEMPLATE:-moli_registration_code}
+      WHATSAPP_INTEGRATION_API_KEY: ${WHATSAPP_INTEGRATION_API_KEY:-}
       BACKEND_URL: ${BACKEND_URL:-http://95.111.238.35/moli-qa}
     depends_on:
       - qa-mongo

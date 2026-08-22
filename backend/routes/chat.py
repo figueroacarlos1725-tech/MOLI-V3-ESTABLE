@@ -2,6 +2,7 @@
 from fastapi import APIRouter, HTTPException, Depends, Query, Body
 from typing import Optional
 from datetime import datetime, timezone
+import re
 
 from database import db
 from websocket_manager import manager
@@ -10,17 +11,37 @@ from models import ChatMessageCreate, ChatMessageResponse
 
 router = APIRouter()
 
+PHONE_REGEX = re.compile(r'(?<!\w)(?:\+?\d[\s().-]*){7,15}(?!\w)')
+EMAIL_REGEX = re.compile(r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}')
+SOCIAL_REGEX = re.compile(
+    r'(?i)(?:https?://|www\.)\S+|(?:wa\.me|t\.me)/\S+|'
+    r'(?:(?:whats?app|telegram|instagram|facebook|tiktok)\s*[:@]?\s*)@[a-z0-9._-]+'
+)
+CONTACT_REDACTION = '••• dato de contacto protegido •••'
+
+
+def filter_contact_info(text: str):
+    """Redact contact data before it is stored or delivered to another user."""
+    value = (text or '').strip()
+    if not value:
+        return value, False
+    filtered = PHONE_REGEX.sub(CONTACT_REDACTION, value)
+    filtered = EMAIL_REGEX.sub(CONTACT_REDACTION, filtered)
+    filtered = SOCIAL_REGEX.sub(CONTACT_REDACTION, filtered)
+    return filtered, filtered != value
+
 
 @router.post("/api/chat/messages", response_model=ChatMessageResponse)
 async def send_message(message: ChatMessageCreate, user: dict = Depends(get_current_user)):
     message_id = generate_id("msg_")
     now = datetime.now(timezone.utc)
     
+    filtered_message, was_filtered = filter_contact_info(message.message)
     message_doc = {
         "message_id": message_id,
         "sender_id": user["user_id"],
         "receiver_id": message.receiver_id,
-        "message": message.message,
+        "message": filtered_message,
         "message_type": message.message_type,
         "is_read": False,
         "created_at": now
@@ -48,7 +69,7 @@ async def get_messages(
             {"sender_id": user["user_id"], "receiver_id": other_user_id},
             {"sender_id": other_user_id, "receiver_id": user["user_id"]}
         ]
-    }, {"_id": 0}).sort("created_at", -1).to_list(limit)
+    }, {"_id": 0, "original_message": 0}).sort("created_at", -1).to_list(limit)
     
     # Mark as read
     await db.chat_messages.update_many(
@@ -131,13 +152,15 @@ async def send_chat_message(
     
     receiver_id = ride["driver_id"] if user["user_id"] == ride["rider_id"] else ride["rider_id"]
     
+    filtered_message, was_filtered = filter_contact_info(message)
     msg = {
         "message_id": generate_id("msg_"),
         "ride_id": ride_id,
         "sender_id": user["user_id"],
         "sender_name": user.get("name", "Usuario"),
         "receiver_id": receiver_id,
-        "message": message,
+        "message": filtered_message,
+        "is_filtered": was_filtered,
         "is_ai": False,
         "created_at": datetime.now(timezone.utc).isoformat()
     }
@@ -168,29 +191,13 @@ async def get_chat_messages(
         raise HTTPException(status_code=403, detail="No autorizado")
     
     messages = await db.chat_messages.find(
-        {"ride_id": ride_id}, {"_id": 0}
+        {"ride_id": ride_id}, {"_id": 0, "original_message": 0}
     ).sort("created_at", 1).to_list(200)
     
     return {"messages": messages}
 
 
 # ─── Job Chat ──────────────────────
-
-import re
-
-PHONE_REGEX = re.compile(r'(\+?\d[\d\s\-]{6,14}\d)')
-EMAIL_REGEX = re.compile(r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}')
-
-def filter_contact_info(text: str):
-    """Check if message contains phone or email, return filtered version"""
-    has_phone = bool(PHONE_REGEX.search(text))
-    has_email = bool(EMAIL_REGEX.search(text))
-    if has_phone or has_email:
-        filtered = PHONE_REGEX.sub('***-***-****', text)
-        filtered = EMAIL_REGEX.sub('***@***.***', filtered)
-        return filtered, True
-    return text, False
-
 
 @router.post("/api/chat/job/send")
 async def send_job_chat_message(
@@ -232,7 +239,6 @@ async def send_job_chat_message(
         "sender_name": user.get("name", "Usuario"),
         "receiver_id": receiver_id,
         "message": filtered_msg,
-        "original_message": message_text if was_filtered else None,
         "is_filtered": was_filtered,
         "is_ai": False,
         "created_at": datetime.now(timezone.utc).isoformat()
@@ -264,7 +270,7 @@ async def get_job_chat_messages(
         raise HTTPException(status_code=403, detail="No autorizado")
     
     messages = await db.chat_messages.find(
-        {"job_id": job_id}, {"_id": 0}
+        {"job_id": job_id}, {"_id": 0, "original_message": 0}
     ).sort("created_at", 1).to_list(200)
     
     return {"messages": messages}
