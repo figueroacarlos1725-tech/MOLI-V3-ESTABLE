@@ -1059,7 +1059,7 @@ export default function DriverHomeScreen() {
           blockedUntil={blockInfo?.blocked_until || null}
           onChatSupport={() => {
             // Navigate to support but keep modal persistent (don't dismiss)
-            router.push('/(driver)/support');
+            router.push('/support');
           }}
           onRechargeWallet={() => {
             // Navigate to wallet/earnings but keep modal persistent (don't dismiss)
