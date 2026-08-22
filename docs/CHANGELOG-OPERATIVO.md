@@ -22,3 +22,7 @@
 - Se añadió al alcance un módulo administrador de campañas tipo historias con imagen/video, cuenta regresiva, cierre posterior, frecuencia configurable, botón y deep links a comercios/productos del Marketplace.
 - Se documentó la arquitectura financiera idempotente: deuda de comisión para cobros directos, bases separadas de delivery/mercadería, reglas versionadas, conciliación y panel financiero profesional.
 - Se auditó el sistema legado de banners: existen endpoints y esquemas incompatibles, cierre inmediato, video simulado y ausencia de frecuencia/métricas; se definió migración compatible hacia campañas administradas por servidor.
+- Se definió comunicación dentro de Moli: llamadas de voz WebRTC sin revelar teléfonos y chat cliente-profesional con imágenes privadas, validadas y sin metadatos GPS.
+- Se estableció como regla de seguridad que un profesional no reciba domicilio ni coordenadas exactas antes de aceptar; la redacción debe ejecutarse en API, notificaciones y WebSocket, no solo en la interfaz.
+- Se diseñó la revisión interactiva y exclusiva de solicitudes: el cliente verá quién está revisando, si aceptó o si la solicitud pasó al siguiente profesional, con bloqueo atómico y vencimiento para evitar dobles asignaciones.
+- Se extendió la revisión interactiva a viajes de auto, moto, taxi y demás categorías: tarjeta compacta de conductor revisando, cuenta regresiva, transición a búsqueda del siguiente y asignación únicamente después de aceptar.

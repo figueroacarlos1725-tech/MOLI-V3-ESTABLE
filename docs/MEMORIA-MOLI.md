@@ -56,6 +56,20 @@ Moli reúne movilidad y contratación de servicios en una misma identidad:
 - Videos comienzan silenciados, tienen poster/fallback y no reproducen audio automáticamente. Si falla el contenido, se habilita el cierre inmediato.
 - URLs externas solo admiten HTTPS validado; productos y comercios usan destinos internos tipados, nunca esquemas arbitrarios provenientes del panel.
 
+## Comunicación, revisión y privacidad de domicilios
+
+- Moli incorporará llamadas de voz dentro de la aplicación entre participantes de un servicio aceptado y activo. La experiencia no expone números telefónicos personales ni deriva automáticamente a la aplicación de teléfono.
+- La primera versión usa WebRTC para el audio, señalización autenticada por WebSocket y servidores STUN/TURN administrados. Cada llamada requiere autorización corta vinculada al viaje, trabajo, trámite o pedido y registra únicamente estados operativos: `sonando`, `aceptada`, `rechazada`, `finalizada` o `perdida`.
+- Las llamadas se habilitan solo para las partes asignadas mientras la operación está vigente. Deben incluir permisos de micrófono, aviso de llamada entrante, bloqueo/reporte y corte automático al vencer la relación. No se graban por defecto.
+- El chat entre cliente y profesional admite texto e imágenes. Las imágenes se almacenan como objetos privados, no como Base64 en Mongo; se validan tipo, tamaño y dimensiones, se genera miniatura, se eliminan metadatos EXIF/GPS y se entregan mediante URLs temporales solo a participantes autorizados.
+- La dirección exacta y las coordenadas precisas de un trabajo o trámite son datos protegidos. Antes de la aceptación, el profesional recibe únicamente barrio/zona aproximada y una ubicación deliberadamente degradada; nunca domicilio, referencias privadas ni coordenadas exactas.
+- La redacción se aplica en el backend a listados, detalles, notificaciones push y eventos WebSocket. Ocultar el domicilio solamente en la interfaz no se considera una protección válida. Admin/operador y el cliente propietario conservan acceso según sus permisos; el profesional asignado obtiene el destino exacto recién después de aceptar.
+- Durante la búsqueda solo un profesional puede mantener la revisión de una solicitud mediante un bloqueo atómico y con vencimiento. El cliente ve mensajes en vivo como “Juan está revisando tu solicitud”, “Juan aceptó tu solicitud” o “Juan dejó pasar; estamos buscando otro profesional”.
+- Si el profesional rechaza o vence el tiempo de revisión, el servidor libera la solicitud, avisa al cliente y la ofrece al siguiente candidato sin revelar identidades innecesarias ni crear asignaciones duplicadas.
+- El mismo modelo de revisión interactiva se aplica a solicitudes de auto, moto, taxi y demás categorías de movilidad. Mientras un conductor mantiene la oferta bloqueada, el pasajero ve una tarjeta compacta del tipo “Carlos está viendo tu viaje”, con nombre, foto, categoría/vehículo y cuenta regresiva; este estado no implica asignación.
+- Si ese conductor rechaza o agota el tiempo, la tarjeta cambia a “Buscando otro conductor” y la oferta pasa al siguiente candidato. Solo al aceptar se transforma en conductor asignado y se habilitan los datos operativos completos, el seguimiento y la comunicación del viaje.
+- Las imágenes adjuntas a una solicitud previa a la aceptación también se consideran sensibles: se limita su acceso, se elimina geolocalización incrustada y se evita mostrar contenido que revele el domicilio cuando la finalidad pueda cumplirse con una vista reducida o moderada.
+
 ## Repositorio y rama de recuperación
 
 - Repositorio: `figueroacarlos1725-tech/MOLI-V3-ESTABLE`
@@ -109,3 +123,4 @@ Los datos concretos de acceso se guardan en un almacén local/seguro, nunca en e
 6. Construir APK de prueba apuntando a QA.
 7. Alinear `applicationId`, versionCode y firma con Play Console.
 8. Generar AAB y publicar primero en pista de prueba con autorización final.
+9. Implementar comunicación segura: llamadas de voz, imágenes privadas en chat, revisión interactiva y redacción de domicilios antes de la aceptación.
