@@ -77,6 +77,7 @@ async def register(user_data: UserCreate):
         wallet_balance=0.0,
         rating=5.0,
         is_verified=False,
+        is_professional=user_doc.get("is_professional", False),
         created_at=now
     )
     
@@ -104,6 +105,7 @@ async def login(credentials: UserLogin):
         wallet_balance=user.get("wallet_balance", 0.0),
         rating=user.get("rating", 5.0),
         is_verified=user.get("is_verified", False),
+        is_professional=user.get("is_professional", False),
         created_at=user["created_at"]
     )
     
@@ -163,6 +165,7 @@ async def social_login(session_id: str = Header(..., alias="X-Session-ID")):
                 wallet_balance=user.get("wallet_balance", 0.0),
                 rating=user.get("rating", 5.0),
                 is_verified=user.get("is_verified", False),
+                is_professional=user.get("is_professional", False),
                 created_at=user["created_at"]
             )
             
@@ -184,6 +187,7 @@ async def get_me(user: dict = Depends(get_current_user)):
         wallet_balance=user.get("wallet_balance", 0.0),
         rating=user.get("rating", 5.0),
         is_verified=user.get("is_verified", False),
+        is_professional=user.get("is_professional", False),
         created_at=user["created_at"]
     )
 

@@ -1,0 +1,5 @@
+# Add inside the existing :80 site block on the shared Caddy instance.
+# handle_path strips /moli-qa before forwarding, while the API itself keeps /api.
+handle_path /moli-qa/* {
+  reverse_proxy moli-qa-backend-1:8001
+}

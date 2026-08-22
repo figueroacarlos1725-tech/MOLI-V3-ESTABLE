@@ -36,6 +36,7 @@ class UserResponse(BaseModel):
     wallet_balance: float = 0.0
     rating: float = 5.0
     is_verified: bool = False
+    is_professional: bool = False
     created_at: datetime
 
 class TokenResponse(BaseModel):
@@ -196,6 +197,7 @@ class AdminCreateUser(BaseModel):
     phone: Optional[str] = ""
     password: str
     user_type: str = "rider"
+    is_professional: bool = False
 
 class BalanceUpdate(BaseModel):
     amount: float

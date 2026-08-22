@@ -18,6 +18,7 @@ DEFAULT_CATEGORIES = [
     {"id": "carpinteria", "name": "Carpintería", "icon": "hammer", "color": "#8B4513"},
     {"id": "mecanica", "name": "Mecánica", "icon": "construct", "color": "#636366"},
     {"id": "tecnologia", "name": "Tecnología", "icon": "laptop", "color": "#5856D6"},
+    {"id": "tramites", "name": "Trámites", "icon": "document-text", "color": "#0A84FF"},
     {"id": "otro", "name": "Otro", "icon": "ellipsis-horizontal", "color": "#8E8E93"},
 ]
 

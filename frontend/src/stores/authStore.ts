@@ -12,6 +12,7 @@ export interface User {
   wallet_balance: number;
   rating: number;
   is_verified: boolean;
+  is_professional?: boolean;
   created_at: string;
 }
 

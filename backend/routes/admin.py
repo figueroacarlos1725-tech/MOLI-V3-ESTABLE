@@ -427,7 +427,7 @@ async def admin_list_users(
     
     skip = (page - 1) * limit
     total = await db.users.count_documents(query)
-    users = await db.users.find(query, {"_id": 0, "password": 0}).skip(skip).limit(limit).sort("created_at", -1).to_list(limit)
+    users = await db.users.find(query, {"_id": 0, "password": 0, "password_hash": 0}).skip(skip).limit(limit).sort("created_at", -1).to_list(limit)
     
     # Enrich with balance info
     for u in users:
@@ -455,7 +455,7 @@ async def admin_get_user(user_id: str, user: dict = Depends(get_current_user)):
     if user["user_type"] != "admin":
         raise HTTPException(status_code=403, detail="Admin access required")
     
-    target = await db.users.find_one({"user_id": user_id}, {"_id": 0, "password": 0})
+    target = await db.users.find_one({"user_id": user_id}, {"_id": 0, "password": 0, "password_hash": 0})
     if not target:
         raise HTTPException(status_code=404, detail="User not found")
     
@@ -538,8 +538,13 @@ async def admin_create_user(data: AdminCreateUser, user: dict = Depends(get_curr
         "name": data.name,
         "email": data.email,
         "phone": data.phone,
-        "password": hashed,
+        "password_hash": hashed,
         "user_type": data.user_type,
+        "is_professional": data.is_professional,
+        "wallet_balance": 0.0,
+        "rating": 5.0,
+        "is_verified": False,
+        "is_active": True,
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
     
@@ -557,8 +562,11 @@ async def admin_create_user(data: AdminCreateUser, user: dict = Depends(get_curr
     if data.user_type == "driver":
         await db.drivers.insert_one({
             "driver_id": new_user_id,
+            "user_id": new_user_id,
             "is_online": False,
+            "is_available": False,
             "is_blocked": False,
+            "is_professional": data.is_professional,
             "priority": 0,
             "commission_type": "percentage",
             "commission_value": 15,
@@ -598,7 +606,7 @@ async def admin_create_user(data: AdminCreateUser, user: dict = Depends(get_curr
         "source": "admin"
     })
     
-    del new_user["password"]
+    del new_user["password_hash"]
     del new_user["_id"]
     return {"status": "success", "user": new_user}
 
@@ -612,7 +620,7 @@ async def get_dispatchers(user: dict = Depends(get_current_user)):
     
     dispatchers = await db.users.find(
         {"user_type": "dispatcher"},
-        {"_id": 0, "password": 0}
+        {"_id": 0, "password": 0, "password_hash": 0}
     ).to_list(100)
     
     return {"dispatchers": dispatchers}
@@ -698,7 +706,7 @@ async def get_dispatch_rides(
             if ride.get("driver_id"):
                 driver = await db.users.find_one(
                     {"user_id": ride["driver_id"]},
-                    {"_id": 0, "password": 0}
+                    {"_id": 0, "password": 0, "password_hash": 0}
                 )
                 if driver:
                     ride["driver_name"] = driver.get("name", "")
@@ -1298,7 +1306,7 @@ async def admin_get_live_drivers(user: dict = Depends(get_current_user)):
     drivers = await db.drivers.find({}, {"_id": 0}).to_list(500)
     result = []
     for d in drivers:
-        driver_user = await db.users.find_one({"user_id": d["driver_id"]}, {"_id": 0, "password": 0})
+        driver_user = await db.users.find_one({"user_id": d["driver_id"]}, {"_id": 0, "password": 0, "password_hash": 0})
         if driver_user:
             loc = d.get("current_location", {})
             result.append({
@@ -1734,7 +1742,7 @@ async def get_pending_verifications(user: dict = Depends(get_current_user)):
     # Get ALL drivers who are not verified
     all_drivers = await db.users.find(
         {"user_type": "driver", "$or": [{"is_verified": False}, {"is_verified": {"$exists": False}}]},
-        {"_id": 0, "password": 0}
+        {"_id": 0, "password": 0, "password_hash": 0}
     ).to_list(100)
     
     drivers_data = []
@@ -1781,7 +1789,7 @@ async def get_driver_documents_admin(driver_id: str, user: dict = Depends(get_cu
         {"driver_id": driver_id}, {"_id": 0}
     ).to_list(20)
     
-    driver_user = await db.users.find_one({"user_id": driver_id}, {"_id": 0, "password": 0})
+    driver_user = await db.users.find_one({"user_id": driver_id}, {"_id": 0, "password": 0, "password_hash": 0})
     
     for d in docs:
         if isinstance(d.get("uploaded_at"), datetime):

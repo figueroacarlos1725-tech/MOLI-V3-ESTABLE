@@ -1,0 +1,32 @@
+services:
+  qa-mongo:
+    image: mongo:7.0
+    restart: unless-stopped
+    volumes:
+      - moli_qa_mongo:/data/db
+    networks:
+      - moli_qa
+
+  backend:
+    build:
+      context: ../..
+      dockerfile: deploy/qa/backend.Dockerfile
+    restart: unless-stopped
+    environment:
+      MONGO_URL: mongodb://qa-mongo:27017
+      DB_NAME: moli_qa
+      SECRET_KEY: ${SECRET_KEY:?SECRET_KEY is required}
+      BACKEND_URL: ${BACKEND_URL:-http://95.111.238.35/moli-qa}
+    depends_on:
+      - qa-mongo
+    networks:
+      - moli_qa
+      - moli-bot_moli-net
+
+networks:
+  moli_qa:
+  moli-bot_moli-net:
+    external: true
+
+volumes:
+  moli_qa_mongo:
