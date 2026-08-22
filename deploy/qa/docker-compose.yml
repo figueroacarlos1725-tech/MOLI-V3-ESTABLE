@@ -21,6 +21,13 @@ services:
       WHATSAPP_OTP_API_KEY: ${WHATSAPP_OTP_API_KEY:-}
       WHATSAPP_OTP_TEMPLATE: ${WHATSAPP_OTP_TEMPLATE:-moli_registration_code}
       WHATSAPP_INTEGRATION_API_KEY: ${WHATSAPP_INTEGRATION_API_KEY:-}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-}
+      SMTP_SSL: ${SMTP_SSL:-false}
+      SMTP_STARTTLS: ${SMTP_STARTTLS:-true}
       BACKEND_URL: ${BACKEND_URL:-http://95.111.238.35/moli-qa}
     depends_on:
       - qa-mongo

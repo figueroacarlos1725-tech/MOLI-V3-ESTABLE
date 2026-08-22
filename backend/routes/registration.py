@@ -4,12 +4,15 @@ import hmac
 import os
 import re
 import secrets
+import asyncio
+import smtplib
 from datetime import datetime, timedelta, timezone
+from email.message import EmailMessage
 from typing import List, Optional
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, EmailStr, Field
 
 from database import db
 from utils import create_access_token, generate_id, get_current_user, hash_password
@@ -27,18 +30,27 @@ ALLOWED_CAPABILITIES = {
 
 class OtpRequest(BaseModel):
     phone: str
+    email: Optional[EmailStr] = None
+    channel: str = "auto"
+    purpose: str = "register"
 
 
 class OtpVerify(BaseModel):
     phone: str
     code: str = Field(min_length=6, max_length=6)
+    purpose: str = "register"
+
+
+class OtpLogin(BaseModel):
+    phone: str
+    verification_token: str
 
 
 class RegistrationSubmit(BaseModel):
     verification_token: str
     phone: str
     name: str = Field(min_length=2, max_length=100)
-    email: Optional[str] = None
+    email: EmailStr
     password: str = Field(min_length=8, max_length=128)
     capabilities: List[str] = Field(default_factory=list)
     vehicle: Optional[dict] = None
@@ -76,9 +88,54 @@ async def _send_whatsapp_otp(phone: str, code: str) -> None:
         raise HTTPException(status_code=502, detail="No pudimos enviar el código por WhatsApp") from exc
 
 
+def _send_email_sync(email: str, code: str) -> None:
+    host = os.getenv("SMTP_HOST")
+    port = int(os.getenv("SMTP_PORT", "587"))
+    username = os.getenv("SMTP_USERNAME") or os.getenv("SMTP_USER")
+    password = os.getenv("SMTP_PASSWORD") or os.getenv("SMTP_PASS")
+    sender = os.getenv("SMTP_FROM") or username
+    if not host or not sender:
+        raise RuntimeError("SMTP not configured")
+    message = EmailMessage()
+    message["Subject"] = "Tu código de acceso a Moli"
+    message["From"] = sender
+    message["To"] = email
+    message.set_content(
+        f"Tu código de Moli es {code}. Vence en {OTP_TTL_MINUTES} minutos. "
+        "Si no lo solicitaste, ignorá este mensaje."
+    )
+    use_ssl = os.getenv("SMTP_SSL", "false").lower() == "true" or port == 465
+    smtp_class = smtplib.SMTP_SSL if use_ssl else smtplib.SMTP
+    with smtp_class(host, port, timeout=12) as client:
+        if not use_ssl and os.getenv("SMTP_STARTTLS", "true").lower() == "true":
+            client.starttls()
+        if username and password:
+            client.login(username, password)
+        client.send_message(message)
+
+
+async def _send_email_otp(email: str, code: str) -> None:
+    try:
+        await asyncio.to_thread(_send_email_sync, email, code)
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail="No pudimos enviar el código por email") from exc
+
+
 @router.post("/api/registration/otp/request")
 async def request_otp(data: OtpRequest):
     phone = _normalize_phone(data.phone)
+    if data.channel not in {"auto", "whatsapp", "email"}:
+        raise HTTPException(status_code=400, detail="Canal inválido")
+    if data.purpose not in {"register", "login"}:
+        raise HTTPException(status_code=400, detail="Uso de código inválido")
+    if data.channel == "email" and not data.email:
+        raise HTTPException(status_code=400, detail="Ingresá un email para recibir el código")
+    if data.purpose == "login":
+        existing = await db.users.find_one({"phone": phone}, {"email": 1, "_id": 0})
+        if not existing:
+            raise HTTPException(status_code=404, detail="No existe una cuenta con ese teléfono")
+        if not data.email:
+            data.email = existing.get("email")
     now = datetime.now(timezone.utc)
     recent = await db.registration_otps.find_one({"phone": phone})
     if recent and recent.get("last_sent_at"):
@@ -89,11 +146,27 @@ async def request_otp(data: OtpRequest):
             raise HTTPException(status_code=429, detail="Esperá un minuto antes de pedir otro código")
 
     code = f"{secrets.randbelow(1_000_000):06d}"
-    await _send_whatsapp_otp(phone, code)
+    delivered_by = data.channel
+    if data.channel == "email":
+        await _send_email_otp(str(data.email), code)
+    elif data.channel == "whatsapp":
+        await _send_whatsapp_otp(phone, code)
+    else:
+        try:
+            await _send_whatsapp_otp(phone, code)
+            delivered_by = "whatsapp"
+        except HTTPException:
+            if not data.email:
+                raise HTTPException(status_code=503, detail="WhatsApp no está disponible; elegí recibir el código por email")
+            await _send_email_otp(str(data.email), code)
+            delivered_by = "email"
     await db.registration_otps.update_one(
         {"phone": phone},
         {"$set": {
             "phone": phone,
+            "email": str(data.email) if data.email else None,
+            "purpose": data.purpose,
+            "delivered_by": delivered_by,
             "code_digest": _otp_digest(phone, code),
             "attempts": 0,
             "verified": False,
@@ -102,13 +175,13 @@ async def request_otp(data: OtpRequest):
         }},
         upsert=True,
     )
-    return {"status": "sent", "expires_in_seconds": OTP_TTL_MINUTES * 60}
+    return {"status": "sent", "channel": delivered_by, "expires_in_seconds": OTP_TTL_MINUTES * 60}
 
 
 @router.post("/api/registration/otp/verify")
 async def verify_otp(data: OtpVerify):
     phone = _normalize_phone(data.phone)
-    record = await db.registration_otps.find_one({"phone": phone})
+    record = await db.registration_otps.find_one({"phone": phone, "purpose": data.purpose})
     now = datetime.now(timezone.utc)
     if not record or record.get("verified"):
         raise HTTPException(status_code=400, detail="Código inválido o ya utilizado")
@@ -129,6 +202,22 @@ async def verify_otp(data: OtpVerify):
         {"$set": {"verified": True, "verification_digest": hashlib.sha256(token.encode()).hexdigest()}},
     )
     return {"status": "verified", "verification_token": token}
+
+
+@router.post("/api/auth/otp-login")
+async def otp_login(data: OtpLogin):
+    phone = _normalize_phone(data.phone)
+    digest = hashlib.sha256(data.verification_token.encode()).hexdigest()
+    otp = await db.registration_otps.find_one({
+        "phone": phone, "purpose": "login", "verified": True, "verification_digest": digest,
+    })
+    if not otp:
+        raise HTTPException(status_code=400, detail="Verificación inválida")
+    user = await db.users.find_one({"phone": phone}, {"_id": 0, "password": 0, "password_hash": 0})
+    if not user or not user.get("is_active", True):
+        raise HTTPException(status_code=403, detail="Cuenta no disponible")
+    await db.registration_otps.delete_one({"phone": phone})
+    return {"access_token": create_access_token({"sub": user["user_id"]}), "token_type": "bearer", "user": user}
 
 
 @router.post("/api/registration/submit")

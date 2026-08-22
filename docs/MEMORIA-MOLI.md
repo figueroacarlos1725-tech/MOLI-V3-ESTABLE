@@ -109,7 +109,10 @@ Moli reúne movilidad y contratación de servicios en una misma identidad:
 ## Registro y aprobación por WhatsApp
 
 - El alta comienza verificando un teléfono en formato internacional mediante un código de seis dígitos enviado por la API de WhatsApp de Moli Tecnologías.
+- Teléfono y email son obligatorios para el alta. El usuario elige recibir el OTP por WhatsApp o email; el modo automático intenta WhatsApp y usa email como respaldo mientras las plantillas de Meta no estén habilitadas.
+- El mismo mecanismo permite iniciar sesión sin contraseña. El OTP se emite con propósito separado (`register` o `login`), se consume una sola vez y nunca sirve para otra operación.
 - Comprax actúa únicamente como proveedor/canal de mensajería cuando se configure su endpoint; Moli no lee ni reutiliza la base de datos de Comprax.
+- Para QA, Moli reutiliza únicamente el proveedor de correo Resend ya contratado y configurado en Comprax, copiando la credencial a su propio entorno secreto del VPS. No lee datos, usuarios ni colecciones de Comprax.
 - Los códigos vencen, tienen límite de intentos, espera entre reenvíos y se guardan mediante digest seguro. URLs, claves y plantillas del proveedor viven fuera de Git.
 - Un cliente sin capacidades operativas queda habilitado al verificar el teléfono y completar sus datos. Conductores, profesionales, gestores de trámites, repartidores y comercios quedan `pending` hasta revisión de Admin.
 - Una misma persona selecciona múltiples capacidades: viajes, moto, taxi, profesional, trámites, paquetería, delivery y comercio. Admin visualiza la solicitud, documentación, vehículo y capacidades, y aprueba o rechaza con motivo y auditoría.

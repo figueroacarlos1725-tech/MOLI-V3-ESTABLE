@@ -35,3 +35,5 @@
 - Se agregó registro telefónico con OTP por WhatsApp, capacidades múltiples, cola de aprobación administrativa y auditoría, configurable sin guardar credenciales en Git.
 - Se eliminó la clave predeterminada insegura del adaptador WhatsApp legado.
 - Android quedó configurado como `com.digigo.app`, versión `1.0.22` (25), con perfiles separados para APK QA y AAB de tienda; la carga continúa bloqueada hasta aprobarse la nueva upload key.
+- El OTP de alta se amplió a teléfono más email, canal seleccionable WhatsApp/email, fallback automático e inicio de sesión sin contraseña con tokens de propósito único.
+- Se configuró en el entorno QA, sin exponer secretos, el proveedor Resend ya disponible en Comprax; ambas aplicaciones permanecen aisladas a nivel de datos.
