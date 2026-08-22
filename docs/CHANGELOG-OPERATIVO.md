@@ -27,3 +27,5 @@
 - Se diseñó la revisión interactiva y exclusiva de solicitudes: el cliente verá quién está revisando, si aceptó o si la solicitud pasó al siguiente profesional, con bloqueo atómico y vencimiento para evitar dobles asignaciones.
 - Se extendió la revisión interactiva a viajes de auto, moto, taxi y demás categorías: tarjeta compacta de conductor revisando, cuenta regresiva, transición a búsqueda del siguiente y asignación únicamente después de aceptar.
 - Se fijó la dirección UX/UI: combinar claridad premium y confianza tipo Cabify con velocidad operativa y estados visibles tipo DiDi, bajo una identidad Moli propia, accesible y compartida por movilidad, profesionales, trámites y Marketplace.
+- Se consolidó una única bandeja operativa para usuarios multirrol: viajes, trabajos, trámites, paquetería, envíos y reparto se reciben en la misma pantalla, sin cambiar de cuenta o módulo.
+- Se definió protección antielusión en chats: teléfonos y otros contactos se redactan en servidor y se muestran difuminados; las imágenes pasan por OCR y bloqueo/difuminado antes de ser accesibles al destinatario.
