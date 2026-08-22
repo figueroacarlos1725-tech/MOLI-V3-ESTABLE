@@ -9,6 +9,8 @@ import {
   ActivityIndicator,
   RefreshControl,
   Alert,
+  Modal,
+  TextInput,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -46,6 +48,30 @@ export default function DriverEarningsScreen() {
   const [transactions, setTransactions] = useState<WalletTxn[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [withdrawOpen, setWithdrawOpen] = useState(false);
+  const [withdrawAmount, setWithdrawAmount] = useState('');
+  const [withdrawAlias, setWithdrawAlias] = useState('');
+  const [withdrawing, setWithdrawing] = useState(false);
+  const [withdrawMessage, setWithdrawMessage] = useState('');
+
+  const submitWithdrawal = async () => {
+    const amount = Number(withdrawAmount.replace(',', '.'));
+    if (!Number.isFinite(amount) || amount <= 0 || !withdrawAlias.trim()) {
+      setWithdrawMessage('Ingresá un monto válido y el alias de transferencia.');
+      return;
+    }
+    setWithdrawing(true); setWithdrawMessage('');
+    try {
+      await apiService.post('/wallet/withdrawals', { amount, transfer_alias: withdrawAlias.trim() }, {
+        headers: { 'Idempotency-Key': `withdraw-${Date.now()}-${amount}` },
+      });
+      setWithdrawMessage('Solicitud enviada. La verás acreditada cuando administración la apruebe.');
+      setWithdrawAmount('');
+      await fetchAll();
+    } catch (e: any) {
+      setWithdrawMessage(e.message || 'No pudimos enviar la solicitud.');
+    } finally { setWithdrawing(false); }
+  };
 
   const fetchAll = useCallback(async () => {
     try {
@@ -137,9 +163,7 @@ export default function DriverEarningsScreen() {
               </TouchableOpacity>
             )}
             {!isNegative && balance > 0 && (
-              <TouchableOpacity style={st.withdrawBtn} onPress={() => {
-                Alert.alert('Retirar fondos', 'Próximamente podrás retirar tus ganancias. Contactá a soporte para más info.');
-              }}>
+              <TouchableOpacity accessibilityRole="button" style={st.withdrawBtn} onPress={() => { setWithdrawMessage(''); setWithdrawOpen(true); }}>
                 <Ionicons name="arrow-up-circle-outline" size={18} color="#00C853" />
                 <Text style={st.withdrawBtnText}>Retirar</Text>
               </TouchableOpacity>
@@ -265,6 +289,18 @@ export default function DriverEarningsScreen() {
 
         <View style={{ height: 40 }} />
       </ScrollView>
+      <Modal visible={withdrawOpen} transparent animationType="fade" onRequestClose={()=>setWithdrawOpen(false)}>
+        <View style={st.modalBackdrop}><View style={st.modalCard}>
+          <View style={st.modalIcon}><Ionicons name="arrow-up-circle-outline" size={30} color="#FF7733"/></View>
+          <Text style={st.modalTitle}>Solicitar retiro</Text>
+          <Text style={st.modalCopy}>El saldo quedará reservado cuando administración apruebe la transferencia.</Text>
+          <Text style={st.inputLabel}>Monto</Text><TextInput accessibilityLabel="Monto a retirar" style={st.input} value={withdrawAmount} onChangeText={setWithdrawAmount} keyboardType="decimal-pad" placeholder="0,00"/>
+          <Text style={st.inputLabel}>Alias de transferencia</Text><TextInput accessibilityLabel="Alias de transferencia" autoCapitalize="none" style={st.input} value={withdrawAlias} onChangeText={setWithdrawAlias} placeholder="tu.alias"/>
+          {withdrawMessage?<Text style={st.modalMessage}>{withdrawMessage}</Text>:null}
+          <TouchableOpacity accessibilityRole="button" disabled={withdrawing} style={st.modalPrimary} onPress={submitWithdrawal}>{withdrawing?<ActivityIndicator color="#FFF"/>:<Text style={st.modalPrimaryText}>Enviar solicitud</Text>}</TouchableOpacity>
+          <TouchableOpacity accessibilityRole="button" style={st.modalSecondary} onPress={()=>setWithdrawOpen(false)}><Text style={st.modalSecondaryText}>Cerrar</Text></TouchableOpacity>
+        </View></View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -329,4 +365,16 @@ const st = StyleSheet.create({
   explainCard: { flexDirection: 'row', marginHorizontal: 16, marginTop: 16, backgroundColor: '#EFF6FF', borderRadius: 14, padding: 16 },
   explainTitle: { fontSize: 14, fontWeight: '700', color: '#1C1C1E', marginBottom: 6 },
   explainText: { fontSize: 12, color: '#636366', lineHeight: 18 },
+  modalBackdrop:{flex:1,backgroundColor:'rgba(0,0,0,.45)',alignItems:'center',justifyContent:'center',padding:20},
+  modalCard:{width:'100%',maxWidth:430,backgroundColor:'#FFF',borderRadius:24,padding:22},
+  modalIcon:{width:56,height:56,borderRadius:18,backgroundColor:'#FFF0EC',alignItems:'center',justifyContent:'center'},
+  modalTitle:{fontSize:23,fontWeight:'900',color:'#202124',marginTop:14},
+  modalCopy:{fontSize:13,lineHeight:19,color:'#70757A',marginTop:5,marginBottom:16},
+  inputLabel:{fontSize:11,fontWeight:'800',color:'#555',marginTop:10,marginBottom:6},
+  input:{height:48,borderWidth:1,borderColor:'#E4E0DC',borderRadius:14,paddingHorizontal:14,fontSize:16,color:'#202124'},
+  modalMessage:{fontSize:12,lineHeight:18,color:'#B54708',backgroundColor:'#FFF3E8',padding:10,borderRadius:10,marginTop:12},
+  modalPrimary:{height:48,borderRadius:14,backgroundColor:'#FF7733',alignItems:'center',justifyContent:'center',marginTop:16},
+  modalPrimaryText:{color:'#FFF',fontSize:15,fontWeight:'900'},
+  modalSecondary:{height:44,alignItems:'center',justifyContent:'center'},
+  modalSecondaryText:{fontSize:14,fontWeight:'800',color:'#62666B'},
 });

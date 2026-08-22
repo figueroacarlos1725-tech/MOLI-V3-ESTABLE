@@ -11,8 +11,9 @@ from pymongo.errors import DuplicateKeyError
 from database import db
 from utils import get_current_user
 from marketplace_core import (
-    dispatch_vehicle_order, merchant_orders_query, price_snapshot,
-    public_merchant_query, require_transition, settlement_snapshot,
+    dispatch_vehicle_order, driver_delivery_view, merchant_orders_query, price_snapshot,
+    public_merchant_query, require_delivery_transition, require_transition, settlement_snapshot,
+    latest_rule_versions,
 )
 
 router = APIRouter(prefix="/api/marketplace", tags=["marketplace"])
@@ -76,6 +77,10 @@ class TransitionInput(BaseModel):
 class PaymentTransitionInput(BaseModel):
     status: Literal["instructions_pending", "pending_provider", "reported", "approved", "rejected", "refunded"]
     provider_reference: Optional[str] = None
+
+
+class DeliveryTransitionInput(BaseModel):
+    status: Literal["picked_up", "delivering", "completed"]
 
 
 class CommissionRuleInput(BaseModel):
@@ -376,6 +381,52 @@ async def accept_delivery(delivery_id: str, user=Depends(get_current_user)):
     return {"delivery": claimed, "order": order}
 
 
+@router.get("/deliveries/driver/inbox")
+async def driver_delivery_inbox(user=Depends(get_current_user)):
+    """Unified delivery inbox: offers plus deliveries assigned to this driver."""
+    if user.get("user_type") != "driver":
+        raise HTTPException(403, "Driver access required")
+    driver_id = user["user_id"]
+    deliveries = await db.marketplace_deliveries.find({
+        "$or": [
+            {"status": "offering", "offers.driver_id": driver_id},
+            {"assigned_driver_id": driver_id, "status": {"$in": ["assigned", "picked_up", "delivering"]}},
+        ]
+    }, {"_id": 0}).sort("created_at", -1).to_list(100)
+    cards = []
+    for delivery in deliveries:
+        order = await db.marketplace_orders.find_one({"order_id": delivery["order_id"]}, {"_id": 0}) or {}
+        merchant = await db.marketplace_merchants.find_one({"merchant_id": order.get("merchant_id")}, {"_id": 0}) or {}
+        cards.append(driver_delivery_view(delivery, order, merchant, driver_id))
+    return {"deliveries": cards}
+
+
+@router.put("/deliveries/{delivery_id}/status")
+async def transition_delivery(delivery_id: str, data: DeliveryTransitionInput,
+                              user=Depends(get_current_user)):
+    if user.get("user_type") != "driver":
+        raise HTTPException(403, "Driver access required")
+    delivery = await db.marketplace_deliveries.find_one(
+        {"delivery_id": delivery_id, "assigned_driver_id": user["user_id"]}, {"_id": 0})
+    if not delivery:
+        raise HTTPException(404, "Assigned delivery not found")
+    try:
+        require_delivery_transition(delivery["status"], data.status)
+    except ValueError as exc:
+        raise HTTPException(409, str(exc))
+    updated = await db.marketplace_deliveries.find_one_and_update(
+        {"delivery_id": delivery_id, "assigned_driver_id": user["user_id"], "status": delivery["status"]},
+        {"$set": {"status": data.status, "updated_at": now(), f"{data.status}_at": now()}},
+        return_document=ReturnDocument.AFTER, projection={"_id": 0})
+    if not updated:
+        raise HTTPException(409, "Delivery changed concurrently")
+    order_status = data.status
+    await db.marketplace_orders.update_one(
+        {"order_id": delivery["order_id"], "driver_id": user["user_id"]},
+        {"$set": {"status": order_status, "updated_at": now(), f"{order_status}_at": now()}})
+    return updated
+
+
 @router.put("/admin/commission-rules/{party}")
 async def upsert_rule(party: str, data: CommissionRuleInput, user=Depends(get_current_user)):
     admin(user)
@@ -386,6 +437,20 @@ async def upsert_rule(party: str, data: CommissionRuleInput, user=Depends(get_cu
            "created_by": user["user_id"], "created_at": now()}
     await db.marketplace_commission_rules.insert_one(doc)
     return public(doc)
+
+
+@router.get("/admin/commission-rules")
+async def list_current_commission_rules(user=Depends(get_current_user)):
+    """Return only the latest version for each marketplace party.
+
+    The admin UI uses this projection instead of guessing defaults. Historical
+    versions remain immutable in Mongo for settlement auditability.
+    """
+    admin(user)
+    rows = await db.marketplace_commission_rules.find(
+        {}, {"_id": 0}
+    ).sort([("party", 1), ("version", -1)]).to_list(200)
+    return {"rules": latest_rule_versions(rows)}
 
 
 @router.post("/orders/{order_id}/settle")

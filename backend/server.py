@@ -87,6 +87,12 @@ async def startup_db():
         await db.marketplace_settlements.create_index("order_id", unique=True)
         await db.marketplace_settlements.create_index("idempotency_key", unique=True)
         await db.marketplace_commission_rules.create_index([("rule_id", 1), ("version", 1)], unique=True)
+        await db.wallet_withdrawals.create_index([("user_id", 1), ("idempotency_key", 1)], unique=True)
+        await db.wallet_withdrawals.create_index(
+            "user_id", unique=True,
+            partialFilterExpression={"status": "pending"},
+            name="one_pending_withdrawal_per_user")
+        await db.wallet_withdrawals.create_index([("status", 1), ("created_at", -1)])
         await ensure_ad_indexes()
         print("Database indexes created")
     except Exception as e:

@@ -8,6 +8,7 @@ export default function DriverLayout() {
       <Stack.Screen name="home" />
       <Stack.Screen name="rides" />
       <Stack.Screen name="earnings" />
+      <Stack.Screen name="deliveries" />
       <Stack.Screen name="taximeter" />
       <Stack.Screen name="profile" />
       <Stack.Screen name="inbox" />

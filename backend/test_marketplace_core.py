@@ -6,7 +6,7 @@ from fastapi import HTTPException
 
 from marketplace_core import (
     commission_amount, dispatch_vehicle_order, price_snapshot, require_transition,
-    settlement_snapshot, public_merchant_query, merchant_orders_query,
+    settlement_snapshot, public_merchant_query, merchant_orders_query, latest_rule_versions,
 )
 
 
@@ -44,6 +44,16 @@ def test_commission_limits_and_rounding():
     assert commission_amount(999, {"mode": "percentage", "rate_percent": 12.5}) == 125
     assert commission_amount(10000, {"mode": "percentage", "rate_percent": 1, "min_cents": 500}) == 500
     assert commission_amount(10000, {"mode": "fixed", "fixed_cents": 5000, "max_cents": 900}) == 900
+
+
+def test_latest_commission_rule_projection_keeps_newest_per_party():
+    latest = latest_rule_versions([
+        {"party": "driver", "version": 3, "rate_percent": 12},
+        {"party": "driver", "version": 2, "rate_percent": 10},
+        {"party": "merchant", "version": 4, "rate_percent": 8},
+    ])
+    assert latest["driver"]["version"] == 3
+    assert latest["merchant"]["rate_percent"] == 8
 
 
 def test_fsm_distinguishes_pickup_and_delivery():

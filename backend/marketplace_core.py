@@ -89,6 +89,14 @@ def settlement_snapshot(pricing: dict, rules: Iterable[dict]) -> dict:
             "platform_commission_cents": sum(x["commission_cents"] for x in charges)}
 
 
+def latest_rule_versions(rows: Iterable[dict]) -> dict:
+    """Collapse rules sorted newest-first into the current admin projection."""
+    latest = {}
+    for row in rows:
+        latest.setdefault(row["party"], row)
+    return latest
+
+
 def dispatch_vehicle_order(round_number: int) -> list[str]:
     return ["motorcycle"] if round_number <= 1 else ["motorcycle", "car", "taxi", "other"]
 
@@ -103,3 +111,49 @@ def merchant_orders_query(merchant_id: str, status: str | None = None) -> dict:
     if status:
         query["status"] = status
     return query
+
+
+DELIVERY_TRANSITIONS = {
+    "assigned": {"picked_up"},
+    "picked_up": {"delivering"},
+    "delivering": {"completed"},
+    "completed": set(),
+}
+
+
+def require_delivery_transition(current: str, target: str) -> None:
+    if target not in DELIVERY_TRANSITIONS.get(current, set()):
+        raise ValueError(f"invalid delivery transition: {current} -> {target}")
+
+
+def driver_delivery_view(delivery: dict, order: dict, merchant: dict,
+                         driver_id: str) -> dict:
+    """Return a delivery card without exposing a customer's address pre-acceptance."""
+    assigned = delivery.get("assigned_driver_id") == driver_id
+    view = {
+        "delivery_id": delivery["delivery_id"],
+        "order_id": delivery["order_id"],
+        "status": delivery.get("status", "offering"),
+        "round": delivery.get("round", 1),
+        "merchant": {
+            "name": merchant.get("name", "Comercio"),
+            "address": merchant.get("address", ""),
+            "latitude": merchant.get("latitude"),
+            "longitude": merchant.get("longitude"),
+        },
+        "pricing": {
+            "delivery_fee_cents": order.get("pricing", {}).get("delivery_fee_cents", 0),
+            "currency": order.get("pricing", {}).get("currency", "ARS"),
+        },
+        "assigned_to_me": assigned,
+    }
+    if assigned:
+        view["destination"] = {
+            "address": order.get("delivery_address", ""),
+            "latitude": order.get("delivery_latitude"),
+            "longitude": order.get("delivery_longitude"),
+        }
+        view["payment_method"] = order.get("payment_method")
+    else:
+        view["destination"] = {"zone": order.get("delivery_zone", "Zona de entrega")}
+    return view

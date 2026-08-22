@@ -35,6 +35,20 @@ services:
       - moli_qa
       - moli-bot_moli-net
 
+  frontend:
+    build:
+      context: ../..
+      dockerfile: deploy/qa/frontend.Dockerfile
+      args:
+        EXPO_PUBLIC_BACKEND_URL: ${EXPO_PUBLIC_BACKEND_URL:-http://95.111.238.35/moli-qa}
+    restart: unless-stopped
+    ports:
+      - "8083:80"
+    depends_on:
+      - backend
+    networks:
+      - moli_qa
+
 networks:
   moli_qa:
   moli-bot_moli-net:

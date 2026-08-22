@@ -112,6 +112,9 @@ Moli reúne movilidad y contratación de servicios en una misma identidad:
 - El despacho informa al pasajero qué conductor está revisando con cuenta regresiva y entrega solo coordenadas aproximadas antes de aceptar.
 - Se incorporó el núcleo backend de Marketplace: comercio y aprobación, catálogo, carrito, retiro/delivery, prioridad moto, estados de pago y comisiones idempotentes.
 - Se incorporó el backend unificado de campañas con targeting, frecuencia, cuenta regresiva, destinos seguros, métricas e importación controlada de banners legados.
+- El panel Admin de Publicidad consume ahora la API unificada de campañas: crea imagen/video/producto, exige sponsor externo HTTPS o destino interno tipado a comercio/producto, configura audiencia, superficie, disparador, cuenta regresiva, frecuencia y límites. Las campañas nuevas quedan en borrador antes de activarse.
+- El panel Admin de Pagos expone la política Marketplace `solo conductor` o `conductor y comercio`, con tasas y mínimos separados. Cada guardado crea una versión nueva y los pedidos conservan su snapshot financiero.
+- Usuarios y despacho manual interpretan capacidades explícitas: comercio/profesional ya no se presenta ni se ofrece como conductor salvo que también tenga una capacidad real de movilidad/delivery.
 - El geocodificador de destinos usa fallback Google→OpenStreetMap; el cliente no depende de la geocodificación nativa del dispositivo para crear un delivery.
 - Después del checkout, Marketplace conserva el pedido creado y abre una vista autenticada de confirmación/seguimiento; un cliente solo puede consultar sus propias órdenes.
 - Moli Trámites aparece como módulo cliente independiente y reutiliza el flujo seguro de trabajos con la categoría `tramites` preseleccionada.
@@ -164,6 +167,20 @@ El registro móvil exige teléfono y email. El canal `auto` intenta WhatsApp y u
 - Color primario naranja cálido `#FF7733`; texto carbón `#202124`; fondos blancos y grises cálidos; verde reservado para éxito o disponibilidad.
 - Mapas principales claros, rutas y pines naranjas, tarjetas flotantes con bordes finos y sombras suaves.
 - Logo naranja/negro y vehículos Auto/Moto/Taxi/Delivery/Paquetería representados por componentes propios reutilizables.
+
+## Operación unificada de prestadores
+
+- La bandeja multirrol usa accesos tipados: viajes abre movilidad; trabajos y trámites abren el mapa profesional con su filtro; paquetería y Marketplace Delivery abren una bandeja de entregas separada.
+- La dirección final de un delivery se redacta hasta que el conductor acepta. Después puede avanzar de forma atómica por `asignada → retirada → en camino → entregada`, reflejando el estado en el pedido.
+- La disponibilidad de viajes usa un botón estable y semántico, compatible con automatización y lectores de pantalla; las animaciones decorativas no transforman su blanco táctil.
+- Los retiros de saldo generan solicitudes auditables e idempotentes en estado pendiente. No descuentan ni transfieren fondos hasta aprobación administrativa y respetan saldo comprometido por solicitudes anteriores.
+- El frontend web QA se sirve con fallback SPA: actualizar o compartir una ruta interna devuelve `index.html` en lugar de un 404 de nginx.
+
+## Campañas en la experiencia cliente
+
+- El cliente consulta la decisión publicitaria del servidor al iniciar un viaje, trabajo o trámite, al abrir un comercio y después de crear un pedido.
+- El servidor conserva la autoridad sobre elegibilidad, frecuencia y límite por entidad; la app respeta la cuenta regresiva antes de habilitar la X y reporta impresión, clic, cierre y errores.
+- Las creatividades admiten imagen o video. Los únicos destinos admitidos en el cliente son HTTPS y rutas internas tipadas a comercio o producto; un producto promocionado se destaca al abrir su tienda.
 
 ## Próximos hitos
 

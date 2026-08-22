@@ -13,7 +13,28 @@ interface User {
   is_online?: boolean; is_blocked?: boolean; priority?: number;
   commission_type?: string; commission_value?: number;
   block_type?: string; created_at?: string;
+  is_professional?: boolean; capabilities?: string[];
 }
+
+const capabilitySet = (u: User) => new Set(u.capabilities || []);
+const isMobilityProvider = (u: User) => {
+  if (u.user_type !== 'driver') return false;
+  if (!u.capabilities?.length) return true;
+  const caps = capabilitySet(u);
+  return ['rides','ride','driver','moto','taxi','delivery'].some(x => caps.has(x));
+};
+const rolePresentation = (u: User) => {
+  const caps = capabilitySet(u);
+  if (u.user_type === 'admin') return { label: 'Admin', icon: 'shield' as const, tone: 'admin' as const };
+  if (u.user_type === 'dispatcher') return { label: 'Operador', icon: 'headset' as const, tone: 'admin' as const };
+  if (caps.has('merchant')) return { label: 'Comercio', icon: 'storefront' as const, tone: 'merchant' as const };
+  const professional = u.is_professional || caps.has('professional') || caps.has('tramites');
+  const mobility = isMobilityProvider(u);
+  if (professional && mobility) return { label: 'Conductor · Profesional', icon: 'apps' as const, tone: 'combined' as const };
+  if (professional) return { label: 'Profesional', icon: 'briefcase' as const, tone: 'professional' as const };
+  if (u.user_type === 'driver') return { label: 'Conductor', icon: 'car' as const, tone: 'driver' as const };
+  return { label: 'Cliente', icon: 'person' as const, tone: 'rider' as const };
+};
 
 export default function AdminUsersScreen() {
   const [users, setUsers] = useState<User[]>([]);
@@ -170,19 +191,21 @@ export default function AdminUsersScreen() {
     } catch (e) {}
   };
 
-  const UserCard = ({u}: {u: User}) => (
+  const UserCard = ({u}: {u: User}) => {
+    const role = rolePresentation(u);
+    return (
     <TouchableOpacity style={s.userCard} onPress={() => fetchUserDetail(u.user_id)}>
       <View style={s.userCardHeader}>
-        <View style={[s.avatar, u.user_type==='driver'?s.avatarDriver:u.user_type==='admin'?s.avatarAdmin:s.avatarRider]}>
-          <Ionicons name={u.user_type==='driver'?'car':u.user_type==='admin'?'shield':'person'} size={18} color="#fff" />
+        <View style={[s.avatar, role.tone==='admin'?s.avatarAdmin:role.tone==='rider'?s.avatarRider:s.avatarDriver]}>
+          <Ionicons name={role.icon} size={18} color="#fff" />
         </View>
         <View style={{flex:1}}>
           <Text style={s.userName}>{u.name}</Text>
           <Text style={s.userEmail}>{u.email}</Text>
         </View>
         <View style={{alignItems:'flex-end'}}>
-          <View style={[s.badge, u.user_type==='driver'?s.badgeDriver:u.user_type==='admin'?s.badgeAdmin:s.badgeRider]}>
-            <Text style={s.badgeText}>{u.user_type==='driver'?'Conductor':u.user_type==='admin'?'Admin':'Pasajero'}</Text>
+          <View style={[s.badge, role.tone==='admin'?s.badgeAdmin:role.tone==='rider'?s.badgeRider:s.badgeDriver]}>
+            <Text style={s.badgeText}>{role.label}</Text>
           </View>
           {u.is_blocked && <Text style={s.blockedText}>BLOQUEADO</Text>}
           {u.is_online && <View style={s.onlineDot} />}
@@ -194,7 +217,8 @@ export default function AdminUsersScreen() {
         {(u.priority||0) > 0 && <Text style={s.priorityText}>Prioridad: {u.priority}</Text>}
       </View>
     </TouchableOpacity>
-  );
+    );
+  };
 
   return (
     <SafeAreaView style={s.container}>
@@ -270,7 +294,7 @@ export default function AdminUsersScreen() {
                   </View>
                 </View>
 
-                {selectedUser.user_type === 'driver' && <>
+                {isMobilityProvider(selectedUser) && <>
                   <View style={s.section}>
                     <Text style={s.sectionTitle}>Tipos de Servicio</Text>
                     <Text style={{fontSize:12,color:'#8E8E93',marginBottom:10}}>Elegí qué servicios puede ofrecer este conductor</Text>

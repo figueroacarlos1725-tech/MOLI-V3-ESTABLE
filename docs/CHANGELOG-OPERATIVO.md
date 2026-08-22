@@ -1,5 +1,14 @@
 # Changelog operativo
 
+## 2026-08-22 — Admin: campañas, comisiones y capacidades
+
+- Se reemplazó la pantalla legacy de banners por el gestor de campañas seguro conectado a `/api/admin/ads/campaigns`.
+- Se agregaron destinos externos exclusivamente HTTPS y destinos internos validados a comercios/productos activos de Marketplace.
+- Se expusieron segmentación, disparadores, cuenta regresiva, cierre, cooldown y límites por usuario/sesión/operación.
+- Se agregó lectura de la última versión de reglas de comisión Marketplace y edición separada para conductor y comercio.
+- Se corrigieron etiquetas administrativas y candidatos del despacho manual según capacidades explícitas.
+- Se añadió prueba del colapso determinista de versiones de comisión. No se modificaron secretos ni entornos externos.
+
 ## 2026-08-22 — Recuperación y preparación QA
 
 - Se recuperó el repositorio estable y se abrió `qa/role-flow-hardening`.
@@ -50,3 +59,9 @@
 - Se añadieron endpoints autenticados para que cada cliente liste y consulte únicamente sus propios pedidos de Marketplace.
 - El selector de módulos ahora muestra Moli Trámites y abre el formulario con la categoría de trámites preseleccionada.
 - Perfil cliente usa diálogos compatibles con web para métodos de pago y cierre de sesión, manteniendo el color primario `#FF7733`.
+- Se corrigieron los accesos de la bandeja multirrol: Trámites conserva su filtro y Delivery/Paquetería ya no redirigen al inicio de Viajes.
+- Se agregó la bandeja de repartos Marketplace con privacidad preaceptación, aceptación exclusiva y avance controlado hasta entrega.
+- El control `GO` conserva un área táctil estable, rol accesible y estado de carga; el pulso quedó limitado a una capa decorativa.
+- Billetera permite solicitar retiros por alias mediante una operación pendiente e idempotente que valida saldo disponible.
+- Se agregó una imagen web QA con configuración nginx `try_files ... /index.html` para evitar rutas internas 404.
+- Se conectó la API unificada de campañas con los flujos cliente de viaje, trabajo, trámite, comercio y pedido; la app muestra imagen/video, respeta countdown/frecuencia del servidor y limita la navegación a HTTPS o destinos Marketplace tipados.

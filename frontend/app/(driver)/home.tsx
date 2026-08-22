@@ -70,7 +70,6 @@ export default function DriverHomeScreen() {
   const countdownInterval = useRef<ReturnType<typeof setInterval> | null>(null);
   const progressAnim = useRef(new Animated.Value(1)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
-  const goButtonScale = useRef(new Animated.Value(1)).current;
   const goButtonGlow = useRef(new Animated.Value(0)).current;
   const onlinePulse = useRef(new Animated.Value(0)).current;
   const soundRef = useRef<Audio.Sound | null>(null);
@@ -303,23 +302,15 @@ export default function DriverHomeScreen() {
   // GO button breathing animation when offline
   useEffect(() => {
     if (!isOnline && !isLoadingRide) {
-      const breathe = Animated.loop(
-        Animated.sequence([
-          Animated.timing(goButtonScale, { toValue: 1.06, duration: 1200, useNativeDriver: true }),
-          Animated.timing(goButtonScale, { toValue: 1, duration: 1200, useNativeDriver: true }),
-        ])
-      );
       const glow = Animated.loop(
         Animated.sequence([
           Animated.timing(goButtonGlow, { toValue: 1, duration: 1200, useNativeDriver: false }),
           Animated.timing(goButtonGlow, { toValue: 0, duration: 1200, useNativeDriver: false }),
         ])
       );
-      breathe.start();
       glow.start();
-      return () => { breathe.stop(); glow.stop(); };
+      return () => { glow.stop(); };
     } else {
-      goButtonScale.setValue(1);
       goButtonGlow.setValue(0);
     }
   }, [isOnline, isLoadingRide]);
@@ -1291,12 +1282,16 @@ export default function DriverHomeScreen() {
             opacity: goButtonGlow.interpolate({ inputRange: [0, 1], outputRange: [0.2, 0.5] }),
             transform: [{ scale: goButtonGlow.interpolate({ inputRange: [0, 1], outputRange: [1, 1.3] }) }],
           }]} />
-          <Animated.View style={{ transform: [{ scale: goButtonScale }] }}>
+          <Animated.View>
             <TouchableOpacity
               style={styles.goButton}
               onPress={() => handleToggleOnline(true)}
               activeOpacity={0.8}
               disabled={isToggling}
+              accessibilityRole="button"
+              accessibilityLabel={isToggling ? 'Conectando' : 'Conectarse y recibir oportunidades'}
+              accessibilityState={{ disabled: isToggling, busy: isToggling }}
+              testID="driver-go-button"
             >
               {isToggling ? (
                 <ActivityIndicator size="large" color="#fff" />
@@ -1305,7 +1300,7 @@ export default function DriverHomeScreen() {
               )}
             </TouchableOpacity>
           </Animated.View>
-          <Text style={styles.goButtonHint}>Toca para conectarte</Text>
+          <Text style={styles.goButtonHint}>Tocá para conectarte</Text>
         </View>
       )}
 

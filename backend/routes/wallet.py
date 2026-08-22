@@ -1,5 +1,5 @@
 """Wallet, cancellation & coupon routes"""
-from fastapi import APIRouter, HTTPException, Depends, Query, Body
+from fastapi import APIRouter, HTTPException, Depends, Query, Body, Header
 from typing import Optional
 from datetime import datetime, timezone, timedelta
 import uuid
@@ -7,8 +7,22 @@ import uuid
 from database import db
 from utils import generate_id, get_current_user, get_settings, adjust_wallet_balance
 from models import CouponCreate
+from pydantic import BaseModel, Field, field_validator
 
 router = APIRouter()
+
+
+class WithdrawalInput(BaseModel):
+    amount: float = Field(gt=0)
+    transfer_alias: str = Field(min_length=6, max_length=80)
+
+    @field_validator("transfer_alias")
+    @classmethod
+    def normalize_alias(cls, value: str) -> str:
+        alias = value.strip().lower()
+        if any(ch.isspace() for ch in alias):
+            raise ValueError("El alias no puede contener espacios")
+        return alias
 
 
 @router.get("/api/wallet/status")
@@ -134,6 +148,45 @@ async def get_wallet_transactions(
             t["created_at"] = t["created_at"].isoformat()
     
     return {"transactions": transactions}
+
+
+@router.post("/api/wallet/withdrawals")
+async def request_withdrawal(
+    data: WithdrawalInput,
+    idempotency_key: str = Header(..., alias="Idempotency-Key", min_length=8, max_length=120),
+    user: dict = Depends(get_current_user),
+):
+    """Create an auditable payout request; funds move only after admin approval."""
+    if user.get("user_type") != "driver" and not user.get("is_professional"):
+        raise HTTPException(403, "Solo prestadores pueden solicitar retiros")
+    previous = await db.wallet_withdrawals.find_one(
+        {"user_id": user["user_id"], "idempotency_key": idempotency_key}, {"_id": 0})
+    if previous:
+        return previous
+    amount = round(float(data.amount), 2)
+    pending = await db.wallet_withdrawals.find(
+        {"user_id": user["user_id"], "status": "pending"}, {"_id": 0, "amount": 1}).to_list(100)
+    if pending:
+        raise HTTPException(409, "Ya tenés una solicitud de retiro pendiente")
+    available = round(float(user.get("wallet_balance", 0)), 2)
+    if amount > available:
+        raise HTTPException(409, "Saldo disponible insuficiente")
+    request = {
+        "withdrawal_id": generate_id("wdr_"), "user_id": user["user_id"],
+        "amount": amount, "currency": "ARS", "transfer_alias": data.transfer_alias,
+        "status": "pending", "idempotency_key": idempotency_key,
+        "created_at": datetime.now(timezone.utc),
+    }
+    try:
+        await db.wallet_withdrawals.insert_one(request)
+    except Exception:
+        previous = await db.wallet_withdrawals.find_one(
+            {"user_id": user["user_id"], "idempotency_key": idempotency_key}, {"_id": 0})
+        if previous:
+            return previous
+        raise
+    request.pop("_id", None)
+    return request
 
 
 @router.post("/api/wallet/add-funds")

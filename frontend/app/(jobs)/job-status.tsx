@@ -9,6 +9,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { apiService } from '@/src/services/api';
 import { useAuthStore } from '@/src/stores/authStore';
 import { socketService } from '@/src/services/socket';
+import CampaignInterstitial from '@/src/components/CampaignInterstitial';
 
 const GREEN = '#FF7733';
 
@@ -432,6 +433,13 @@ export default function JobStatusScreen() {
           </View>
         </View>
       )}
+      <CampaignInterstitial
+        enabled={job.status === 'in_progress'}
+        trigger={job.category === 'tramites' ? 'tramite_started' : 'job_started'}
+        surface={job.category === 'tramites' ? 'tramites' : 'jobs'}
+        entityType="job"
+        entityId={job.job_id || params.jobId}
+      />
     </KeyboardAvoidingView>
   );
 }

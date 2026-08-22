@@ -4,7 +4,7 @@ import {
   ActivityIndicator, ScrollView, Dimensions, Platform, Alert, Vibration, Image,
 } from 'react-native';
 import { WebView } from 'react-native-webview';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -31,6 +31,7 @@ const CAT_ICONS: Record<string, { icon: string; color: string }> = {
 
 export default function JobsHomeScreen() {
   const router = useRouter();
+  const { activity } = useLocalSearchParams<{ activity?: string }>();
   const { user } = useAuthStore();
   const insets = useSafeAreaInsets();
   const webViewRef = useRef<any>(null);
@@ -54,6 +55,10 @@ export default function JobsHomeScreen() {
   const [acceptedJob, setAcceptedJob] = useState<any>(null);
   const [mapReady, setMapReady] = useState(false);
   const [myActiveJobs, setMyActiveJobs] = useState<any[]>([]);
+
+  useEffect(() => {
+    setSelectedCat(activity === 'tramites' ? 'tramites' : null);
+  }, [activity]);
 
   // ─── Load data ───
   const loadAll = useCallback(async () => {

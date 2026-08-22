@@ -27,7 +27,7 @@ import SnakeGame from '@/src/components/SnakeGame';
 import { apiService } from '@/src/services/api';
 import { Audio } from 'expo-av';
 import SideMenu from '@/src/components/SideMenu';
-import BannerPopup from '@/src/components/BannerPopup';
+import CampaignInterstitial from '@/src/components/CampaignInterstitial';
 import CancelRideModal from '@/src/components/CancelRideModal';
 import VehicleIcon, { VehicleKind } from '@/src/components/VehicleIcon';
 import {
@@ -83,7 +83,6 @@ export default function RiderHomeScreen() {
   const [addressHistory, setAddressHistory] = useState<any[]>([]);
   const [serviceType, setServiceType] = useState<'ride' | 'delivery'>('ride');
   const [showSnake, setShowSnake] = useState(false);
-  const [bannerInterval, setBannerInterval] = useState(90000);
   const [vehicleIcons, setVehicleIcons] = useState<Record<string, any>>({});
 
   // Banners
@@ -145,7 +144,6 @@ export default function RiderHomeScreen() {
     fetch(`${process.env.EXPO_PUBLIC_BACKEND_URL || ''}/api/admin/settings/public`)
       .then(r => r.json())
       .then(d => {
-        if (d.banner_interval_seconds) setBannerInterval(d.banner_interval_seconds * 1000);
       }).catch(() => {});
     // Load vehicle icons from admin
     fetch(`${process.env.EXPO_PUBLIC_BACKEND_URL || ''}/api/vehicle-icons`)
@@ -1223,7 +1221,13 @@ export default function RiderHomeScreen() {
         </SafeAreaView>
       </Modal>
       <SideMenu visible={sideMenuOpen} onClose={() => setSideMenuOpen(false)} role="rider" />
-      <BannerPopup target="rider" enabled={!!currentRide && currentRide.status === 'started' || phase === 'searching'} intervalMs={bannerInterval} />
+      <CampaignInterstitial
+        enabled={!!currentRide && currentRide.status === 'started'}
+        trigger="ride_started"
+        surface="rides"
+        entityType="ride"
+        entityId={currentRide?.ride_id}
+      />
     </SafeAreaView>
   );
 }

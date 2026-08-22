@@ -6,6 +6,7 @@ This deployment is intentionally isolated from the existing Moli bot and Comprax
 - separate MongoDB volume and database (`moli_qa`)
 - no published host ports
 - access only through the shared Caddy route `/moli-qa/`
+- frontend QA on port `8083`, served by nginx with SPA fallback so refreshes and shared internal links do not return 404
 
 Create a local `.env` on the VPS with a randomly generated `SECRET_KEY`; never commit it.
 

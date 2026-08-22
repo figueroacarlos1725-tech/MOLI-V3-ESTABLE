@@ -53,7 +53,12 @@ export default function AdminTripsScreen() {
   const fetchDrivers = async () => {
     try {
       const r = await apiService.get('/admin/users?user_type=driver&limit=50');
-      setDrivers(r.users || []);
+      const eligible = (r.users || []).filter((candidate: any) => {
+        const capabilities: string[] = candidate.capabilities || [];
+        if (!capabilities.length) return true; // conductor legado
+        return ['rides', 'ride', 'driver', 'moto', 'taxi', 'delivery'].some(capability => capabilities.includes(capability));
+      });
+      setDrivers(eligible);
     } catch (e) {}
   };
 
