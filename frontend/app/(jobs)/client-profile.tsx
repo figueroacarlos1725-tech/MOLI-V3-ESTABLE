@@ -9,7 +9,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { apiService } from '@/src/services/api';
 import { useAuthStore } from '@/src/stores/authStore';
 
-const GREEN = '#FF5A3C';
+const GREEN = '#FF7733';
 
 export default function ClientProfileScreen() {
   const router = useRouter();
@@ -104,20 +104,20 @@ export default function ClientProfileScreen() {
         {/* Active jobs - PROMINENT */}
         {activeJobs.length > 0 && (
           <View style={s.section}>
-            <Text style={[s.sectionTitle, { color: '#FF5A3C' }]}>Trabajos activos</Text>
+            <Text style={[s.sectionTitle, { color: '#FF7733' }]}>Trabajos activos</Text>
             {activeJobs.map((job, i) => (
-              <TouchableOpacity key={job.job_id || i} style={[s.jobRow, { borderLeftWidth: 3, borderLeftColor: job.status === 'assigned' ? '#FF5A3C' : '#FF9500' }]}
+              <TouchableOpacity key={job.job_id || i} style={[s.jobRow, { borderLeftWidth: 3, borderLeftColor: job.status === 'assigned' ? '#FF7733' : '#FF9500' }]}
                 onPress={() => router.push({ pathname: '/(jobs)/job-status', params: { jobId: job.job_id } } as any)}
               >
                 <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: '#FFF0EC', justifyContent: 'center', alignItems: 'center' }}>
-                  <Ionicons name={job.status === 'assigned' ? 'checkmark-circle' : 'search'} size={18} color={job.status === 'assigned' ? '#FF5A3C' : '#FF9500'} />
+                  <Ionicons name={job.status === 'assigned' ? 'checkmark-circle' : 'search'} size={18} color={job.status === 'assigned' ? '#FF7733' : '#FF9500'} />
                 </View>
                 <View style={{ flex: 1, marginLeft: 12 }}>
                   <Text style={{ fontSize: 14, fontWeight: '600', color: '#1C1C1E' }}>{job.title || 'Trabajo'}</Text>
                   <Text style={{ fontSize: 12, color: '#8E8E93' }}>{job.category} · ${job.budget}</Text>
                 </View>
                 <View style={[s.badge, { backgroundColor: job.status === 'assigned' ? '#FFF0EC' : '#FFF3E0' }]}>
-                  <Text style={{ fontSize: 11, fontWeight: '600', color: job.status === 'assigned' ? '#FF5A3C' : '#FF9500' }}>
+                  <Text style={{ fontSize: 11, fontWeight: '600', color: job.status === 'assigned' ? '#FF7733' : '#FF9500' }}>
                     {job.status === 'assigned' ? 'En curso' : 'Buscando'}
                   </Text>
                 </View>
@@ -143,7 +143,7 @@ export default function ClientProfileScreen() {
                   <Text style={{ fontSize: 12, color: '#8E8E93' }}>{job.category} · ${job.budget}</Text>
                 </View>
                 <View style={[s.badge, { backgroundColor: job.status === 'completed' ? '#FFF0EC' : '#FFF5F5' }]}>
-                  <Text style={{ fontSize: 11, fontWeight: '600', color: job.status === 'completed' ? '#FF5A3C' : '#FF3B30' }}>
+                  <Text style={{ fontSize: 11, fontWeight: '600', color: job.status === 'completed' ? '#FF7733' : '#FF3B30' }}>
                     {job.status === 'completed' ? 'Listo' : 'Cancelado'}
                   </Text>
                 </View>
@@ -233,7 +233,7 @@ const s = StyleSheet.create({
   statValue: { fontSize: 20, fontWeight: '800', color: '#1C1C1E' },
   statLabel: { fontSize: 12, color: '#8E8E93', marginTop: 2 },
   statDivider: { width: 1, backgroundColor: '#E5E5EA' },
-  walletCard: { backgroundColor: '#FF5A3C', marginHorizontal: 16, borderRadius: 20, padding: 20, marginBottom: 16 },
+  walletCard: { backgroundColor: '#FF7733', marginHorizontal: 16, borderRadius: 20, padding: 20, marginBottom: 16 },
   section: { marginHorizontal: 16, marginBottom: 16 },
   sectionTitle: { fontSize: 16, fontWeight: '700', color: '#1C1C1E', marginBottom: 8 },
   jobRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', padding: 12, borderRadius: 12, marginBottom: 6 },

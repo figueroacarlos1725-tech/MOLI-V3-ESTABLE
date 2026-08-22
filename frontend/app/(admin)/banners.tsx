@@ -9,7 +9,7 @@ import { useRouter } from 'expo-router';
 import { apiService } from '@/src/services/api';
 import * as ImagePicker from 'expo-image-picker';
 
-const GREEN = '#FF5A3C';
+const GREEN = '#FF7733';
 
 interface Banner {
   banner_id: string;

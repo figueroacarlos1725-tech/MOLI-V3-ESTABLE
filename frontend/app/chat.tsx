@@ -206,11 +206,11 @@ export default function RideChatScreen() {
         </TouchableOpacity>
         <View style={styles.headerInfo}>
           <View style={styles.headerAvatar}>
-            <Ionicons name="person" size={20} color="#FF5A3C" />
+            <Ionicons name="person" size={20} color="#FF7733" />
           </View>
           <View>
             <Text style={styles.headerName}>{otherName || 'Chat'}</Text>
-            <View style={styles.secureStatus}><Ionicons name="shield-checkmark" size={11} color="#FF5A3C" /><Text style={styles.headerStatus}>Conversación protegida</Text></View>
+            <View style={styles.secureStatus}><Ionicons name="shield-checkmark" size={11} color="#FF7733" /><Text style={styles.headerStatus}>Conversación protegida</Text></View>
           </View>
         </View>
       </View>
@@ -222,7 +222,7 @@ export default function RideChatScreen() {
       >
         {isLoading ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#FF5A3C" />
+            <ActivityIndicator size="large" color="#FF7733" />
           </View>
         ) : (
           <FlatList
@@ -300,7 +300,7 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   headerName: { fontSize: 16, fontWeight: '600', color: '#1C1C1E' },
-  headerStatus: { fontSize: 12, color: '#FF5A3C', marginTop: 2 },
+  headerStatus: { fontSize: 12, color: '#FF7733', marginTop: 2 },
   secureStatus: { flexDirection: 'row', alignItems: 'center', gap: 3 },
   callButton: {
     width: 44, height: 44, borderRadius: 22,
@@ -313,9 +313,9 @@ const styles = StyleSheet.create({
   myMessageRow: { alignItems: 'flex-end' },
   otherMessageRow: { alignItems: 'flex-start' },
   messageBubble: { maxWidth: '80%', padding: 12, borderRadius: 16 },
-  myBubble: { backgroundColor: '#FF5A3C', borderBottomRightRadius: 4 },
+  myBubble: { backgroundColor: '#FF7733', borderBottomRightRadius: 4 },
   otherBubble: { backgroundColor: '#fff', borderBottomLeftRadius: 4 },
-  senderName: { fontSize: 12, fontWeight: '600', color: '#FF5A3C', marginBottom: 4 },
+  senderName: { fontSize: 12, fontWeight: '600', color: '#FF7733', marginBottom: 4 },
   messageText: { fontSize: 15, lineHeight: 20 },
   myMessageText: { color: '#fff' },
   otherMessageText: { color: '#1C1C1E' },
@@ -339,8 +339,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#E5E5EA', justifyContent: 'center', alignItems: 'center',
     marginLeft: 8,
   },
-  sendButtonActive: { backgroundColor: '#FF5A3C' },
+  sendButtonActive: { backgroundColor: '#FF7733' },
   quickScroll: { backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: '#E5E5EA', paddingVertical: 8, maxHeight: 44 },
-  quickChip: { backgroundColor: '#FFF0EC', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 16, borderWidth: 1, borderColor: '#FF5A3C', alignSelf: 'center', height: 34, justifyContent: 'center' },
-  quickText: { fontSize: 13, color: '#FF5A3C', fontWeight: '600' },
+  quickChip: { backgroundColor: '#FFF0EC', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 16, borderWidth: 1, borderColor: '#FF7733', alignSelf: 'center', height: 34, justifyContent: 'center' },
+  quickText: { fontSize: 13, color: '#FF7733', fontWeight: '600' },
 });

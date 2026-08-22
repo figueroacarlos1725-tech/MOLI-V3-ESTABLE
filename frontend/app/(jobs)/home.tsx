@@ -13,7 +13,7 @@ import { useAuthStore } from '@/src/stores/authStore';
 import { socketService } from '@/src/services/socket';
 
 const { width } = Dimensions.get('window');
-const GREEN = '#FF5A3C';
+const GREEN = '#FF7733';
 const REVIEW_SECONDS = 30;
 
 const CAT_ICONS: Record<string, { icon: string; color: string }> = {
@@ -22,7 +22,7 @@ const CAT_ICONS: Record<string, { icon: string; color: string }> = {
   limpieza: { icon: '✨', color: '#34C759' },
   mudanza: { icon: '📦', color: '#AF52DE' },
   pintura: { icon: '🎨', color: '#FF3B30' },
-  jardineria: { icon: '🌿', color: '#FF5A3C' },
+  jardineria: { icon: '🌿', color: '#FF7733' },
   carpinteria: { icon: '🔨', color: '#8B4513' },
   mecanica: { icon: '🔩', color: '#636366' },
   tecnologia: { icon: '💻', color: '#5856D6' },
@@ -234,7 +234,7 @@ var markers=[];
 function clearMarkers(){markers.forEach(m=>map.removeLayer(m));markers=[];}
 function addJobMarker(lat,lng,jobId,emoji,title,budget,cat){
   var icon=L.divIcon({
-    html:'<div style="width:44px;height:44px;border-radius:14px;background:#fff;display:flex;align-items:center;justify-content:center;font-size:22px;box-shadow:0 2px 8px rgba(0,0,0,0.15);border:2px solid #FF5A3C">'+emoji+'</div>',
+    html:'<div style="width:44px;height:44px;border-radius:14px;background:#fff;display:flex;align-items:center;justify-content:center;font-size:22px;box-shadow:0 2px 8px rgba(0,0,0,0.15);border:2px solid #FF7733">'+emoji+'</div>',
     className:'',iconSize:[44,44],iconAnchor:[22,44]
   });
   var m=L.marker([lat,lng],{icon:icon}).addTo(map);
@@ -692,7 +692,7 @@ const s = StyleSheet.create({
   acceptBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 16, borderRadius: 14, backgroundColor: GREEN },
   acceptBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
 
-  setupIcon: { width: 80, height: 80, borderRadius: 24, backgroundColor: 'rgba(255,90,60,0.10)', justifyContent: 'center', alignItems: 'center', marginBottom: 20 },
+  setupIcon: { width: 80, height: 80, borderRadius: 24, backgroundColor: 'rgba(255,119,51,0.10)', justifyContent: 'center', alignItems: 'center', marginBottom: 20 },
   setupTitle: { fontSize: 22, fontWeight: '800', color: '#1C1C1E', textAlign: 'center' },
   setupSubtitle: { fontSize: 15, color: '#8E8E93', textAlign: 'center', marginTop: 8, paddingHorizontal: 40, lineHeight: 22 },
   setupBtn: { backgroundColor: GREEN, paddingHorizontal: 32, paddingVertical: 16, borderRadius: 14, marginTop: 28 },

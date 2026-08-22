@@ -10,7 +10,7 @@ import { apiService } from '@/src/services/api';
 import { useAuthStore } from '@/src/stores/authStore';
 import { socketService } from '@/src/services/socket';
 
-const GREEN = '#FF5A3C';
+const GREEN = '#FF7733';
 
 export default function JobStatusScreen() {
   const router = useRouter();

@@ -5,6 +5,7 @@ import {
   StyleSheet,
   SafeAreaView,
   TouchableOpacity,
+  ScrollView,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -30,14 +31,15 @@ export default function SelectRoleScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <TouchableOpacity
-        style={styles.backButton}
-        onPress={() => router.back()}
-      >
-        <Ionicons name="arrow-back" size={24} color={MOLI_COLORS.darkGray} />
-      </TouchableOpacity>
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => router.back()}
+        >
+          <Ionicons name="arrow-back" size={24} color={MOLI_COLORS.darkGray} />
+        </TouchableOpacity>
 
-      <View style={styles.content}>
+        <View style={styles.content}>
         <Text style={styles.eyebrow}>UNA CUENTA, MUCHAS FORMAS DE USARLA</Text>
         <Text style={styles.title}>¿Cómo querés empezar?</Text>
         <Text style={styles.subtitle}>Después vas a poder sumar más servicios al mismo perfil.</Text>
@@ -160,7 +162,8 @@ export default function SelectRoleScreen() {
           size="large"
           style={styles.continueButton}
         />
-      </View>
+        </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -191,6 +194,10 @@ const styles = StyleSheet.create({
     color: MOLI_COLORS.darkGray,
     marginBottom: 8,
     lineHeight: 40,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    paddingBottom: 28,
   },
   eyebrow: { fontSize: 11, fontWeight: '800', color: MOLI_COLORS.primary, letterSpacing: 1.3, marginBottom: 10 },
   subtitle: {

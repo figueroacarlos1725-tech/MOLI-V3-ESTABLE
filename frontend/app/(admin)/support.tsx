@@ -173,7 +173,7 @@ export default function AdminSupportScreen() {
         <Text style={st.userName}>{item.name || item.email}</Text>
         <Text style={st.userRole}>{item.user_type === 'driver' ? 'Conductor' : 'Pasajero'}</Text>
       </View>
-      <View style={st.msgBtn}><Ionicons name="chatbubble" size={16} color="#FF5A3C" /></View>
+      <View style={st.msgBtn}><Ionicons name="chatbubble" size={16} color="#FF7733" /></View>
     </TouchableOpacity>
   );
 
@@ -194,21 +194,21 @@ export default function AdminSupportScreen() {
     );
   };
 
-  if (loading) return <SafeAreaView style={st.container}><ActivityIndicator size="large" color="#FF5A3C" style={{ marginTop: 40 }} /></SafeAreaView>;
+  if (loading) return <SafeAreaView style={st.container}><ActivityIndicator size="large" color="#FF7733" style={{ marginTop: 40 }} /></SafeAreaView>;
 
   return (
     <SafeAreaView style={st.container}>
       <View style={st.header}><Text style={st.title}>Soporte y Mensajes</Text></View>
       <View style={st.tabs}>
         <TouchableOpacity style={[st.tab, tab === 'tickets' && st.tabActive]} onPress={() => setTab('tickets')}>
-          <Ionicons name="chatbubbles" size={18} color={tab === 'tickets' ? '#FF5A3C' : '#8E8E93'} />
+          <Ionicons name="chatbubbles" size={18} color={tab === 'tickets' ? '#FF7733' : '#8E8E93'} />
           <Text style={[st.tabText, tab === 'tickets' && st.tabTextActive]}>Tickets</Text>
           {tickets.filter(t => t.escalated).length > 0 && (
             <View style={st.tabBadge}><Text style={st.tabBadgeText}>{tickets.filter(t => t.escalated).length}</Text></View>
           )}
         </TouchableOpacity>
         <TouchableOpacity style={[st.tab, tab === 'users' && st.tabActive]} onPress={() => setTab('users')}>
-          <Ionicons name="people" size={18} color={tab === 'users' ? '#FF5A3C' : '#8E8E93'} />
+          <Ionicons name="people" size={18} color={tab === 'users' ? '#FF7733' : '#8E8E93'} />
           <Text style={[st.tabText, tab === 'users' && st.tabTextActive]}>Usuarios</Text>
         </TouchableOpacity>
       </View>
@@ -262,7 +262,7 @@ const st = StyleSheet.create({
   tab: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10, borderRadius: 12, backgroundColor: '#F2F2F7' },
   tabActive: { backgroundColor: '#E8FFD0' },
   tabText: { fontSize: 14, fontWeight: '600', color: '#8E8E93' },
-  tabTextActive: { color: '#FF5A3C' },
+  tabTextActive: { color: '#FF7733' },
   tabBadge: { backgroundColor: '#FF3B30', borderRadius: 10, minWidth: 20, height: 20, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 6 },
   tabBadgeText: { color: '#fff', fontSize: 11, fontWeight: '700' },
   ticketCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 14, padding: 14, marginBottom: 8, gap: 12 },
@@ -276,7 +276,7 @@ const st = StyleSheet.create({
   userCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 14, padding: 14, marginBottom: 8, gap: 12 },
   userIcon: { width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center' },
   userIconDriver: { backgroundColor: '#007AFF' },
-  userIconRider: { backgroundColor: '#FF5A3C' },
+  userIconRider: { backgroundColor: '#FF7733' },
   userInfo: { flex: 1 },
   userName: { fontSize: 15, fontWeight: '700', color: '#1C1C1E' },
   userRole: { fontSize: 12, color: '#8E8E93', marginTop: 2 },
@@ -298,9 +298,9 @@ const st = StyleSheet.create({
   chatBubble: { maxWidth: '75%', borderRadius: 16, paddingHorizontal: 14, paddingVertical: 10 },
   chatBubbleUser: { backgroundColor: '#E8E8ED' },
   chatBubbleAI: { backgroundColor: '#D4E5FF' },
-  chatBubbleAdmin: { backgroundColor: '#FF5A3C', borderBottomRightRadius: 4 },
+  chatBubbleAdmin: { backgroundColor: '#FF7733', borderBottomRightRadius: 4 },
   chatText: { fontSize: 15, color: '#1C1C1E', lineHeight: 20 },
   chatInputBar: { flexDirection: 'row', alignItems: 'flex-end', paddingHorizontal: 12, paddingVertical: 8, paddingBottom: Platform.OS === 'ios' ? 28 : 12, backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: '#E5E5EA', gap: 8 },
   chatInput: { flex: 1, backgroundColor: '#F2F2F7', borderRadius: 20, paddingHorizontal: 16, paddingVertical: 10, fontSize: 15, maxHeight: 100, color: '#1C1C1E' },
-  chatSendBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#FF5A3C', justifyContent: 'center', alignItems: 'center' },
+  chatSendBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#FF7733', justifyContent: 'center', alignItems: 'center' },
 });

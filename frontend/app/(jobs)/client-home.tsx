@@ -11,7 +11,7 @@ import { WebView } from 'react-native-webview';
 import { apiService } from '@/src/services/api';
 import { useAuthStore } from '@/src/stores/authStore';
 
-const GREEN = '#FF5A3C';
+const GREEN = '#FF7733';
 
 export default function ClientHomeScreen() {
   const router = useRouter();
@@ -130,7 +130,7 @@ export default function ClientHomeScreen() {
 <script>
 var map=L.map('map',{zoomControl:false}).setView([${latitude},${longitude}],15);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map);
-var pin=L.marker([${latitude},${longitude}],{draggable:true,icon:L.divIcon({html:'<div style="width:48px;height:48px;border-radius:50%;background:#FF5A3C;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(255,90,60,0.35);border:3px solid #fff"><svg width=22 height=22 viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><circle cx=12 cy=12 r=3/><path d="M12 2v4m0 12v4m-10-10h4m12 0h4"/></svg></div>',className:'',iconSize:[48,48],iconAnchor:[24,48]})}).addTo(map);
+var pin=L.marker([${latitude},${longitude}],{draggable:true,icon:L.divIcon({html:'<div style="width:48px;height:48px;border-radius:50%;background:#FF7733;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(255,119,51,0.35);border:3px solid #fff"><svg width=22 height=22 viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><circle cx=12 cy=12 r=3/><path d="M12 2v4m0 12v4m-10-10h4m12 0h4"/></svg></div>',className:'',iconSize:[48,48],iconAnchor:[24,48]})}).addTo(map);
 pin.on('dragend',function(e){var ll=e.target.getLatLng();window.ReactNativeWebView.postMessage(JSON.stringify({type:'pin_moved',lat:ll.lat,lng:ll.lng}));});
 function updatePin(lat,lng){pin.setLatLng([lat,lng]);map.setView([lat,lng],15);}
 </script>
@@ -171,15 +171,15 @@ function updatePin(lat,lng){pin.setLatLng([lat,lng]);map.setView([lat,lng],15);}
           {myActiveJobs.map((job) => (
             <TouchableOpacity
               key={job.job_id}
-              style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#F8F8FA', borderRadius: 12, padding: 12, marginBottom: 6, borderLeftWidth: 3, borderLeftColor: job.status === 'assigned' ? '#FF5A3C' : '#FF9500' }}
+              style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#F8F8FA', borderRadius: 12, padding: 12, marginBottom: 6, borderLeftWidth: 3, borderLeftColor: job.status === 'assigned' ? '#FF7733' : '#FF9500' }}
               onPress={() => router.push({ pathname: '/(jobs)/job-status', params: { jobId: job.job_id } } as any)}
             >
-              <Ionicons name={job.status === 'assigned' ? 'checkmark-circle' : 'search'} size={20} color={job.status === 'assigned' ? '#FF5A3C' : '#FF9500'} />
+              <Ionicons name={job.status === 'assigned' ? 'checkmark-circle' : 'search'} size={20} color={job.status === 'assigned' ? '#FF7733' : '#FF9500'} />
               <View style={{ flex: 1, marginLeft: 10 }}>
                 <Text style={{ fontSize: 14, fontWeight: '600', color: '#1C1C1E' }} numberOfLines={1}>{job.title}</Text>
                 <Text style={{ fontSize: 12, color: '#8E8E93' }}>{job.status === 'assigned' ? (job.assigned_name || 'Profesional asignado') : 'Buscando...'}</Text>
               </View>
-              <Text style={{ fontSize: 15, fontWeight: '700', color: '#FF5A3C' }}>${job.budget}</Text>
+              <Text style={{ fontSize: 15, fontWeight: '700', color: '#FF7733' }}>${job.budget}</Text>
               <Ionicons name="chevron-forward" size={18} color="#C7C7CC" style={{ marginLeft: 4 }} />
             </TouchableOpacity>
           ))}
@@ -277,6 +277,6 @@ const s = StyleSheet.create({
   sugItem: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#F0F0F0' },
   sugName: { fontSize: 14, fontWeight: '600', color: '#1C1C1E' },
   sugAddr: { fontSize: 12, color: '#8E8E93' },
-  confirmBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, backgroundColor: '#FF5A3C', borderRadius: 14, paddingVertical: 18 },
+  confirmBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, backgroundColor: '#FF7733', borderRadius: 14, paddingVertical: 18 },
   confirmBtnText: { color: '#fff', fontSize: 17, fontWeight: '800' },
 });

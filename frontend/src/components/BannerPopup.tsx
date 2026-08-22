@@ -116,7 +116,7 @@ export default function BannerPopup({ target, enabled, intervalMs = 60000 }: Ban
 
           {/* Sponsored tag */}
           <View style={styles.sponsoredTag}>
-            <Ionicons name="megaphone" size={12} color="#FF5A3C" />
+            <Ionicons name="megaphone" size={12} color="#FF7733" />
             <Text style={styles.sponsoredText}>Patrocinado</Text>
           </View>
 

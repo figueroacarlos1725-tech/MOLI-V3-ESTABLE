@@ -5,7 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '@/src/stores/authStore';
 import { MOLI_COLORS as C, MOLI_RADIUS as R, MOLI_SHADOWS as SH, MOLI_SPACING as S } from '@/src/theme/colors';
 
-const ACCENT='#FF5A3C'; const CHARCOAL='#202124'; const WARM='#F7F4F1';
+const ACCENT='#FF7733'; const CHARCOAL='#202124'; const WARM='#F7F4F1';
 
 type CardProps={title:string;description:string;icon:React.ComponentProps<typeof Ionicons>['name'];color:string;eyebrow:string;onPress:()=>void;featured?:boolean};
 function ModuleCard({title,description,icon,color,eyebrow,onPress,featured}:CardProps){return <TouchableOpacity style={[s.card,featured&&s.featuredCard]} onPress={onPress} activeOpacity={.82}><View style={[s.iconBox,{backgroundColor:`${color}16`}]}><Ionicons name={icon} size={29} color={color}/></View><View style={s.cardBody}><Text style={[s.eyebrow,{color}]}>{eyebrow}</Text><Text style={s.cardTitle}>{title}</Text><Text style={s.cardDescription}>{description}</Text></View><View style={[s.arrow,{backgroundColor:color}]}><Ionicons name="arrow-forward" size={18} color={C.white}/></View></TouchableOpacity>}

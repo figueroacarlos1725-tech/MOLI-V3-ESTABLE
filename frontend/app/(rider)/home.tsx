@@ -1061,13 +1061,13 @@ export default function RiderHomeScreen() {
                     <VehicleIcon kind={(id === 'moto' ? 'moto' : 'car') as VehicleKind} size={44} selected={sel} />
                   )}
                   <View style={{ flex: 1, marginLeft: 12 }}>
-                    <Text style={[s.vehicleName, sel && { color: '#FF5A3C' }]}>{v.display_name || nameMap[id]}</Text>
+                    <Text style={[s.vehicleName, sel && { color: '#FF7733' }]}>{v.display_name || nameMap[id]}</Text>
                     {eta && <Text style={s.vehicleEta}>{eta} min</Text>}
                   </View>
-                  <Text style={[s.vehiclePrice, sel && { color: '#FF5A3C' }]}>
+                  <Text style={[s.vehiclePrice, sel && { color: '#FF7733' }]}>
                     {v.estimated_fare > 0 ? `$${Math.round(v.estimated_fare).toLocaleString()}` : '...'}
                   </Text>
-                  {sel && <Ionicons name="checkmark-circle" size={20} color="#FF5A3C" style={{ marginLeft: 8 }} />}
+                  {sel && <Ionicons name="checkmark-circle" size={20} color="#FF7733" style={{ marginLeft: 8 }} />}
                 </TouchableOpacity>
               );
             })}
@@ -1278,7 +1278,7 @@ const s = StyleSheet.create({
 
   vehicleList: { paddingHorizontal: 12, maxHeight: SH * 0.25 },
   vehicleItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, paddingHorizontal: 12, marginVertical: 2, borderRadius: 14, borderWidth: 2, borderColor: 'transparent' },
-  vehicleItemSel: { borderColor: '#FF5A3C', backgroundColor: '#FFF3F0' },
+  vehicleItemSel: { borderColor: '#FF7733', backgroundColor: '#FFF3F0' },
   vehicleEmoji: { fontSize: 32 },
   vehicleName: { fontSize: 16, fontWeight: '700', color: '#1C1C1E' },
   vehicleEta: { fontSize: 12, color: '#8E8E93', marginTop: 2 },

@@ -151,7 +151,7 @@ El registro móvil exige teléfono y email. El canal `auto` intenta WhatsApp y u
 ## Sistema visual aprobado
 
 - Identidad propia Moli con inspiración general en interfaces de movilidad simples y profesionales, sin copiar marcas o activos de terceros.
-- Color primario coral-naranja `#FF5A3C`; texto carbón `#202124`; fondos blancos y grises cálidos; verde reservado para éxito o disponibilidad.
+- Color primario naranja cálido `#FF7733`; texto carbón `#202124`; fondos blancos y grises cálidos; verde reservado para éxito o disponibilidad.
 - Mapas principales claros, rutas y pines naranjas, tarjetas flotantes con bordes finos y sombras suaves.
 - Logo naranja/negro y vehículos Auto/Moto/Taxi/Delivery/Paquetería representados por componentes propios reutilizables.
 

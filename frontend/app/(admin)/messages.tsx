@@ -77,7 +77,7 @@ export default function AdminMessagesScreen() {
 
   if (loading) return (
     <SafeAreaView style={s.container}>
-      <View style={s.center}><ActivityIndicator size="large" color="#FF5A3C" /></View>
+      <View style={s.center}><ActivityIndicator size="large" color="#FF7733" /></View>
     </SafeAreaView>
   );
 
@@ -86,11 +86,11 @@ export default function AdminMessagesScreen() {
       {/* Tabs */}
       <View style={s.tabs}>
         <TouchableOpacity style={[s.tab, tab === 'send' && s.tabActive]} onPress={() => setTab('send')}>
-          <Ionicons name="mail" size={18} color={tab === 'send' ? '#FF5A3C' : '#8E8E93'} />
+          <Ionicons name="mail" size={18} color={tab === 'send' ? '#FF7733' : '#8E8E93'} />
           <Text style={[s.tabText, tab === 'send' && s.tabTextActive]}>Mensajes</Text>
         </TouchableOpacity>
         <TouchableOpacity style={[s.tab, tab === 'ratings' && s.tabActive]} onPress={() => setTab('ratings')}>
-          <Ionicons name="star" size={18} color={tab === 'ratings' ? '#FF5A3C' : '#8E8E93'} />
+          <Ionicons name="star" size={18} color={tab === 'ratings' ? '#FF7733' : '#8E8E93'} />
           <Text style={[s.tabText, tab === 'ratings' && s.tabTextActive]}>Calificaciones</Text>
         </TouchableOpacity>
       </View>
@@ -131,7 +131,7 @@ export default function AdminMessagesScreen() {
                     <Ionicons name="star" size={14} color="#FFD700" />
                     <Text style={{ fontSize: 13, fontWeight: '600', color: '#1C1C1E' }}>{(item.rating || 5.0).toFixed(1)}</Text>
                   </View>
-                  <Ionicons name="mail-outline" size={18} color="#FF5A3C" style={{ marginTop: 4 }} />
+                  <Ionicons name="mail-outline" size={18} color="#FF7733" style={{ marginTop: 4 }} />
                 </View>
               </TouchableOpacity>
             )}
@@ -197,14 +197,14 @@ const s = StyleSheet.create({
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   tabs: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: '#F0F0F0' },
   tab: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 14 },
-  tabActive: { borderBottomWidth: 2, borderBottomColor: '#FF5A3C' },
+  tabActive: { borderBottomWidth: 2, borderBottomColor: '#FF7733' },
   tabText: { fontSize: 14, fontWeight: '600', color: '#8E8E93' },
-  tabTextActive: { color: '#FF5A3C' },
-  actionBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: '#FF5A3C', paddingVertical: 14, borderRadius: 14 },
+  tabTextActive: { color: '#FF7733' },
+  actionBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: '#FF7733', paddingVertical: 14, borderRadius: 14 },
   actionBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
   sectionTitle: { fontSize: 13, fontWeight: '600', color: '#8E8E93', paddingHorizontal: 16, marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 },
   driverCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F8F8FA', borderRadius: 14, padding: 14, gap: 12 },
-  driverAvatar: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#FF5A3C', justifyContent: 'center', alignItems: 'center' },
+  driverAvatar: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#FF7733', justifyContent: 'center', alignItems: 'center' },
   driverAvatarText: { color: '#fff', fontSize: 18, fontWeight: '700' },
   driverName: { fontSize: 15, fontWeight: '700', color: '#1C1C1E' },
   driverEmail: { fontSize: 12, color: '#8E8E93', marginTop: 1 },
@@ -216,7 +216,7 @@ const s = StyleSheet.create({
   modalTitle: { fontSize: 17, fontWeight: '700', color: '#1C1C1E', flex: 1 },
   input: { backgroundColor: '#F2F2F7', borderRadius: 12, padding: 14, fontSize: 15, color: '#1C1C1E', marginBottom: 12 },
   bodyInput: { minHeight: 120 },
-  sendBtn: { backgroundColor: '#FF5A3C', borderRadius: 14, paddingVertical: 16, alignItems: 'center' },
+  sendBtn: { backgroundColor: '#FF7733', borderRadius: 14, paddingVertical: 16, alignItems: 'center' },
   sendBtnDisabled: { opacity: 0.4 },
   sendBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
 });

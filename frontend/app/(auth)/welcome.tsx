@@ -7,6 +7,7 @@ import {
   SafeAreaView,
   Linking,
   Animated,
+  ScrollView,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -27,7 +28,11 @@ export default function WelcomeScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.content}>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+        bounces={false}
+      >
         <View style={styles.orbTop} />
         <View style={styles.orbBottom} />
         {/* Hero */}
@@ -85,7 +90,7 @@ export default function WelcomeScreen() {
             Al continuar, aceptás nuestros Términos y Política de Privacidad
           </Text>
         </TouchableOpacity>
-      </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -96,9 +101,10 @@ const styles = StyleSheet.create({
     backgroundColor: MOLI_COLORS.surface,
   },
   content: {
-    flex: 1,
+    flexGrow: 1,
     paddingHorizontal: 28,
     justifyContent: 'center',
+    paddingTop: 28,
     paddingBottom: 32,
   },
   heroSection: {
@@ -112,7 +118,7 @@ const styles = StyleSheet.create({
   wordmark: { color: MOLI_COLORS.black, fontSize: 38, fontWeight: '900', letterSpacing: -1 },
   eyebrow: { color: MOLI_COLORS.primaryDark, fontWeight: '800', fontSize: 12, letterSpacing: 1.8, marginBottom: 10 },
   headline: { color: MOLI_COLORS.black, fontSize: 34, lineHeight: 40, fontWeight: '800', maxWidth: 480 },
-  orbTop: { position: 'absolute', width: 300, height: 300, borderRadius: 150, backgroundColor: 'rgba(255,90,60,.08)', top: -140, right: -130 },
+  orbTop: { position: 'absolute', width: 300, height: 300, borderRadius: 150, backgroundColor: 'rgba(255,119,51,.08)', top: -140, right: -130 },
   orbBottom: { position: 'absolute', width: 260, height: 260, borderRadius: 130, backgroundColor: 'rgba(32,33,36,.035)', bottom: -150, left: -100 },
   subtitle: {
     fontSize: 17,

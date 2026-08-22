@@ -12,7 +12,7 @@ type Tab = 'dashboard' | 'jobs' | 'professionals' | 'map';
 const STATUS_LABELS: Record<string, { label: string; color: string; bg: string }> = {
   open: { label: 'Abierto', color: '#FF9500', bg: '#FFF3E0' },
   assigned: { label: 'Asignado', color: '#007AFF', bg: '#E3F2FD' },
-  in_progress: { label: 'En curso', color: '#FF5A3C', bg: '#FFF0EC' },
+  in_progress: { label: 'En curso', color: '#FF7733', bg: '#FFF0EC' },
   completed: { label: 'Completado', color: '#34C759', bg: '#FFF0EC' },
   cancelled: { label: 'Cancelado', color: '#FF3B30', bg: '#FFEBEE' },
 };
@@ -99,7 +99,7 @@ export default function AdminTrabajosScreen() {
 
   const getMapHtml = () => {
     const markers = professionals.filter(p => p.location).map(p =>
-      `L.marker([${p.location.latitude},${p.location.longitude}],{icon:L.divIcon({html:'<div style="width:36px;height:36px;border-radius:12px;background:#FF5A3C;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:bold;font-size:14px;box-shadow:0 2px 8px rgba(0,0,0,0.2)">${(p.name||'P')[0]}</div>',className:'',iconSize:[36,36]})}).addTo(map).bindPopup('<b>${p.name||'Profesional'}</b><br>${(p.categories||[]).join(', ')}<br>⭐ ${(p.rating||5).toFixed(1)}');`
+      `L.marker([${p.location.latitude},${p.location.longitude}],{icon:L.divIcon({html:'<div style="width:36px;height:36px;border-radius:12px;background:#FF7733;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:bold;font-size:14px;box-shadow:0 2px 8px rgba(0,0,0,0.2)">${(p.name||'P')[0]}</div>',className:'',iconSize:[36,36]})}).addTo(map).bindPopup('<b>${p.name||'Profesional'}</b><br>${(p.categories||[]).join(', ')}<br>⭐ ${(p.rating||5).toFixed(1)}');`
     ).join('\n');
     
     const jobMarkers = jobs.filter(j => j.location && j.status === 'open').map(j =>
@@ -121,7 +121,7 @@ ${jobMarkers}
 
   if (loading) return (
     <SafeAreaView style={s.container}>
-      <View style={s.center}><ActivityIndicator size="large" color="#FF5A3C" /></View>
+      <View style={s.center}><ActivityIndicator size="large" color="#FF7733" /></View>
     </SafeAreaView>
   );
 
@@ -136,7 +136,7 @@ ${jobMarkers}
           { id: 'map' as Tab, label: 'Mapa', icon: 'map' },
         ].map(t => (
           <TouchableOpacity key={t.id} style={[s.tab, tab === t.id && s.tabActive]} onPress={() => setTab(t.id)}>
-            <Ionicons name={t.icon as any} size={16} color={tab === t.id ? '#FF5A3C' : '#8E8E93'} />
+            <Ionicons name={t.icon as any} size={16} color={tab === t.id ? '#FF7733' : '#8E8E93'} />
             <Text style={[s.tabText, tab === t.id && s.tabTextActive]}>{t.label}</Text>
           </TouchableOpacity>
         ))}
@@ -144,7 +144,7 @@ ${jobMarkers}
 
       {/* DASHBOARD */}
       {tab === 'dashboard' && dashboard && (
-        <ScrollView contentContainerStyle={{ padding: 16, gap: 12 }} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadAll(); }} tintColor="#FF5A3C" />}>
+        <ScrollView contentContainerStyle={{ padding: 16, gap: 12 }} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadAll(); }} tintColor="#FF7733" />}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
             <Text style={s.sectionTitle}>Moli Trabajos</Text>
             <TouchableOpacity
@@ -160,11 +160,11 @@ ${jobMarkers}
               { label: 'Total trabajos', value: dashboard.total_jobs, icon: 'briefcase', color: '#007AFF' },
               { label: 'Abiertos', value: dashboard.open_jobs, icon: 'time', color: '#FF9500' },
               { label: 'Asignados', value: dashboard.assigned_jobs, icon: 'person', color: '#5856D6' },
-              { label: 'Completados', value: dashboard.completed_jobs, icon: 'checkmark-circle', color: '#FF5A3C' },
+              { label: 'Completados', value: dashboard.completed_jobs, icon: 'checkmark-circle', color: '#FF7733' },
               { label: 'Cancelados', value: dashboard.cancelled_jobs, icon: 'close-circle', color: '#FF3B30' },
-              { label: 'Profesionales', value: dashboard.total_professionals, icon: 'people', color: '#FF5A3C' },
+              { label: 'Profesionales', value: dashboard.total_professionals, icon: 'people', color: '#FF7733' },
               { label: 'Disponibles', value: dashboard.available_professionals, icon: 'radio-button-on', color: '#34C759' },
-              { label: 'Facturación', value: `$${(dashboard.total_revenue || 0).toLocaleString()}`, icon: 'cash', color: '#FF5A3C' },
+              { label: 'Facturación', value: `$${(dashboard.total_revenue || 0).toLocaleString()}`, icon: 'cash', color: '#FF7733' },
               { label: 'Comisión (15%)', value: `$${(dashboard.total_commission || 0).toLocaleString()}`, icon: 'trending-up', color: '#007AFF' },
               { label: 'Penalizaciones', value: `$${(dashboard.penalties_total || 0).toLocaleString()}`, icon: 'warning', color: '#FF9500' },
             ].map((st, i) => (
@@ -200,7 +200,7 @@ ${jobMarkers}
             data={filteredJobs}
             keyExtractor={item => item.job_id}
             contentContainerStyle={{ padding: 16, gap: 10 }}
-            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadAll(); }} tintColor="#FF5A3C" />}
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadAll(); }} tintColor="#FF7733" />}
             ListEmptyComponent={<Text style={s.emptyText}>Sin trabajos</Text>}
             renderItem={({ item }) => {
               const st2 = STATUS_LABELS[item.status] || STATUS_LABELS.open;
@@ -229,7 +229,7 @@ ${jobMarkers}
           data={professionals}
           keyExtractor={item => item.user_id}
           contentContainerStyle={{ padding: 16, gap: 10 }}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadAll(); }} tintColor="#FF5A3C" />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadAll(); }} tintColor="#FF7733" />}
           ListEmptyComponent={<Text style={s.emptyText}>Sin profesionales registrados</Text>}
           renderItem={({ item }) => (
             <TouchableOpacity style={s.proCard} onPress={() => setSelectedPro(item)}>
@@ -251,7 +251,7 @@ ${jobMarkers}
                   <Text style={{ fontSize: 14, fontWeight: '700' }}>{(item.rating || 5).toFixed(1)}</Text>
                 </View>
                 <Text style={{ fontSize: 11, color: '#8E8E93', marginTop: 2 }}>{item.total_jobs || 0} trabajos</Text>
-                <View style={[s.availDot, { backgroundColor: item.is_available ? '#FF5A3C' : '#FF3B30' }]} />
+                <View style={[s.availDot, { backgroundColor: item.is_available ? '#FF7733' : '#FF3B30' }]} />
               </View>
               <Ionicons name="chevron-forward" size={16} color="#C7C7CC" style={{ marginLeft: 4 }} />
             </TouchableOpacity>
@@ -269,7 +269,7 @@ ${jobMarkers}
           )}
           <View style={s.mapLegend}>
             <View style={s.legendItem}>
-              <View style={[s.legendDot, { backgroundColor: '#FF5A3C' }]} />
+              <View style={[s.legendDot, { backgroundColor: '#FF7733' }]} />
               <Text style={s.legendText}>Profesionales ({professionals.filter(p => p.location).length})</Text>
             </View>
             <View style={s.legendItem}>
@@ -299,7 +299,7 @@ ${jobMarkers}
                   <Text style={{ fontSize: 14, color: '#636366', marginTop: 4, lineHeight: 20 }}>{selectedJob.description}</Text>
                   <View style={{ flexDirection: 'row', gap: 16, marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#E5E5EA' }}>
                     <View><Text style={{ fontSize: 12, color: '#8E8E93' }}>Categoría</Text><Text style={{ fontSize: 14, fontWeight: '600' }}>{selectedJob.category}</Text></View>
-                    <View><Text style={{ fontSize: 12, color: '#8E8E93' }}>Presupuesto</Text><Text style={{ fontSize: 14, fontWeight: '700', color: '#FF5A3C' }}>${selectedJob.budget?.toLocaleString()}</Text></View>
+                    <View><Text style={{ fontSize: 12, color: '#8E8E93' }}>Presupuesto</Text><Text style={{ fontSize: 14, fontWeight: '700', color: '#FF7733' }}>${selectedJob.budget?.toLocaleString()}</Text></View>
                     {selectedJob.commission ? <View><Text style={{ fontSize: 12, color: '#8E8E93' }}>Comisión</Text><Text style={{ fontSize: 14, fontWeight: '600', color: '#007AFF' }}>${selectedJob.commission}</Text></View> : null}
                   </View>
                   <View style={{ marginTop: 12 }}>
@@ -340,7 +340,7 @@ ${jobMarkers}
               <ScrollView showsVerticalScrollIndicator={false}>
                 <View style={{ alignItems: 'center', marginBottom: 16 }}>
                   <View style={{ width: 72, height: 72, borderRadius: 36, backgroundColor: '#FFF0EC', justifyContent: 'center', alignItems: 'center' }}>
-                    <Text style={{ fontSize: 28, fontWeight: '700', color: '#FF5A3C' }}>{(selectedPro.name || 'P')[0]}</Text>
+                    <Text style={{ fontSize: 28, fontWeight: '700', color: '#FF7733' }}>{(selectedPro.name || 'P')[0]}</Text>
                   </View>
                   <Text style={{ fontSize: 20, fontWeight: '700', marginTop: 8 }}>{selectedPro.name}</Text>
                   <Text style={{ fontSize: 14, color: '#8E8E93' }}>{selectedPro.email}</Text>
@@ -350,7 +350,7 @@ ${jobMarkers}
                     <Text style={{ fontSize: 13, color: '#8E8E93' }}> · {selectedPro.total_jobs || 0} trabajos</Text>
                   </View>
                   <View style={[{ paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, marginTop: 6 }, { backgroundColor: selectedPro.is_available ? '#FFF0EC' : '#FFEBEE' }]}>
-                    <Text style={{ fontSize: 12, fontWeight: '600', color: selectedPro.is_available ? '#FF5A3C' : '#FF3B30' }}>{selectedPro.is_available ? 'Disponible' : 'No disponible'}</Text>
+                    <Text style={{ fontSize: 12, fontWeight: '600', color: selectedPro.is_available ? '#FF7733' : '#FF3B30' }}>{selectedPro.is_available ? 'Disponible' : 'No disponible'}</Text>
                   </View>
                 </View>
                 <Text style={{ fontSize: 14, fontWeight: '700', marginBottom: 6 }}>Categorías</Text>
@@ -363,7 +363,7 @@ ${jobMarkers}
                 <Text style={{ fontSize: 11, color: '#8E8E93' }}>ID: {selectedPro.user_id}</Text>
               </ScrollView>
             )}
-            <TouchableOpacity style={{ backgroundColor: '#FF5A3C', borderRadius: 14, paddingVertical: 16, alignItems: 'center', marginTop: 16 }} onPress={() => setEditingPro({ ...selectedPro, _newBalance: '' })}>
+            <TouchableOpacity style={{ backgroundColor: '#FF7733', borderRadius: 14, paddingVertical: 16, alignItems: 'center', marginTop: 16 }} onPress={() => setEditingPro({ ...selectedPro, _newBalance: '' })}>
               <Text style={{ color: '#fff', fontWeight: '700', fontSize: 16 }}>Editar profesional</Text>
             </TouchableOpacity>
           </View>
@@ -397,7 +397,7 @@ ${jobMarkers}
                   {['electricista', 'plomero', 'limpieza', 'mudanza', 'pintura', 'jardineria', 'carpinteria', 'mecanica', 'tecnologia', 'otro'].map(cat => {
                     const sel = (editingPro.categories || []).includes(cat);
                     return (
-                      <TouchableOpacity key={cat} style={[s.proCatChip, sel && { backgroundColor: '#FF5A3C', borderColor: '#FF5A3C' }]}
+                      <TouchableOpacity key={cat} style={[s.proCatChip, sel && { backgroundColor: '#FF7733', borderColor: '#FF7733' }]}
                         onPress={() => {
                           const cats = editingPro.categories || [];
                           setEditingPro({...editingPro, categories: sel ? cats.filter((c: string) => c !== cat) : [...cats, cat]});
@@ -411,13 +411,13 @@ ${jobMarkers}
                   <Text style={{ fontSize: 14, color: '#1C1C1E' }}>Disponible:</Text>
                   <TouchableOpacity onPress={() => setEditingPro({...editingPro, is_available: !editingPro.is_available})}
                     style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                    <Ionicons name={editingPro.is_available ? 'checkbox' : 'square-outline'} size={22} color={editingPro.is_available ? '#FF5A3C' : '#8E8E93'} />
-                    <Text style={{ color: editingPro.is_available ? '#FF5A3C' : '#8E8E93', fontWeight: '600' }}>{editingPro.is_available ? 'Sí' : 'No'}</Text>
+                    <Ionicons name={editingPro.is_available ? 'checkbox' : 'square-outline'} size={22} color={editingPro.is_available ? '#FF7733' : '#8E8E93'} />
+                    <Text style={{ color: editingPro.is_available ? '#FF7733' : '#8E8E93', fontWeight: '600' }}>{editingPro.is_available ? 'Sí' : 'No'}</Text>
                   </TouchableOpacity>
                 </View>
               </ScrollView>
             )}
-            <TouchableOpacity style={{ backgroundColor: '#FF5A3C', borderRadius: 14, paddingVertical: 16, alignItems: 'center', marginTop: 12 }} onPress={handleSavePro} disabled={saving}>
+            <TouchableOpacity style={{ backgroundColor: '#FF7733', borderRadius: 14, paddingVertical: 16, alignItems: 'center', marginTop: 12 }} onPress={handleSavePro} disabled={saving}>
               {saving ? <ActivityIndicator color="#fff" /> : <Text style={{ color: '#fff', fontWeight: '700', fontSize: 16 }}>Guardar cambios</Text>}
             </TouchableOpacity>
           </View>
@@ -471,9 +471,9 @@ const s = StyleSheet.create({
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   tabBar: { maxHeight: 48, borderBottomWidth: 1, borderBottomColor: '#F0F0F0' },
   tab: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 14, paddingVertical: 12 },
-  tabActive: { borderBottomWidth: 2, borderBottomColor: '#FF5A3C' },
+  tabActive: { borderBottomWidth: 2, borderBottomColor: '#FF7733' },
   tabText: { fontSize: 13, fontWeight: '600', color: '#8E8E93' },
-  tabTextActive: { color: '#FF5A3C' },
+  tabTextActive: { color: '#FF7733' },
   sectionTitle: { fontSize: 22, fontWeight: '800', color: '#1C1C1E', marginBottom: 8 },
   statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   statCard: { width: '47%', backgroundColor: '#F8F8FA', borderRadius: 16, padding: 16, gap: 6 },
@@ -481,7 +481,7 @@ const s = StyleSheet.create({
   statValue: { fontSize: 24, fontWeight: '800', color: '#1C1C1E' },
   statLabel: { fontSize: 12, color: '#8E8E93', fontWeight: '500' },
   filterChip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, backgroundColor: '#F2F2F7' },
-  filterChipActive: { backgroundColor: '#FF5A3C' },
+  filterChipActive: { backgroundColor: '#FF7733' },
   filterText: { fontSize: 12, fontWeight: '600', color: '#636366' },
   filterTextActive: { color: '#fff' },
   jobCard: { backgroundColor: '#F8F8FA', borderRadius: 14, padding: 14 },
@@ -491,12 +491,12 @@ const s = StyleSheet.create({
   statusBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 },
   statusText: { fontSize: 11, fontWeight: '700' },
   proCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F8F8FA', borderRadius: 16, padding: 14, gap: 12 },
-  proAvatar: { width: 46, height: 46, borderRadius: 23, backgroundColor: '#FF5A3C', justifyContent: 'center', alignItems: 'center' },
+  proAvatar: { width: 46, height: 46, borderRadius: 23, backgroundColor: '#FF7733', justifyContent: 'center', alignItems: 'center' },
   proAvatarText: { color: '#fff', fontSize: 20, fontWeight: '700' },
   proName: { fontSize: 15, fontWeight: '700', color: '#1C1C1E' },
   proEmail: { fontSize: 12, color: '#8E8E93' },
   proCatChip: { backgroundColor: '#FFF0EC', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, borderWidth: 1, borderColor: '#FFF0EC' },
-  proCatText: { fontSize: 10, fontWeight: '600', color: '#FF5A3C' },
+  proCatText: { fontSize: 10, fontWeight: '600', color: '#FF7733' },
   availDot: { width: 8, height: 8, borderRadius: 4, marginTop: 4 },
   editInput: { backgroundColor: '#F2F2F7', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10, fontSize: 15, color: '#1C1C1E', borderWidth: 1, borderColor: '#E5E5EA' },
   emptyText: { textAlign: 'center', color: '#8E8E93', marginTop: 40, fontSize: 15 },

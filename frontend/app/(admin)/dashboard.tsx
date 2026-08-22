@@ -84,14 +84,14 @@ export default function AdminDashboardScreen() {
 
   const statCards = [
     { title: 'Usuarios totales', value: stats?.total_users ?? 0, icon: 'people', color: '#007AFF', bgColor: '#E3F2FD' },
-    { title: 'Conductores', value: stats?.total_drivers ?? 0, icon: 'car-sport', color: '#FF5A3C', bgColor: '#FFF0EC' },
+    { title: 'Conductores', value: stats?.total_drivers ?? 0, icon: 'car-sport', color: '#FF7733', bgColor: '#FFF0EC' },
     { title: 'En linea', value: stats?.online_drivers ?? 0, icon: 'radio-button-on', color: '#FF9500', bgColor: '#FFF3E0' },
-    { title: 'Viajes activos', value: stats?.active_rides ?? 0, icon: 'navigate', color: '#FF5A3C', bgColor: '#FFF0EC' },
+    { title: 'Viajes activos', value: stats?.active_rides ?? 0, icon: 'navigate', color: '#FF7733', bgColor: '#FFF0EC' },
   ];
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#FF5A3C" />}>
+      <ScrollView refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#FF7733" />}>
         <View style={styles.header}>
           <View>
             <Text style={styles.greeting}>Panel de Admin</Text>
@@ -104,7 +104,7 @@ export default function AdminDashboardScreen() {
 
         {loadingStats && !stats ? (
           <View style={styles.loadingCard}>
-            <ActivityIndicator size="large" color="#FF5A3C" />
+            <ActivityIndicator size="large" color="#FF7733" />
             <Text style={styles.loadingText}>Cargando estadísticas...</Text>
           </View>
         ) : (
@@ -138,7 +138,7 @@ export default function AdminDashboardScreen() {
                 <Ionicons name={stat.icon as any} size={24} color={stat.color} />
               </View>
               {loadingStats && !stats ? (
-                <ActivityIndicator size="small" color="#FF5A3C" style={{ marginVertical: 4 }} />
+                <ActivityIndicator size="small" color="#FF7733" style={{ marginVertical: 4 }} />
               ) : (
                 <Text style={styles.statValue}>{stat.value}</Text>
               )}
@@ -155,7 +155,7 @@ export default function AdminDashboardScreen() {
               <Text style={styles.actionText}>Agregar usuario</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.actionCard} onPress={() => router.push('/(admin)/verification' as any)}>
-              <Ionicons name="car" size={24} color="#FF5A3C" />
+              <Ionicons name="car" size={24} color="#FF7733" />
               <Text style={styles.actionText}>Verificar conductor</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.actionCard} onPress={() => router.push('/(admin)/coupons' as any)}>
@@ -167,7 +167,7 @@ export default function AdminDashboardScreen() {
               <Text style={styles.actionText}>Lugares y Cache</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.actionCard} onPress={() => router.push('/(admin)/trips' as any)}>
-              <Ionicons name="bar-chart" size={24} color="#FF5A3C" />
+              <Ionicons name="bar-chart" size={24} color="#FF7733" />
               <Text style={styles.actionText}>Reportes</Text>
             </TouchableOpacity>
           </View>
@@ -180,14 +180,14 @@ export default function AdminDashboardScreen() {
             style={{ backgroundColor: '#1C1C1E', borderRadius: 16, padding: 20, flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 12 }}
             onPress={() => Linking.openURL(`${process.env.EXPO_PUBLIC_BACKEND_URL || 'https://taxify-clone.emergent.host'}`)}
           >
-            <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: '#FF5A3C', justifyContent: 'center', alignItems: 'center' }}>
+            <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: '#FF7733', justifyContent: 'center', alignItems: 'center' }}>
               <Ionicons name="globe" size={24} color="#fff" />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={{ color: '#fff', fontSize: 16, fontWeight: '700' }}>Abrir Panel Admin Web</Text>
               <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12, marginTop: 2 }}>Administrar desde el navegador</Text>
             </View>
-            <Ionicons name="open-outline" size={20} color="#FF5A3C" />
+            <Ionicons name="open-outline" size={20} color="#FF7733" />
           </TouchableOpacity>
           
           <View style={{ backgroundColor: '#fff', borderRadius: 16, padding: 16, gap: 8 }}>
@@ -212,9 +212,9 @@ const styles = StyleSheet.create({
   greeting: { fontSize: 28, fontWeight: 'bold', color: '#1C1C1E' },
   subGreeting: { fontSize: 14, color: '#8E8E93', marginTop: 4 },
   notificationButton: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#F2F2F7', justifyContent: 'center', alignItems: 'center' },
-  loadingCard: { margin: 16, borderRadius: 20, padding: 40, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FF5A3C' },
+  loadingCard: { margin: 16, borderRadius: 20, padding: 40, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FF7733' },
   loadingText: { color: 'rgba(255,255,255,0.9)', fontSize: 14, marginTop: 12 },
-  revenueCard: { backgroundColor: '#FF5A3C', margin: 16, borderRadius: 20, padding: 24 },
+  revenueCard: { backgroundColor: '#FF7733', margin: 16, borderRadius: 20, padding: 24 },
   revenueHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   revenueLabel: { fontSize: 14, color: 'rgba(255,255,255,0.85)' },
   revenueDate: { fontSize: 12, color: 'rgba(255,255,255,0.7)' },

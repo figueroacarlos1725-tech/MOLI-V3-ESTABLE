@@ -63,7 +63,7 @@ export default function AdminFaresScreen() {
     </View>
   );
 
-  if (loading) return <SafeAreaView style={s.container}><ActivityIndicator size="large" color="#E8492E" style={{marginTop:40}} /></SafeAreaView>;
+  if (loading) return <SafeAreaView style={s.container}><ActivityIndicator size="large" color="#E85E1A" style={{marginTop:40}} /></SafeAreaView>;
 
   return (
     <SafeAreaView style={s.container}>
@@ -74,12 +74,12 @@ export default function AdminFaresScreen() {
         {fares.map(f => (
           <View key={f.vehicle_type} style={s.card}>
             <View style={s.cardHeader}>
-              <Ionicons name={TYPE_ICONS[f.vehicle_type] as any} size={22} color="#E8492E" />
+              <Ionicons name={TYPE_ICONS[f.vehicle_type] as any} size={22} color="#E85E1A" />
               <Text style={s.cardTitle}>{TYPE_NAMES[f.vehicle_type] || f.vehicle_type}</Text>
               <Text style={s.multiplierBadge}>x{f.multiplier}</Text>
               {editing !== f.vehicle_type && (
                 <TouchableOpacity onPress={() => handleEdit(f)}>
-                  <Ionicons name="pencil" size={18} color="#E8492E" />
+                  <Ionicons name="pencil" size={18} color="#E85E1A" />
                 </TouchableOpacity>
               )}
             </View>
@@ -99,7 +99,7 @@ export default function AdminFaresScreen() {
                   <Switch
                     value={editData.dynamic_pricing || false}
                     onValueChange={v => setEditData({...editData, dynamic_pricing: v})}
-                    trackColor={{true:'#E8492E'}}
+                    trackColor={{true:'#E85E1A'}}
                   />
                 </View>
                 {editData.dynamic_pricing && <Field label="Multiplicador dinámico" field="dynamic_multiplier" suffix="x" />}
@@ -148,7 +148,7 @@ const s = StyleSheet.create({
   card:{backgroundColor:'#fff',borderRadius:14,overflow:'hidden'},
   cardHeader:{flexDirection:'row',alignItems:'center',padding:14,gap:10,borderBottomWidth:1,borderBottomColor:'#F2F2F7'},
   cardTitle:{fontSize:18,fontWeight:'700',color:'#1C1C1E',flex:1},
-  multiplierBadge:{backgroundColor:'#FFF0EC',paddingHorizontal:10,paddingVertical:3,borderRadius:10,fontSize:12,fontWeight:'700',color:'#E8492E',marginRight:8},
+  multiplierBadge:{backgroundColor:'#FFF0EC',paddingHorizontal:10,paddingVertical:3,borderRadius:10,fontSize:12,fontWeight:'700',color:'#E85E1A',marginRight:8},
   infoGrid:{flexDirection:'row',flexWrap:'wrap',padding:14,gap:12},
   infoItem:{width:'30%',minWidth:80},
   infoLabel:{fontSize:11,color:'#8E8E93',fontWeight:'600'},
@@ -160,11 +160,11 @@ const s = StyleSheet.create({
   fieldInput:{flex:1,backgroundColor:'#F9FAFB',borderWidth:1,borderColor:'#E5E5EA',borderRadius:8,paddingHorizontal:12,paddingVertical:8,fontSize:15},
   fieldSuffix:{fontSize:13,color:'#8E8E93',marginLeft:8,fontWeight:'600'},
   divider:{height:1,backgroundColor:'#E5E5EA',marginVertical:14},
-  subsectionTitle:{fontSize:13,fontWeight:'700',color:'#E8492E',marginBottom:10},
+  subsectionTitle:{fontSize:13,fontWeight:'700',color:'#E85E1A',marginBottom:10},
   switchRow:{flexDirection:'row',justifyContent:'space-between',alignItems:'center',marginBottom:10},
   switchLabel:{fontSize:14,color:'#1C1C1E'},
   editBtns:{flexDirection:'row',gap:10,marginTop:14},
   btn:{flex:1,paddingVertical:12,borderRadius:8,alignItems:'center'},
-  btnCancel:{backgroundColor:'#F2F2F7'},btnSave:{backgroundColor:'#E8492E'},
+  btnCancel:{backgroundColor:'#F2F2F7'},btnSave:{backgroundColor:'#E85E1A'},
   btnCancelText:{color:'#666',fontWeight:'600'},btnSaveText:{color:'#fff',fontWeight:'700'},
 });

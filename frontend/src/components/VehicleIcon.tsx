@@ -13,4 +13,4 @@ export default function VehicleIcon({ kind, size=54, color='#202124', background
     {kind==='taxi'&&<Text style={[s.taxi,{fontSize:size*.105},selected&&{color:'#FFFFFF'}]}>TAXI</Text>}
   </View>;
 }
-const s=StyleSheet.create({wrap:{alignItems:'center',justifyContent:'center',borderWidth:1,borderColor:'rgba(32,33,36,.06)'},selected:{backgroundColor:'#FF5A3C',borderColor:'#FF5A3C'},taxiCap:{position:'absolute',width:'25%',height:3,borderRadius:2,backgroundColor:'#FFB020'},taxi:{position:'absolute',bottom:4,fontWeight:'900',letterSpacing:.3,color:'#202124'}});
+const s=StyleSheet.create({wrap:{alignItems:'center',justifyContent:'center',borderWidth:1,borderColor:'rgba(32,33,36,.06)'},selected:{backgroundColor:'#FF7733',borderColor:'#FF7733'},taxiCap:{position:'absolute',width:'25%',height:3,borderRadius:2,backgroundColor:'#FFB020'},taxi:{position:'absolute',bottom:4,fontWeight:'900',letterSpacing:.3,color:'#202124'}});

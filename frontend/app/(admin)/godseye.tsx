@@ -61,10 +61,10 @@ export default function GodsEyeScreen() {
     <SafeAreaView style={s.container}>
       <View style={s.header}>
         <View style={s.headerRow}>
-          <Ionicons name="eye" size={26} color="#E8492E" />
+          <Ionicons name="eye" size={26} color="#E85E1A" />
           <Text style={s.title}>Ojo de Dios</Text>
           <TouchableOpacity onPress={fetchDrivers} style={s.refreshBtn}>
-            <Ionicons name="refresh" size={20} color="#E8492E" />
+            <Ionicons name="refresh" size={20} color="#E85E1A" />
           </TouchableOpacity>
         </View>
         <View style={s.statsRow}>
@@ -105,7 +105,7 @@ export default function GodsEyeScreen() {
       </View>
 
       {/* Driver List */}
-      {loading ? <ActivityIndicator size="large" color="#E8492E" style={{marginTop:20}} /> :
+      {loading ? <ActivityIndicator size="large" color="#E85E1A" style={{marginTop:20}} /> :
         <ScrollView contentContainerStyle={s.list}>
           {filtered.map(d => (
             <TouchableOpacity key={d.driver_id} style={s.driverCard} onPress={() => setSelectedDriver(selectedDriver?.driver_id === d.driver_id ? null : d)}>
@@ -153,7 +153,7 @@ const s = StyleSheet.create({
   autoRefresh:{position:'absolute',bottom:8,right:8,backgroundColor:'rgba(0,0,0,0.5)',color:'#fff',fontSize:10,paddingHorizontal:8,paddingVertical:3,borderRadius:10,overflow:'hidden'},
   filterRow:{flexDirection:'row',paddingHorizontal:12,gap:8,marginBottom:8},
   filterBtn:{paddingHorizontal:14,paddingVertical:6,borderRadius:20,backgroundColor:'#E5E5EA'},
-  filterBtnActive:{backgroundColor:'#E8492E'},
+  filterBtnActive:{backgroundColor:'#E85E1A'},
   filterBtnText:{fontSize:13,fontWeight:'600',color:'#666'},
   filterBtnTextActive:{color:'#fff'},
   list:{paddingHorizontal:12,gap:8},

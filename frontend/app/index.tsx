@@ -37,7 +37,7 @@ export default function Index() {
   if (isLoading || checkingSettings) {
     return (
       <View style={styles.container}>
-        <ActivityIndicator size="large" color="#FF5A3C" />
+        <ActivityIndicator size="large" color="#FF7733" />
         <Text style={styles.loadingText}>Moli</Text>
       </View>
     );

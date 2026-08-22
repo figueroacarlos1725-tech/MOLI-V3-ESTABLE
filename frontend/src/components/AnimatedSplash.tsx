@@ -177,14 +177,14 @@ const st = StyleSheet.create({
     width: 200,
     height: 200,
     borderRadius: 100,
-    backgroundColor: 'rgba(255,90,60,0.10)',
+    backgroundColor: 'rgba(255,119,51,0.10)',
   },
   particle: {
     position: 'absolute',
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: 'rgba(255,90,60,0.65)',
+    backgroundColor: 'rgba(255,119,51,0.65)',
   },
   particleSm: {
     width: 5,
@@ -221,7 +221,7 @@ const st = StyleSheet.create({
   },
   line: {
     height: 2,
-    backgroundColor: 'rgba(255,90,60,0.28)',
+    backgroundColor: 'rgba(255,119,51,0.28)',
     marginTop: 20,
     borderRadius: 1,
   },
@@ -237,7 +237,7 @@ const st = StyleSheet.create({
   },
   topOrb: {
     position: 'absolute', top: -120, right: -100, width: 300, height: 300,
-    borderRadius: 150, backgroundColor: 'rgba(255,90,60,0.07)',
+    borderRadius: 150, backgroundColor: 'rgba(255,119,51,0.07)',
   },
   bottomOrb: {
     position: 'absolute', bottom: -160, left: -130, width: 360, height: 360,

@@ -153,7 +153,7 @@ export default function AdminVerificationScreen() {
     if (Platform.OS !== 'ios') run('No cumple los requisitos');
   };
 
-  if (loading) return <SafeAreaView style={st.container}><ActivityIndicator size="large" color="#FF5A3C" style={{ marginTop: 40 }} /></SafeAreaView>;
+  if (loading) return <SafeAreaView style={st.container}><ActivityIndicator size="large" color="#FF7733" style={{ marginTop: 40 }} /></SafeAreaView>;
 
   return (
     <SafeAreaView style={st.container}>
@@ -171,7 +171,7 @@ export default function AdminVerificationScreen() {
         ListHeaderComponent={registrations.length ? <View style={{ marginBottom: 18 }}><Text style={{ fontSize: 18, fontWeight: '800', marginBottom: 10 }}>Registros de proveedores</Text>{registrations.map(item => <View key={item.user_id} style={st.docCard}><Text style={st.driverName}>{item.name}</Text><Text style={st.driverEmail}>{item.phone} · {item.email}</Text><View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginVertical: 10 }}>{(item.capabilities || []).map(cap => <View key={cap} style={st.pendingBadge}><Text style={st.pendingText}>{cap}</Text></View>)}</View><View style={st.docActions}><TouchableOpacity style={st.rejectBtn} disabled={processing} onPress={() => decideRegistration(item, 'reject')}><Text style={st.rejectBtnText}>Rechazar</Text></TouchableOpacity><TouchableOpacity style={st.approveBtn} disabled={processing} onPress={() => decideRegistration(item, 'approve')}><Text style={st.approveBtnText}>Aprobar capacidades</Text></TouchableOpacity></View></View>)}</View> : null}
         ListEmptyComponent={
           <View style={st.empty}>
-            <Ionicons name="checkmark-circle" size={56} color="#FF5A3C" />
+            <Ionicons name="checkmark-circle" size={56} color="#FF7733" />
             <Text style={st.emptyTitle}>¡Todo al día!</Text>
             <Text style={st.emptyText}>No hay documentos pendientes de verificación</Text>
           </View>
@@ -198,7 +198,7 @@ export default function AdminVerificationScreen() {
                   {selectedDriver.vehicle_make ? `${selectedDriver.vehicle_color || ''} ${selectedDriver.vehicle_make} ${selectedDriver.vehicle_model} ${selectedDriver.vehicle_year || ''}`.trim() : 'Sin vehículo registrado'}
                 </Text>
                 {selectedDriver.plate_number ? (
-                  <Text style={{ fontSize: 15, fontWeight: '700', color: '#FF5A3C', marginTop: 4 }}>{selectedDriver.plate_number}</Text>
+                  <Text style={{ fontSize: 15, fontWeight: '700', color: '#FF7733', marginTop: 4 }}>{selectedDriver.plate_number}</Text>
                 ) : null}
               </View>
             )}
@@ -226,7 +226,7 @@ export default function AdminVerificationScreen() {
                   }}>
                     <Text style={{ color: '#fff', fontWeight: '600', fontSize: 13 }}>Rechazar</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity style={{ flex: 1, padding: 10, borderRadius: 10, backgroundColor: '#FF5A3C', alignItems: 'center' }} onPress={async () => {
+                  <TouchableOpacity style={{ flex: 1, padding: 10, borderRadius: 10, backgroundColor: '#FF7733', alignItems: 'center' }} onPress={async () => {
                     try { await apiService.put(`/admin/vehicle-changes/${vc.change_id}`, { action: 'approve' }); Alert.alert('Aprobado', 'Datos de vehículo actualizados'); fetchDrivers(); setSelectedDriver(null); } catch(e) {}
                   }}>
                     <Text style={{ color: '#fff', fontWeight: '600', fontSize: 13 }}>Aprobar</Text>
@@ -250,7 +250,7 @@ export default function AdminVerificationScreen() {
                 <>
                   <View style={{ backgroundColor: '#F8F8FA', borderRadius: 14, padding: 14, marginBottom: 16, flexDirection: 'row', justifyContent: 'space-between' }}>
                     <Text style={{ fontSize: 14, fontWeight: '600', color: '#1C1C1E' }}>Documentos subidos</Text>
-                    <Text style={{ fontSize: 14, fontWeight: '800', color: uploadedCount >= 5 ? '#FF5A3C' : '#FF9500' }}>{uploadedCount} / {REQUIRED_DOCS.length}</Text>
+                    <Text style={{ fontSize: 14, fontWeight: '800', color: uploadedCount >= 5 ? '#FF7733' : '#FF9500' }}>{uploadedCount} / {REQUIRED_DOCS.length}</Text>
                   </View>
                   {REQUIRED_DOCS.map(req => {
                     const doc = driverDocs.find(d => d.doc_type === req.key);
@@ -304,7 +304,7 @@ export default function AdminVerificationScreen() {
 
                   {/* VERIFY / REJECT DRIVER BUTTONS */}
                   <TouchableOpacity
-                    style={{ backgroundColor: '#FF5A3C', paddingVertical: 16, borderRadius: 14, alignItems: 'center', marginTop: 20 }}
+                    style={{ backgroundColor: '#FF7733', paddingVertical: 16, borderRadius: 14, alignItems: 'center', marginTop: 20 }}
                     onPress={async () => {
                       try {
                         setProcessing(true);
@@ -456,18 +456,18 @@ const st = StyleSheet.create({
   docCard: { backgroundColor: '#fff', borderRadius: 16, padding: 16, marginBottom: 12 },
   docHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
   statusDot: { width: 10, height: 10, borderRadius: 5 },
-  dotApproved: { backgroundColor: '#FF5A3C' },
+  dotApproved: { backgroundColor: '#FF7733' },
   dotRejected: { backgroundColor: '#FF3B30' },
   dotPending: { backgroundColor: '#FF9500' },
   docLabel: { flex: 1, fontSize: 15, fontWeight: '700', color: '#1C1C1E' },
   statusText: { fontSize: 12, fontWeight: '700' },
-  statusApproved: { color: '#FF5A3C' },
+  statusApproved: { color: '#FF7733' },
   statusRejected: { color: '#FF3B30' },
   statusPending: { color: '#FF9500' },
   docImage: { width: '100%', height: 200, borderRadius: 12, backgroundColor: '#F2F2F7' },
   rejectReasonText: { fontSize: 13, color: '#FF3B30', marginTop: 8, fontStyle: 'italic' },
   docActions: { flexDirection: 'row', gap: 10, marginTop: 12 },
-  approveBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: '#FF5A3C', borderRadius: 12, paddingVertical: 12 },
+  approveBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: '#FF7733', borderRadius: 12, paddingVertical: 12 },
   approveBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
   rejectBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: '#FFF5F5', borderRadius: 12, paddingVertical: 12, borderWidth: 1, borderColor: '#FFE0E0' },
   rejectBtnText: { color: '#FF3B30', fontSize: 15, fontWeight: '700' },

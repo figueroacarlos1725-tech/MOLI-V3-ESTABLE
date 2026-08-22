@@ -9,7 +9,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { apiService } from '@/src/services/api';
 import { useAuthStore } from '@/src/stores/authStore';
 
-const GREEN = '#FF5A3C';
+const GREEN = '#FF7733';
 
 const CATEGORY_OPTIONS = [
   { id: 'electricista', name: 'Electricista', icon: 'flash', color: '#FF9500' },
@@ -17,7 +17,7 @@ const CATEGORY_OPTIONS = [
   { id: 'limpieza', name: 'Limpieza', icon: 'sparkles', color: '#34C759' },
   { id: 'mudanza', name: 'Mudanza', icon: 'cube', color: '#AF52DE' },
   { id: 'pintura', name: 'Pintura', icon: 'color-palette', color: '#FF3B30' },
-  { id: 'jardineria', name: 'Jardinería', icon: 'leaf', color: '#FF5A3C' },
+  { id: 'jardineria', name: 'Jardinería', icon: 'leaf', color: '#FF7733' },
   { id: 'carpinteria', name: 'Carpintería', icon: 'hammer', color: '#8B4513' },
   { id: 'mecanica', name: 'Mecánica', icon: 'construct', color: '#636366' },
   { id: 'tecnologia', name: 'Tecnología', icon: 'laptop', color: '#5856D6' },

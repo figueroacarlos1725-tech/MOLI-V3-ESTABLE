@@ -17,7 +17,7 @@ interface Trip {
 
 const STATUS_COLORS: Record<string,string> = {
   requested:'#3B82F6',accepted:'#F59E0B',arrived:'#8B5CF6',
-  started:'#10B981',completed:'#FF5A3C',cancelled:'#EF4444',
+  started:'#10B981',completed:'#FF7733',cancelled:'#EF4444',
 };
 
 export default function AdminTripsScreen() {
@@ -114,7 +114,7 @@ export default function AdminTripsScreen() {
         ))}
       </View>
 
-      {loading ? <ActivityIndicator size="large" color="#E8492E" style={{marginTop:40}} /> :
+      {loading ? <ActivityIndicator size="large" color="#E85E1A" style={{marginTop:40}} /> :
         <ScrollView contentContainerStyle={s.list}>
           {trips.length === 0 && <Text style={s.empty}>No hay viajes</Text>}
           {trips.map(t => (
@@ -130,7 +130,7 @@ export default function AdminTripsScreen() {
               </View>
               <View style={s.tripBody}>
                 <Text style={s.tripName}>{t.rider_name || 'Pasajero'} {t.driver_name ? `→ ${t.driver_name}` : ''}</Text>
-                {t.pickup_location?.address && <Text style={s.tripAddr}><Ionicons name="location" size={12} color="#FF5A3C" /> {t.pickup_location.address}</Text>}
+                {t.pickup_location?.address && <Text style={s.tripAddr}><Ionicons name="location" size={12} color="#FF7733" /> {t.pickup_location.address}</Text>}
                 {t.dropoff_location?.address && <Text style={s.tripAddr}><Ionicons name="flag" size={12} color="#EF4444" /> {t.dropoff_location.address}</Text>}
                 {t.notes ? <Text style={s.tripNotes}>{t.notes}</Text> : null}
                 <Text style={s.tripDate}>{t.created_at?.substring(0,16).replace('T',' ')}</Text>
@@ -239,11 +239,11 @@ const s = StyleSheet.create({
   container:{flex:1,backgroundColor:'#F2F2F7'},
   header:{flexDirection:'row',justifyContent:'space-between',alignItems:'center',padding:16,backgroundColor:'#fff',borderBottomWidth:1,borderBottomColor:'#E5E5EA'},
   title:{fontSize:24,fontWeight:'bold',color:'#1C1C1E'},
-  addBtn:{flexDirection:'row',alignItems:'center',backgroundColor:'#E8492E',paddingHorizontal:14,paddingVertical:8,borderRadius:8,gap:4},
+  addBtn:{flexDirection:'row',alignItems:'center',backgroundColor:'#E85E1A',paddingHorizontal:14,paddingVertical:8,borderRadius:8,gap:4},
   addBtnText:{color:'#fff',fontWeight:'600',fontSize:13},
   filterRow:{flexDirection:'row',paddingHorizontal:12,paddingVertical:8,gap:6,flexWrap:'wrap'},
   filterBtn:{paddingHorizontal:12,paddingVertical:5,borderRadius:16,backgroundColor:'#E5E5EA'},
-  filterBtnActive:{backgroundColor:'#E8492E'},
+  filterBtnActive:{backgroundColor:'#E85E1A'},
   filterBtnText:{fontSize:12,fontWeight:'600',color:'#666'},
   filterBtnTextActive:{color:'#fff'},
   list:{padding:12,gap:10},
@@ -253,9 +253,9 @@ const s = StyleSheet.create({
   statusBadge:{flexDirection:'row',alignItems:'center',gap:6,paddingHorizontal:10,paddingVertical:4,borderRadius:12},
   statusDot:{width:8,height:8,borderRadius:4},
   statusText:{fontSize:12,fontWeight:'700'},
-  manualBadge:{fontSize:10,fontWeight:'700',color:'#E8492E',backgroundColor:'#FFF0EC',paddingHorizontal:8,paddingVertical:2,borderRadius:8,overflow:'hidden'},
+  manualBadge:{fontSize:10,fontWeight:'700',color:'#E85E1A',backgroundColor:'#FFF0EC',paddingHorizontal:8,paddingVertical:2,borderRadius:8,overflow:'hidden'},
   ticketeraBadge:{fontSize:10,fontWeight:'700',color:'#F59E0B',backgroundColor:'#FEF3C7',paddingHorizontal:8,paddingVertical:2,borderRadius:8,overflow:'hidden'},
-  fareText:{fontSize:16,fontWeight:'800',color:'#FF5A3C',marginLeft:'auto'},
+  fareText:{fontSize:16,fontWeight:'800',color:'#FF7733',marginLeft:'auto'},
   tripBody:{padding:12},
   tripName:{fontSize:14,fontWeight:'600',color:'#1C1C1E'},
   tripAddr:{fontSize:12,color:'#666',marginTop:3},
@@ -266,25 +266,25 @@ const s = StyleSheet.create({
   modalTitle:{fontSize:22,fontWeight:'bold',color:'#1C1C1E'},
   modalSubtitle:{fontSize:13,color:'#8E8E93',marginBottom:16},
   label:{fontSize:12,fontWeight:'600',color:'#666',marginBottom:6,marginTop:8},
-  sectionLabel:{fontSize:13,fontWeight:'700',color:'#E8492E',marginTop:16,marginBottom:6},
+  sectionLabel:{fontSize:13,fontWeight:'700',color:'#E85E1A',marginTop:16,marginBottom:6},
   input:{backgroundColor:'#F9FAFB',borderWidth:1,borderColor:'#E5E5EA',borderRadius:8,paddingHorizontal:12,paddingVertical:10,fontSize:14,marginBottom:8},
   coordRow:{flexDirection:'row',gap:8},
   radioRow:{flexDirection:'row',gap:8,marginBottom:8,flexWrap:'wrap'},
   typeBtn:{flex:1,padding:12,borderRadius:10,backgroundColor:'#F2F2F7',alignItems:'center',gap:4,minWidth:140},
-  typeBtnActive:{backgroundColor:'#E8492E'},
+  typeBtnActive:{backgroundColor:'#E85E1A'},
   typeBtnText:{fontSize:13,fontWeight:'700',color:'#1C1C1E'},
   typeBtnDesc:{fontSize:10,color:'#8E8E93'},
   serviceBtn:{paddingHorizontal:14,paddingVertical:8,borderRadius:8,backgroundColor:'#F2F2F7'},
-  serviceBtnActive:{backgroundColor:'#E8492E'},
+  serviceBtnActive:{backgroundColor:'#E85E1A'},
   serviceBtnText:{fontSize:13,fontWeight:'600',color:'#666'},
   driverList:{marginBottom:8,maxHeight:50},
   driverChip:{paddingHorizontal:14,paddingVertical:8,borderRadius:20,backgroundColor:'#F2F2F7',marginRight:8},
-  driverChipActive:{backgroundColor:'#E8492E'},
+  driverChipActive:{backgroundColor:'#E85E1A'},
   driverChipText:{fontSize:13,fontWeight:'600',color:'#666'},
   infoBox:{flexDirection:'row',gap:10,backgroundColor:'#FFFBEB',borderRadius:10,padding:12,marginTop:12,alignItems:'flex-start'},
   infoBoxText:{flex:1,fontSize:12,color:'#92400E',lineHeight:16},
   modalBtns:{flexDirection:'row',gap:10,marginTop:20},
   btn:{flex:1,paddingVertical:14,borderRadius:10,alignItems:'center'},
-  btnCancel:{backgroundColor:'#F2F2F7'},btnSave:{backgroundColor:'#E8492E'},
+  btnCancel:{backgroundColor:'#F2F2F7'},btnSave:{backgroundColor:'#E85E1A'},
   btnCancelText:{color:'#666',fontWeight:'600',fontSize:14},btnSaveText:{color:'#fff',fontWeight:'700',fontSize:14},
 });
