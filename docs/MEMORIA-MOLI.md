@@ -40,6 +40,8 @@ Moli reúne movilidad y contratación de servicios en una misma identidad:
 - Paquete publicado observado: `com.digigo.app`.
 - Alpha cerrada observada: versión `1.0.21`, versionCode `24`, API objetivo 36.
 - El repositorio recuperado declaraba `com.moli.movelibre`; no cambiar el paquete ni publicar hasta alinear identidad, firma de subida y continuidad de versionCode.
+- El 2026-08-22 se generó una nueva clave de carga bajo control de Carlo y se envió a Play Console la solicitud de restablecimiento, con motivo “se fue de la empresa un desarrollador con acceso al almacén de claves”. La clave privada y su contraseña permanecen fuera de Git. Play Console confirmó que la solicitud está pendiente; el plazo habitual informado por Google es de unas 48 horas.
+- Próximo artefacto previsto: `1.0.22`, versionCode `25`, paquete `com.digigo.app`, AAB para prueba abierta. No cargar hasta que Play confirme la activación del nuevo certificado y el backend de destino esté validado.
 
 ## Matriz de QA prevista
 
