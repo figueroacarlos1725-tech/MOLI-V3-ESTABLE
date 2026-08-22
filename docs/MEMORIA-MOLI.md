@@ -14,6 +14,19 @@ Moli reúne movilidad y contratación de servicios en una misma identidad:
 - Comercio: solicita el alta comercial, completa datos y documentación, publica catálogo/productos, recibe pedidos y administra preparación/entrega.
 - Marketplace: el cliente descubre comercios y productos, arma carrito, crea el pedido y sigue preparación, retiro o entrega. La entrega puede asignarse a un conductor Moli.
 
+## Dirección de diseño y experiencia
+
+- La experiencia visual de Moli toma como referencia la claridad premium y la confianza de Cabify junto con la rapidez operativa, visibilidad de estados y accesibilidad de DiDi, sin copiar identidad, recursos gráficos ni pantallas de ninguna marca.
+- El lenguaje propio de Moli debe sentirse cercano, moderno y latinoamericano: superficies claras, color de marca usado con intención, tipografía muy legible, mapas protagonistas, tarjetas inferiores amplias, bordes suaves y una sola acción primaria evidente por estado.
+- La pantalla inicial concentra los accesos a `Viaje`, `Moto`, `Profesional`, `Trámite` y `Marketplace` sin convertir el inicio en una grilla saturada. Los accesos frecuentes y la ubicación actual reducen pasos, pero cada flujo conserva contexto y salida clara.
+- Solicitar un servicio sigue una progresión corta y consistente: necesidad/destino, opciones y precio estimado, método de pago, confirmación, búsqueda, revisión, asignación, servicio activo y calificación.
+- Los estados vivos son el diferencial de Moli: tarjetas compactas muestran quién revisa, cuenta regresiva, siguiente búsqueda y aceptación mediante texto humano y animación discreta. Nunca se confunde `revisando` con `asignado`.
+- En viajes se muestran antes de confirmar categoría, tiempo estimado, capacidad y precio transparente. Tras asignar se priorizan foto, identidad verificada, vehículo/patente, llegada, llamada/chat, compartir y seguridad.
+- Profesionales, trámites, comercio y delivery reutilizan el mismo sistema visual de mapa, tarjetas, estados, pagos y soporte para que Moli se sienta como una sola aplicación y no como módulos separados.
+- El conductor-profesional dispone de una bandeja operativa unificada con tarjetas visualmente diferenciadas por viaje, entrega, trabajo o trámite, filtros simples y una sola disponibilidad global configurable.
+- El diseño es accesible desde el inicio: contraste AA, blancos táctiles de al menos 44 px, texto escalable, lectores de pantalla, estados que no dependan únicamente del color y uso moderado de movimiento.
+- Publicidad y promociones respetan el servicio principal: no cubren seguridad, navegación crítica, llamada, cancelación ni emergencias y mantienen siempre una salida clara conforme a la cuenta regresiva configurada.
+
 ### Regla operativa del Marketplace
 
 - Cada comercio aprobado dispone de un panel operativo propio, inspirado en PedidosYa: alerta de pedido nuevo, aceptar/rechazar, tiempo estimado, preparación, pedido listo, repartidor asignado, retiro y entrega.

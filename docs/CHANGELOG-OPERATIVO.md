@@ -26,3 +26,4 @@
 - Se estableció como regla de seguridad que un profesional no reciba domicilio ni coordenadas exactas antes de aceptar; la redacción debe ejecutarse en API, notificaciones y WebSocket, no solo en la interfaz.
 - Se diseñó la revisión interactiva y exclusiva de solicitudes: el cliente verá quién está revisando, si aceptó o si la solicitud pasó al siguiente profesional, con bloqueo atómico y vencimiento para evitar dobles asignaciones.
 - Se extendió la revisión interactiva a viajes de auto, moto, taxi y demás categorías: tarjeta compacta de conductor revisando, cuenta regresiva, transición a búsqueda del siguiente y asignación únicamente después de aceptar.
+- Se fijó la dirección UX/UI: combinar claridad premium y confianza tipo Cabify con velocidad operativa y estados visibles tipo DiDi, bajo una identidad Moli propia, accesible y compartida por movilidad, profesionales, trámites y Marketplace.
