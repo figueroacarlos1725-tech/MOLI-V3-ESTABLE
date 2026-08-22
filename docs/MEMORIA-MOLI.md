@@ -7,7 +7,7 @@
 - La ficha existente es `Moli` con package `com.digigo.app`; no se debe crear otra aplicación.
 - Google Play ya otorgó acceso a producción, por lo que no corresponde repetir la etapa de verificadores de prueba cerrada.
 - La nueva clave de carga entra en vigencia el 2026-08-24 a las 06:06 UTC (03:06 de Argentina). Play bloquea cargas nuevas hasta ese momento.
-- La próxima entrega prevista es `1.0.22` con `versionCode 25`, en el segmento de prueba abierta existente. Antes del envío se deben elegir países/regiones, verificar firma, SDK objetivo y AAB.
+- La próxima entrega prevista es `1.0.22` con `versionCode 25`, en el segmento de prueba abierta existente, inicialmente limitada a Argentina. Antes del envío se deben verificar firma, SDK objetivo y AAB.
 
 ## Producto
 

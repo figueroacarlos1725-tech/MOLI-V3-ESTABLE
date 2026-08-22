@@ -14,6 +14,7 @@
 - Se confirmó en Play Console el acceso a pruebas abiertas/producción, Play App Signing y la versión máxima `1.0.21` (24) de `com.digigo.app`.
 - Se creó una nueva upload key fuera del repositorio y se envió su certificado público para restablecer la clave de carga. Play Console confirmó que la nueva clave entra en vigencia el 2026-08-24 a las 06:06 UTC; hasta entonces bloquea la carga de AAB/APK.
 - Play Console confirmó acceso a producción para `com.digigo.app` y habilitación de pruebas abiertas. El segmento abierto aún requiere seleccionar países/regiones, cargar la versión, revisar la vista previa y enviarla a revisión.
+- Se configuró Argentina como único país segmentado para la prueba abierta. El cambio quedó guardado en Descripción general de la publicación y se enviará a revisión junto con la próxima versión, no por separado.
 - Se restringió el registro público a los roles `rider` y `driver`; administradores y operadores ya no pueden autogenerarse desde la API pública.
 - Se confirmó que el repositorio recuperado no incluye Marketplace. Se agregó al alcance obligatorio el rol comercio, aprobación administrativa, catálogo, carrito, pedidos y entrega mediante conductores Moli.
 - Se fijó la operación del Marketplace: panel comercial estilo PedidosYa, entrega Moli obligatoria y despacho automático al conductor en línea/disponible más cercano sin restringirlo a auto, moto o taxi.
