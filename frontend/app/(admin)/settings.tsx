@@ -43,6 +43,10 @@ interface Settings {
   min_app_version?: string;
   update_message?: string;
   trabajos_mode?: string;
+  first_ride_discount?: number;
+  banner_interval_seconds?: number;
+  broadcast_enabled?: boolean;
+  broadcast_after_rounds?: number;
 }
 
 // Track which sensitive fields the user has actually edited

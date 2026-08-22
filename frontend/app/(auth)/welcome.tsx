@@ -76,7 +76,7 @@ export default function WelcomeScreen() {
             onPress={() => router.push('/(auth)/select-role')}
             variant="outline"
             size="large"
-            style={[styles.button, styles.outlineBtn]}
+            style={{ ...styles.button, ...styles.outlineBtn }}
           />
         </Animated.View>
 

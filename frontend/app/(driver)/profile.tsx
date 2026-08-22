@@ -215,7 +215,7 @@ export default function DriverProfileScreen() {
               <Input label="Modelo" placeholder="Ej: Corolla" value={vehicleForm.vehicle_model} onChangeText={(v) => setVehicleForm({...vehicleForm, vehicle_model: v})} leftIcon="car-sport-outline" autoCapitalize="words" />
               <View style={{ flexDirection: 'row', gap: 8 }}>
                 <View style={{ flex: 1 }}>
-                  <Input label="Año" placeholder="2020" value={vehicleForm.vehicle_year} onChangeText={(v) => setVehicleForm({...vehicleForm, vehicle_year: v})} keyboardType="number-pad" leftIcon="calendar-outline" />
+                  <Input label="Año" placeholder="2020" value={vehicleForm.vehicle_year} onChangeText={(v) => setVehicleForm({...vehicleForm, vehicle_year: v})} keyboardType="numeric" leftIcon="calendar-outline" />
                 </View>
                 <View style={{ flex: 1 }}>
                   <Input label="Color" placeholder="Blanco" value={vehicleForm.vehicle_color} onChangeText={(v) => setVehicleForm({...vehicleForm, vehicle_color: v})} leftIcon="color-palette-outline" autoCapitalize="words" />

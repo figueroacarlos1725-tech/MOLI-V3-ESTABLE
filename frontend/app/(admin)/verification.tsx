@@ -35,6 +35,11 @@ interface PendingDriver {
   phone?: string;
   documents: DriverDoc[];
   pending_count: number;
+  vehicle_make?: string;
+  vehicle_model?: string;
+  vehicle_year?: string | number;
+  vehicle_color?: string;
+  plate_number?: string;
 }
 interface PendingRegistration { user_id: string; name: string; email: string; phone?: string; capabilities?: string[]; }
 

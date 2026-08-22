@@ -893,7 +893,7 @@ export default function DriverHomeScreen() {
       <SafeAreaView style={styles.container}>
         <View style={styles.mapContainer}>
           <MapView
-            initialRegion={userLocation}
+            initialRegion={userLocation ?? undefined}
             markers={getMapMarkers()}
             showRoute={true}
           />
@@ -1193,7 +1193,7 @@ export default function DriverHomeScreen() {
       {/* Full-screen Map */}
       <View style={styles.fullMap}>
         <MapView
-          initialRegion={userLocation}
+          initialRegion={userLocation ?? undefined}
           markers={userLocation ? [{ ...userLocation, title: 'Tu ubicación', type: 'driver', vehicleType: 'economy' }] : []}
         />
       </View>
