@@ -13,6 +13,9 @@ router = APIRouter()
 
 @router.post("/api/auth/register", response_model=TokenResponse)
 async def register(user_data: UserCreate):
+    if user_data.user_type not in {"rider", "driver"}:
+        raise HTTPException(status_code=400, detail="Invalid public user type")
+
     # Check if user exists
     existing = await db.users.find_one({"email": user_data.email})
     if existing:

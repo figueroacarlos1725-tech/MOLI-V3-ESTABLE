@@ -11,6 +11,20 @@ Moli reúne movilidad y contratación de servicios en una misma identidad:
 - Profesional: configura perfil/categorías, recibe solicitudes, cotiza o acepta y ejecuta trabajos.
 - Conductor + profesional: usa ambos módulos desde una misma sesión y una pantalla unificada de acceso.
 - Admin/operador: administra usuarios, conductores y profesionales; observa demanda; realiza despacho manual; interviene en estados e incidencias.
+- Comercio: solicita el alta comercial, completa datos y documentación, publica catálogo/productos, recibe pedidos y administra preparación/entrega.
+- Marketplace: el cliente descubre comercios y productos, arma carrito, crea el pedido y sigue preparación, retiro o entrega. La entrega puede asignarse a un conductor Moli.
+
+### Regla operativa del Marketplace
+
+- Cada comercio aprobado dispone de un panel operativo propio, inspirado en PedidosYa: alerta de pedido nuevo, aceptar/rechazar, tiempo estimado, preparación, pedido listo, repartidor asignado, retiro y entrega.
+- En el checkout, el cliente elige entre `retiro_en_local` o `delivery_moli`.
+- Un pedido con retiro en el local no genera solicitud de conductor ni costo de envío; el comercio lo marca listo y el cliente confirma el retiro.
+- Un pedido con delivery Moli genera el despacho cuando el comercio lo marca listo. El sistema busca automáticamente al conductor habilitado, conectado y disponible más cercano al comercio, respetando prioridad por tipo de vehículo.
+- Primera ronda: se ofrece exclusivamente a motos cercanas, ordenadas por distancia.
+- Si ninguna moto está disponible o acepta dentro del tiempo configurado, el despacho amplía la oferta a autos, taxis y otras clases habilitadas para delivery, también ordenadas por cercanía.
+- Si el pedido es delivery y no hay conductores disponibles, permanece en cola de despacho y se reintenta al conectarse uno; la interfaz nunca debe prometer asignación instantánea.
+- El mismo conductor usa su sesión Moli habitual y recibe una tarjeta de “Entrega de pedido”, sin otra cuenta ni aplicación.
+- Para delivery, la relación pedido-entrega debe ser idempotente: un pedido genera una sola solicitud activa, una sola asignación y una sola liquidación, incluso ante reintentos o doble toque.
 
 ## Repositorio y rama de recuperación
 
@@ -50,6 +64,8 @@ Moli reúne movilidad y contratación de servicios en una misma identidad:
 - Conductor QA
 - Profesional QA
 - Conductor-profesional QA
+- Comercio QA
+- Cliente Marketplace QA
 
 Los datos concretos de acceso se guardan en un almacén local/seguro, nunca en este archivo. Cada flujo debe registrar IDs de prueba, estados recorridos, resultado y defecto encontrado sin copiar tokens.
 
@@ -58,7 +74,8 @@ Los datos concretos de acceso se guardan en un almacén local/seguro, nunca en e
 1. Levantar y verificar backend/Mongo aislados.
 2. Crear identidades QA mediante APIs reales.
 3. Automatizar viajes, trabajos, trámites y despacho manual.
-4. Corregir fallas y ejecutar regresión.
-5. Construir APK de prueba apuntando a QA.
-6. Alinear `applicationId`, versionCode y firma con Play Console.
-7. Generar AAB y publicar primero en pista de prueba con autorización final.
+4. Implementar y automatizar alta de comercio, catálogo, carrito, pedido, preparación y entrega del Marketplace.
+5. Corregir fallas y ejecutar regresión.
+6. Construir APK de prueba apuntando a QA.
+7. Alinear `applicationId`, versionCode y firma con Play Console.
+8. Generar AAB y publicar primero en pista de prueba con autorización final.
