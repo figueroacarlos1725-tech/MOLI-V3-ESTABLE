@@ -66,8 +66,9 @@ export default function LoginScreen() {
           </TouchableOpacity>
 
           <View style={styles.headerSection}>
-            <Text style={styles.title}>Bienvenido{"\n"}de vuelta</Text>
-            <Text style={styles.subtitle}>Ingresá tus datos para continuar</Text>
+            <Text style={styles.brand}>Moli<Text style={styles.brandDot}>.</Text></Text>
+            <Text style={styles.title}>Qué bueno verte</Text>
+            <Text style={styles.subtitle}>Ingresá para seguir moviéndote con Moli.</Text>
           </View>
 
           <View style={styles.formSection}>
@@ -120,30 +121,30 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: MOLI_COLORS.white,
+    backgroundColor: MOLI_COLORS.surface,
   },
   keyboardView: {
     flex: 1,
   },
   scrollContent: {
     flexGrow: 1,
-    paddingHorizontal: 28,
+    paddingHorizontal: 24,
     paddingTop: 16,
   },
   backButton: {
     width: 44,
     height: 44,
     borderRadius: 12,
-    backgroundColor: MOLI_COLORS.offWhite,
+    backgroundColor: MOLI_COLORS.white,
     justifyContent: 'center',
     alignItems: 'center',
   },
   headerSection: {
-    marginTop: 36,
-    marginBottom: 40,
+    marginTop: 30,
+    marginBottom: 30,
   },
   title: {
-    fontSize: 34,
+    fontSize: 32,
     fontWeight: '800',
     color: MOLI_COLORS.darkGray,
     marginBottom: 8,
@@ -153,6 +154,8 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: MOLI_COLORS.mediumGray,
   },
+  brand: { color: MOLI_COLORS.navy, fontSize: 22, fontWeight: '900', letterSpacing: -0.5, marginBottom: 28 },
+  brandDot: { color: MOLI_COLORS.coral },
   formSection: {
     flex: 1,
   },
@@ -161,7 +164,7 @@ const styles = StyleSheet.create({
     marginBottom: 28,
   },
   forgotPasswordText: {
-    color: MOLI_COLORS.primary,
+    color: MOLI_COLORS.primaryDark,
     fontSize: 14,
     fontWeight: '600',
   },

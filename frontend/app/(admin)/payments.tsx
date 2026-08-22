@@ -48,7 +48,7 @@ export default function AdminPaymentsScreen() {
     } catch (e) {} finally { setSaving(false); }
   };
 
-  if (loading) return <SafeAreaView style={s.container}><ActivityIndicator size="large" color="#8E44AD" style={{marginTop:40}} /></SafeAreaView>;
+  if (loading) return <SafeAreaView style={s.container}><ActivityIndicator size="large" color="#E8492E" style={{marginTop:40}} /></SafeAreaView>;
 
   return (
     <SafeAreaView style={s.container}>
@@ -147,6 +147,6 @@ const s = StyleSheet.create({
   inputLabel:{fontSize:12,fontWeight:'600',color:'#666',marginBottom:4,marginTop:8},
   input:{backgroundColor:'#F9FAFB',borderWidth:1,borderColor:'#E5E5EA',borderRadius:8,paddingHorizontal:12,paddingVertical:10,fontSize:14},
   configuredHint:{fontSize:11,color:'#8E8E93',marginTop:4},
-  saveBtn:{backgroundColor:'#8E44AD',borderRadius:10,paddingVertical:14,alignItems:'center'},
+  saveBtn:{backgroundColor:'#E8492E',borderRadius:10,paddingVertical:14,alignItems:'center'},
   saveBtnText:{color:'#fff',fontWeight:'700',fontSize:16},
 });

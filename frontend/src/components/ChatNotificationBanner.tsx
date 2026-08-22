@@ -13,6 +13,7 @@ import { useRouter } from 'expo-router';
 import { socketService } from '@/src/services/socket';
 import { useAuthStore } from '@/src/stores/authStore';
 import { useRideStore } from '@/src/stores/rideStore';
+import { MOLI_COLORS, MOLI_RADIUS, MOLI_SHADOWS } from '@/src/theme/colors';
 
 interface IncomingMessage {
   message_id: string;
@@ -128,22 +129,23 @@ const styles = StyleSheet.create({
   content: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
-    borderRadius: 16,
+    backgroundColor: MOLI_COLORS.white,
+    borderRadius: MOLI_RADIUS.lg,
     padding: 14,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,
     shadowRadius: 12,
     elevation: 10,
-    borderLeftWidth: 4,
-    borderLeftColor: '#00C853',
+    borderWidth: 1,
+    borderColor: '#E7ECE9',
+    ...MOLI_SHADOWS.lg,
   },
   iconCircle: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#00C853',
+    backgroundColor: MOLI_COLORS.black,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -154,7 +156,7 @@ const styles = StyleSheet.create({
   senderName: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#1C1C1E',
+    color: MOLI_COLORS.black,
   },
   messagePreview: {
     fontSize: 14,

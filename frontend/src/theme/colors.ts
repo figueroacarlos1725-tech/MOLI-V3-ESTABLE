@@ -1,38 +1,45 @@
 /**
  * Moli Design System — Theme Constants
- * Green/Black identity inspired by the logo
+ * Moli visual language: warm, direct and professional.
+ * Brand: route-orange + charcoal. Semantic green is reserved for success.
  */
 
 export const MOLI_COLORS = {
   // Primary brand
-  primary: '#00C853',       // Moli green
-  primaryDark: '#00A843',   // Darker green for pressed states
-  primaryLight: '#B9F6CA',  // Light green tint
-  primaryGlow: 'rgba(0, 200, 83, 0.15)', // Subtle green background
+  primary: '#FF5A3C',
+  primaryDark: '#E54529',
+  primaryLight: '#FFD9D1',
+  primaryGlow: 'rgba(255, 90, 60, 0.11)',
+  navy: '#202124', // backwards-compatible name: now brand charcoal
+  navySoft: '#34363A',
+  indigo: '#FF5A3C', // backwards-compatible alias
+  coral: '#FF5A3C',
 
   // Neutrals
-  black: '#0D0D0D',
-  darkGray: '#1C1C1E',
-  gray: '#636366',
-  mediumGray: '#8E8E93',
-  lightGray: '#C7C7CC',
-  offWhite: '#F2F2F7',
+  black: '#202124',
+  darkGray: '#2E3033',
+  gray: '#64666B',
+  mediumGray: '#8A8D91',
+  lightGray: '#DDDED9',
+  offWhite: '#F5F4F1',
   white: '#FFFFFF',
 
   // Semantic
-  success: '#34C759',
-  warning: '#FF9500',
-  error: '#FF3B30',
-  info: '#007AFF',
+  success: '#19A974',
+  warning: '#F4A340',
+  error: '#E94F5F',
+  info: '#4676ED',
 
   // Surfaces
   cardBg: '#FFFFFF',
-  surfaceDark: '#1A1A1A',
-  overlay: 'rgba(0, 0, 0, 0.6)',
+  surface: '#FAF9F6',
+  surfaceRaised: '#FFFFFF',
+  surfaceDark: '#202124',
+  overlay: 'rgba(32, 33, 36, 0.58)',
 
   // Accent (secondary for driver-specific)
-  accent: '#00C853',
-  accentLight: 'rgba(0, 200, 83, 0.1)',
+  accent: '#FF5A3C',
+  accentLight: 'rgba(255, 90, 60, 0.10)',
 };
 
 export const MOLI_SHADOWS = {

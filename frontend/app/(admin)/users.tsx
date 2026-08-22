@@ -221,7 +221,7 @@ export default function AdminUsersScreen() {
         ))}
       </View>
 
-      {loading ? <ActivityIndicator size="large" color="#8E44AD" style={{marginTop:40}} /> :
+      {loading ? <ActivityIndicator size="large" color="#E8492E" style={{marginTop:40}} /> :
         <ScrollView contentContainerStyle={s.list}>
           {users.map(u => <UserCard key={u.user_id} u={u} />)}
           {users.length === 0 && <Text style={s.emptyText}>No se encontraron usuarios</Text>}
@@ -334,7 +334,7 @@ export default function AdminUsersScreen() {
                 </>}
 
                 <TouchableOpacity style={s.auditBtn} onPress={() => fetchAuditLogs(selectedUser.user_id)}>
-                  <Ionicons name="time" size={18} color="#8E44AD" />
+                  <Ionicons name="time" size={18} color="#E8492E" />
                   <Text style={s.auditBtnText}>Ver historial de cambios</Text>
                 </TouchableOpacity>
 
@@ -418,25 +418,25 @@ const s = StyleSheet.create({
   container:{flex:1,backgroundColor:'#F2F2F7'},
   header:{flexDirection:'row',justifyContent:'space-between',alignItems:'center',padding:16,backgroundColor:'#fff',borderBottomWidth:1,borderBottomColor:'#E5E5EA'},
   title:{fontSize:24,fontWeight:'bold',color:'#1C1C1E'},
-  addBtn:{flexDirection:'row',alignItems:'center',backgroundColor:'#8E44AD',paddingHorizontal:14,paddingVertical:8,borderRadius:8,gap:4},
+  addBtn:{flexDirection:'row',alignItems:'center',backgroundColor:'#E8492E',paddingHorizontal:14,paddingVertical:8,borderRadius:8,gap:4},
   addBtnText:{color:'#fff',fontWeight:'600',fontSize:14},
   searchRow:{padding:12,backgroundColor:'#fff'},
   searchBox:{flexDirection:'row',alignItems:'center',backgroundColor:'#F2F2F7',borderRadius:10,paddingHorizontal:12,gap:8},
   searchInput:{flex:1,paddingVertical:10,fontSize:15},
   filterRow:{flexDirection:'row',paddingHorizontal:12,paddingVertical:8,gap:8},
   filterBtn:{paddingHorizontal:14,paddingVertical:6,borderRadius:20,backgroundColor:'#E5E5EA'},
-  filterBtnActive:{backgroundColor:'#8E44AD'},
+  filterBtnActive:{backgroundColor:'#E8492E'},
   filterBtnText:{fontSize:13,fontWeight:'600',color:'#666'},
   filterBtnTextActive:{color:'#fff'},
   list:{padding:12,gap:10},
   userCard:{backgroundColor:'#fff',borderRadius:12,padding:14},
   userCardHeader:{flexDirection:'row',alignItems:'center',gap:10},
   avatar:{width:40,height:40,borderRadius:20,justifyContent:'center',alignItems:'center'},
-  avatarRider:{backgroundColor:'#00C853'},avatarDriver:{backgroundColor:'#3B82F6'},avatarAdmin:{backgroundColor:'#8E44AD'},
+  avatarRider:{backgroundColor:'#FF5A3C'},avatarDriver:{backgroundColor:'#3B82F6'},avatarAdmin:{backgroundColor:'#E8492E'},
   userName:{fontSize:16,fontWeight:'600',color:'#1C1C1E'},
   userEmail:{fontSize:13,color:'#8E8E93'},
   badge:{paddingHorizontal:8,paddingVertical:2,borderRadius:10},
-  badgeRider:{backgroundColor:'#E8F5E9'},badgeDriver:{backgroundColor:'#E3F2FD'},badgeAdmin:{backgroundColor:'#F3E5F5'},
+  badgeRider:{backgroundColor:'#FFF0EC'},badgeDriver:{backgroundColor:'#E3F2FD'},badgeAdmin:{backgroundColor:'#FFF0EC'},
   badgeText:{fontSize:11,fontWeight:'700'},
   blockedText:{fontSize:10,fontWeight:'700',color:'#EF4444',marginTop:2},
   onlineDot:{width:8,height:8,borderRadius:4,backgroundColor:'#10B981',marginTop:4},
@@ -450,31 +450,31 @@ const s = StyleSheet.create({
   modalHeader:{flexDirection:'row',justifyContent:'space-between',alignItems:'center',marginBottom:16},
   modalTitle:{fontSize:20,fontWeight:'bold',color:'#1C1C1E'},
   section:{marginBottom:20,padding:14,backgroundColor:'#F9FAFB',borderRadius:12},
-  sectionTitle:{fontSize:14,fontWeight:'700',color:'#8E44AD',marginBottom:10,textTransform:'uppercase'},
+  sectionTitle:{fontSize:14,fontWeight:'700',color:'#E8492E',marginBottom:10,textTransform:'uppercase'},
   input:{backgroundColor:'#fff',borderWidth:1,borderColor:'#E5E5EA',borderRadius:8,paddingHorizontal:12,paddingVertical:10,fontSize:15,marginBottom:8},
   infoRow:{fontSize:14,color:'#666',marginBottom:4},
-  saveBtn:{backgroundColor:'#8E44AD',borderRadius:8,paddingVertical:12,alignItems:'center',marginTop:6},
+  saveBtn:{backgroundColor:'#E8492E',borderRadius:8,paddingVertical:12,alignItems:'center',marginTop:6},
   saveBtnText:{color:'#fff',fontWeight:'700',fontSize:14},
   balanceRow:{flexDirection:'row',gap:12},
   balanceCard:{flex:1,backgroundColor:'#fff',borderRadius:10,padding:12,alignItems:'center'},
   balanceLabel:{fontSize:12,color:'#8E8E93',fontWeight:'600'},
   balanceValue:{fontSize:20,fontWeight:'bold',color:'#10B981',marginVertical:4},
-  smallBtn:{backgroundColor:'#8E44AD',paddingHorizontal:14,paddingVertical:6,borderRadius:6},
+  smallBtn:{backgroundColor:'#E8492E',paddingHorizontal:14,paddingVertical:6,borderRadius:6},
   smallBtnText:{color:'#fff',fontSize:12,fontWeight:'600'},
   radioRow:{flexDirection:'row',gap:8,marginBottom:10,flexWrap:'wrap'},
   radioBtn:{paddingHorizontal:14,paddingVertical:8,borderRadius:8,backgroundColor:'#E5E5EA'},
-  radioBtnActive:{backgroundColor:'#8E44AD'},
+  radioBtnActive:{backgroundColor:'#E8492E'},
   radioBtnText:{fontSize:13,fontWeight:'600',color:'#666'},
   radioBtnTextActive:{color:'#fff'},
   blockedBanner:{backgroundColor:'#FEE2E2',color:'#EF4444',fontWeight:'700',textAlign:'center',padding:10,borderRadius:8,marginBottom:8},
   auditBtn:{flexDirection:'row',alignItems:'center',justifyContent:'center',gap:8,paddingVertical:12,marginBottom:16},
-  auditBtnText:{color:'#8E44AD',fontWeight:'600',fontSize:14},
+  auditBtnText:{color:'#E8492E',fontWeight:'600',fontSize:14},
   auditItem:{backgroundColor:'#fff',borderRadius:8,padding:10,marginBottom:6},
   auditAction:{fontSize:13,fontWeight:'700',color:'#1C1C1E'},
   auditBy:{fontSize:11,color:'#8E8E93'},
   auditChanges:{fontSize:11,color:'#666',marginTop:2},
   auditDate:{fontSize:10,color:'#8E8E93',marginTop:2},
   serviceChip:{flexDirection:'row',alignItems:'center',gap:6,paddingHorizontal:14,paddingVertical:10,borderRadius:10,backgroundColor:'#F2F2F7',borderWidth:1.5,borderColor:'#E5E5EA'},
-  serviceChipActive:{backgroundColor:'#8E44AD',borderColor:'#8E44AD'},
+  serviceChipActive:{backgroundColor:'#E8492E',borderColor:'#E8492E'},
   serviceChipText:{fontSize:13,fontWeight:'600',color:'#666'},
 });

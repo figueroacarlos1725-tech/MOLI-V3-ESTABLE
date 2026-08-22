@@ -18,7 +18,7 @@ const CATEGORIES = [
   { id: 'limpieza', name: 'Limpieza', icon: 'sparkles', color: '#34C759' },
   { id: 'mudanza', name: 'Mudanza', icon: 'cube', color: '#AF52DE' },
   { id: 'pintura', name: 'Pintura', icon: 'color-palette', color: '#FF3B30' },
-  { id: 'jardineria', name: 'Jardinería', icon: 'leaf', color: '#00C853' },
+  { id: 'jardineria', name: 'Jardinería', icon: 'leaf', color: '#FF5A3C' },
   { id: 'carpinteria', name: 'Carpintería', icon: 'hammer', color: '#8B4513' },
   { id: 'mecanica', name: 'Mecánica', icon: 'construct', color: '#636366' },
   { id: 'tecnologia', name: 'Tecnología', icon: 'laptop', color: '#5856D6' },
@@ -248,7 +248,7 @@ export default function RequestJobScreen() {
               <View>
                 <Text style={s.label}>Ubicación</Text>
                 <View style={s.locationRow}>
-                  <Ionicons name="location" size={20} color="#00C853" />
+                  <Ionicons name="location" size={20} color="#FF5A3C" />
                   <Text style={{ flex: 1, fontSize: 14, color: '#1C1C1E' }}>{address}</Text>
                 </View>
               </View>
@@ -266,7 +266,7 @@ export default function RequestJobScreen() {
   }
 
   // ── Snake Game HTML ──
-  const snakeGameHtml = `<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>*{margin:0;padding:0;box-sizing:border-box}body{background:#F8F8FA;display:flex;justify-content:center;align-items:center;height:100vh;font-family:system-ui}canvas{background:#1C1C1E;border-radius:16px;touch-action:none}#score{color:#8E8E93;font-size:13px;text-align:center;margin-top:8px;font-weight:600}.wrap{text-align:center}h3{color:#8E8E93;font-size:11px;margin-bottom:8px;text-transform:uppercase;letter-spacing:1px}</style></head><body><div class="wrap"><h3>Deslizá para jugar</h3><canvas id="c" width="240" height="240"></canvas><div id="score">Puntos: 0</div></div><script>var c=document.getElementById('c'),x=c.getContext('2d'),s=12,w=c.width/s,h=c.height/s,snake=[{x:10,y:10}],dir={x:1,y:0},food={x:5,y:5},score=0,started=false;function draw(){x.fillStyle='#1C1C1E';x.fillRect(0,0,c.width,c.height);x.fillStyle='#00C853';snake.forEach(function(p){x.fillRect(p.x*s+1,p.y*s+1,s-2,s-2)});x.fillStyle='#FF3B30';x.fillRect(food.x*s+1,food.y*s+1,s-2,s-2)}function move(){var head={x:snake[0].x+dir.x,y:snake[0].y+dir.y};head.x=(head.x+w)%w;head.y=(head.y+h)%h;for(var i=0;i<snake.length;i++){if(snake[i].x===head.x&&snake[i].y===head.y){snake=[{x:10,y:10}];dir={x:1,y:0};score=0;document.getElementById('score').textContent='Puntos: 0';return}}snake.unshift(head);if(head.x===food.x&&head.y===food.y){score++;document.getElementById('score').textContent='Puntos: '+score;food={x:Math.floor(Math.random()*w),y:Math.floor(Math.random()*h)}}else{snake.pop()}}function loop(){move();draw();setTimeout(loop,120)}var tx,ty;c.addEventListener('touchstart',function(e){tx=e.touches[0].clientX;ty=e.touches[0].clientY;if(!started){started=true;loop()}});c.addEventListener('touchend',function(e){var dx=e.changedTouches[0].clientX-tx,dy=e.changedTouches[0].clientY-ty;if(Math.abs(dx)>Math.abs(dy)){dir=dx>0?{x:1,y:0}:{x:-1,y:0}}else{dir=dy>0?{x:0,y:1}:{x:0,y:-1}}});draw()</script></body></html>`;
+  const snakeGameHtml = `<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>*{margin:0;padding:0;box-sizing:border-box}body{background:#F8F8FA;display:flex;justify-content:center;align-items:center;height:100vh;font-family:system-ui}canvas{background:#1C1C1E;border-radius:16px;touch-action:none}#score{color:#8E8E93;font-size:13px;text-align:center;margin-top:8px;font-weight:600}.wrap{text-align:center}h3{color:#8E8E93;font-size:11px;margin-bottom:8px;text-transform:uppercase;letter-spacing:1px}</style></head><body><div class="wrap"><h3>Deslizá para jugar</h3><canvas id="c" width="240" height="240"></canvas><div id="score">Puntos: 0</div></div><script>var c=document.getElementById('c'),x=c.getContext('2d'),s=12,w=c.width/s,h=c.height/s,snake=[{x:10,y:10}],dir={x:1,y:0},food={x:5,y:5},score=0,started=false;function draw(){x.fillStyle='#1C1C1E';x.fillRect(0,0,c.width,c.height);x.fillStyle='#FF5A3C';snake.forEach(function(p){x.fillRect(p.x*s+1,p.y*s+1,s-2,s-2)});x.fillStyle='#FF3B30';x.fillRect(food.x*s+1,food.y*s+1,s-2,s-2)}function move(){var head={x:snake[0].x+dir.x,y:snake[0].y+dir.y};head.x=(head.x+w)%w;head.y=(head.y+h)%h;for(var i=0;i<snake.length;i++){if(snake[i].x===head.x&&snake[i].y===head.y){snake=[{x:10,y:10}];dir={x:1,y:0};score=0;document.getElementById('score').textContent='Puntos: 0';return}}snake.unshift(head);if(head.x===food.x&&head.y===food.y){score++;document.getElementById('score').textContent='Puntos: '+score;food={x:Math.floor(Math.random()*w),y:Math.floor(Math.random()*h)}}else{snake.pop()}}function loop(){move();draw();setTimeout(loop,120)}var tx,ty;c.addEventListener('touchstart',function(e){tx=e.touches[0].clientX;ty=e.touches[0].clientY;if(!started){started=true;loop()}});c.addEventListener('touchend',function(e){var dx=e.changedTouches[0].clientX-tx,dy=e.changedTouches[0].clientY-ty;if(Math.abs(dx)>Math.abs(dy)){dir=dx>0?{x:1,y:0}:{x:-1,y:0}}else{dir=dy>0?{x:0,y:1}:{x:0,y:-1}}});draw()</script></body></html>`;
 
   // ── PHASE: SEARCHING ──
   if (phase === 'searching') {
@@ -276,7 +276,7 @@ export default function RequestJobScreen() {
           {/* Budget display */}
           <View style={{ alignItems: 'center', marginTop: 12 }}>
             <Text style={{ fontSize: 13, color: '#8E8E93' }}>Tu presupuesto</Text>
-            <Text style={{ fontSize: 32, fontWeight: '800', color: '#00C853' }}>${budget}</Text>
+            <Text style={{ fontSize: 32, fontWeight: '800', color: '#FF5A3C' }}>${budget}</Text>
           </View>
 
           {/* Status message */}
@@ -303,7 +303,7 @@ export default function RequestJobScreen() {
               </>
             ) : (
               <>
-                <ActivityIndicator size="large" color="#00C853" style={{ marginBottom: 12 }} />
+                <ActivityIndicator size="large" color="#FF5A3C" style={{ marginBottom: 12 }} />
                 <Text style={{ fontSize: 18, fontWeight: '800', color: '#1C1C1E', textAlign: 'center' }}>
                   Buscando {catData?.name?.toLowerCase() || 'profesional'}...
                 </Text>
@@ -349,8 +349,8 @@ export default function RequestJobScreen() {
     return (
       <SafeAreaView style={s.container}>
         <View style={[s.center, { padding: 40 }]}>
-          <View style={{ width: 80, height: 80, borderRadius: 40, backgroundColor: 'rgba(0,200,83,0.1)', justifyContent: 'center', alignItems: 'center' }}>
-            <Ionicons name="checkmark-circle" size={48} color="#00C853" />
+          <View style={{ width: 80, height: 80, borderRadius: 40, backgroundColor: 'rgba(255,90,60,0.10)', justifyContent: 'center', alignItems: 'center' }}>
+            <Ionicons name="checkmark-circle" size={48} color="#FF5A3C" />
           </View>
           <Text style={{ fontSize: 22, fontWeight: '800', color: '#1C1C1E', marginTop: 20, textAlign: 'center' }}>
             ¡Profesional encontrado!
@@ -358,7 +358,7 @@ export default function RequestJobScreen() {
           <Text style={{ fontSize: 16, color: '#636366', marginTop: 8, textAlign: 'center' }}>
             {professional?.name || 'Un profesional'} aceptó tu trabajo
           </Text>
-          <Text style={{ fontSize: 28, fontWeight: '800', color: '#00C853', marginTop: 8 }}>${budget}</Text>
+          <Text style={{ fontSize: 28, fontWeight: '800', color: '#FF5A3C', marginTop: 8 }}>${budget}</Text>
           <TouchableOpacity
             style={[s.submitBtn, { marginTop: 24 }]}
             onPress={() => {
@@ -396,7 +396,7 @@ const s = StyleSheet.create({
   priceRow: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#F2F2F7', borderRadius: 14, paddingHorizontal: 16, paddingVertical: 10 },
   priceInput: { flex: 1, fontSize: 28, fontWeight: '800', color: '#1C1C1E' },
   locationRow: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#F2F2F7', borderRadius: 14, padding: 14 },
-  submitBtn: { flexDirection: 'row', backgroundColor: '#00C853', paddingVertical: 18, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  submitBtn: { flexDirection: 'row', backgroundColor: '#FF5A3C', paddingVertical: 18, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
   submitBtnText: { color: '#fff', fontSize: 17, fontWeight: '700' },
   cancelBtn: { marginTop: 24, paddingVertical: 14 },
 });

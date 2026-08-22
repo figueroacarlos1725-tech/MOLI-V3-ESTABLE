@@ -5,17 +5,13 @@ import {
   StyleSheet,
   TouchableOpacity,
   SafeAreaView,
-  Dimensions,
-  Image,
   Linking,
   Animated,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Button } from '@/src/components/Button';
-import { MOLI_COLORS, MOLI_RADIUS } from '@/src/theme/colors';
-
-const { width } = Dimensions.get('window');
+import { MOLI_COLORS } from '@/src/theme/colors';
 
 export default function WelcomeScreen() {
   const router = useRouter();
@@ -32,25 +28,28 @@ export default function WelcomeScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
+        <View style={styles.orbTop} />
+        <View style={styles.orbBottom} />
         {/* Hero */}
         <Animated.View style={[styles.heroSection, { opacity: fadeAnim }]}>
-          <Image
-            source={require('../../assets/icon.png')}
-            style={styles.logo}
-            resizeMode="contain"
-          />
+          <View style={styles.brandRow}>
+            <View style={styles.routePin}><Text style={styles.routeM}>M</Text><View style={styles.pinTip} /></View>
+            <Text style={styles.wordmark}>Moli</Text>
+          </View>
         </Animated.View>
 
-        <Animated.Text style={[styles.subtitle, { opacity: fadeAnim }]}>
-          Movete libre por tu ciudad
-        </Animated.Text>
+        <Animated.View style={{ opacity: fadeAnim }}>
+          <Text style={styles.eyebrow}>TU CIUDAD, MÁS CERCA</Text>
+          <Text style={styles.headline}>Todo lo que necesitás, en movimiento.</Text>
+          <Text style={styles.subtitle}>Viajá, pedí un servicio o recibí tus compras desde un solo lugar.</Text>
+        </Animated.View>
 
         {/* Features */}
         <Animated.View style={[styles.featuresSection, { opacity: fadeAnim }]}>
           {[
-            { icon: 'navigate', text: 'Viajes seguros en tiempo real' },
-            { icon: 'flash', text: 'Llegamos en minutos' },
-            { icon: 'wallet', text: 'Pagá como quieras' },
+            { icon: 'navigate', text: 'Viajes y envíos en tiempo real' },
+            { icon: 'construct', text: 'Profesionales verificados' },
+            { icon: 'storefront', text: 'Comercios de tu ciudad' },
           ].map((f, i) => (
             <View key={i} style={styles.featureItem}>
               <View style={styles.featureIcon}>
@@ -77,6 +76,7 @@ export default function WelcomeScreen() {
             variant="outline"
             size="large"
             style={{ ...styles.button, ...styles.outlineBtn }}
+            textStyle={styles.outlineText}
           />
         </Animated.View>
 
@@ -93,7 +93,7 @@ export default function WelcomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: MOLI_COLORS.surface,
   },
   content: {
     flex: 1,
@@ -103,22 +103,28 @@ const styles = StyleSheet.create({
   },
   heroSection: {
     alignItems: 'center',
-    marginBottom: 8,
+    alignItems: 'flex-start',
+    marginBottom: 10,
   },
-  logo: {
-    width: 120,
-    height: 120,
-    borderRadius: 28,
+  brandRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+  routePin: { width: 50, height: 50, borderRadius: 17, borderBottomRightRadius: 26, backgroundColor: MOLI_COLORS.primary, alignItems: 'center', justifyContent: 'center', transform: [{ rotate: '8deg' }] },
+  pinTip: { position: 'absolute', right: 3, bottom: -4, width: 12, height: 12, backgroundColor: MOLI_COLORS.primary, transform: [{ rotate: '22deg' }] },
+  routeM: { color: '#fff', fontWeight: '900', fontSize: 24, zIndex: 2, transform: [{ rotate: '-8deg' }] },
+  wordmark: { color: MOLI_COLORS.black, fontSize: 38, fontWeight: '900', letterSpacing: -1 },
+  eyebrow: { color: MOLI_COLORS.primaryDark, fontWeight: '800', fontSize: 12, letterSpacing: 1.8, marginBottom: 10 },
+  headline: { color: MOLI_COLORS.black, fontSize: 34, lineHeight: 40, fontWeight: '800', maxWidth: 480 },
+  orbTop: { position: 'absolute', width: 300, height: 300, borderRadius: 150, backgroundColor: 'rgba(255,90,60,.08)', top: -140, right: -130 },
+  orbBottom: { position: 'absolute', width: 260, height: 260, borderRadius: 130, backgroundColor: 'rgba(32,33,36,.035)', bottom: -150, left: -100 },
   },
   subtitle: {
     fontSize: 17,
-    color: MOLI_COLORS.mediumGray,
-    textAlign: 'center',
-    marginBottom: 40,
+    color: MOLI_COLORS.gray,
+    marginTop: 12,
+    marginBottom: 28,
     letterSpacing: 0.3,
   },
   featuresSection: {
-    marginBottom: 48,
+    marginBottom: 32,
     gap: 16,
   },
   featureItem: {
@@ -130,7 +136,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 12,
-    backgroundColor: 'rgba(0, 200, 83, 0.1)',
+    backgroundColor: MOLI_COLORS.primaryGlow,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -150,7 +156,9 @@ const styles = StyleSheet.create({
   },
   outlineBtn: {
     borderColor: MOLI_COLORS.lightGray,
+    backgroundColor: MOLI_COLORS.white,
   },
+  outlineText: { color: MOLI_COLORS.darkGray },
   termsText: {
     fontSize: 12,
     color: MOLI_COLORS.mediumGray,

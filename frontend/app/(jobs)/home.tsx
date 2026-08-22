@@ -13,7 +13,7 @@ import { useAuthStore } from '@/src/stores/authStore';
 import { socketService } from '@/src/services/socket';
 
 const { width } = Dimensions.get('window');
-const GREEN = '#00C853';
+const GREEN = '#FF5A3C';
 const REVIEW_SECONDS = 30;
 
 const CAT_ICONS: Record<string, { icon: string; color: string }> = {
@@ -22,7 +22,7 @@ const CAT_ICONS: Record<string, { icon: string; color: string }> = {
   limpieza: { icon: '✨', color: '#34C759' },
   mudanza: { icon: '📦', color: '#AF52DE' },
   pintura: { icon: '🎨', color: '#FF3B30' },
-  jardineria: { icon: '🌿', color: '#00C853' },
+  jardineria: { icon: '🌿', color: '#FF5A3C' },
   carpinteria: { icon: '🔨', color: '#8B4513' },
   mecanica: { icon: '🔩', color: '#636366' },
   tecnologia: { icon: '💻', color: '#5856D6' },
@@ -234,7 +234,7 @@ var markers=[];
 function clearMarkers(){markers.forEach(m=>map.removeLayer(m));markers=[];}
 function addJobMarker(lat,lng,jobId,emoji,title,budget,cat){
   var icon=L.divIcon({
-    html:'<div style="width:44px;height:44px;border-radius:14px;background:#fff;display:flex;align-items:center;justify-content:center;font-size:22px;box-shadow:0 2px 8px rgba(0,0,0,0.15);border:2px solid #00C853">'+emoji+'</div>',
+    html:'<div style="width:44px;height:44px;border-radius:14px;background:#fff;display:flex;align-items:center;justify-content:center;font-size:22px;box-shadow:0 2px 8px rgba(0,0,0,0.15);border:2px solid #FF5A3C">'+emoji+'</div>',
     className:'',iconSize:[44,44],iconAnchor:[22,44]
   });
   var m=L.marker([lat,lng],{icon:icon}).addTo(map);
@@ -313,7 +313,7 @@ function addJobMarker(lat,lng,jobId,emoji,title,budget,cat){
         <View style={{ backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#E5E5EA', paddingHorizontal: 12, paddingVertical: 8 }}>
           <Text style={{ fontSize: 13, fontWeight: '700', color: '#1C1C1E', marginBottom: 4 }}>Mis trabajos activos</Text>
           {myActiveJobs.map(j => (
-            <TouchableOpacity key={j.job_id} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#E8F5E9', borderRadius: 10, padding: 10, marginBottom: 4, gap: 8 }}
+            <TouchableOpacity key={j.job_id} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF0EC', borderRadius: 10, padding: 10, marginBottom: 4, gap: 8 }}
               onPress={() => { setAcceptedJob(j); }}>
               <Ionicons name="briefcase" size={18} color={GREEN} />
               <View style={{ flex: 1 }}>
@@ -534,7 +534,7 @@ function addJobMarker(lat,lng,jobId,emoji,title,budget,cat){
             <ScrollView showsVerticalScrollIndicator={false}>
               {/* Success header */}
               <View style={{ alignItems: 'center', marginBottom: 16 }}>
-                <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: '#E8F5E9', justifyContent: 'center', alignItems: 'center', marginBottom: 12 }}>
+                <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: '#FFF0EC', justifyContent: 'center', alignItems: 'center', marginBottom: 12 }}>
                   <Ionicons name="checkmark-circle" size={40} color={GREEN} />
                 </View>
                 <Text style={{ fontSize: 22, fontWeight: '800', color: '#1C1C1E' }}>¡Trabajo aceptado!</Text>
@@ -560,7 +560,7 @@ function addJobMarker(lat,lng,jobId,emoji,title,budget,cat){
               {/* Location */}
               {acceptedJob?.address ? (
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#F8F8FA', borderRadius: 14, padding: 14, marginBottom: 12 }}>
-                  <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: '#E8F5E9', justifyContent: 'center', alignItems: 'center' }}>
+                  <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: '#FFF0EC', justifyContent: 'center', alignItems: 'center' }}>
                     <Ionicons name="navigate" size={20} color={GREEN} />
                   </View>
                   <View style={{ flex: 1 }}>
@@ -663,7 +663,7 @@ const s = StyleSheet.create({
   // Alert popup
   alertOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center', padding: 24 },
   alertCard: { width: '100%', backgroundColor: '#fff', borderRadius: 24, padding: 28, alignItems: 'center' },
-  alertPulse: { width: 72, height: 72, borderRadius: 22, backgroundColor: '#E8F5E9', justifyContent: 'center', alignItems: 'center', marginBottom: 16 },
+  alertPulse: { width: 72, height: 72, borderRadius: 22, backgroundColor: '#FFF0EC', justifyContent: 'center', alignItems: 'center', marginBottom: 16 },
   alertTitle: { fontSize: 20, fontWeight: '800', color: '#1C1C1E', marginBottom: 8 },
   alertJobTitle: { fontSize: 16, fontWeight: '600', color: '#1C1C1E' },
   alertBudget: { fontSize: 28, fontWeight: '800', color: GREEN, marginTop: 4 },
@@ -692,7 +692,7 @@ const s = StyleSheet.create({
   acceptBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 16, borderRadius: 14, backgroundColor: GREEN },
   acceptBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
 
-  setupIcon: { width: 80, height: 80, borderRadius: 24, backgroundColor: 'rgba(0,200,83,0.1)', justifyContent: 'center', alignItems: 'center', marginBottom: 20 },
+  setupIcon: { width: 80, height: 80, borderRadius: 24, backgroundColor: 'rgba(255,90,60,0.10)', justifyContent: 'center', alignItems: 'center', marginBottom: 20 },
   setupTitle: { fontSize: 22, fontWeight: '800', color: '#1C1C1E', textAlign: 'center' },
   setupSubtitle: { fontSize: 15, color: '#8E8E93', textAlign: 'center', marginTop: 8, paddingHorizontal: 40, lineHeight: 22 },
   setupBtn: { backgroundColor: GREEN, paddingHorizontal: 32, paddingVertical: 16, borderRadius: 14, marginTop: 28 },

@@ -83,7 +83,7 @@ export default function AdminCouponsScreen() {
     }, 'Eliminar');
   };
 
-  if (loading) return <SafeAreaView style={s.container}><ActivityIndicator size="large" color="#8E44AD" style={{marginTop:40}} /></SafeAreaView>;
+  if (loading) return <SafeAreaView style={s.container}><ActivityIndicator size="large" color="#E8492E" style={{marginTop:40}} /></SafeAreaView>;
 
   return (
     <SafeAreaView style={s.container}>
@@ -118,7 +118,7 @@ export default function AdminCouponsScreen() {
             </View>
             <View style={s.cardActions}>
               <TouchableOpacity style={s.editBtn} onPress={() => openEdit(c)}>
-                <Ionicons name="pencil" size={16} color="#8E44AD" />
+                <Ionicons name="pencil" size={16} color="#E8492E" />
                 <Text style={s.editBtnText}>Editar</Text>
               </TouchableOpacity>
               <TouchableOpacity style={s.deleteBtn} onPress={() => handleDelete(c.coupon_id, c.code)}>
@@ -153,7 +153,7 @@ export default function AdminCouponsScreen() {
               <TextInput style={s.input} value={form.description} onChangeText={v => setForm({...form,description:v})} placeholder="Descripción" />
               <View style={s.switchRow}>
                 <Text style={s.switchLabel}>Activo</Text>
-                <Switch value={form.active} onValueChange={v => setForm({...form,active:v})} trackColor={{true:'#8E44AD'}} />
+                <Switch value={form.active} onValueChange={v => setForm({...form,active:v})} trackColor={{true:'#E8492E'}} />
               </View>
               <View style={{flexDirection:'row',gap:10,marginTop:16}}>
                 <TouchableOpacity style={[s.btn,s.btnCancel]} onPress={() => setShowModal(false)}>
@@ -175,14 +175,14 @@ const s = StyleSheet.create({
   container:{flex:1,backgroundColor:'#F2F2F7'},
   header:{flexDirection:'row',justifyContent:'space-between',alignItems:'center',padding:16,backgroundColor:'#fff',borderBottomWidth:1,borderBottomColor:'#E5E5EA'},
   title:{fontSize:24,fontWeight:'bold',color:'#1C1C1E'},
-  addBtn:{flexDirection:'row',alignItems:'center',backgroundColor:'#8E44AD',paddingHorizontal:14,paddingVertical:8,borderRadius:8,gap:4},
+  addBtn:{flexDirection:'row',alignItems:'center',backgroundColor:'#E8492E',paddingHorizontal:14,paddingVertical:8,borderRadius:8,gap:4},
   addBtnText:{color:'#fff',fontWeight:'600',fontSize:14},
   list:{padding:12,gap:12},
   empty:{textAlign:'center',color:'#8E8E93',marginTop:40,fontSize:16},
   card:{backgroundColor:'#fff',borderRadius:14,padding:14},
   cardTop:{flexDirection:'row',alignItems:'center'},
-  codeBox:{backgroundColor:'#F3E8FF',paddingHorizontal:14,paddingVertical:8,borderRadius:8,borderWidth:2,borderColor:'#8E44AD',borderStyle:'dashed'},
-  codeText:{fontSize:16,fontWeight:'800',color:'#8E44AD',letterSpacing:1},
+  codeBox:{backgroundColor:'#FFF0EC',paddingHorizontal:14,paddingVertical:8,borderRadius:8,borderWidth:2,borderColor:'#E8492E',borderStyle:'dashed'},
+  codeText:{fontSize:16,fontWeight:'800',color:'#E8492E',letterSpacing:1},
   discountText:{fontSize:18,fontWeight:'700',color:'#1C1C1E'},
   descText:{fontSize:13,color:'#8E8E93'},
   statusDot:{width:12,height:12,borderRadius:6},
@@ -190,7 +190,7 @@ const s = StyleSheet.create({
   cardStats:{flexDirection:'row',gap:16,marginTop:10,paddingTop:10,borderTopWidth:1,borderTopColor:'#F2F2F7'},
   stat:{fontSize:12,color:'#8E8E93',fontWeight:'600'},
   cardActions:{flexDirection:'row',gap:12,marginTop:10,justifyContent:'flex-end'},
-  editBtn:{flexDirection:'row',alignItems:'center',gap:4},editBtnText:{color:'#8E44AD',fontSize:13,fontWeight:'600'},
+  editBtn:{flexDirection:'row',alignItems:'center',gap:4},editBtnText:{color:'#E8492E',fontSize:13,fontWeight:'600'},
   deleteBtn:{flexDirection:'row',alignItems:'center',gap:4},deleteBtnText:{color:'#EF4444',fontSize:13,fontWeight:'600'},
   modalOverlay:{flex:1,backgroundColor:'rgba(0,0,0,0.5)',justifyContent:'center',alignItems:'center',padding:16},
   modalContent:{backgroundColor:'#fff',borderRadius:16,padding:20,width:'100%',maxWidth:450,maxHeight:'85%'},
@@ -199,11 +199,11 @@ const s = StyleSheet.create({
   label:{fontSize:12,fontWeight:'600',color:'#666',marginBottom:6},
   radioRow:{flexDirection:'row',gap:8,marginBottom:12},
   radioBtn:{paddingHorizontal:14,paddingVertical:8,borderRadius:8,backgroundColor:'#E5E5EA'},
-  radioBtnActive:{backgroundColor:'#8E44AD'},
+  radioBtnActive:{backgroundColor:'#E8492E'},
   radioBtnText:{fontSize:13,fontWeight:'600',color:'#666'},radioBtnTextActive:{color:'#fff'},
   switchRow:{flexDirection:'row',justifyContent:'space-between',alignItems:'center',marginTop:8},
   switchLabel:{fontSize:14,color:'#1C1C1E'},
   btn:{flex:1,paddingVertical:12,borderRadius:8,alignItems:'center'},
-  btnCancel:{backgroundColor:'#F2F2F7'},btnSave:{backgroundColor:'#8E44AD'},
+  btnCancel:{backgroundColor:'#F2F2F7'},btnSave:{backgroundColor:'#E8492E'},
   btnCancelText:{color:'#666',fontWeight:'600'},btnSaveText:{color:'#fff',fontWeight:'700'},
 });

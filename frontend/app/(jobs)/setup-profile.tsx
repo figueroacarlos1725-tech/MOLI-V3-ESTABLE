@@ -83,9 +83,9 @@ export default function SetupProfileScreen() {
                   style={[s.catOption, isSelected && s.catOptionSelected]}
                   onPress={() => toggleCat(cat.id)}
                 >
-                  <Ionicons name={cat.icon as any} size={24} color={isSelected ? '#00C853' : '#8E8E93'} />
+                  <Ionicons name={cat.icon as any} size={24} color={isSelected ? '#FF5A3C' : '#8E8E93'} />
                   <Text style={[s.catOptionText, isSelected && s.catOptionTextSelected]}>{cat.name}</Text>
-                  {isSelected && <Ionicons name="checkmark-circle" size={18} color="#00C853" style={{ position: 'absolute', top: 8, right: 8 }} />}
+                  {isSelected && <Ionicons name="checkmark-circle" size={18} color="#FF5A3C" style={{ position: 'absolute', top: 8, right: 8 }} />}
                 </TouchableOpacity>
               );
             })}
@@ -133,9 +133,9 @@ const s = StyleSheet.create({
   sectionSubtitle: { fontSize: 13, color: '#8E8E93', paddingHorizontal: 20, marginBottom: 12 },
   catGrid: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 16, gap: 10 },
   catOption: { width: '30%', aspectRatio: 1, backgroundColor: '#F8F8FA', borderRadius: 16, justifyContent: 'center', alignItems: 'center', gap: 6, borderWidth: 2, borderColor: 'transparent' },
-  catOptionSelected: { borderColor: '#00C853', backgroundColor: 'rgba(0,200,83,0.06)' },
+  catOptionSelected: { borderColor: '#FF5A3C', backgroundColor: 'rgba(255,90,60,0.06)' },
   catOptionText: { fontSize: 11, fontWeight: '600', color: '#8E8E93', textAlign: 'center' },
-  catOptionTextSelected: { color: '#00C853' },
+  catOptionTextSelected: { color: '#FF5A3C' },
   textArea: { marginHorizontal: 20, backgroundColor: '#F2F2F7', borderRadius: 14, padding: 16, fontSize: 15, color: '#1C1C1E', minHeight: 100, marginTop: 8 },
   rateRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginHorizontal: 20, marginTop: 8, backgroundColor: '#F2F2F7', borderRadius: 14, paddingHorizontal: 16, paddingVertical: 12 },
   rateInput: { fontSize: 24, fontWeight: '700', color: '#1C1C1E', flex: 1 },

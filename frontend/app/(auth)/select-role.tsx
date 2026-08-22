@@ -38,8 +38,9 @@ export default function SelectRoleScreen() {
       </TouchableOpacity>
 
       <View style={styles.content}>
-        <Text style={styles.title}>¿Cómo vas a{"\n"}usar Moli?</Text>
-        <Text style={styles.subtitle}>Elegí tu rol para empezar</Text>
+        <Text style={styles.eyebrow}>UNA CUENTA, MUCHAS FORMAS DE USARLA</Text>
+        <Text style={styles.title}>¿Cómo querés empezar?</Text>
+        <Text style={styles.subtitle}>Después vas a poder sumar más servicios al mismo perfil.</Text>
 
         <View style={styles.optionsContainer}>
           <TouchableOpacity
@@ -115,7 +116,6 @@ export default function SelectRoleScreen() {
             style={[
               styles.optionCard,
               isSelected('professional') && styles.optionCardSelected,
-              !isSelected('professional') && { borderColor: '#FF9500', borderWidth: 1.5 },
             ]}
             onPress={() => setSelectedRole('professional')}
             activeOpacity={0.7}
@@ -123,12 +123,12 @@ export default function SelectRoleScreen() {
             <View style={[
               styles.iconContainer,
               isSelected('professional') && styles.iconContainerSelected,
-              !isSelected('professional') && { backgroundColor: '#FFF8E1' },
+              !isSelected('professional') && { backgroundColor: MOLI_COLORS.white },
             ]}>
               <Ionicons
                 name="construct"
                 size={32}
-                color={isSelected('professional') ? MOLI_COLORS.primary : '#FF9500'}
+                color={isSelected('professional') ? MOLI_COLORS.primary : MOLI_COLORS.coral}
               />
             </View>
             <View style={styles.optionTextContainer}>
@@ -139,7 +139,7 @@ export default function SelectRoleScreen() {
                 ]}>
                   Profesional
                 </Text>
-                <View style={{ backgroundColor: '#FF9500', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 }}>
+                <View style={{ backgroundColor: MOLI_COLORS.coral, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 }}>
                   <Text style={{ color: '#fff', fontSize: 10, fontWeight: '800' }}>NUEVO</Text>
                 </View>
               </View>
@@ -168,7 +168,7 @@ export default function SelectRoleScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: MOLI_COLORS.white,
+    backgroundColor: MOLI_COLORS.surface,
   },
   backButton: {
     width: 44,
@@ -186,16 +186,18 @@ const styles = StyleSheet.create({
     paddingTop: 28,
   },
   title: {
-    fontSize: 34,
+    fontSize: 32,
     fontWeight: '800',
     color: MOLI_COLORS.darkGray,
     marginBottom: 8,
     lineHeight: 40,
   },
+  eyebrow: { fontSize: 11, fontWeight: '800', color: MOLI_COLORS.primary, letterSpacing: 1.3, marginBottom: 10 },
   subtitle: {
     fontSize: 16,
     color: MOLI_COLORS.mediumGray,
-    marginBottom: 40,
+    marginBottom: 30,
+    lineHeight: 22,
   },
   optionsContainer: {
     gap: 14,
@@ -203,11 +205,11 @@ const styles = StyleSheet.create({
   optionCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: MOLI_COLORS.offWhite,
+    backgroundColor: MOLI_COLORS.white,
     borderRadius: MOLI_RADIUS.lg,
     padding: 20,
-    borderWidth: 2,
-    borderColor: 'transparent',
+    borderWidth: 1,
+    borderColor: MOLI_COLORS.lightGray,
   },
   optionCardSelected: {
     borderColor: MOLI_COLORS.primary,
@@ -260,6 +262,6 @@ const styles = StyleSheet.create({
     backgroundColor: MOLI_COLORS.primary,
   },
   continueButton: {
-    marginTop: 40,
+    marginTop: 32,
   },
 });

@@ -41,3 +41,5 @@
 - Se añadió el MVP móvil de Marketplace, el panel operativo de comercio y la bandeja unificada para prestadores multirrol.
 - Se añadieron listados públicos de comercios aprobados y una bandeja de pedidos aislada por propietario del comercio.
 - Se crearon seis identidades maestras de QA en el VPS y se validaron login, trabajo profesional y pedido Marketplace mediante la API real; sus claves permanecen fuera de Git.
+- Se aprobó y aplicó el nuevo sistema visual Moli: coral `#FF5A3C`, carbón `#202124`, superficies blancas/grises cálidas, mapas claros, sombras suaves y marca naranja/negra propia.
+- Se rediseñaron acceso, movilidad, bandeja multirrol, trabajos, Marketplace y administración; el selector de vehículo ahora utiliza iconos reutilizables propios en lugar de emojis.

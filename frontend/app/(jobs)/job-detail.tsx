@@ -49,7 +49,7 @@ export default function JobDetailScreen() {
 
   if (loading) return (
     <SafeAreaView style={s.container}>
-      <View style={s.center}><ActivityIndicator size="large" color="#00C853" /></View>
+      <View style={s.center}><ActivityIndicator size="large" color="#FF5A3C" /></View>
     </SafeAreaView>
   );
 
@@ -73,8 +73,8 @@ export default function JobDetailScreen() {
           <View style={{ padding: 20 }}>
             <Text style={s.title}>{job.title}</Text>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 }}>
-              <View style={{ backgroundColor: '#E8F5E9', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 }}>
-                <Text style={{ fontSize: 12, fontWeight: '700', color: '#00C853' }}>{job.category}</Text>
+              <View style={{ backgroundColor: '#FFF0EC', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 }}>
+                <Text style={{ fontSize: 12, fontWeight: '700', color: '#FF5A3C' }}>{job.category}</Text>
               </View>
               <Text style={{ fontSize: 12, color: '#8E8E93' }}>por {job.client_name}</Text>
             </View>
@@ -89,11 +89,16 @@ export default function JobDetailScreen() {
               <>
                 <Text style={s.sectionLabel}>Ubicación</Text>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <Ionicons name="location" size={16} color="#00C853" />
+                  <Ionicons name="location" size={16} color="#FF5A3C" />
                   <Text style={s.description}>{job.address}</Text>
                 </View>
               </>
-            ) : null}
+            ) : (
+              <View style={s.privacyCard}>
+                <View style={s.privacyIcon}><Ionicons name="shield-checkmark" size={20} color="#FF5A3C" /></View>
+                <View style={{ flex: 1 }}><Text style={s.privacyTitle}>Ubicación protegida</Text><Text style={s.privacyText}>La dirección exacta se habilita únicamente cuando el trabajo queda confirmado.</Text></View>
+              </View>
+            )}
 
             <Text style={s.sectionLabel}>Ofertas ({offers.length})</Text>
             {offers.map((o, i) => (
@@ -166,19 +171,23 @@ const s = StyleSheet.create({
   backBtn: { width: 40, height: 40, borderRadius: 12, backgroundColor: '#F2F2F7', justifyContent: 'center', alignItems: 'center' },
   headerTitle: { fontSize: 18, fontWeight: '700', color: '#1C1C1E', marginLeft: 12 },
   title: { fontSize: 24, fontWeight: '800', color: '#1C1C1E' },
-  budget: { fontSize: 36, fontWeight: '800', color: '#00C853', marginTop: 20 },
+  budget: { fontSize: 36, fontWeight: '800', color: '#FF5A3C', marginTop: 20 },
   budgetLabel: { fontSize: 13, color: '#8E8E93', marginTop: 2 },
   sectionLabel: { fontSize: 14, fontWeight: '700', color: '#8E8E93', marginTop: 20, marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 },
   description: { fontSize: 15, color: '#1C1C1E', lineHeight: 22 },
   offerCard: { backgroundColor: '#F8F8FA', borderRadius: 14, padding: 14, marginBottom: 8 },
   offerName: { fontSize: 15, fontWeight: '700', color: '#1C1C1E' },
-  offerPrice: { fontSize: 18, fontWeight: '800', color: '#00C853' },
+  offerPrice: { fontSize: 18, fontWeight: '800', color: '#FF5A3C' },
   offerMsg: { fontSize: 13, color: '#636366', marginTop: 4 },
-  offerBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: '#00C853', paddingVertical: 16, borderRadius: 14, marginTop: 24 },
+  offerBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: '#FF5A3C', paddingVertical: 16, borderRadius: 14, marginTop: 24 },
   offerBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
   offerForm: { backgroundColor: '#F8F8FA', borderRadius: 16, padding: 16, marginTop: 20 },
   priceInput: { flex: 1, fontSize: 24, fontWeight: '700', color: '#1C1C1E', backgroundColor: '#fff', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10 },
   msgInput: { backgroundColor: '#fff', borderRadius: 12, padding: 14, fontSize: 14, color: '#1C1C1E', minHeight: 60 },
   cancelBtn: { flex: 1, paddingVertical: 14, borderRadius: 12, backgroundColor: '#E5E5EA', alignItems: 'center' },
-  submitBtn: { flex: 1, paddingVertical: 14, borderRadius: 12, backgroundColor: '#00C853', alignItems: 'center' },
+  submitBtn: { flex: 1, paddingVertical: 14, borderRadius: 12, backgroundColor: '#FF5A3C', alignItems: 'center' },
+  privacyCard: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: '#FFF0EC', borderRadius: 16, padding: 14, marginTop: 20, borderWidth: 1, borderColor: '#FFD8CF' },
+  privacyIcon: { width: 38, height: 38, borderRadius: 13, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center' },
+  privacyTitle: { color: '#202124', fontSize: 14, fontWeight: '800' },
+  privacyText: { color: '#6B6765', fontSize: 12, lineHeight: 17, marginTop: 2 },
 });

@@ -173,7 +173,7 @@ export default function AdminSettingsScreen() {
   if (isLoading) {
     return (
       <SafeAreaView style={s.container}>
-        <ActivityIndicator size="large" color="#00C853" style={{ flex: 1 }} />
+        <ActivityIndicator size="large" color="#FF5A3C" style={{ flex: 1 }} />
       </SafeAreaView>
     );
   }
@@ -207,7 +207,7 @@ export default function AdminSettingsScreen() {
           {/* Maps */}
           <View style={s.section}>
             <View style={s.sectionHeader}>
-              <Ionicons name="map-outline" size={18} color="#00C853" />
+              <Ionicons name="map-outline" size={18} color="#FF5A3C" />
               <Text style={s.sectionTitle}>Mapas</Text>
             </View>
             <View style={s.card}>
@@ -348,7 +348,7 @@ export default function AdminSettingsScreen() {
                   <Text style={{ fontSize: 11, color: '#8E8E93', marginTop: 2 }}>Buscar todos los conductores cuando no hay cercanos</Text>
                 </View>
                 <TouchableOpacity
-                  style={{ width: 52, height: 30, borderRadius: 15, backgroundColor: (editMode ? formData.broadcast_enabled : settings?.broadcast_enabled) !== false ? '#00C853' : '#E5E5EA', justifyContent: 'center', padding: 2 }}
+                  style={{ width: 52, height: 30, borderRadius: 15, backgroundColor: (editMode ? formData.broadcast_enabled : settings?.broadcast_enabled) !== false ? '#FF5A3C' : '#E5E5EA', justifyContent: 'center', padding: 2 }}
                   onPress={() => editMode && setFormData({ ...formData, broadcast_enabled: formData.broadcast_enabled === false ? true : false })}
                 >
                   <View style={{ width: 26, height: 26, borderRadius: 13, backgroundColor: '#fff', alignSelf: (editMode ? formData.broadcast_enabled : settings?.broadcast_enabled) !== false ? 'flex-end' : 'flex-start' }} />
@@ -376,9 +376,9 @@ export default function AdminSettingsScreen() {
 
           {/* Account */}
           <View style={s.section}>
-            <TouchableOpacity style={[s.logoutBtn, { backgroundColor: '#E8F5E9', marginBottom: 10 }]} onPress={() => router.push('/(admin)/verification')}>
-              <Ionicons name="shield-checkmark" size={20} color="#00C853" />
-              <Text style={[s.logoutText, { color: '#00C853' }]}>Revisar registros y capacidades pendientes</Text>
+            <TouchableOpacity style={[s.logoutBtn, { backgroundColor: '#FFF0EC', marginBottom: 10 }]} onPress={() => router.push('/(admin)/verification')}>
+              <Ionicons name="shield-checkmark" size={20} color="#FF5A3C" />
+              <Text style={[s.logoutText, { color: '#FF5A3C' }]}>Revisar registros y capacidades pendientes</Text>
             </TouchableOpacity>
             <TouchableOpacity style={s.logoutBtn} onPress={handleLogout}>
               <Ionicons name="log-out-outline" size={20} color="#FF3B30" />
@@ -398,7 +398,7 @@ const s = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#E5E5EA', gap: 12 },
   backBtn: { width: 38, height: 38, borderRadius: 12, backgroundColor: '#F2F2F7', justifyContent: 'center', alignItems: 'center' },
   title: { flex: 1, fontSize: 22, fontWeight: '800', color: '#1C1C1E' },
-  editBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 16, paddingVertical: 9, backgroundColor: '#00C853', borderRadius: 20 },
+  editBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 16, paddingVertical: 9, backgroundColor: '#FF5A3C', borderRadius: 20 },
   editBtnSave: { backgroundColor: '#34C759' },
   editBtnText: { color: '#fff', fontSize: 14, fontWeight: '700' },
   section: { paddingHorizontal: 16, marginTop: 16 },
@@ -415,7 +415,7 @@ const s = StyleSheet.create({
   fieldInput: { fontSize: 16, color: '#1C1C1E', backgroundColor: '#F2F2F7', paddingHorizontal: 14, paddingVertical: 11, borderRadius: 10, borderWidth: 1, borderColor: '#E5E5EA' },
   providerRow: { flexDirection: 'row', gap: 8 },
   providerBtn: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: '#F2F2F7' },
-  providerBtnActive: { backgroundColor: '#00C853' },
+  providerBtnActive: { backgroundColor: '#FF5A3C' },
   providerBtnText: { fontSize: 12, fontWeight: '700', color: '#8E8E93' },
   providerBtnTextActive: { color: '#fff' },
   logoutBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 16, padding: 16, gap: 12 },

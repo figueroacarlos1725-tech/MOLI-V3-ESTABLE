@@ -153,7 +153,7 @@ export default function SupportChatScreen() {
             <Ionicons
               name={item.is_ai ? 'sparkles' : 'headset'}
               size={16}
-              color={item.is_ai ? '#8E44AD' : '#00C853'}
+              color={item.is_ai ? '#E8492E' : '#FF5A3C'}
             />
           </View>
         )}
@@ -182,7 +182,7 @@ export default function SupportChatScreen() {
         </TouchableOpacity>
         <View style={styles.headerInfo}>
           <View style={styles.headerAvatar}>
-            <Ionicons name="sparkles" size={20} color="#8E44AD" />
+            <Ionicons name="sparkles" size={20} color="#E8492E" />
           </View>
           <View>
             <Text style={styles.headerName}>Soporte Moli</Text>
@@ -207,7 +207,7 @@ export default function SupportChatScreen() {
             messages.length === 0 ? (
               <View style={styles.welcomeContainer}>
                 <View style={styles.welcomeIcon}>
-                  <Ionicons name="sparkles" size={40} color="#8E44AD" />
+                  <Ionicons name="sparkles" size={40} color="#E8492E" />
                 </View>
                 <Text style={styles.welcomeTitle}>Hola! Soy Moli Asistente</Text>
                 <Text style={styles.welcomeText}>
@@ -278,17 +278,17 @@ const styles = StyleSheet.create({
   headerInfo: { flex: 1, flexDirection: 'row', alignItems: 'center' },
   headerAvatar: {
     width: 40, height: 40, borderRadius: 20,
-    backgroundColor: '#F3E5F5', justifyContent: 'center', alignItems: 'center',
+    backgroundColor: '#FFF0EC', justifyContent: 'center', alignItems: 'center',
     marginRight: 12,
   },
   headerName: { fontSize: 16, fontWeight: '600', color: '#1C1C1E' },
-  headerStatus: { fontSize: 12, color: '#8E44AD', marginTop: 2 },
+  headerStatus: { fontSize: 12, color: '#E8492E', marginTop: 2 },
   chatContainer: { flex: 1 },
   messagesList: { padding: 16, paddingBottom: 8 },
   welcomeContainer: { alignItems: 'center', paddingVertical: 40, paddingHorizontal: 20 },
   welcomeIcon: {
     width: 72, height: 72, borderRadius: 36,
-    backgroundColor: '#F3E5F5', justifyContent: 'center', alignItems: 'center',
+    backgroundColor: '#FFF0EC', justifyContent: 'center', alignItems: 'center',
     marginBottom: 16,
   },
   welcomeTitle: { fontSize: 20, fontWeight: 'bold', color: '#1C1C1E', marginBottom: 8 },
@@ -298,7 +298,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff', borderRadius: 12, padding: 14,
     borderWidth: 1, borderColor: '#E5E5EA',
   },
-  quickActionText: { fontSize: 14, color: '#8E44AD', textAlign: 'center', fontWeight: '500' },
+  quickActionText: { fontSize: 14, color: '#E8492E', textAlign: 'center', fontWeight: '500' },
   messageRow: { flexDirection: 'row', marginBottom: 12, alignItems: 'flex-end' },
   myMessageRow: { justifyContent: 'flex-end' },
   otherMessageRow: { justifyContent: 'flex-start' },
@@ -306,13 +306,13 @@ const styles = StyleSheet.create({
     width: 32, height: 32, borderRadius: 16,
     justifyContent: 'center', alignItems: 'center', marginRight: 8,
   },
-  aiAvatar: { backgroundColor: '#F3E5F5' },
-  dispatcherAvatar: { backgroundColor: '#E8F5E9' },
+  aiAvatar: { backgroundColor: '#FFF0EC' },
+  dispatcherAvatar: { backgroundColor: '#FFF0EC' },
   messageBubble: { maxWidth: '75%', padding: 12, borderRadius: 16 },
-  myBubble: { backgroundColor: '#00C853', borderBottomRightRadius: 4 },
+  myBubble: { backgroundColor: '#FF5A3C', borderBottomRightRadius: 4 },
   aiBubble: { backgroundColor: '#fff', borderBottomLeftRadius: 4, borderWidth: 1, borderColor: '#E5E5EA' },
   otherBubble: { backgroundColor: '#fff', borderBottomLeftRadius: 4 },
-  senderName: { fontSize: 12, fontWeight: '600', color: '#8E44AD', marginBottom: 4 },
+  senderName: { fontSize: 12, fontWeight: '600', color: '#E8492E', marginBottom: 4 },
   messageText: { fontSize: 15, lineHeight: 21 },
   myMessageText: { color: '#fff' },
   otherMessageText: { color: '#1C1C1E' },
@@ -329,7 +329,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24, paddingVertical: 8,
   },
   typingDots: { flexDirection: 'row', gap: 4, marginRight: 8 },
-  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#8E44AD', opacity: 0.4 },
+  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#E8492E', opacity: 0.4 },
   dot1: { opacity: 0.8 },
   dot2: { opacity: 0.5 },
   dot3: { opacity: 0.3 },
@@ -348,5 +348,5 @@ const styles = StyleSheet.create({
     backgroundColor: '#E5E5EA', justifyContent: 'center', alignItems: 'center',
     marginLeft: 8,
   },
-  sendButtonActive: { backgroundColor: '#8E44AD' },
+  sendButtonActive: { backgroundColor: '#E8492E' },
 });

@@ -87,6 +87,7 @@ export function Input({
           numberOfLines={numberOfLines}
           onFocus={() => setIsFocused(true)}
           onBlur={() => setIsFocused(false)}
+          accessibilityLabel={label || placeholder}
         />
         {secureTextEntry && (
           <TouchableOpacity
@@ -123,20 +124,23 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: MOLI_COLORS.gray,
     marginBottom: 6,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    letterSpacing: 0.15,
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: MOLI_COLORS.offWhite,
-    borderRadius: MOLI_RADIUS.md,
-    borderWidth: 1.5,
-    borderColor: 'transparent',
+    backgroundColor: MOLI_COLORS.white,
+    borderRadius: MOLI_RADIUS.lg,
+    borderWidth: 1,
+    borderColor: MOLI_COLORS.lightGray,
+    minHeight: 56,
   },
   inputContainerFocused: {
     borderColor: MOLI_COLORS.primary,
     backgroundColor: MOLI_COLORS.white,
+    shadowColor: MOLI_COLORS.primary,
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
   },
   inputContainerError: {
     borderColor: MOLI_COLORS.error,

@@ -1,159 +1,29 @@
 import React from 'react';
-import {
-  View, Text, StyleSheet, SafeAreaView, TouchableOpacity, Image, Dimensions,
-} from 'react-native';
+import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, Image, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '@/src/stores/authStore';
+import { MOLI_COLORS as C, MOLI_RADIUS as R, MOLI_SHADOWS as SH, MOLI_SPACING as S } from '@/src/theme/colors';
 
-const { width } = Dimensions.get('window');
+const ACCENT='#FF5A3C'; const CHARCOAL='#202124'; const WARM='#F7F4F1';
 
-export default function ModulesScreen() {
-  const router = useRouter();
-  const { user } = useAuthStore();
-  const isDriver = user?.user_type === 'driver';
+type CardProps={title:string;description:string;icon:React.ComponentProps<typeof Ionicons>['name'];color:string;eyebrow:string;onPress:()=>void;featured?:boolean};
+function ModuleCard({title,description,icon,color,eyebrow,onPress,featured}:CardProps){return <TouchableOpacity style={[s.card,featured&&s.featuredCard]} onPress={onPress} activeOpacity={.82}><View style={[s.iconBox,{backgroundColor:`${color}16`}]}><Ionicons name={icon} size={29} color={color}/></View><View style={s.cardBody}><Text style={[s.eyebrow,{color}]}>{eyebrow}</Text><Text style={s.cardTitle}>{title}</Text><Text style={s.cardDescription}>{description}</Text></View><View style={[s.arrow,{backgroundColor:color}]}><Ionicons name="arrow-forward" size={18} color={C.white}/></View></TouchableOpacity>}
 
-  const handleViajes = () => {
-    if (isDriver) {
-      router.replace('/(driver)/home');
-    } else {
-      router.replace('/(rider)/home');
-    }
-  };
-
-  const handleTrabajos = () => {
-    if (isDriver) {
-      router.push('/(jobs)/home');
-    } else {
-      router.push('/(jobs)/client-home');
-    }
-  };
-
-  const handleMarketplace = () => router.push('/(marketplace)');
-
-  return (
-    <SafeAreaView style={s.container}>
-      <View style={s.content}>
-        {/* Logo */}
-        <View style={s.logoSection}>
-          <Image
-            source={require('../assets/icon.png')}
-            style={s.logo}
-            resizeMode="contain"
-          />
-          <Text style={s.greeting}>Hola, {user?.name?.split(' ')[0] || 'Usuario'}</Text>
-          <Text style={s.subtitle}>¿Qué querés hacer hoy?</Text>
-        </View>
-
-        {/* Module Cards */}
-        <View style={s.cards}>
-          {/* Moli Viajes */}
-          <TouchableOpacity style={s.card} onPress={handleViajes} activeOpacity={0.85}>
-            <View style={[s.cardIcon, { backgroundColor: 'rgba(0,200,83,0.1)' }]}>
-              <Ionicons name="car-sport" size={36} color="#00C853" />
-            </View>
-            <View style={s.cardTextBlock}>
-              <Text style={s.cardTitle}>Moli Viajes</Text>
-              <Text style={s.cardDesc}>
-                {isDriver ? 'Conectate y empezá a ganar con viajes' : 'Pedí un auto o moto en minutos'}
-              </Text>
-            </View>
-            <View style={s.cardArrow}>
-              <Ionicons name="arrow-forward" size={20} color="#00C853" />
-            </View>
-          </TouchableOpacity>
-
-          {/* Moli Trabajos */}
-          <TouchableOpacity style={s.card} onPress={handleTrabajos} activeOpacity={0.85}>
-            <View style={[s.cardIcon, { backgroundColor: 'rgba(0,122,255,0.1)' }]}>
-              <Ionicons name="briefcase" size={36} color="#007AFF" />
-            </View>
-            <View style={s.cardTextBlock}>
-              <Text style={s.cardTitle}>Moli Trabajos</Text>
-              <Text style={s.cardDesc}>
-                {isDriver ? 'Ofrecé tus servicios profesionales' : 'Encontrá profesionales cerca tuyo'}
-              </Text>
-            </View>
-            <View style={[s.cardArrow, { backgroundColor: 'rgba(0,122,255,0.1)' }]}>
-              <Ionicons name="arrow-forward" size={20} color="#007AFF" />
-            </View>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={s.card} onPress={handleMarketplace} activeOpacity={0.85}>
-            <View style={[s.cardIcon, { backgroundColor: 'rgba(255,149,0,0.1)' }]}>
-              <Ionicons name="storefront" size={34} color="#FF9500" />
-            </View>
-            <View style={s.cardTextBlock}>
-              <Text style={s.cardTitle}>Moli Market</Text>
-              <Text style={s.cardDesc}>Comprá en comercios cerca tuyo</Text>
-            </View>
-            <View style={[s.cardArrow, { backgroundColor: 'rgba(255,149,0,0.1)' }]}>
-              <Ionicons name="arrow-forward" size={20} color="#FF9500" />
-            </View>
-          </TouchableOpacity>
-
-          {isDriver && <TouchableOpacity style={s.providerLink} onPress={() => router.push('/provider-hub')}>
-            <Ionicons name="grid-outline" size={18} color="#111" />
-            <Text style={s.providerLinkText}>Centro de oportunidades</Text>
-          </TouchableOpacity>}
-        </View>
-
-        {/* Logout */}
-        <TouchableOpacity style={s.logoutBtn} onPress={() => {
-          router.replace('/(auth)/welcome');
-        }}>
-          <Ionicons name="log-out-outline" size={18} color="#8E8E93" />
-          <Text style={s.logoutText}>Cambiar cuenta</Text>
-        </TouchableOpacity>
-      </View>
-    </SafeAreaView>
-  );
+export default function ModulesScreen(){
+  const router=useRouter(); const {user,logout}=useAuthStore(); const isDriver=user?.user_type==='driver'; const firstName=user?.name?.split(' ')[0]||'Usuario';
+  const changeAccount=()=>{logout();router.replace('/(auth)/welcome')};
+  return <SafeAreaView style={s.page}><ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
+    <View style={s.header}><View style={s.brand}><Image source={require('../assets/icon.png')} style={s.logo}/><Text style={s.brandName}>moli</Text></View><TouchableOpacity style={s.profileButton} onPress={()=>router.push(isDriver?'/(driver)/profile':'/(rider)/profile')}><Text style={s.initial}>{firstName.charAt(0).toUpperCase()}</Text><View style={s.onlineDot}/></TouchableOpacity></View>
+    <View style={s.hero}><Text style={s.kicker}>TODO EN UN SOLO LUGAR</Text><Text style={s.greeting}>Hola, {firstName}</Text><Text style={s.subtitle}>{isDriver?'Elegí cómo querés generar ingresos hoy.':'¿Cómo podemos ayudarte hoy?'}</Text></View>
+    {isDriver&&<TouchableOpacity style={s.opportunityBanner} onPress={()=>router.push('/provider-hub')} activeOpacity={.85}><View style={s.livePill}><View style={s.liveDot}/><Text style={s.liveText}>DISPONIBLE</Text></View><View style={s.bannerRow}><View style={{flex:1}}><Text style={s.bannerTitle}>Centro de oportunidades</Text><Text style={s.bannerCopy}>Viajes, entregas y trabajos desde una pantalla</Text></View><Ionicons name="chevron-forward" size={22} color={C.white}/></View></TouchableOpacity>}
+    <Text style={s.sectionTitle}>{isDriver?'Tus servicios':'Explorá Moli'}</Text><View style={s.cards}>
+      <ModuleCard featured title="Moli Viajes" eyebrow={isDriver?'GANÁ EN MOVIMIENTO':'LLEGÁ SEGURO'} description={isDriver?'Conectate y recibí solicitudes cercanas.':'Pedí auto o moto y seguí todo en vivo.'} icon="car-sport" color={ACCENT} onPress={()=>router.replace(isDriver?'/(driver)/home':'/(rider)/home')}/>
+      <ModuleCard title="Moli Trabajos" eyebrow="PROFESIONALES CERCA" description={isDriver?'Ofrecé servicios según tu perfil.':'Encontrá ayuda confiable para cada tarea.'} icon="briefcase" color={C.info} onPress={()=>router.push(isDriver?'/(jobs)/home':'/(jobs)/client-home')}/>
+      <ModuleCard title="Moli Market" eyebrow="COMPRÁ CERCA" description="Pedí delivery o retiralo directamente en el local." icon="storefront" color={C.warning} onPress={()=>router.push('/(marketplace)')}/>
+    </View><TouchableOpacity style={s.switchAccount} onPress={changeAccount}><Ionicons name="swap-horizontal" size={19} color={C.gray}/><Text style={s.switchText}>Cambiar cuenta</Text></TouchableOpacity>
+  </ScrollView></SafeAreaView>;
 }
-
-const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFFFF' },
-  content: { flex: 1, paddingHorizontal: 28, justifyContent: 'center' },
-  logoSection: { alignItems: 'center', marginBottom: 40 },
-  logo: { width: 80, height: 80, borderRadius: 20, marginBottom: 16 },
-  greeting: { fontSize: 24, fontWeight: '800', color: '#1C1C1E' },
-  subtitle: { fontSize: 15, color: '#8E8E93', marginTop: 4 },
-  cards: { gap: 14 },
-  card: {
-    backgroundColor: '#F8F8FA',
-    borderRadius: 20,
-    padding: 20,
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#F0F0F0',
-  },
-  cardIcon: {
-    width: 60,
-    height: 60,
-    borderRadius: 18,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  cardTitle: { fontSize: 17, fontWeight: '700', color: '#1C1C1E' },
-  cardTextBlock: { flex: 1, marginLeft: 14, marginRight: 10 },
-  cardDesc: { fontSize: 12, color: '#8E8E93', marginTop: 2 },
-  cardArrow: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
-    backgroundColor: 'rgba(0,200,83,0.1)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  logoutBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    marginTop: 32,
-    paddingVertical: 12,
-  },
-  logoutText: { fontSize: 14, color: '#8E8E93' },
-  providerLink: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8, paddingVertical: 12 },
-  providerLinkText: { fontSize: 13, color: '#1C1C1E', fontWeight: '700' },
+const s=StyleSheet.create({
+  page:{flex:1,backgroundColor:WARM},content:{width:'100%',maxWidth:720,alignSelf:'center',paddingHorizontal:S.lg,paddingBottom:S.xxl},header:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',paddingTop:S.md,paddingBottom:S.lg},brand:{flexDirection:'row',alignItems:'center',gap:9},logo:{width:36,height:36,borderRadius:11},brandName:{fontSize:24,fontWeight:'900',color:CHARCOAL,letterSpacing:-1},profileButton:{width:43,height:43,borderRadius:R.full,backgroundColor:CHARCOAL,alignItems:'center',justifyContent:'center'},initial:{color:C.white,fontSize:17,fontWeight:'800'},onlineDot:{position:'absolute',right:0,bottom:1,width:12,height:12,borderRadius:6,backgroundColor:ACCENT,borderWidth:2,borderColor:WARM},hero:{paddingTop:S.md,paddingBottom:S.xl},kicker:{color:ACCENT,fontSize:11,lineHeight:15,fontWeight:'900',letterSpacing:1.4},greeting:{color:CHARCOAL,fontSize:34,lineHeight:40,fontWeight:'900',letterSpacing:-1.1,marginTop:4},subtitle:{color:C.gray,fontSize:16,lineHeight:23,marginTop:5},opportunityBanner:{backgroundColor:CHARCOAL,borderRadius:R.xl,padding:S.lg,marginBottom:S.xl,...SH.lg},livePill:{flexDirection:'row',alignItems:'center',alignSelf:'flex-start',backgroundColor:'rgba(255,255,255,.12)',paddingHorizontal:9,paddingVertical:5,borderRadius:R.full,gap:6},liveDot:{width:7,height:7,borderRadius:4,backgroundColor:ACCENT},liveText:{color:C.white,fontSize:9,fontWeight:'900',letterSpacing:1},bannerRow:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginTop:S.md,gap:S.md},bannerTitle:{color:C.white,fontSize:19,fontWeight:'800'},bannerCopy:{color:C.lightGray,fontSize:12,marginTop:4,maxWidth:300},sectionTitle:{color:CHARCOAL,fontSize:19,fontWeight:'800',marginBottom:13},cards:{gap:12},card:{backgroundColor:C.white,borderRadius:R.lg,padding:17,flexDirection:'row',alignItems:'center',borderWidth:1,borderColor:'#ECE8E4',...SH.sm},featuredCard:{borderColor:'#FFD0C7'},iconBox:{width:57,height:57,borderRadius:18,alignItems:'center',justifyContent:'center'},cardBody:{flex:1,paddingHorizontal:14},eyebrow:{fontSize:9,lineHeight:13,fontWeight:'900',letterSpacing:.9},cardTitle:{color:CHARCOAL,fontSize:17,lineHeight:22,fontWeight:'800',marginTop:1},cardDescription:{color:C.gray,fontSize:12,lineHeight:17,marginTop:2},arrow:{width:36,height:36,borderRadius:R.full,alignItems:'center',justifyContent:'center'},switchAccount:{flexDirection:'row',alignItems:'center',justifyContent:'center',gap:8,paddingVertical:S.lg,marginTop:S.md},switchText:{color:C.gray,fontSize:14,fontWeight:'700'}
 });

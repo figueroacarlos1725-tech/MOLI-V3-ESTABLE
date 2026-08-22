@@ -171,7 +171,7 @@ export default function AdminVehicleIconsScreen() {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#8E44AD" />
+          <ActivityIndicator size="large" color="#E8492E" />
           <Text style={styles.loadingText}>Cargando iconos...</Text>
         </View>
       </SafeAreaView>
@@ -186,7 +186,7 @@ export default function AdminVehicleIconsScreen() {
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         <View style={styles.infoCard}>
-          <Ionicons name="information-circle" size={20} color="#8E44AD" />
+          <Ionicons name="information-circle" size={20} color="#E8492E" />
           <Text style={styles.infoText}>
             Personalizá los iconos que se muestran en el mapa para cada tipo de servicio. Podés usar emojis o subir imágenes PNG.
           </Text>
@@ -206,7 +206,7 @@ export default function AdminVehicleIconsScreen() {
                 <Ionicons
                   name={VEHICLE_TYPE_ICONS[icon.vehicle_type] as any || 'car'}
                   size={24}
-                  color="#8E44AD"
+                  color="#E8492E"
                 />
                 <Text style={styles.iconCardTitle}>{icon.display_name}</Text>
                 <View style={[styles.typeBadge, icon.icon_type === 'image' ? styles.typeBadgeImage : styles.typeBadgeEmoji]}>
@@ -289,7 +289,7 @@ export default function AdminVehicleIconsScreen() {
 
                 {savingType === icon.vehicle_type && (
                   <View style={styles.savingOverlay}>
-                    <ActivityIndicator size="small" color="#8E44AD" />
+                    <ActivityIndicator size="small" color="#E8492E" />
                     <Text style={styles.savingText}>Guardando...</Text>
                   </View>
                 )}
@@ -299,7 +299,7 @@ export default function AdminVehicleIconsScreen() {
                 style={styles.editIconBtn}
                 onPress={() => { setEditingType(icon.vehicle_type); setShowEmojiPicker(false); }}
               >
-                <Ionicons name="pencil" size={18} color="#8E44AD" />
+                <Ionicons name="pencil" size={18} color="#E8492E" />
                 <Text style={styles.editIconBtnText}>Cambiar icono</Text>
               </TouchableOpacity>
             )}
@@ -344,7 +344,7 @@ const styles = StyleSheet.create({
   },
   infoCard: {
     flexDirection: 'row',
-    backgroundColor: '#F3E8FF',
+    backgroundColor: '#FFF0EC',
     borderRadius: 12,
     padding: 14,
     marginBottom: 8,
@@ -400,7 +400,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFF3E0',
   },
   typeBadgeImage: {
-    backgroundColor: '#E8F5E9',
+    backgroundColor: '#FFF0EC',
   },
   typeBadgeText: {
     fontSize: 11,
@@ -500,7 +500,7 @@ const styles = StyleSheet.create({
   emojiOptionSelected: {
     backgroundColor: '#E8D5F5',
     borderWidth: 2,
-    borderColor: '#8E44AD',
+    borderColor: '#E8492E',
   },
   emojiOptionText: {
     fontSize: 24,
@@ -525,7 +525,7 @@ const styles = StyleSheet.create({
     borderColor: '#E5E5EA',
   },
   uploadBtnStyle: {
-    backgroundColor: '#8E44AD',
+    backgroundColor: '#E8492E',
   },
   editBtnEmoji: {
     fontSize: 18,
@@ -565,7 +565,7 @@ const styles = StyleSheet.create({
   },
   savingText: {
     fontSize: 14,
-    color: '#8E44AD',
+    color: '#E8492E',
   },
   editIconBtn: {
     flexDirection: 'row',
@@ -579,6 +579,6 @@ const styles = StyleSheet.create({
   editIconBtnText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#8E44AD',
+    color: '#E8492E',
   },
 });

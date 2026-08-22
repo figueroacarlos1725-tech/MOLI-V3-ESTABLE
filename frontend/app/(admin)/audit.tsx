@@ -66,11 +66,11 @@ export default function AdminAuditScreen() {
       <View style={s.header}>
         <Text style={s.title}>Historial de Cambios</Text>
         <TouchableOpacity onPress={fetchLogs}>
-          <Ionicons name="refresh" size={22} color="#8E44AD" />
+          <Ionicons name="refresh" size={22} color="#E8492E" />
         </TouchableOpacity>
       </View>
 
-      {loading ? <ActivityIndicator size="large" color="#8E44AD" style={{marginTop:40}} /> :
+      {loading ? <ActivityIndicator size="large" color="#E8492E" style={{marginTop:40}} /> :
         <ScrollView contentContainerStyle={s.list}>
           {logs.length === 0 && <Text style={s.empty}>No hay registros</Text>}
           {logs.map((log, i) => <LogItem key={i} log={log} />)}
@@ -100,16 +100,16 @@ const s = StyleSheet.create({
   logItem:{flexDirection:'row',backgroundColor:'#fff',borderRadius:12,padding:12,gap:10,alignItems:'flex-start'},
   logIcon:{width:36,height:36,borderRadius:10,justifyContent:'center',alignItems:'center'},
   logAction:{fontSize:14,fontWeight:'700',color:'#1C1C1E'},
-  logTarget:{fontSize:13,color:'#8E44AD',fontWeight:'600'},
+  logTarget:{fontSize:13,color:'#E8492E',fontWeight:'600'},
   logReason:{fontSize:12,color:'#F59E0B',fontStyle:'italic'},
   logChanges:{fontSize:11,color:'#8E8E93',marginTop:2},
   logAdmin:{fontSize:11,color:'#8E8E93',fontWeight:'600'},
   logDate:{fontSize:10,color:'#C7C7CC'},
   sourceBadge:{paddingHorizontal:6,paddingVertical:2,borderRadius:4,marginTop:4},
-  sourceBadgeAdmin:{backgroundColor:'#F3E8FF'},sourceBadgeSystem:{backgroundColor:'#E8F5E9'},
+  sourceBadgeAdmin:{backgroundColor:'#FFF0EC'},sourceBadgeSystem:{backgroundColor:'#FFF0EC'},
   sourceBadgeText:{fontSize:9,fontWeight:'700',color:'#666'},
   pagination:{flexDirection:'row',justifyContent:'center',alignItems:'center',gap:16,marginTop:16},
-  pageBtn:{paddingHorizontal:16,paddingVertical:8,borderRadius:8,backgroundColor:'#8E44AD'},
+  pageBtn:{paddingHorizontal:16,paddingVertical:8,borderRadius:8,backgroundColor:'#E8492E'},
   pageBtnDisabled:{backgroundColor:'#D1D5DB'},
   pageBtnText:{color:'#fff',fontWeight:'600',fontSize:13},
   pageInfo:{fontSize:13,color:'#666',fontWeight:'600'},

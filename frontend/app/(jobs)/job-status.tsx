@@ -10,7 +10,7 @@ import { apiService } from '@/src/services/api';
 import { useAuthStore } from '@/src/stores/authStore';
 import { socketService } from '@/src/services/socket';
 
-const GREEN = '#00C853';
+const GREEN = '#FF5A3C';
 
 export default function JobStatusScreen() {
   const router = useRouter();
@@ -453,10 +453,10 @@ const s = StyleSheet.create({
   infoText: { fontSize: 14, color: '#636366', flex: 1, lineHeight: 20 },
   proCard: { backgroundColor: '#fff', borderRadius: 16, padding: 16, marginBottom: 12 },
   proHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 },
-  proAvatar: { width: 52, height: 52, borderRadius: 26, backgroundColor: '#E8F5E9', justifyContent: 'center', alignItems: 'center' },
+  proAvatar: { width: 52, height: 52, borderRadius: 26, backgroundColor: '#FFF0EC', justifyContent: 'center', alignItems: 'center' },
   proName: { fontSize: 18, fontWeight: '700', color: '#1C1C1E' },
   proRating: { fontSize: 13, fontWeight: '600', color: '#1C1C1E' },
-  proBadge: { fontSize: 11, fontWeight: '600', color: GREEN, backgroundColor: '#E8F5E9', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, marginLeft: 8 },
+  proBadge: { fontSize: 11, fontWeight: '600', color: GREEN, backgroundColor: '#FFF0EC', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, marginLeft: 8 },
   chatBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: '#007AFF', borderRadius: 12, paddingVertical: 14 },
   chatBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
   cancelBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 16, borderRadius: 14, borderWidth: 1, borderColor: '#FF3B30', marginTop: 4 },

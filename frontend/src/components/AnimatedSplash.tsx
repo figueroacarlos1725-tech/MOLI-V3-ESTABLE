@@ -11,6 +11,7 @@ import Animated, {
   interpolate,
   type SharedValue,
 } from 'react-native-reanimated';
+import { MOLI_COLORS } from '@/src/theme/colors';
 
 const { width, height } = Dimensions.get('window');
 
@@ -133,6 +134,8 @@ export default function AnimatedSplash({ onFinish }: AnimatedSplashProps) {
 
   return (
     <Animated.View style={[st.container, containerStyle]}>
+      <View style={st.topOrb} />
+      <View style={st.bottomOrb} />
       {/* Background pulse ring */}
       <Animated.View style={[st.bgPulse, bgPulseStyle]} />
 
@@ -143,8 +146,9 @@ export default function AnimatedSplash({ onFinish }: AnimatedSplashProps) {
 
       {/* Logo */}
       <Animated.View style={[st.logoContainer, logoContainerStyle]}>
+        <View style={st.routePin}><Text style={st.routeM}>M</Text><View style={st.pinTip} /></View>
         <View style={st.logoRow}>
-          <Animated.Text style={[st.logoText, logoTextStyle]}>MOLI</Animated.Text>
+          <Animated.Text style={[st.logoText, logoTextStyle]}>Moli</Animated.Text>
           <Animated.View style={[st.dot, dotStyle]} />
         </View>
       </Animated.View>
@@ -154,7 +158,7 @@ export default function AnimatedSplash({ onFinish }: AnimatedSplashProps) {
 
       {/* Slogan */}
       <Animated.View style={[st.sloganContainer, sloganStyle]}>
-        <Text style={st.sloganText}>MOVETE LIBRE</Text>
+        <Text style={st.sloganText}>TODO TU MUNDO, EN MOVIMIENTO</Text>
       </Animated.View>
     </Animated.View>
   );
@@ -163,7 +167,7 @@ export default function AnimatedSplash({ onFinish }: AnimatedSplashProps) {
 const st = StyleSheet.create({
   container: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: MOLI_COLORS.surface,
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 9999,
@@ -173,24 +177,31 @@ const st = StyleSheet.create({
     width: 200,
     height: 200,
     borderRadius: 100,
-    backgroundColor: 'rgba(0,200,83,0.08)',
+    backgroundColor: 'rgba(255,90,60,0.10)',
   },
   particle: {
     position: 'absolute',
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: 'rgba(0,200,83,0.5)',
+    backgroundColor: 'rgba(255,90,60,0.65)',
   },
   particleSm: {
     width: 5,
     height: 5,
     borderRadius: 2.5,
-    backgroundColor: 'rgba(0,200,83,0.3)',
+    backgroundColor: 'rgba(32,33,36,0.20)',
   },
   logoContainer: {
     alignItems: 'center',
   },
+  routePin: {
+    width: 54, height: 54, borderRadius: 18, borderBottomRightRadius: 28,
+    backgroundColor: MOLI_COLORS.primary, alignItems: 'center', justifyContent: 'center', marginBottom: 18,
+    transform: [{ rotate: '8deg' }],
+  },
+  pinTip: { position: 'absolute', bottom: -5, right: 3, width: 14, height: 14, backgroundColor: MOLI_COLORS.primary, transform: [{ rotate: '22deg' }] },
+  routeM: { color: MOLI_COLORS.white, fontWeight: '900', fontSize: 26, transform: [{ rotate: '-8deg' }], zIndex: 2 },
   logoRow: {
     flexDirection: 'row',
     alignItems: 'flex-end',
@@ -198,19 +209,19 @@ const st = StyleSheet.create({
   logoText: {
     fontSize: 72,
     fontWeight: '900',
-    color: '#0D0D0D',
+    color: MOLI_COLORS.black,
   },
   dot: {
     width: 16,
     height: 16,
     borderRadius: 8,
-    backgroundColor: '#00C853',
+    backgroundColor: MOLI_COLORS.primary,
     marginBottom: 16,
     marginLeft: 2,
   },
   line: {
     height: 2,
-    backgroundColor: 'rgba(0,200,83,0.3)',
+    backgroundColor: 'rgba(255,90,60,0.28)',
     marginTop: 20,
     borderRadius: 1,
   },
@@ -220,8 +231,16 @@ const st = StyleSheet.create({
   sloganText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#8E8E93',
-    letterSpacing: 6,
+    color: MOLI_COLORS.gray,
+    letterSpacing: 3.2,
     textAlign: 'center',
+  },
+  topOrb: {
+    position: 'absolute', top: -120, right: -100, width: 300, height: 300,
+    borderRadius: 150, backgroundColor: 'rgba(255,90,60,0.07)',
+  },
+  bottomOrb: {
+    position: 'absolute', bottom: -160, left: -130, width: 360, height: 360,
+    borderRadius: 180, backgroundColor: 'rgba(32,33,36,0.035)',
   },
 });

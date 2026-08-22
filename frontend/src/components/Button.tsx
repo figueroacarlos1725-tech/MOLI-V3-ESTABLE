@@ -53,6 +53,9 @@ export function Button({
       onPress={onPress}
       disabled={disabled || loading}
       activeOpacity={0.8}
+      accessibilityRole="button"
+      accessibilityLabel={title}
+      accessibilityState={{ disabled: disabled || loading, busy: loading }}
     >
       {loading ? (
         <ActivityIndicator
@@ -74,18 +77,24 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: MOLI_RADIUS.md,
+    borderRadius: MOLI_RADIUS.lg,
     gap: 8,
+    minHeight: 48,
   },
   primary: {
     backgroundColor: MOLI_COLORS.primary,
+    shadowColor: MOLI_COLORS.primaryDark,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.14,
+    shadowRadius: 8,
+    elevation: 2,
   },
   secondary: {
-    backgroundColor: MOLI_COLORS.darkGray,
+    backgroundColor: MOLI_COLORS.navySoft,
   },
   outline: {
     backgroundColor: 'transparent',
-    borderWidth: 1.5,
+    borderWidth: 1,
     borderColor: MOLI_COLORS.lightGray,
   },
   dark: {
@@ -107,14 +116,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
   },
   disabled: {
-    opacity: 0.4,
+    opacity: 0.45,
   },
   text: {
     fontWeight: '700',
-    letterSpacing: 0.3,
+    letterSpacing: 0.15,
   },
   primaryText: {
-    color: MOLI_COLORS.black,
+    color: MOLI_COLORS.white,
   },
   secondaryText: {
     color: '#fff',

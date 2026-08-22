@@ -37,7 +37,7 @@ export default function Index() {
   if (isLoading || checkingSettings) {
     return (
       <View style={styles.container}>
-        <ActivityIndicator size="large" color="#00C853" />
+        <ActivityIndicator size="large" color="#FF5A3C" />
         <Text style={styles.loadingText}>Moli</Text>
       </View>
     );
@@ -69,11 +69,11 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: '#FAF9F6',
   },
   loadingText: {
     marginTop: 16,
     fontSize: 16,
-    color: '#666',
+    color: '#64666B',
   },
 });

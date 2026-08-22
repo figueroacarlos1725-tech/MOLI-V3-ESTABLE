@@ -4,12 +4,13 @@ import { Tabs, usePathname, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthStore } from '@/src/stores/authStore';
+import { MOLI_COLORS, MOLI_RADIUS, MOLI_SPACING } from '@/src/theme/colors';
 
 const { width } = Dimensions.get('window');
 const isDesktop = Platform.OS === 'web' && width > 768;
 
 const SIDEBAR_ITEMS = [
-  { name: 'dashboard', title: 'Panel', icon: 'grid' },
+  { name: 'dashboard', title: 'Resumen', icon: 'grid' },
   { name: 'godseye', title: 'Ojo de Dios', icon: 'eye' },
   { name: 'trips', title: 'Viajes', icon: 'car' },
   { name: 'users', title: 'Usuarios', icon: 'people' },
@@ -41,8 +42,11 @@ function AdminSidebar() {
   return (
     <View style={[styles.sidebar, { paddingTop: insets.top + 16 }]}>  
       <View style={styles.sidebarHeader}>
-        <Text style={styles.sidebarLogo}>Moli</Text>
-        <Text style={styles.sidebarSubtitle}>Admin</Text>
+        <View style={styles.brandMark}><Text style={styles.brandMarkText}>M</Text></View>
+        <View>
+          <Text style={styles.sidebarLogo}>Moli</Text>
+          <Text style={styles.sidebarSubtitle}>Centro de operaciones</Text>
+        </View>
       </View>
       
       <ScrollView style={styles.sidebarNav} showsVerticalScrollIndicator={false}>
@@ -57,7 +61,7 @@ function AdminSidebar() {
               <Ionicons
                 name={item.icon as any}
                 size={20}
-                color={isActive ? '#fff' : '#9CA3AF'}
+                color={isActive ? MOLI_COLORS.black : '#9CA3AF'}
               />
               <Text style={[styles.sidebarItemText, isActive && styles.sidebarItemTextActive]}>
                 {item.title}
@@ -131,13 +135,14 @@ export default function AdminLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: '#8E44AD',
-        tabBarInactiveTintColor: '#8E8E93',
+        tabBarActiveTintColor: MOLI_COLORS.primary,
+        tabBarInactiveTintColor: MOLI_COLORS.mediumGray,
         tabBarStyle: {
-          backgroundColor: '#fff',
-          borderTopColor: '#E5E5EA',
-          height: 56,
-          paddingBottom: 6,
+          backgroundColor: MOLI_COLORS.white,
+          borderTopColor: '#E8ECEA',
+          height: 68,
+          paddingBottom: 10,
+          paddingTop: 7,
         },
         tabBarLabelStyle: { fontSize: 10, fontWeight: '600' },
       }}
@@ -146,15 +151,19 @@ export default function AdminLayout() {
       <Tabs.Screen name="godseye" options={{ title: 'Ojo de Dios', tabBarIcon: ({ color, size }) => <Ionicons name="eye" size={size} color={color} /> }} />
       <Tabs.Screen name="trips" options={{ title: 'Viajes', tabBarIcon: ({ color, size }) => <Ionicons name="car" size={size} color={color} /> }} />
       <Tabs.Screen name="users" options={{ title: 'Usuarios', tabBarIcon: ({ color, size }) => <Ionicons name="people" size={size} color={color} /> }} />
-      <Tabs.Screen name="fares" options={{ title: 'Tarifas', tabBarIcon: ({ color, size }) => <Ionicons name="cash" size={size} color={color} /> }} />
-      <Tabs.Screen name="banners" options={{ title: 'Publicidad', tabBarIcon: ({ color, size }) => <Ionicons name="megaphone" size={size} color={color} /> }} />
-      <Tabs.Screen name="coupons" options={{ title: 'Cupones', tabBarIcon: ({ color, size }) => <Ionicons name="pricetag" size={size} color={color} /> }} />
-      <Tabs.Screen name="vehicles" options={{ title: 'Vehículos', tabBarIcon: ({ color, size }) => <Ionicons name="car-sport" size={size} color={color} /> }} />
-      <Tabs.Screen name="payments" options={{ title: 'Pagos', tabBarIcon: ({ color, size }) => <Ionicons name="card" size={size} color={color} /> }} />
-      <Tabs.Screen name="audit" options={{ title: 'Historial', tabBarIcon: ({ color, size }) => <Ionicons name="time" size={size} color={color} /> }} />
+      <Tabs.Screen name="fares" options={{ href: null }} />
+      <Tabs.Screen name="banners" options={{ href: null }} />
+      <Tabs.Screen name="coupons" options={{ href: null }} />
+      <Tabs.Screen name="vehicles" options={{ href: null }} />
+      <Tabs.Screen name="payments" options={{ href: null }} />
+      <Tabs.Screen name="audit" options={{ href: null }} />
       <Tabs.Screen name="settings" options={{ title: 'Ajustes', tabBarIcon: ({ color, size }) => <Ionicons name="settings" size={size} color={color} /> }} />
-      <Tabs.Screen name="support" options={{ title: 'Soporte', tabBarIcon: ({ color, size }) => <Ionicons name="chatbubbles" size={size} color={color} /> }} />
-      <Tabs.Screen name="verification" options={{ title: 'Verificación', tabBarIcon: ({ color, size }) => <Ionicons name="shield-checkmark" size={size} color={color} /> }} />
+      <Tabs.Screen name="support" options={{ href: null }} />
+      <Tabs.Screen name="verification" options={{ href: null }} />
+      <Tabs.Screen name="places" options={{ href: null }} />
+      <Tabs.Screen name="messages" options={{ href: null }} />
+      <Tabs.Screen name="dispatchers" options={{ href: null }} />
+      <Tabs.Screen name="trabajos" options={{ href: null }} />
     </Tabs>
   );
 }
@@ -163,29 +172,34 @@ const styles = StyleSheet.create({
   desktopContainer: {
     flex: 1,
     flexDirection: 'row',
-    backgroundColor: '#F3F4F6',
+    backgroundColor: '#F7F5F2',
   },
   sidebar: {
-    width: 240,
-    backgroundColor: '#1F2937',
-    paddingHorizontal: 12,
+    width: 264,
+    backgroundColor: '#202124',
+    paddingHorizontal: MOLI_SPACING.md,
     paddingBottom: 16,
   },
   sidebarHeader: {
-    paddingHorizontal: 12,
-    paddingBottom: 24,
+    paddingHorizontal: 8,
+    paddingBottom: MOLI_SPACING.lg,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#374151',
+    borderBottomColor: '#26332D',
     marginBottom: 12,
   },
+  brandMark: { width: 42, height: 42, borderRadius: 14, backgroundColor: MOLI_COLORS.primary, alignItems: 'center', justifyContent: 'center' },
+  brandMarkText: { color: MOLI_COLORS.black, fontWeight: '900', fontSize: 22 },
   sidebarLogo: {
-    fontSize: 28,
+    fontSize: 21,
     fontWeight: '800',
-    color: '#00C853',
+    color: MOLI_COLORS.white,
   },
   sidebarSubtitle: {
-    fontSize: 12,
-    color: '#9CA3AF',
+    fontSize: 9,
+    color: '#96A59E',
     fontWeight: '600',
     textTransform: 'uppercase',
     letterSpacing: 1,
@@ -196,23 +210,23 @@ const styles = StyleSheet.create({
   sidebarItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 10,
+    paddingVertical: 11,
     paddingHorizontal: 12,
-    borderRadius: 8,
-    marginBottom: 2,
+    borderRadius: MOLI_RADIUS.md,
+    marginBottom: 4,
     gap: 12,
   },
   sidebarItemActive: {
-    backgroundColor: '#8E44AD',
+    backgroundColor: MOLI_COLORS.primary,
   },
   sidebarItemText: {
     fontSize: 14,
-    color: '#9CA3AF',
+    color: '#AEBAB4',
     fontWeight: '500',
   },
   sidebarItemTextActive: {
-    color: '#fff',
-    fontWeight: '600',
+    color: MOLI_COLORS.black,
+    fontWeight: '800',
   },
   sidebarLogout: {
     flexDirection: 'row',

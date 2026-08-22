@@ -9,7 +9,7 @@ import { useRouter } from 'expo-router';
 import { apiService } from '@/src/services/api';
 import * as ImagePicker from 'expo-image-picker';
 
-const GREEN = '#00C853';
+const GREEN = '#FF5A3C';
 
 interface Banner {
   banner_id: string;
@@ -259,7 +259,7 @@ export default function BannersScreen() {
             <View style={s.cardBody}>
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
                 <Text style={s.cardTitle} numberOfLines={1}>{b.title || 'Sin título'}</Text>
-                <View style={[s.activeBadge, { backgroundColor: b.active ? '#E8F5E9' : '#FFEBEE' }]}>
+                <View style={[s.activeBadge, { backgroundColor: b.active ? '#FFF0EC' : '#FFEBEE' }]}>
                   <Text style={{ fontSize: 11, fontWeight: '600', color: b.active ? GREEN : '#FF3B30' }}>{b.active ? 'Activo' : 'Inactivo'}</Text>
                 </View>
               </View>

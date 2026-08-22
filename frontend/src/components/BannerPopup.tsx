@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { apiService } from '@/src/services/api';
+import { MOLI_COLORS, MOLI_RADIUS, MOLI_SHADOWS, MOLI_SPACING } from '@/src/theme/colors';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 
@@ -107,6 +108,7 @@ export default function BannerPopup({ target, enabled, intervalMs = 60000 }: Ban
       <View style={styles.overlay}>
         <TouchableOpacity style={styles.backdrop} onPress={dismiss} activeOpacity={1} />
         <Animated.View style={[styles.card, { transform: [{ translateY: slideAnim }] }]}>
+          <View style={styles.handle} />
           {/* Close button */}
           <TouchableOpacity style={styles.closeBtn} onPress={dismiss}>
             <Ionicons name="close" size={22} color="#8E8E93" />
@@ -114,7 +116,7 @@ export default function BannerPopup({ target, enabled, intervalMs = 60000 }: Ban
 
           {/* Sponsored tag */}
           <View style={styles.sponsoredTag}>
-            <Ionicons name="megaphone" size={12} color="#00C853" />
+            <Ionicons name="megaphone" size={12} color="#FF5A3C" />
             <Text style={styles.sponsoredText}>Patrocinado</Text>
           </View>
 
@@ -160,18 +162,19 @@ const styles = StyleSheet.create({
   overlay: {
     flex: 1,
     justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    backgroundColor: MOLI_COLORS.overlay,
   },
   backdrop: {
     flex: 1,
   },
   card: {
-    backgroundColor: '#fff',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    backgroundColor: MOLI_COLORS.white,
+    borderTopLeftRadius: MOLI_RADIUS.xl,
+    borderTopRightRadius: MOLI_RADIUS.xl,
     paddingBottom: Platform.OS === 'ios' ? 36 : 24,
     maxHeight: '70%',
   },
+  handle: { width: 42, height: 4, borderRadius: 2, backgroundColor: MOLI_COLORS.lightGray, alignSelf: 'center', marginTop: 10 },
   closeBtn: {
     position: 'absolute',
     top: 12,
@@ -179,7 +182,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#F2F2F7',
+    backgroundColor: MOLI_COLORS.offWhite,
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 10,
@@ -188,7 +191,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    paddingHorizontal: 20,
+    paddingHorizontal: MOLI_SPACING.lg,
     paddingTop: 16,
     paddingBottom: 8,
   },
@@ -207,7 +210,7 @@ const styles = StyleSheet.create({
   videoPlaceholder: {
     width: SCREEN_W,
     height: 200,
-    backgroundColor: '#1C1C1E',
+    backgroundColor: MOLI_COLORS.darkGray,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -217,29 +220,30 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   textContent: {
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingHorizontal: MOLI_SPACING.lg,
+    paddingVertical: MOLI_SPACING.md,
   },
   bannerTitle: {
     fontSize: 20,
     fontWeight: '800',
-    color: '#1C1C1E',
+    color: MOLI_COLORS.black,
     marginBottom: 8,
   },
   bannerDesc: {
     fontSize: 15,
-    color: '#636366',
+    color: MOLI_COLORS.gray,
     lineHeight: 22,
   },
   ctaBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#00C853',
-    marginHorizontal: 20,
+    backgroundColor: MOLI_COLORS.black,
+    marginHorizontal: MOLI_SPACING.lg,
     paddingVertical: 16,
-    borderRadius: 14,
+    borderRadius: MOLI_RADIUS.md,
     gap: 8,
+    ...MOLI_SHADOWS.sm,
   },
   ctaBtnText: {
     color: '#fff',

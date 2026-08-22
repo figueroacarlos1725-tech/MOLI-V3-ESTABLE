@@ -148,6 +148,13 @@ Los datos concretos de acceso se guardan en un almacén local/seguro, nunca en e
 
 El registro móvil exige teléfono y email. El canal `auto` intenta WhatsApp y utiliza correo como respaldo; también puede elegirse email explícitamente. Los perfiles con capacidades operativas quedan pendientes de aprobación administrativa, mientras el cliente sin capacidades puede habilitarse directamente.
 
+## Sistema visual aprobado
+
+- Identidad propia Moli con inspiración general en interfaces de movilidad simples y profesionales, sin copiar marcas o activos de terceros.
+- Color primario coral-naranja `#FF5A3C`; texto carbón `#202124`; fondos blancos y grises cálidos; verde reservado para éxito o disponibilidad.
+- Mapas principales claros, rutas y pines naranjas, tarjetas flotantes con bordes finos y sombras suaves.
+- Logo naranja/negro y vehículos Auto/Moto/Taxi/Delivery/Paquetería representados por componentes propios reutilizables.
+
 ## Próximos hitos
 
 1. Levantar y verificar backend/Mongo aislados.

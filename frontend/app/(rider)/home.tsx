@@ -29,6 +29,7 @@ import { Audio } from 'expo-av';
 import SideMenu from '@/src/components/SideMenu';
 import BannerPopup from '@/src/components/BannerPopup';
 import CancelRideModal from '@/src/components/CancelRideModal';
+import VehicleIcon, { VehicleKind } from '@/src/components/VehicleIcon';
 import {
   getCurrentLocation,
   reverseGeocode,
@@ -545,7 +546,6 @@ export default function RiderHomeScreen() {
     return m;
   }, [pickupLocation?.latitude, pickupLocation?.longitude, dropoffLocation?.latitude, dropoffLocation?.longitude, currentRide?.driver_location?.latitude, phase]);
 
-  const emojiMap: Record<string, string> = { economy: '🚗', moto: '🏍️', comfort: '🚙', premium: '🏎️', xl: '🚌' };
   const nameMap: Record<string, string> = { economy: 'Auto', moto: 'Moto', comfort: 'Confort', premium: 'Premium', xl: 'XL' };
   const selectedFare = fareEstimates.find((e: any) => e.vehicle_type === selectedVehicle);
 
@@ -1058,16 +1058,16 @@ export default function RiderHomeScreen() {
                   {vehicleIcons[id]?.image_data ? (
                     <Image source={{ uri: vehicleIcons[id].image_data }} style={{ width: 36, height: 36, borderRadius: 6 }} resizeMode="contain" />
                   ) : (
-                    <Text style={s.vehicleEmoji}>{emojiMap[id] || '🚗'}</Text>
+                    <VehicleIcon kind={(id === 'moto' ? 'moto' : 'car') as VehicleKind} size={44} selected={sel} />
                   )}
                   <View style={{ flex: 1, marginLeft: 12 }}>
-                    <Text style={[s.vehicleName, sel && { color: '#2D7600' }]}>{v.display_name || nameMap[id]}</Text>
+                    <Text style={[s.vehicleName, sel && { color: '#FF5A3C' }]}>{v.display_name || nameMap[id]}</Text>
                     {eta && <Text style={s.vehicleEta}>{eta} min</Text>}
                   </View>
-                  <Text style={[s.vehiclePrice, sel && { color: '#00C853' }]}>
+                  <Text style={[s.vehiclePrice, sel && { color: '#FF5A3C' }]}>
                     {v.estimated_fare > 0 ? `$${Math.round(v.estimated_fare).toLocaleString()}` : '...'}
                   </Text>
-                  {sel && <Ionicons name="checkmark-circle" size={20} color="#00C853" style={{ marginLeft: 8 }} />}
+                  {sel && <Ionicons name="checkmark-circle" size={20} color="#FF5A3C" style={{ marginLeft: 8 }} />}
                 </TouchableOpacity>
               );
             })}
@@ -1278,7 +1278,7 @@ const s = StyleSheet.create({
 
   vehicleList: { paddingHorizontal: 12, maxHeight: SH * 0.25 },
   vehicleItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, paddingHorizontal: 12, marginVertical: 2, borderRadius: 14, borderWidth: 2, borderColor: 'transparent' },
-  vehicleItemSel: { borderColor: '#00C853', backgroundColor: '#F0FFF0' },
+  vehicleItemSel: { borderColor: '#FF5A3C', backgroundColor: '#FFF3F0' },
   vehicleEmoji: { fontSize: 32 },
   vehicleName: { fontSize: 16, fontWeight: '700', color: '#1C1C1E' },
   vehicleEta: { fontSize: 12, color: '#8E8E93', marginTop: 2 },

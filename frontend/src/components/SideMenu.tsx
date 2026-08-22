@@ -12,6 +12,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAuthStore } from '@/src/stores/authStore';
+import { MOLI_COLORS as C, MOLI_RADIUS as R, MOLI_SHADOWS as SH } from '@/src/theme/colors';
 
 type MenuItem = {
   icon: keyof typeof Ionicons.glyphMap;
@@ -75,9 +76,13 @@ export default function SideMenu({ visible, onClose, role }: SideMenuProps) {
         <TouchableOpacity style={styles.backdrop} onPress={onClose} activeOpacity={1} />
         <View style={styles.menu}>
           <SafeAreaView style={{ flex: 1 }}>
+            <View style={styles.brandBar}>
+              <Text style={styles.brand}>moli</Text>
+              <TouchableOpacity style={styles.closeButton} onPress={onClose}><Ionicons name="close" size={20} color={C.black} /></TouchableOpacity>
+            </View>
             {/* Profile header */}
             <TouchableOpacity style={styles.profileHeader} onPress={() => navigateTo(role === 'driver' ? '/(driver)/profile' : '/(rider)/profile')} activeOpacity={0.7}>
-              <View style={[styles.avatarCircle, { backgroundColor: '#00C853' }]}>
+              <View style={styles.avatarCircle}>
                 <Text style={{ fontSize: 28, fontWeight: '800', color: '#fff' }}>
                   {(user?.name || 'U').charAt(0).toUpperCase()}
                 </Text>
@@ -121,7 +126,7 @@ export default function SideMenu({ visible, onClose, role }: SideMenuProps) {
               <Text style={styles.logoutText}>Cerrar sesión</Text>
             </TouchableOpacity>
 
-            <Text style={styles.version}>Moli v1.0</Text>
+            <Text style={styles.version}>Moli · Movete, resolvé, avanzá</Text>
           </SafeAreaView>
         </View>
       </View>
@@ -140,28 +145,32 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    backgroundColor: 'rgba(13,13,13,0.58)',
   },
   menu: {
-    width: 300,
-    backgroundColor: '#fff',
+    width: 320,
+    maxWidth: '88%',
+    backgroundColor: C.offWhite,
     flex: 1,
-    shadowColor: '#000',
+    shadowColor: C.black,
     shadowOffset: { width: 4, height: 0 },
     shadowOpacity: 0.15,
     shadowRadius: 20,
     elevation: 20,
   },
+  brandBar: { height: 62, paddingHorizontal: 22, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  brand: { color: C.black, fontSize: 25, fontWeight: '900', letterSpacing: -1 },
+  closeButton: { width: 36, height: 36, borderRadius: R.full, backgroundColor: C.white, alignItems: 'center', justifyContent: 'center', ...SH.sm },
   profileHeader: {
-    padding: 24,
-    paddingTop: Platform.OS === 'ios' ? 8 : 24,
+    padding: 22,
+    paddingTop: Platform.OS === 'ios' ? 4 : 12,
     alignItems: 'center',
   },
   avatarCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: '#1C1C1E',
+    width: 68,
+    height: 68,
+    borderRadius: 24,
+    backgroundColor: C.black,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 12,
@@ -169,31 +178,31 @@ const styles = StyleSheet.create({
   userName: {
     fontSize: 20,
     fontWeight: '800',
-    color: '#1C1C1E',
+    color: C.black,
   },
   userEmail: {
     fontSize: 13,
-    color: '#8E8E93',
+    color: C.gray,
     marginTop: 4,
   },
   ratingBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F8F8FA',
+    backgroundColor: C.white,
     paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: 12,
+    borderRadius: R.full,
     marginTop: 8,
     gap: 4,
   },
   ratingText: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#1C1C1E',
+    color: C.black,
   },
   divider: {
     height: 1,
-    backgroundColor: '#F2F2F7',
+    backgroundColor: '#E2E4E7',
     marginHorizontal: 20,
   },
   menuItems: {
@@ -203,14 +212,14 @@ const styles = StyleSheet.create({
   menuItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 16,
+    paddingVertical: 10,
     paddingHorizontal: 24,
   },
   menuIconWrap: {
     width: 40,
     height: 40,
-    borderRadius: 12,
-    backgroundColor: '#F2F2F7',
+    borderRadius: 14,
+    backgroundColor: C.white,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 14,
@@ -219,7 +228,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 16,
     fontWeight: '600',
-    color: '#1C1C1E',
+    color: C.black,
   },
   badge: {
     backgroundColor: '#FF3B30',

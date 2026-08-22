@@ -13,6 +13,7 @@ import { useRouter } from 'expo-router';
 import { useRideStore, Ride } from '@/src/stores/rideStore';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { MOLI_COLORS as C, MOLI_RADIUS as R, MOLI_SHADOWS as SH } from '@/src/theme/colors';
 
 export default function RiderRidesScreen() {
   const router = useRouter();
@@ -117,7 +118,7 @@ export default function RiderRidesScreen() {
         <TouchableOpacity onPress={() => router.back()} style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: '#F2F2F7', justifyContent: 'center', alignItems: 'center', marginRight: 12 }}>
           <Ionicons name="arrow-back" size={22} color="#1C1C1E" />
         </TouchableOpacity>
-        <Text style={styles.title}>Mis Viajes</Text>
+        <View><Text style={styles.eyebrow}>TU ACTIVIDAD</Text><Text style={styles.title}>Mis viajes</Text></View>
       </View>
 
       <View style={styles.filterContainer}>
@@ -144,9 +145,9 @@ export default function RiderRidesScreen() {
         }
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Ionicons name="car-outline" size={64} color="#E5E5EA" />
-            <Text style={styles.emptyText}>Aún no tienes viajes</Text>
-            <Text style={styles.emptySubtext}>Tu historial de viajes aparecerá aquí</Text>
+            <View style={styles.emptyIcon}><Ionicons name="car-outline" size={36} color={C.primaryDark} /></View>
+            <Text style={styles.emptyText}>Todavía no hiciste viajes</Text>
+            <Text style={styles.emptySubtext}>Cuando completes uno, vas a encontrar todos los detalles acá.</Text>
           </View>
         }
       />
@@ -157,20 +158,21 @@ export default function RiderRidesScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F2F2F7',
+    backgroundColor: C.offWhite,
   },
   header: { flexDirection: 'row', alignItems: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: C.offWhite,
     paddingHorizontal: 20,
     paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E5EA',
+    paddingTop: 20,
   },
   title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#1C1C1E',
+    fontSize: 29,
+    fontWeight: '900',
+    color: C.black,
+    letterSpacing: -0.7,
   },
+  eyebrow: { color: C.primaryDark, fontSize: 9, fontWeight: '900', letterSpacing: 1.2 },
   filterContainer: {
     flexDirection: 'row',
     padding: 16,
@@ -180,10 +182,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
-    backgroundColor: '#fff',
+    backgroundColor: C.white,
+    borderWidth: 1,
+    borderColor: '#E9EAEC',
   },
   filterButtonActive: {
-    backgroundColor: '#007AFF',
+    backgroundColor: C.black,
   },
   filterText: {
     fontSize: 14,
@@ -197,10 +201,13 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   rideCard: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 16,
+    backgroundColor: C.white,
+    borderRadius: R.lg,
+    padding: 18,
     marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#ECEDEF',
+    ...SH.sm,
   },
   rideHeader: {
     flexDirection: 'row',
@@ -284,16 +291,20 @@ const styles = StyleSheet.create({
   emptyContainer: {
     alignItems: 'center',
     paddingVertical: 60,
+    paddingHorizontal: 30,
   },
+  emptyIcon: { width: 76, height: 76, borderRadius: 25, backgroundColor: C.primaryGlow, alignItems: 'center', justifyContent: 'center' },
   emptyText: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#1C1C1E',
+    color: C.black,
     marginTop: 16,
   },
   emptySubtext: {
     fontSize: 14,
-    color: '#8E8E93',
+    color: C.gray,
     marginTop: 8,
+    textAlign: 'center',
+    lineHeight: 20,
   },
 });

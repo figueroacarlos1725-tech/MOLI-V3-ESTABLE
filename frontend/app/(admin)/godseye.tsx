@@ -61,10 +61,10 @@ export default function GodsEyeScreen() {
     <SafeAreaView style={s.container}>
       <View style={s.header}>
         <View style={s.headerRow}>
-          <Ionicons name="eye" size={26} color="#8E44AD" />
+          <Ionicons name="eye" size={26} color="#E8492E" />
           <Text style={s.title}>Ojo de Dios</Text>
           <TouchableOpacity onPress={fetchDrivers} style={s.refreshBtn}>
-            <Ionicons name="refresh" size={20} color="#8E44AD" />
+            <Ionicons name="refresh" size={20} color="#E8492E" />
           </TouchableOpacity>
         </View>
         <View style={s.statsRow}>
@@ -105,7 +105,7 @@ export default function GodsEyeScreen() {
       </View>
 
       {/* Driver List */}
-      {loading ? <ActivityIndicator size="large" color="#8E44AD" style={{marginTop:20}} /> :
+      {loading ? <ActivityIndicator size="large" color="#E8492E" style={{marginTop:20}} /> :
         <ScrollView contentContainerStyle={s.list}>
           {filtered.map(d => (
             <TouchableOpacity key={d.driver_id} style={s.driverCard} onPress={() => setSelectedDriver(selectedDriver?.driver_id === d.driver_id ? null : d)}>
@@ -144,7 +144,7 @@ const s = StyleSheet.create({
   header:{backgroundColor:'#fff',paddingHorizontal:16,paddingTop:12,paddingBottom:10,borderBottomWidth:1,borderBottomColor:'#E5E5EA'},
   headerRow:{flexDirection:'row',alignItems:'center',gap:10},
   title:{fontSize:22,fontWeight:'bold',color:'#1C1C1E',flex:1},
-  refreshBtn:{padding:8,backgroundColor:'#F3E8FF',borderRadius:8},
+  refreshBtn:{padding:8,backgroundColor:'#FFF0EC',borderRadius:8},
   statsRow:{flexDirection:'row',gap:12,marginTop:8},
   statChip:{flexDirection:'row',alignItems:'center',gap:6},
   dot:{width:8,height:8,borderRadius:4},
@@ -153,7 +153,7 @@ const s = StyleSheet.create({
   autoRefresh:{position:'absolute',bottom:8,right:8,backgroundColor:'rgba(0,0,0,0.5)',color:'#fff',fontSize:10,paddingHorizontal:8,paddingVertical:3,borderRadius:10,overflow:'hidden'},
   filterRow:{flexDirection:'row',paddingHorizontal:12,gap:8,marginBottom:8},
   filterBtn:{paddingHorizontal:14,paddingVertical:6,borderRadius:20,backgroundColor:'#E5E5EA'},
-  filterBtnActive:{backgroundColor:'#8E44AD'},
+  filterBtnActive:{backgroundColor:'#E8492E'},
   filterBtnText:{fontSize:13,fontWeight:'600',color:'#666'},
   filterBtnTextActive:{color:'#fff'},
   list:{paddingHorizontal:12,gap:8},
@@ -165,7 +165,7 @@ const s = StyleSheet.create({
   driverPhone:{fontSize:12,color:'#8E8E93'},
   rideBadge:{fontSize:10,fontWeight:'700',color:'#F59E0B',backgroundColor:'#FEF3C7',paddingHorizontal:8,paddingVertical:2,borderRadius:8,overflow:'hidden'},
   blockedBadge:{fontSize:10,fontWeight:'700',color:'#EF4444',backgroundColor:'#FEE2E2',paddingHorizontal:8,paddingVertical:2,borderRadius:8,overflow:'hidden',marginTop:2},
-  priorityBadge:{fontSize:10,fontWeight:'700',color:'#8B5CF6',backgroundColor:'#F3E8FF',paddingHorizontal:8,paddingVertical:2,borderRadius:8,overflow:'hidden',marginTop:2},
+  priorityBadge:{fontSize:10,fontWeight:'700',color:'#8B5CF6',backgroundColor:'#FFF0EC',paddingHorizontal:8,paddingVertical:2,borderRadius:8,overflow:'hidden',marginTop:2},
   driverDetail:{marginTop:10,paddingTop:10,borderTopWidth:1,borderTopColor:'#F2F2F7'},
   detailText:{fontSize:12,color:'#666',marginBottom:2},
   empty:{textAlign:'center',color:'#8E8E93',marginTop:30,fontSize:15},

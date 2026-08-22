@@ -9,7 +9,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { apiService } from '@/src/services/api';
 import { useAuthStore } from '@/src/stores/authStore';
 
-const GREEN = '#00C853';
+const GREEN = '#FF5A3C';
 
 const CATEGORY_OPTIONS = [
   { id: 'electricista', name: 'Electricista', icon: 'flash', color: '#FF9500' },
@@ -17,7 +17,7 @@ const CATEGORY_OPTIONS = [
   { id: 'limpieza', name: 'Limpieza', icon: 'sparkles', color: '#34C759' },
   { id: 'mudanza', name: 'Mudanza', icon: 'cube', color: '#AF52DE' },
   { id: 'pintura', name: 'Pintura', icon: 'color-palette', color: '#FF3B30' },
-  { id: 'jardineria', name: 'Jardinería', icon: 'leaf', color: '#00C853' },
+  { id: 'jardineria', name: 'Jardinería', icon: 'leaf', color: '#FF5A3C' },
   { id: 'carpinteria', name: 'Carpintería', icon: 'hammer', color: '#8B4513' },
   { id: 'mecanica', name: 'Mecánica', icon: 'construct', color: '#636366' },
   { id: 'tecnologia', name: 'Tecnología', icon: 'laptop', color: '#5856D6' },
@@ -186,7 +186,7 @@ export default function ProProfileScreen() {
                   <Text style={{ fontSize: 14, fontWeight: '600', color: '#1C1C1E' }}>{job.job_title || 'Trabajo'}</Text>
                   <Text style={{ fontSize: 12, color: '#8E8E93' }}>{job.job_category} · {job.job_status || 'pendiente'}</Text>
                 </View>
-                <View style={[s.statusBadge, { backgroundColor: job.job_status === 'completed' ? '#E8F5E9' : job.job_status === 'assigned' ? '#FFF3E0' : '#F2F2F7' }]}>
+                <View style={[s.statusBadge, { backgroundColor: job.job_status === 'completed' ? '#FFF0EC' : job.job_status === 'assigned' ? '#FFF3E0' : '#F2F2F7' }]}>
                   <Text style={{ fontSize: 11, fontWeight: '600', color: job.job_status === 'completed' ? GREEN : job.job_status === 'assigned' ? '#FF9500' : '#8E8E93' }}>
                     {job.job_status === 'completed' ? 'Completado' : job.job_status === 'assigned' ? 'Activo' : job.job_status || 'Pendiente'}
                   </Text>
@@ -274,7 +274,7 @@ const s = StyleSheet.create({
   headerTitle: { fontSize: 18, fontWeight: '700', color: '#1C1C1E', marginLeft: 12 },
   profileCard: { backgroundColor: '#fff', margin: 16, borderRadius: 20, padding: 24, alignItems: 'center' },
   avatarWrap: { position: 'relative', marginBottom: 12 },
-  avatar: { width: 88, height: 88, borderRadius: 44, backgroundColor: '#E8F5E9', justifyContent: 'center', alignItems: 'center' },
+  avatar: { width: 88, height: 88, borderRadius: 44, backgroundColor: '#FFF0EC', justifyContent: 'center', alignItems: 'center' },
   onlineBadge: { position: 'absolute', bottom: 2, right: 2, width: 26, height: 26, borderRadius: 13, backgroundColor: GREEN, justifyContent: 'center', alignItems: 'center', borderWidth: 3, borderColor: '#fff' },
   userName: { fontSize: 22, fontWeight: '800', color: '#1C1C1E' },
   userEmail: { fontSize: 14, color: '#8E8E93', marginTop: 2 },

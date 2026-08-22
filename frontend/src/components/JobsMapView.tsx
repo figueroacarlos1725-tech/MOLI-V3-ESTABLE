@@ -50,14 +50,14 @@ html,body,#map{width:100%;height:100%}
 .job-pin.pintura{border-color:rgba(255,149,0,0.5);background:linear-gradient(135deg,#fff,#FFF3E0)}
 .job-pin.plomeria{border-color:rgba(0,122,255,0.5);background:linear-gradient(135deg,#fff,#E3F2FD)}
 .job-pin.electricidad{border-color:rgba(255,204,0,0.5);background:linear-gradient(135deg,#fff,#FFFDE7)}
-.job-pin.limpieza{border-color:rgba(52,199,89,0.5);background:linear-gradient(135deg,#fff,#E8F5E9)}
+.job-pin.limpieza{border-color:rgba(52,199,89,0.5);background:linear-gradient(135deg,#fff,#FFF0EC)}
 .job-pin.construccion{border-color:rgba(175,82,50,0.5);background:linear-gradient(135deg,#fff,#EFEBE9)}
 .job-pin.mudanzas{border-color:rgba(88,86,214,0.5);background:linear-gradient(135deg,#fff,#EDE7F6)}
 .job-pin.carpinteria{border-color:rgba(162,132,94,0.5);background:linear-gradient(135deg,#fff,#F5F0EB)}
-.job-pin.jardineria{border-color:rgba(0,200,83,0.5);background:linear-gradient(135deg,#fff,#E8F5E9)}
+.job-pin.jardineria{border-color:rgba(0,200,83,0.5);background:linear-gradient(135deg,#fff,#FFF0EC)}
 .job-budget{
   position:absolute;bottom:-10px;left:50%;transform:translateX(-50%);
-  background:#00C853;color:#000;font-size:9px;font-weight:800;
+  background:#FF5A3C;color:#000;font-size:9px;font-weight:800;
   padding:2px 6px;border-radius:6px;white-space:nowrap;
   box-shadow:0 2px 4px rgba(0,0,0,0.4);
 }

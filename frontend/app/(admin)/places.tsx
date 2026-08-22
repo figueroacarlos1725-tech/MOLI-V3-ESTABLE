@@ -185,7 +185,7 @@ export default function AdminPlacesScreen() {
             <View style={s.cacheCard}>
               <View style={s.cacheHeader}>
                 <View style={s.cacheIconBg}>
-                  <Ionicons name="server-outline" size={20} color="#00C853" />
+                  <Ionicons name="server-outline" size={20} color="#FF5A3C" />
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={s.cacheTitle}>Cache de Direcciones</Text>
@@ -207,7 +207,7 @@ export default function AdminPlacesScreen() {
                 </View>
                 <View style={s.cacheStatDivider} />
                 <View style={s.cacheStat}>
-                  <Text style={[s.cacheStatNum, { color: '#00C853' }]}>
+                  <Text style={[s.cacheStatNum, { color: '#FF5A3C' }]}>
                     {cacheStats.total_search_hits + cacheStats.total_reverse_hits}
                   </Text>
                   <Text style={s.cacheStatLabel}>Hits totales</Text>
@@ -318,7 +318,7 @@ export default function AdminPlacesScreen() {
           <Text style={s.sectionSub}>Aparecen primero en los resultados de búsqueda del pasajero</Text>
 
           {loading ? (
-            <ActivityIndicator size="large" color="#00C853" style={{ marginTop: 30 }} />
+            <ActivityIndicator size="large" color="#FF5A3C" style={{ marginTop: 30 }} />
           ) : places.length === 0 ? (
             <View style={s.emptyState}>
               <Ionicons name="location-outline" size={48} color="#333" />
@@ -353,7 +353,7 @@ export default function AdminPlacesScreen() {
                     <Ionicons
                       name={place.is_active ? 'eye-outline' : 'eye-off-outline'}
                       size={18}
-                      color={place.is_active ? '#00C853' : '#FF3B30'}
+                      color={place.is_active ? '#FF5A3C' : '#FF3B30'}
                     />
                   </TouchableOpacity>
                   <TouchableOpacity
@@ -387,7 +387,7 @@ const s = StyleSheet.create({
   headerCenter: { flex: 1 },
   headerTitle: { fontSize: 18, fontWeight: '800', color: '#fff' },
   headerSub: { fontSize: 12, color: 'rgba(255,255,255,0.4)', fontWeight: '500' },
-  addBtn: { width: 38, height: 38, borderRadius: 12, backgroundColor: '#00C853', justifyContent: 'center', alignItems: 'center' },
+  addBtn: { width: 38, height: 38, borderRadius: 12, backgroundColor: '#FF5A3C', justifyContent: 'center', alignItems: 'center' },
   content: { flex: 1, paddingHorizontal: 16 },
 
   // Cache
@@ -413,13 +413,13 @@ const s = StyleSheet.create({
   chip: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.06)', marginRight: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
   chipActive: { backgroundColor: 'rgba(0,200,83,0.12)', borderColor: 'rgba(0,200,83,0.3)' },
   chipText: { fontSize: 12, fontWeight: '600', color: 'rgba(255,255,255,0.5)' },
-  chipTextActive: { color: '#00C853' },
+  chipTextActive: { color: '#FF5A3C' },
   iconChip: { width: 44, height: 44, borderRadius: 12, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.06)', marginRight: 8, borderWidth: 2, borderColor: 'transparent' },
-  iconChipActive: { borderColor: '#00C853', backgroundColor: 'rgba(0,200,83,0.1)' },
+  iconChipActive: { borderColor: '#FF5A3C', backgroundColor: 'rgba(255,90,60,0.10)' },
   formActions: { flexDirection: 'row', gap: 10, marginTop: 16 },
   cancelBtn: { flex: 1, paddingVertical: 14, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.06)', alignItems: 'center' },
   cancelBtnText: { color: 'rgba(255,255,255,0.6)', fontSize: 14, fontWeight: '600' },
-  saveBtn: { flex: 2, flexDirection: 'row', paddingVertical: 14, borderRadius: 14, backgroundColor: '#00C853', alignItems: 'center', justifyContent: 'center', gap: 6 },
+  saveBtn: { flex: 2, flexDirection: 'row', paddingVertical: 14, borderRadius: 14, backgroundColor: '#FF5A3C', alignItems: 'center', justifyContent: 'center', gap: 6 },
   saveBtnText: { color: '#000', fontSize: 14, fontWeight: '800' },
 
   // Section
