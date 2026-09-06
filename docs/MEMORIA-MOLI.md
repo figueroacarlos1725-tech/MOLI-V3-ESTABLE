@@ -1,6 +1,14 @@
 # Memoria viva de Moli
 
-Última actualización: 2026-08-22
+Última actualización: 2026-09-06
+
+## Enfoque de lanzamiento aprobado
+
+- La experiencia pública se centra primero en oficios/profesionales y trámites. Viajes, delivery y Marketplace se conservan para etapas posteriores y no deben eliminarse.
+- La identidad aprobada usa naranja cálido Moli, carbón, fondos blancos/grises cálidos, tarjetas redondeadas y sombras suaves; la navegación debe resultar familiar para usuarios de apps de movilidad sin copiar marca ni recursos de terceros.
+- El acceso de esta etapa es correo más contraseña, con Google como alternativa una vez vinculadas credenciales OAuth propias de Moli.
+- WhatsApp queda oculto por defecto mediante `EXPO_PUBLIC_WHATSAPP_AUTH_ENABLED`; su implementación permanece preparada para habilitarse cuando exista API y plantilla aprobada.
+- Google sólo se habilita cuando `EXPO_PUBLIC_GOOGLE_AUTH_ENABLED=true` y `EXPO_PUBLIC_GOOGLE_AUTH_URL` contiene el inicio OAuth operativo. Sin esa configuración, la interfaz informa que falta la vinculación y no simula autenticación.
 
 ## Estado de Google Play
 

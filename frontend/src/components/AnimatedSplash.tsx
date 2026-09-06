@@ -136,6 +136,11 @@ export default function AnimatedSplash({ onFinish }: AnimatedSplashProps) {
     <Animated.View style={[st.container, containerStyle]}>
       <View style={st.topOrb} />
       <View style={st.bottomOrb} />
+      <View style={st.serviceHalo}>
+        <View style={[st.serviceBubble, st.bubbleOne]}><Text style={st.serviceEmoji}>🔧</Text></View>
+        <View style={[st.serviceBubble, st.bubbleTwo]}><Text style={st.serviceEmoji}>💡</Text></View>
+        <View style={[st.serviceBubble, st.bubbleThree]}><Text style={st.serviceEmoji}>🧹</Text></View>
+      </View>
       {/* Background pulse ring */}
       <Animated.View style={[st.bgPulse, bgPulseStyle]} />
 
@@ -158,7 +163,7 @@ export default function AnimatedSplash({ onFinish }: AnimatedSplashProps) {
 
       {/* Slogan */}
       <Animated.View style={[st.sloganContainer, sloganStyle]}>
-        <Text style={st.sloganText}>TODO TU MUNDO, EN MOVIMIENTO</Text>
+        <Text style={st.sloganText}>PROFESIONALES Y TRÁMITES, CERCA TUYO</Text>
       </Animated.View>
     </Animated.View>
   );
@@ -195,6 +200,12 @@ const st = StyleSheet.create({
   logoContainer: {
     alignItems: 'center',
   },
+  serviceHalo: { position: 'absolute', width: 300, height: 300, alignItems: 'center', justifyContent: 'center' },
+  serviceBubble: { position: 'absolute', width: 50, height: 50, borderRadius: 18, backgroundColor: MOLI_COLORS.white, alignItems: 'center', justifyContent: 'center', shadowColor: '#202124', shadowOpacity: 0.08, shadowRadius: 12, elevation: 3 },
+  bubbleOne: { left: 2, top: 36, transform: [{ rotate: '-8deg' }] },
+  bubbleTwo: { right: 0, top: 58, transform: [{ rotate: '8deg' }] },
+  bubbleThree: { right: 22, bottom: 14, transform: [{ rotate: '-4deg' }] },
+  serviceEmoji: { fontSize: 22 },
   routePin: {
     width: 54, height: 54, borderRadius: 18, borderBottomRightRadius: 28,
     backgroundColor: MOLI_COLORS.primary, alignItems: 'center', justifyContent: 'center', marginBottom: 18,

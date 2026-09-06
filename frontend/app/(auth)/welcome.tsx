@@ -44,17 +44,17 @@ export default function WelcomeScreen() {
         </Animated.View>
 
         <Animated.View style={{ opacity: fadeAnim }}>
-          <Text style={styles.eyebrow}>TU CIUDAD, MÁS CERCA</Text>
-          <Text style={styles.headline}>Todo lo que necesitás, en movimiento.</Text>
-          <Text style={styles.subtitle}>Viajá, pedí un servicio o recibí tus compras desde un solo lugar.</Text>
+          <Text style={styles.eyebrow}>PROFESIONALES Y TRÁMITES CERCA TUYO</Text>
+          <Text style={styles.headline}>Resolvé lo que necesitás, sin vueltas.</Text>
+          <Text style={styles.subtitle}>Encontrá personas confiables para tu casa, tu trabajo o ese trámite que venís postergando.</Text>
         </Animated.View>
 
         {/* Features */}
         <Animated.View style={[styles.featuresSection, { opacity: fadeAnim }]}>
           {[
-            { icon: 'navigate', text: 'Viajes y envíos en tiempo real' },
-            { icon: 'construct', text: 'Profesionales verificados' },
-            { icon: 'storefront', text: 'Comercios de tu ciudad' },
+            { icon: 'construct', text: 'Profesionales disponibles cerca' },
+            { icon: 'document-text', text: 'Trámites con seguimiento claro' },
+            { icon: 'shield-checkmark', text: 'Perfiles verificados y calificados' },
           ].map((f, i) => (
             <View key={i} style={styles.featureItem}>
               <View style={styles.featureIcon}>

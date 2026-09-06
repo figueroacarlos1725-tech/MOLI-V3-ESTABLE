@@ -9,6 +9,7 @@ import {
   Platform,
   ScrollView,
   Alert,
+  Linking,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -16,6 +17,7 @@ import { Input } from '@/src/components/Input';
 import { Button } from '@/src/components/Button';
 import { useAuthStore } from '@/src/stores/authStore';
 import { MOLI_COLORS } from '@/src/theme/colors';
+import { AUTH_FEATURES } from '@/src/config/features';
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -48,6 +50,19 @@ export default function LoginScreen() {
     }
   };
 
+  const handleGoogleLogin = async () => {
+    if (!AUTH_FEATURES.google || !AUTH_FEATURES.googleAuthUrl) {
+      Alert.alert('Google estará disponible pronto', 'La pantalla ya está preparada. Falta vincular las credenciales OAuth de Moli antes de habilitarla.');
+      return;
+    }
+    const canOpen = await Linking.canOpenURL(AUTH_FEATURES.googleAuthUrl);
+    if (!canOpen) {
+      Alert.alert('No pudimos abrir Google', 'Intentá nuevamente en unos minutos.');
+      return;
+    }
+    await Linking.openURL(AUTH_FEATURES.googleAuthUrl);
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView
@@ -65,10 +80,15 @@ export default function LoginScreen() {
             <Ionicons name="arrow-back" size={24} color={MOLI_COLORS.darkGray} />
           </TouchableOpacity>
 
+          <View style={styles.brandRow}>
+            <View style={styles.brandMark}><Ionicons name="sparkles" size={20} color={MOLI_COLORS.white} /></View>
+            <Text style={styles.brand}>Moli</Text>
+          </View>
+
           <View style={styles.headerSection}>
-            <Text style={styles.brand}>Moli<Text style={styles.brandDot}>.</Text></Text>
-            <Text style={styles.title}>Qué bueno verte</Text>
-            <Text style={styles.subtitle}>Ingresá para seguir moviéndote con Moli.</Text>
+            <Text style={styles.eyebrow}>TODO RESUELTO, EN UN SOLO LUGAR</Text>
+            <Text style={styles.title}>Bienvenido de nuevo</Text>
+            <Text style={styles.subtitle}>Ingresá para encontrar profesionales y seguir tus solicitudes.</Text>
           </View>
 
           <View style={styles.formSection}>
@@ -98,12 +118,23 @@ export default function LoginScreen() {
             </TouchableOpacity>
 
             <Button
-              title="Iniciar sesión"
+              title="Ingresar"
               onPress={handleLogin}
               loading={isLoading}
               size="large"
               style={styles.loginButton}
             />
+
+            <View style={styles.dividerRow}>
+              <View style={styles.divider} />
+              <Text style={styles.dividerText}>o continuá con</Text>
+              <View style={styles.divider} />
+            </View>
+
+            <TouchableOpacity style={styles.googleButton} onPress={handleGoogleLogin} accessibilityRole="button">
+              <Text style={styles.googleLetter}>G</Text>
+              <Text style={styles.googleText}>Continuar con Google</Text>
+            </TouchableOpacity>
           </View>
 
           <View style={styles.footerSection}>
@@ -130,6 +161,10 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     paddingHorizontal: 24,
     paddingTop: 16,
+    paddingBottom: 24,
+    width: '100%',
+    maxWidth: 520,
+    alignSelf: 'center',
   },
   backButton: {
     width: 44,
@@ -139,8 +174,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  brandRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 14 },
+  brandMark: { width: 38, height: 38, borderRadius: 13, backgroundColor: MOLI_COLORS.primary, alignItems: 'center', justifyContent: 'center' },
   headerSection: {
-    marginTop: 30,
+    marginTop: 44,
     marginBottom: 30,
   },
   title: {
@@ -154,8 +191,8 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: MOLI_COLORS.mediumGray,
   },
-  brand: { color: MOLI_COLORS.navy, fontSize: 22, fontWeight: '900', letterSpacing: -0.5, marginBottom: 28 },
-  brandDot: { color: MOLI_COLORS.coral },
+  brand: { color: MOLI_COLORS.navy, fontSize: 25, fontWeight: '900', letterSpacing: -0.8 },
+  eyebrow: { color: MOLI_COLORS.primaryDark, fontSize: 11, fontWeight: '900', letterSpacing: 1.3, marginBottom: 10 },
   formSection: {
     flex: 1,
   },
@@ -171,6 +208,12 @@ const styles = StyleSheet.create({
   loginButton: {
     marginTop: 4,
   },
+  dividerRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginVertical: 24 },
+  divider: { flex: 1, height: 1, backgroundColor: MOLI_COLORS.lightGray },
+  dividerText: { color: MOLI_COLORS.mediumGray, fontSize: 12, fontWeight: '600' },
+  googleButton: { minHeight: 56, borderRadius: 18, borderWidth: 1, borderColor: MOLI_COLORS.lightGray, backgroundColor: MOLI_COLORS.white, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12 },
+  googleLetter: { fontSize: 21, fontWeight: '900', color: '#4285F4' },
+  googleText: { fontSize: 16, fontWeight: '700', color: MOLI_COLORS.darkGray },
   footerSection: {
     flexDirection: 'row',
     justifyContent: 'center',

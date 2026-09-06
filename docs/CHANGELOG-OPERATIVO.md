@@ -1,5 +1,13 @@
 # Changelog operativo
 
+## 2026-09-06 — Acceso orientado a profesionales y trámites
+
+- Se adaptaron splash, bienvenida e ingreso a la identidad visual aprobada para el foco inicial en oficios/profesionales y trámites.
+- El ingreso principal continúa usando correo y contraseña, con formularios desplazables y adaptables a pantallas pequeñas.
+- El alta usa verificación por email de forma predeterminada; WhatsApp quedó oculto detrás de una bandera de entorno hasta disponer de API y plantilla aprobada.
+- Se incorporó el acceso visual por Google detrás de configuración explícita. No se habilita ni simula OAuth mientras falten las credenciales propias de Moli.
+- Se mantuvieron intactos el paquete Android `com.digigo.app`, `versionCode` y la configuración de firma/Play.
+
 ## 2026-08-22 — Admin: campañas, comisiones y capacidades
 
 - Se reemplazó la pantalla legacy de banners por el gestor de campañas seguro conectado a `/api/admin/ads/campaigns`.

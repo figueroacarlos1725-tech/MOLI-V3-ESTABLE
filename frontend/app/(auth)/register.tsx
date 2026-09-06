@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { apiService } from '@/src/services/api';
 import { MOLI_COLORS } from '@/src/theme/colors';
+import { AUTH_FEATURES } from '@/src/config/features';
 
 type Channel = 'email' | 'whatsapp';
 type Capability = 'ride_driver' | 'moto_driver' | 'taxi_driver' | 'professional' | 'tramites' | 'parcel' | 'delivery' | 'merchant';
@@ -26,7 +27,7 @@ export default function RegisterScreen() {
   }, [params.capabilities, params.isPro, params.role]);
   const [form, setForm] = useState({ name: '', phone: '', email: '', password: '', confirm: '', code: '' });
   const [capabilities, setCapabilities] = useState<Capability[]>(initial);
-  const [channel, setChannel] = useState<Channel>('whatsapp');
+  const [channel, setChannel] = useState<Channel>('email');
   const [step, setStep] = useState<'details' | 'otp' | 'verified' | 'pending'>('details');
   const [verificationToken, setVerificationToken] = useState('');
   const [busy, setBusy] = useState(false);
@@ -47,7 +48,7 @@ export default function RegisterScreen() {
   return <SafeAreaView style={s.container}><KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}><ScrollView contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
     <TouchableOpacity style={s.back} onPress={() => router.back()} accessibilityLabel="Volver"><Ionicons name="arrow-back" size={24} color={MOLI_COLORS.navy} /></TouchableOpacity><Text style={s.eyebrow}>TU PERFIL MOLI</Text><Text style={s.title}>Creá tu cuenta</Text><Text style={s.subtitle}>Un único perfil para viajar, trabajar y vender.</Text>
     {step === 'details' && <><TextInput style={s.input} placeholder="Nombre completo" value={form.name} onChangeText={v => set('name', v)} /><TextInput style={s.input} placeholder="Teléfono +549..." keyboardType="phone-pad" value={form.phone} onChangeText={v => set('phone', v)} /><TextInput style={s.input} placeholder="Email" keyboardType="email-address" autoCapitalize="none" value={form.email} onChangeText={v => set('email', v)} />
-      <Text style={s.label}>Recibir el código por</Text><View style={s.row}>{(['whatsapp', 'email'] as Channel[]).map(c => <TouchableOpacity key={c} style={[s.choice, channel === c && s.selected]} onPress={() => setChannel(c)}><Ionicons name={c === 'whatsapp' ? 'logo-whatsapp' : 'mail'} size={20} color={channel === c ? '#fff' : MOLI_COLORS.primary} /><Text style={[s.choiceText, channel === c && { color: '#fff' }]}>{c === 'whatsapp' ? 'WhatsApp' : 'Email'}</Text></TouchableOpacity>)}</View>
+      <Text style={s.label}>Verificación de la cuenta</Text><View style={s.row}>{((AUTH_FEATURES.whatsapp ? ['email', 'whatsapp'] : ['email']) as Channel[]).map(c => <TouchableOpacity key={c} style={[s.choice, channel === c && s.selected]} onPress={() => setChannel(c)}><Ionicons name={c === 'whatsapp' ? 'logo-whatsapp' : 'mail'} size={20} color={channel === c ? '#fff' : MOLI_COLORS.primary} /><Text style={[s.choiceText, channel === c && { color: '#fff' }]}>{c === 'whatsapp' ? 'WhatsApp' : 'Código por email'}</Text></TouchableOpacity>)}</View>
       <TextInput style={s.input} placeholder="Contraseña (mínimo 8)" secureTextEntry value={form.password} onChangeText={v => set('password', v)} /><TextInput style={s.input} placeholder="Repetir contraseña" secureTextEntry value={form.confirm} onChangeText={v => set('confirm', v)} />
       <Text style={s.label}>Servicios opcionales</Text><View style={s.caps}>{CAPABILITIES.map(c => <TouchableOpacity key={c.id} style={[s.cap, capabilities.includes(c.id) && s.capSelected]} onPress={() => toggle(c.id)}><Ionicons name={c.icon} size={18} color={capabilities.includes(c.id) ? '#fff' : '#636366'} /><Text style={[s.capText, capabilities.includes(c.id) && { color: '#fff' }]}>{c.label}</Text></TouchableOpacity>)}</View><TouchableOpacity style={s.primary} onPress={requestOtp} disabled={busy}>{busy ? <ActivityIndicator color="#fff" /> : <Text style={s.primaryText}>Enviar código</Text>}</TouchableOpacity></>}
     {step === 'otp' && <View><Text style={s.label}>Código enviado por {channel === 'whatsapp' ? 'WhatsApp' : 'email'}</Text><TextInput style={[s.input, { textAlign: 'center', fontSize: 26, letterSpacing: 8 }]} placeholder="000000" keyboardType="number-pad" maxLength={6} value={form.code} onChangeText={v => set('code', v.replace(/\D/g, ''))} /><TouchableOpacity style={s.primary} onPress={verifyOtp} disabled={busy}>{busy ? <ActivityIndicator color="#fff" /> : <Text style={s.primaryText}>Verificar código</Text>}</TouchableOpacity><TouchableOpacity onPress={requestOtp}><Text style={s.link}>Reenviar código</Text></TouchableOpacity></View>}
