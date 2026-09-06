@@ -28,6 +28,8 @@ const PROFESSION_ART:Record<string,ImageSourcePropType>={
 };
 const PROFILE_ART:ImageSourcePropType[]=[PROFESSION_ART.electricista,PROFESSION_ART.limpieza,PROFESSION_ART.plomero,PROFESSION_ART.tecnologia,PROFESSION_ART.pintura,PROFESSION_ART.mudanza];
 const VERIFIED_TOOLS=require('../../assets/professions/verified-tools.png');
+const TRAVEL_ART=require('../../assets/modules/travel.png');
+const PAPERWORK_ART=require('../../assets/modules/paperwork.png');
 const artKey=(value:string='')=>value.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
 const categoryArt=(category:Category)=>PROFESSION_ART[artKey(category.id||category.category_id||category.name)]||PROFESSION_ART[artKey(category.name)];
 
@@ -45,15 +47,15 @@ export default function RiderLanding({firstName,onProfile,onLogout}:{firstName:s
     <Section title="Servicios populares" action="Ver todos"/><View style={s.grid}>{categories.map((c,i)=>{const artwork=categoryArt(c);return <TouchableOpacity activeOpacity={0.82} key={c.id||c.category_id||i} style={s.category} onPress={jobs}><View style={[s.categoryIcon,compact&&s.categoryIconCompact]}>{artwork?<Image source={artwork} style={[s.categoryImage,compact&&s.categoryImageCompact]} resizeMode="contain"/>:<Ionicons name={(c.icon||'grid') as any} size={27} color={C.primary}/>}<View style={s.categoryBadge}><Ionicons name={(c.icon||'sparkles') as any} size={13} color="#fff"/></View></View><Text style={s.categoryText} numberOfLines={1}>{c.name}</Text></TouchableOpacity>})}</View>
     <Section title="Disponibles ahora" action="VER TODOS  ›"/><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.proRow}>{(pros.length?pros:[{user_id:'nearby',name:'Profesional verificado',categories:['Servicios'],rating:5,total_jobs:128}]).map((p,index)=><TouchableOpacity activeOpacity={0.84} key={p.user_id} style={s.proCard} onPress={jobs}><View style={s.avatar}><Image source={PROFILE_ART[index%PROFILE_ART.length]} style={s.profileImage} resizeMode="cover"/><View style={s.available}/></View><View style={s.proInfo}><View style={s.verifiedRow}><Ionicons name="shield-checkmark" size={16} color={C.primary}/><Text style={s.verifiedText}>Profesional verificado</Text></View><Text style={s.proName} numberOfLines={1}>{p.name}</Text><View style={s.ratingRow}><Ionicons name="star" size={15} color="#FFB400"/><Text style={s.rating}>{(p.rating||5).toFixed(1)}</Text></View><Text style={s.jobsCount}>{p.total_jobs||128} trabajos</Text></View></TouchableOpacity>)}</ScrollView>
     <Text style={s.more}>También en Moli</Text><View style={s.utilityGrid}>
-      <UtilityCard icon="document-text" eyebrow="GESTIONES" title="Trámites" copy="Resolvé diligencias" onPress={()=>router.push({pathname:'/(jobs)/client-home',params:{service:'tramites'}})}/>
-      <UtilityCard icon="car-sport" eyebrow="MOVILIDAD" title="Viajes" copy="Pedí auto o moto" onPress={()=>router.push('/(rider)/home')}/>
+      <UtilityCard icon="document-text" artwork={PAPERWORK_ART} eyebrow="GESTIONES" title="Trámites" copy="Resolvé diligencias" onPress={()=>router.push({pathname:'/(jobs)/client-home',params:{service:'tramites'}})}/>
+      <UtilityCard icon="car-sport" artwork={TRAVEL_ART} eyebrow="MOVILIDAD" title="Viajes" copy="Pedí auto o moto" onPress={()=>router.push('/(rider)/home')}/>
       <UtilityCard icon="storefront" eyebrow="COMPRAS" title="Market" copy="Delivery o retiro" onPress={()=>router.push('/(marketplace)')}/>
     </View>
     <TouchableOpacity style={s.logout} onPress={onLogout}><Ionicons name="swap-horizontal" size={19} color={C.gray}/><Text style={s.logoutText}>Cambiar cuenta</Text></TouchableOpacity>
   </ScrollView>;
 }
 function Section({title,action}:{title:string;action:string}){return <View style={s.section}><Text style={s.sectionTitle}>{title}</Text><Text style={s.sectionAction}>{action}</Text></View>}
-function UtilityCard({icon,eyebrow,title,copy,onPress}:{icon:keyof typeof Ionicons.glyphMap;eyebrow:string;title:string;copy:string;onPress:()=>void}){return <TouchableOpacity activeOpacity={.84} style={s.utilityCard} onPress={onPress}><View style={s.utilityIcon}><Ionicons name={icon} size={25} color="#fff"/></View><Text style={s.utilityEyebrow}>{eyebrow}</Text><Text style={s.utilityTitle}>{title}</Text><Text style={s.utilityCopy}>{copy}</Text><View style={s.utilityArrow}><Ionicons name="chevron-forward" size={14} color={C.primary}/></View></TouchableOpacity>}
+function UtilityCard({icon,artwork,eyebrow,title,copy,onPress}:{icon:keyof typeof Ionicons.glyphMap;artwork?:ImageSourcePropType;eyebrow:string;title:string;copy:string;onPress:()=>void}){return <TouchableOpacity activeOpacity={.84} style={s.utilityCard} onPress={onPress}><View style={[s.utilityIcon,artwork&&s.utilityArtBox]}>{artwork?<Image source={artwork} style={s.utilityArt} resizeMode="contain"/>:<Ionicons name={icon} size={25} color="#fff"/>}</View><Text style={s.utilityEyebrow}>{eyebrow}</Text><Text style={s.utilityTitle}>{title}</Text><Text style={s.utilityCopy}>{copy}</Text><View style={s.utilityArrow}><Ionicons name="chevron-forward" size={14} color={C.primary}/></View></TouchableOpacity>}
 const s=StyleSheet.create({
   screen:{backgroundColor:'#FFF8F2'},
   content:{width:'100%',maxWidth:720,alignSelf:'center',paddingHorizontal:20,paddingBottom:46,backgroundColor:'#FFF8F2',overflow:'hidden'},
@@ -128,6 +130,8 @@ const s=StyleSheet.create({
   utilityGrid:{flexDirection:'row',gap:11},
   utilityCard:{flex:1,minHeight:150,backgroundColor:'#fff',borderRadius:22,padding:12,borderWidth:1,borderColor:'#F0DFD1',borderBottomWidth:3,borderBottomColor:'#E9D8CA',shadowColor:'#6F4229',shadowOffset:{width:0,height:6},shadowOpacity:.15,shadowRadius:9,elevation:5},
   utilityIcon:{width:49,height:49,borderRadius:17,backgroundColor:C.primary,alignItems:'center',justifyContent:'center',borderBottomWidth:3,borderBottomColor:C.primaryDark,shadowColor:C.primaryDark,shadowOffset:{width:0,height:4},shadowOpacity:.25,shadowRadius:5,elevation:5},
+  utilityArtBox:{width:68,height:61,borderRadius:19,backgroundColor:'#FFF5ED',borderBottomColor:'#F0D4C2',overflow:'hidden'},
+  utilityArt:{width:65,height:65},
   utilityEyebrow:{fontSize:8,fontWeight:'900',color:C.primary,letterSpacing:.65,marginTop:11},
   utilityTitle:{fontSize:15,fontWeight:'900',color:C.black,marginTop:2},
   utilityCopy:{fontSize:9,lineHeight:13,color:C.gray,marginTop:3},

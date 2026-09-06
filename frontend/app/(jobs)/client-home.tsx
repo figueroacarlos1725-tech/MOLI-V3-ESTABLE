@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, TextInput,
-  ActivityIndicator, ScrollView, Platform, Alert, Animated, Easing,
+  View, Text, StyleSheet, TouchableOpacity, TextInput, Image,
+  ActivityIndicator, ScrollView, Platform, Animated, Easing, useWindowDimensions,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useFocusEffect } from 'expo-router';
@@ -9,16 +9,21 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
 import { apiService } from '@/src/services/api';
-import { useAuthStore } from '@/src/stores/authStore';
 
-const GREEN = '#FF7733';
+const ORANGE = '#FF5A1F';
+const ORANGE_DARK = '#E9480B';
+const CHARCOAL = '#202124';
+const PAPERWORK_ART = require('../../assets/modules/paperwork.png');
+const VERIFIED_ART = require('../../assets/professions/verified-tools.png');
+const PROFILE_ART = require('../../assets/professions/technician.png');
 
 export default function ClientHomeScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ service?: string }>();
   const isTramite = params.service === 'tramites';
   const insets = useSafeAreaInsets();
-  const { user } = useAuthStore();
+  const { width } = useWindowDimensions();
+  const compact = width < 430;
   const webViewRef = useRef<any>(null);
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
@@ -126,13 +131,25 @@ export default function ClientHomeScreen() {
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<style>body,html{margin:0;padding:0;height:100%}#map{height:100%;width:100%}</style>
+<style>
+*{box-sizing:border-box}body,html{margin:0;padding:0;height:100%;background:#F5F1EB}#map{height:100%;width:100%}
+.leaflet-control-attribution{font:9px system-ui!important;opacity:.58;border-radius:10px 0 0 0!important}
+.leaflet-control-zoom{border:0!important;box-shadow:0 6px 18px rgba(32,33,36,.16)!important;margin:14px!important}
+.leaflet-control-zoom a{width:38px!important;height:38px!important;line-height:36px!important;color:#202124!important;border-color:#F0E3D9!important}
+.moli-pin-wrap{width:68px;height:78px;position:relative;filter:drop-shadow(0 9px 9px rgba(120,42,9,.30))}
+.moli-pin-pulse{position:absolute;width:58px;height:58px;left:5px;top:3px;border-radius:50%;border:3px solid rgba(255,90,31,.34);animation:moliPulse 1.8s ease-out infinite}
+.moli-pin{position:absolute;width:53px;height:53px;left:8px;top:5px;background:linear-gradient(145deg,#FF8A52,#FF5A1F 56%,#E9480B);transform:rotate(45deg);border-radius:50% 50% 50% 13px;border:3px solid #fff;box-shadow:inset 2px 2px 5px rgba(255,255,255,.42)}
+.moli-pin-core{position:absolute;width:28px;height:28px;left:20px;top:18px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;z-index:2;box-shadow:0 2px 5px rgba(80,25,4,.18)}
+.moli-pin-dot{width:10px;height:10px;border-radius:50%;background:#FF5A1F;border:2px solid #FFD1BB}
+.moli-pin-shadow{position:absolute;bottom:0;left:20px;width:29px;height:8px;border-radius:50%;background:rgba(32,33,36,.18);filter:blur(2px)}
+@keyframes moliPulse{0%{transform:scale(.72);opacity:1}100%{transform:scale(1.5);opacity:0}}
+</style>
 </head><body>
 <div id="map"></div>
 <script>
-var map=L.map('map',{zoomControl:false}).setView([${latitude},${longitude}],15);
+var map=L.map('map',{zoomControl:true}).setView([${latitude},${longitude}],15);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map);
-var pin=L.marker([${latitude},${longitude}],{draggable:true,icon:L.divIcon({html:'<div style="width:48px;height:48px;border-radius:50%;background:#FF7733;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(255,119,51,0.35);border:3px solid #fff"><svg width=22 height=22 viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><circle cx=12 cy=12 r=3/><path d="M12 2v4m0 12v4m-10-10h4m12 0h4"/></svg></div>',className:'',iconSize:[48,48],iconAnchor:[24,48]})}).addTo(map);
+var pin=L.marker([${latitude},${longitude}],{draggable:true,icon:L.divIcon({html:'<div class="moli-pin-wrap"><div class="moli-pin-pulse"></div><div class="moli-pin"></div><div class="moli-pin-core"><div class="moli-pin-dot"></div></div><div class="moli-pin-shadow"></div></div>',className:'',iconSize:[68,78],iconAnchor:[34,69]})}).addTo(map);
 pin.on('dragend',function(e){var ll=e.target.getLatLng();window.ReactNativeWebView.postMessage(JSON.stringify({type:'pin_moved',lat:ll.lat,lng:ll.lng}));});
 function updatePin(lat,lng){pin.setLatLng([lat,lng]);map.setView([lat,lng],15);}
 </script>
@@ -143,11 +160,11 @@ function updatePin(lat,lng){pin.setLatLng([lat,lng]);map.setView([lat,lng],15);}
       {/* Header */}
       <View style={s.header}>
         <TouchableOpacity onPress={() => router.replace('/modules')} style={s.backBtn}>
-          <Ionicons name="arrow-back" size={22} color="#1C1C1E" />
+          <Ionicons name="arrow-back" size={22} color={CHARCOAL} />
         </TouchableOpacity>
-        <Text style={s.headerTitle}>{isTramite ? 'Moli Trámites' : 'Moli Trabajos'}</Text>
+        <View style={s.headerIdentity}><Image source={isTramite ? PAPERWORK_ART : VERIFIED_ART} style={s.headerModuleIcon} resizeMode="contain"/><View><Text style={s.headerKicker}>MOLI</Text><Text style={s.headerTitle}>{isTramite ? 'Trámites' : 'Profesionales'}</Text></View></View>
         <TouchableOpacity onPress={() => router.push('/(jobs)/client-profile' as any)} style={s.profileBtn}>
-          <Ionicons name="person-circle" size={28} color={GREEN} />
+          <Image source={PROFILE_ART} style={s.profileImage} resizeMode="cover"/><View style={s.profileDot}/>
         </TouchableOpacity>
       </View>
 
@@ -173,15 +190,15 @@ function updatePin(lat,lng){pin.setLatLng([lat,lng]);map.setView([lat,lng],15);}
           {myActiveJobs.map((job) => (
             <TouchableOpacity
               key={job.job_id}
-              style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#F8F8FA', borderRadius: 12, padding: 12, marginBottom: 6, borderLeftWidth: 3, borderLeftColor: job.status === 'assigned' ? '#FF7733' : '#FF9500' }}
+              style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#F8F8FA', borderRadius: 12, padding: 12, marginBottom: 6, borderLeftWidth: 3, borderLeftColor: job.status === 'assigned' ? ORANGE : '#FF9500' }}
               onPress={() => router.push({ pathname: '/(jobs)/job-status', params: { jobId: job.job_id } } as any)}
             >
-              <Ionicons name={job.status === 'assigned' ? 'checkmark-circle' : 'search'} size={20} color={job.status === 'assigned' ? '#FF7733' : '#FF9500'} />
+              <Ionicons name={job.status === 'assigned' ? 'checkmark-circle' : 'search'} size={20} color={job.status === 'assigned' ? ORANGE : '#FF9500'} />
               <View style={{ flex: 1, marginLeft: 10 }}>
                 <Text style={{ fontSize: 14, fontWeight: '600', color: '#1C1C1E' }} numberOfLines={1}>{job.title}</Text>
                 <Text style={{ fontSize: 12, color: '#8E8E93' }}>{job.status === 'assigned' ? (job.assigned_name || 'Profesional asignado') : 'Buscando...'}</Text>
               </View>
-              <Text style={{ fontSize: 15, fontWeight: '700', color: '#FF7733' }}>${job.budget}</Text>
+              <Text style={{ fontSize: 15, fontWeight: '700', color: ORANGE }}>${job.budget}</Text>
               <Ionicons name="chevron-forward" size={18} color="#C7C7CC" style={{ marginLeft: 4 }} />
             </TouchableOpacity>
           ))}
@@ -189,14 +206,14 @@ function updatePin(lat,lng){pin.setLatLng([lat,lng]);map.setView([lat,lng],15);}
       )}
 
       {/* Bottom card */}
-      <View style={[s.bottomCard, { paddingBottom: Math.max(insets.bottom, 16) }]}>
+      <View style={[s.bottomCard, !compact&&s.bottomCardWide, { paddingBottom: Math.max(insets.bottom, 16) }]}>
         <View style={s.cardHandle} />
 
         {/* Pulse badge */}
-        <View style={{ alignItems: 'center', marginBottom: 12 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            <Animated.View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: GREEN, transform: [{ scale: pulseAnim }] }} />
-            <Text style={{ fontSize: 13, color: GREEN, fontWeight: '700' }}>Esta es tu ubicación</Text>
+        <View style={s.locationStatus}>
+          <View style={s.locationPill}>
+            <Animated.View style={{ width: 9, height: 9, borderRadius: 5, backgroundColor: ORANGE, transform: [{ scale: pulseAnim }] }} />
+            <Text style={s.locationStatusText}>UBICACIÓN DEL SERVICIO</Text>
           </View>
         </View>
 
@@ -213,7 +230,7 @@ function updatePin(lat,lng){pin.setLatLng([lat,lng]);map.setView([lat,lng],15);}
                 onChangeText={handleSearch}
                 autoFocus
               />
-              {searching && <ActivityIndicator size="small" color={GREEN} />}
+              {searching && <ActivityIndicator size="small" color={ORANGE} />}
               <TouchableOpacity onPress={() => { setShowSearch(false); setSuggestions([]); }}>
                 <Ionicons name="close-circle" size={20} color="#C7C7CC" />
               </TouchableOpacity>
@@ -222,7 +239,7 @@ function updatePin(lat,lng){pin.setLatLng([lat,lng]);map.setView([lat,lng],15);}
               <ScrollView style={s.sugList} keyboardShouldPersistTaps="handled" nestedScrollEnabled>
                 {suggestions.map((item, i) => (
                   <TouchableOpacity key={i} style={s.sugItem} onPress={() => selectAddress(item)}>
-                    <Ionicons name="location-outline" size={16} color={GREEN} />
+                    <Ionicons name="location-outline" size={16} color={ORANGE} />
                     <View style={{ flex: 1 }}>
                       <Text style={s.sugName} numberOfLines={1}>{item.name}</Text>
                       <Text style={s.sugAddr} numberOfLines={1}>{item.address}</Text>
@@ -235,7 +252,7 @@ function updatePin(lat,lng){pin.setLatLng([lat,lng]);map.setView([lat,lng],15);}
         ) : (
           <TouchableOpacity style={s.addressRow} onPress={() => setShowSearch(true)}>
             <View style={s.addressIcon}>
-              <Ionicons name="location" size={20} color={GREEN} />
+              <Ionicons name="location" size={22} color="#fff" />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={s.addressLabel}>Tu ubicación</Text>
@@ -243,18 +260,19 @@ function updatePin(lat,lng){pin.setLatLng([lat,lng]);map.setView([lat,lng],15);}
                 {loadingLoc ? 'Detectando...' : address || 'Tocá para buscar dirección'}
               </Text>
             </View>
-            <Ionicons name="pencil" size={18} color="#C7C7CC" />
+            <View style={s.editButton}><Ionicons name="pencil" size={16} color={ORANGE} /></View>
           </TouchableOpacity>
         )}
 
-        <Text style={{ fontSize: 11, color: '#8E8E93', textAlign: 'center', marginTop: 6, marginBottom: 10 }}>
+        <Text style={s.locationHint}>
           Podés mover el pin en el mapa o buscar tu dirección
         </Text>
 
         {/* Confirm button */}
-        <TouchableOpacity style={s.confirmBtn} onPress={handleConfirmLocation}>
-          <Ionicons name={isTramite ? 'document-text' : 'briefcase'} size={20} color="#fff" />
+        <TouchableOpacity activeOpacity={.84} style={s.confirmBtn} onPress={handleConfirmLocation}>
+          <View style={s.confirmIcon}><Ionicons name={isTramite ? 'document-text' : 'briefcase'} size={20} color={ORANGE} /></View>
           <Text style={s.confirmBtnText}>{isTramite ? 'Solicitar un trámite aquí' : 'Solicitar un trabajo aquí'}</Text>
+          <Ionicons name="chevron-forward" size={20} color="#fff" />
         </TouchableOpacity>
       </View>
     </View>
@@ -262,23 +280,35 @@ function updatePin(lat,lng){pin.setLatLng([lat,lng]);map.setView([lat,lng],15);}
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
-  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#F0F0F0', gap: 8 },
-  backBtn: { width: 40, height: 40, borderRadius: 12, backgroundColor: '#F2F2F7', justifyContent: 'center', alignItems: 'center' },
-  headerTitle: { fontSize: 17, fontWeight: '700', color: '#1C1C1E', flex: 1 },
-  profileBtn: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center' },
-  bottomCard: { backgroundColor: '#fff', borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: 20, paddingTop: 12, shadowColor: '#000', shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 8 },
-  cardHandle: { width: 36, height: 4, borderRadius: 2, backgroundColor: '#D1D1D6', alignSelf: 'center', marginBottom: 12 },
-  addressRow: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: '#F8F8FA', borderRadius: 14, padding: 14 },
-  addressIcon: { width: 40, height: 40, borderRadius: 12, backgroundColor: '#FFF0EC', justifyContent: 'center', alignItems: 'center' },
-  addressLabel: { fontSize: 11, color: '#8E8E93', fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 },
-  addressText: { fontSize: 14, color: '#1C1C1E', fontWeight: '600', marginTop: 2 },
-  searchRow: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#F2F2F7', borderRadius: 14, paddingHorizontal: 14, paddingVertical: 10 },
-  searchInput: { flex: 1, fontSize: 15, color: '#1C1C1E' },
-  sugList: { maxHeight: 200, marginTop: 4, backgroundColor: '#fff', borderRadius: 12, borderWidth: 1, borderColor: '#E5E5EA' },
-  sugItem: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#F0F0F0' },
-  sugName: { fontSize: 14, fontWeight: '600', color: '#1C1C1E' },
-  sugAddr: { fontSize: 12, color: '#8E8E93' },
-  confirmBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, backgroundColor: '#FF7733', borderRadius: 14, paddingVertical: 18 },
-  confirmBtnText: { color: '#fff', fontSize: 17, fontWeight: '800' },
+  container: { flex: 1, backgroundColor: '#FFF8F2' },
+  header: { minHeight: 74, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10, backgroundColor: '#FFF8F2', borderBottomWidth: 1, borderBottomColor: '#F0DFD2', gap: 12, shadowColor: '#68412C', shadowOffset: { width: 0, height: 4 }, shadowOpacity: .08, shadowRadius: 8, elevation: 4, zIndex: 5 },
+  backBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#fff', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#F0DFD2', shadowColor: '#68412C', shadowOffset: { width: 0, height: 4 }, shadowOpacity: .12, shadowRadius: 7, elevation: 4 },
+  headerIdentity: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 9 },
+  headerModuleIcon: { width: 48, height: 48 },
+  headerKicker: { color: ORANGE, fontSize: 9, lineHeight: 11, fontWeight: '900', letterSpacing: 1.2 },
+  headerTitle: { fontSize: 18, lineHeight: 22, fontWeight: '900', color: CHARCOAL },
+  profileBtn: { width: 46, height: 46, borderRadius: 23, backgroundColor: '#fff', justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: ORANGE, shadowColor: '#68412C', shadowOffset: { width: 0, height: 4 }, shadowOpacity: .16, shadowRadius: 7, elevation: 5 },
+  profileImage: { width: 40, height: 40, borderRadius: 20 },
+  profileDot: { position: 'absolute', right: -1, bottom: 1, width: 12, height: 12, borderRadius: 6, backgroundColor: '#22BF60', borderWidth: 2, borderColor: '#fff' },
+  bottomCard: { width: '100%', backgroundColor: '#FFFDFC', borderTopLeftRadius: 30, borderTopRightRadius: 30, paddingHorizontal: 18, paddingTop: 11, borderWidth: 1, borderBottomWidth: 0, borderColor: '#F0DFD2', shadowColor: '#5D3824', shadowOffset: { width: 0, height: -8 }, shadowOpacity: .16, shadowRadius: 18, elevation: 12 },
+  bottomCardWide: { maxWidth: 760, alignSelf: 'center', borderTopRightRadius: 30, borderTopLeftRadius: 30 },
+  cardHandle: { width: 46, height: 5, borderRadius: 3, backgroundColor: '#DDCFC5', alignSelf: 'center', marginBottom: 10 },
+  locationStatus: { alignItems: 'center', marginBottom: 11 },
+  locationPill: { flexDirection: 'row', alignItems: 'center', gap: 7, paddingHorizontal: 12, paddingVertical: 6, backgroundColor: '#FFF1E8', borderRadius: 16 },
+  locationStatusText: { fontSize: 10, color: ORANGE_DARK, fontWeight: '900', letterSpacing: .8 },
+  addressRow: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: '#fff', borderRadius: 20, padding: 12, borderWidth: 1, borderColor: '#F0E1D6', shadowColor: '#6E432B', shadowOffset: { width: 0, height: 5 }, shadowOpacity: .1, shadowRadius: 9, elevation: 4 },
+  addressIcon: { width: 47, height: 47, borderRadius: 16, backgroundColor: ORANGE, justifyContent: 'center', alignItems: 'center', borderBottomWidth: 3, borderBottomColor: ORANGE_DARK, shadowColor: ORANGE_DARK, shadowOffset: { width: 0, height: 3 }, shadowOpacity: .24, shadowRadius: 5, elevation: 4 },
+  addressLabel: { fontSize: 10, color: ORANGE_DARK, fontWeight: '900', textTransform: 'uppercase', letterSpacing: .75 },
+  addressText: { fontSize: 14, color: CHARCOAL, fontWeight: '800', marginTop: 3 },
+  editButton: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFF1E8' },
+  searchRow: { flexDirection: 'row', alignItems: 'center', gap: 9, backgroundColor: '#fff', borderRadius: 20, paddingHorizontal: 16, paddingVertical: 13, borderWidth: 1, borderColor: '#F0DFD2', shadowColor: '#6E432B', shadowOffset: { width: 0, height: 5 }, shadowOpacity: .11, shadowRadius: 9, elevation: 4 },
+  searchInput: { flex: 1, fontSize: 15, color: CHARCOAL, fontWeight: '600' },
+  sugList: { maxHeight: 200, marginTop: 7, backgroundColor: '#fff', borderRadius: 16, borderWidth: 1, borderColor: '#EDDED3' },
+  sugItem: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, paddingVertical: 11, borderBottomWidth: 1, borderBottomColor: '#F4ECE6' },
+  sugName: { fontSize: 14, fontWeight: '700', color: CHARCOAL },
+  sugAddr: { fontSize: 12, color: '#85878A' },
+  locationHint: { fontSize: 10, color: '#8A8D91', textAlign: 'center', marginTop: 9, marginBottom: 11 },
+  confirmBtn: { minHeight: 62, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, backgroundColor: ORANGE, borderRadius: 22, paddingHorizontal: 12, borderWidth: 2, borderColor: '#FF9361', borderBottomWidth: 5, borderBottomColor: ORANGE_DARK, shadowColor: ORANGE_DARK, shadowOffset: { width: 0, height: 7 }, shadowOpacity: .3, shadowRadius: 9, elevation: 8 },
+  confirmIcon: { width: 38, height: 38, borderRadius: 13, alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff', shadowColor: '#9B3108', shadowOffset: { width: 0, height: 3 }, shadowOpacity: .2, shadowRadius: 4, elevation: 3 },
+  confirmBtnText: { color: '#fff', fontSize: 16, fontWeight: '900', flexShrink: 1 },
 });

@@ -7,6 +7,8 @@
 - La categoría Mudanza recibió su retrato propio para eliminar el último símbolo genérico de la portada.
 - Se ajustó la implementación contra el mockup aprobado: marca sin duplicación ni rótulos conceptuales, encabezado con notificación/avatar, buscador con mayor profundidad, retratos mejor encajados e insignias de oficio destacadas.
 - Trámites, Viajes y Market pasan a tarjetas visuales completas con icono, categoría, descripción y acción; se añadieron proporciones compactas específicas para pantallas menores de 430 px.
+- Se sumaron ilustraciones 3D originales para Viajes y Trámites, optimizadas a 512 px y utilizadas en los accesos de la portada.
+- Se rediseñó el mapa cliente de trabajos/trámites: pin naranja tipo gota con pulso, controles Leaflet estilizados, encabezado con identidad de módulo y avatar, ubicación elevada y botón principal táctil alineado con la portada.
 - El color primario global pasa a naranja vivo `#FF5A1F` con profundidad `#E9480B`, manteniendo carbón y verde semántico.
 
 ## 2026-09-06 — Paquete visual de oficios
