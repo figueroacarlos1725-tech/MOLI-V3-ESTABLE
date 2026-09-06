@@ -175,6 +175,7 @@ El registro móvil exige teléfono y email. El canal `auto` intenta WhatsApp y u
 - Color primario naranja cálido `#FF7733`; texto carbón `#202124`; fondos blancos y grises cálidos; verde reservado para éxito o disponibilidad.
 - Mapas principales claros, rutas y pines naranjas, tarjetas flotantes con bordes finos y sombras suaves.
 - Logo naranja/negro y vehículos Auto/Moto/Taxi/Delivery/Paquetería representados por componentes propios reutilizables.
+- El paquete visual `Moli Oficios v1` usa ilustraciones 3D semirrealistas propias para electricista, plomería, limpieza, pintura, jardinería, carpintería, mecánica y tecnología. Incluye un emblema de herramientas con check verificado y retratos ficticios para los profesionales de demostración; evita fotografías o activos de terceros.
 
 ## Operación unificada de prestadores
 

@@ -1,5 +1,11 @@
 # Changelog operativo
 
+## 2026-09-06 — Paquete visual de oficios
+
+- Se incorporó `Moli Oficios v1` con ocho ilustraciones originales y transparentes para categorías profesionales.
+- La portada cliente ahora muestra retratos ficticios en profesionales disponibles y el nuevo emblema de herramientas verificadas.
+- Los recursos fueron optimizados a 512 × 512 px para mantener calidad visual sin cargar los originales de alta resolución en la aplicación.
+
 ## 2026-09-06 — Acceso orientado a profesionales y trámites
 
 - Se reemplazó el selector de módulos posterior al login del cliente por la portada aprobada: búsqueda, solicitud principal de profesional, categorías, prestadores disponibles y acceso destacado a trámites; Viajes y Market quedan como accesos secundarios.
