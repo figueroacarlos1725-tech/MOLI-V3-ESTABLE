@@ -1,6 +1,6 @@
 # Moli Oficios — paquete visual v1
 
-Ilustraciones originales creadas para la interfaz de Moli. El paquete incluye perfiles de electricista, plomería, limpieza, pintura, jardinería, carpintería, mecánica y tecnología, más el emblema de herramientas con verificación.
+Ilustraciones originales creadas para la interfaz de Moli. El paquete incluye perfiles de electricista, plomería, limpieza, mudanza, pintura, jardinería, carpintería, mecánica y tecnología, más el emblema de herramientas con verificación.
 
 - Formato: PNG con transparencia, 512 × 512 px.
 - Estilo: retrato 3D semirrealista, amable y profesional.

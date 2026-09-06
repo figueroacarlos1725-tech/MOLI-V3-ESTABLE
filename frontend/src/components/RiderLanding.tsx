@@ -13,6 +13,8 @@ const PROFESSION_ART:Record<string,ImageSourcePropType>={
   plomero:require('../../assets/professions/plumber.png'),
   plomeria:require('../../assets/professions/plumber.png'),
   limpieza:require('../../assets/professions/cleaner.png'),
+  mudanza:require('../../assets/professions/mover.png'),
+  mudanzas:require('../../assets/professions/mover.png'),
   pintura:require('../../assets/professions/painter.png'),
   pintor:require('../../assets/professions/painter.png'),
   jardineria:require('../../assets/professions/gardener.png'),
@@ -24,7 +26,7 @@ const PROFESSION_ART:Record<string,ImageSourcePropType>={
   tecnologia:require('../../assets/professions/technician.png'),
   tecnico:require('../../assets/professions/technician.png'),
 };
-const PROFILE_ART:ImageSourcePropType[]=[PROFESSION_ART.electricista,PROFESSION_ART.limpieza,PROFESSION_ART.plomero,PROFESSION_ART.tecnologia,PROFESSION_ART.pintura];
+const PROFILE_ART:ImageSourcePropType[]=[PROFESSION_ART.electricista,PROFESSION_ART.limpieza,PROFESSION_ART.plomero,PROFESSION_ART.tecnologia,PROFESSION_ART.pintura,PROFESSION_ART.mudanza];
 const VERIFIED_TOOLS=require('../../assets/professions/verified-tools.png');
 const artKey=(value:string='')=>value.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
 const categoryArt=(category:Category)=>PROFESSION_ART[artKey(category.id||category.category_id||category.name)]||PROFESSION_ART[artKey(category.name)];

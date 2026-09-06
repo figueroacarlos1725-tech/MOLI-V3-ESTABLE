@@ -4,6 +4,7 @@
 
 - Se aprobó e implementó la nueva dirección visual de la portada cliente: fondo crema con profundidad, buscador elevado, CTA táctil, hero verificado y categorías tipo misión.
 - Los profesionales disponibles muestran avatar, estado en línea, insignia verificada, reputación y trabajos completados.
+- La categoría Mudanza recibió su retrato propio para eliminar el último símbolo genérico de la portada.
 - El color primario global pasa a naranja vivo `#FF5A1F` con profundidad `#E9480B`, manteniendo carbón y verde semántico.
 
 ## 2026-09-06 — Paquete visual de oficios
