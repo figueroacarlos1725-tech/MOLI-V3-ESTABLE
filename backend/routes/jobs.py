@@ -66,6 +66,15 @@ async def get_job_categories():
         cats = DEFAULT_CATEGORIES
     return {"categories": cats}
 
+@router.get("/api/jobs/professionals/available")
+async def get_available_professionals(user: dict = Depends(get_current_user)):
+    """Privacy-safe preview for the client home screen."""
+    profiles = await db.professional_profiles.find(
+        {"is_available": True},
+        {"_id": 0, "user_id": 1, "name": 1, "categories": 1, "rating": 1, "total_jobs": 1},
+    ).sort("rating", -1).limit(12).to_list(12)
+    return {"professionals": profiles}
+
 
 # ─── PROFESSIONAL PROFILE ────────────────
 

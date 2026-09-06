@@ -2,6 +2,8 @@
 
 ## 2026-09-06 — Acceso orientado a profesionales y trámites
 
+- Se reemplazó el selector de módulos posterior al login del cliente por la portada aprobada: búsqueda, solicitud principal de profesional, categorías, prestadores disponibles y acceso destacado a trámites; Viajes y Market quedan como accesos secundarios.
+- La portada consume un listado autenticado y reducido de profesionales disponibles que no expone teléfono, email, domicilio ni coordenadas.
 - Se corrigió el proxy `/api/` del frontend web QA: el login y las comprobaciones de versión vuelven a llegar al backend aun cuando la URL pública no se incrusta durante el export de Expo.
 - Se adaptaron splash, bienvenida e ingreso a la identidad visual aprobada para el foco inicial en oficios/profesionales y trámites.
 - El ingreso principal continúa usando correo y contraseña, con formularios desplazables y adaptables a pantallas pequeñas.
