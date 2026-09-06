@@ -2,6 +2,7 @@
 
 ## 2026-09-06 — Acceso orientado a profesionales y trámites
 
+- Se corrigió el proxy `/api/` del frontend web QA: el login y las comprobaciones de versión vuelven a llegar al backend aun cuando la URL pública no se incrusta durante el export de Expo.
 - Se adaptaron splash, bienvenida e ingreso a la identidad visual aprobada para el foco inicial en oficios/profesionales y trámites.
 - El ingreso principal continúa usando correo y contraseña, con formularios desplazables y adaptables a pantallas pequeñas.
 - El alta usa verificación por email de forma predeterminada; WhatsApp quedó oculto detrás de una bandera de entorno hasta disponer de API y plantilla aprobada.
