@@ -1,5 +1,11 @@
 # Changelog operativo
 
+## 2026-09-06 — Portada Moli Play Premium
+
+- Se aprobó e implementó la nueva dirección visual de la portada cliente: fondo crema con profundidad, buscador elevado, CTA táctil, hero verificado y categorías tipo misión.
+- Los profesionales disponibles muestran avatar, estado en línea, insignia verificada, reputación y trabajos completados.
+- El color primario global pasa a naranja vivo `#FF5A1F` con profundidad `#E9480B`, manteniendo carbón y verde semántico.
+
 ## 2026-09-06 — Paquete visual de oficios
 
 - Se incorporó `Moli Oficios v1` con ocho ilustraciones originales y transparentes para categorías profesionales.

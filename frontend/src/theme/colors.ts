@@ -6,14 +6,14 @@
 
 export const MOLI_COLORS = {
   // Primary brand
-  primary: '#FF7733',
-  primaryDark: '#E85E1A',
-  primaryLight: '#FFD9D1',
-  primaryGlow: 'rgba(255, 119, 51, 0.11)',
+  primary: '#FF5A1F',
+  primaryDark: '#E9480B',
+  primaryLight: '#FFD9C7',
+  primaryGlow: 'rgba(255, 90, 31, 0.11)',
   navy: '#202124', // backwards-compatible name: now brand charcoal
   navySoft: '#34363A',
-  indigo: '#FF7733', // backwards-compatible alias
-  coral: '#FF7733',
+  indigo: '#FF5A1F', // backwards-compatible alias
+  coral: '#FF5A1F',
 
   // Neutrals
   black: '#202124',
@@ -38,8 +38,8 @@ export const MOLI_COLORS = {
   overlay: 'rgba(32, 33, 36, 0.58)',
 
   // Accent (secondary for driver-specific)
-  accent: '#FF7733',
-  accentLight: 'rgba(255, 119, 51, 0.10)',
+  accent: '#FF5A1F',
+  accentLight: 'rgba(255, 90, 31, 0.10)',
 };
 
 export const MOLI_SHADOWS = {
