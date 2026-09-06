@@ -5,6 +5,8 @@
 - Se aprobó e implementó la nueva dirección visual de la portada cliente: fondo crema con profundidad, buscador elevado, CTA táctil, hero verificado y categorías tipo misión.
 - Los profesionales disponibles muestran avatar, estado en línea, insignia verificada, reputación y trabajos completados.
 - La categoría Mudanza recibió su retrato propio para eliminar el último símbolo genérico de la portada.
+- Se ajustó la implementación contra el mockup aprobado: marca sin duplicación ni rótulos conceptuales, encabezado con notificación/avatar, buscador con mayor profundidad, retratos mejor encajados e insignias de oficio destacadas.
+- Trámites, Viajes y Market pasan a tarjetas visuales completas con icono, categoría, descripción y acción; se añadieron proporciones compactas específicas para pantallas menores de 430 px.
 - El color primario global pasa a naranja vivo `#FF5A1F` con profundidad `#E9480B`, manteniendo carbón y verde semántico.
 
 ## 2026-09-06 — Paquete visual de oficios

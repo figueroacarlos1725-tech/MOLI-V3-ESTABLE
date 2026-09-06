@@ -173,7 +173,8 @@ El registro móvil exige teléfono y email. El canal `auto` intenta WhatsApp y u
 
 - Identidad propia Moli con inspiración general en interfaces de movilidad simples y profesionales, sin copiar marcas o activos de terceros.
 - Color primario naranja vivo `#FF5A1F`, con profundidad `#E9480B`; texto carbón `#202124`; fondos crema/blancos; verde reservado para éxito, verificación o disponibilidad.
-- La portada cliente aprobada adopta el lenguaje `Moli Play Premium`: controles táctiles con volumen, sombras suaves, tarjetas de oficios tipo misión, buscador protagonista, destellos discretos y métricas de confianza. La gamificación debe sentirse atractiva, nunca infantil ni confundir estados operativos.
+- La portada cliente aprobada adopta un lenguaje visual de gamificación profesional: controles táctiles con volumen, sombras suaves, tarjetas de oficios tipo misión, buscador protagonista, destellos discretos y métricas de confianza. La interfaz no usa públicamente las palabras `Play` ni `Premium`; la gamificación debe sentirse atractiva, nunca infantil ni confundir estados operativos.
+- El encabezado cliente usa una sola marca tipográfica Moli, seguida por notificaciones y avatar. Trámites, Viajes y Market reutilizan las mismas insignias naranjas, profundidad y jerarquía de los oficios para evitar módulos visualmente incompletos.
 - Mapas principales claros, rutas y pines naranjas, tarjetas flotantes con bordes finos y sombras suaves.
 - Logo naranja/negro y vehículos Auto/Moto/Taxi/Delivery/Paquetería representados por componentes propios reutilizables.
 - El paquete visual `Moli Oficios v1` usa ilustraciones 3D semirrealistas propias para electricista, plomería, limpieza, pintura, jardinería, carpintería, mecánica y tecnología. Incluye un emblema de herramientas con check verificado y retratos ficticios para los profesionales de demostración; evita fotografías o activos de terceros.
