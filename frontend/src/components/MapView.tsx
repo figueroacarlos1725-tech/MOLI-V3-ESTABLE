@@ -342,10 +342,10 @@ function WebMapView({ initialRegion, markers = [], showRoute = false, onMapPress
       const iframe = document.createElement('iframe');
       iframe.style.cssText = 'width:100%;height:100%;border:none;border-radius:12px;position:absolute;top:0;left:0;z-index:0;';
       iframe.allow = 'geolocation';
-      iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-popups');
 
       const usesGoogle = mapProvider === 'google' && googleKey;
       if (usesGoogle) {
+        iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-popups');
         iframe.srcdoc = generateGoogleHtml(lat, lng, markersRef.current, showRoute, !!onMapPress, googleKey, vehicleIcons);
       } else {
         iframe.src = '/map-shell.html';

@@ -8,9 +8,9 @@
   <style>
     *{box-sizing:border-box}html,body,#map{width:100%;height:100%;margin:0;background:#f1efed}
     .leaflet-div-icon{background:none!important;border:0!important}
-    .vehicle{position:relative;width:48px;height:48px;display:grid;place-items:center;filter:drop-shadow(0 5px 7px rgba(60,28,13,.28))}
-    .vehicle:before{content:"";position:absolute;width:40px;height:40px;border-radius:50%;background:rgba(255,90,31,.16);animation:pulse 2.2s ease-out infinite}
-    .vehicle img{position:relative;width:46px;height:46px;object-fit:contain}
+    .vehicle{position:relative;isolation:isolate;width:54px;height:54px;display:grid;place-items:center;border:2px solid #ff7b46;border-radius:50%;background:#fff;box-shadow:0 5px 12px rgba(60,28,13,.26)}
+    .vehicle:before{content:"";position:absolute;z-index:-1;width:44px;height:44px;border-radius:50%;background:rgba(255,90,31,.2);animation:pulse 2.2s ease-out infinite}
+    .vehicle img{position:relative;z-index:2;width:48px;height:48px;object-fit:contain}
     .pin{width:22px;height:22px;border:4px solid #fff;border-radius:50%;box-shadow:0 3px 9px rgba(0,0,0,.3)}
     .pin.pickup{background:#ff5a1f}.pin.dropoff{background:#202124}
     .leaflet-control-zoom{border:0!important;box-shadow:0 5px 14px rgba(62,30,14,.16)!important}
@@ -32,7 +32,7 @@
     const iconFor=m=>{
       if(m.type==='driver'){
         const src=m.vehicleType==='moto'?'/vehicles/map-moto-moli.png':'/vehicles/map-car-moli.png';
-        return L.divIcon({className:'leaflet-div-icon',html:`<div class="vehicle"><img src="${src}" alt=""></div>`,iconSize:[48,48],iconAnchor:[24,24]});
+        return L.divIcon({className:'leaflet-div-icon',html:`<div class="vehicle"><img src="${src}" alt=""></div>`,iconSize:[54,54],iconAnchor:[27,27]});
       }
       const kind=m.type==='dropoff'?'dropoff':'pickup';
       return L.divIcon({className:'leaflet-div-icon',html:`<div class="pin ${kind}"></div>`,iconSize:[22,22],iconAnchor:[11,11]});
