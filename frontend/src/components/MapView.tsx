@@ -344,13 +344,25 @@ function WebMapView({ initialRegion, markers = [], showRoute = false, onMapPress
       iframe.allow = 'geolocation';
       iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-popups');
 
-      const html = mapProvider === 'google' && googleKey
-        ? generateGoogleHtml(lat, lng, markersRef.current, showRoute, !!onMapPress, googleKey, vehicleIcons)
-        : generateLeafletHtml(lat, lng, markersRef.current, showRoute, !!onMapPress, vehicleIcons);
-      iframe.srcdoc = html;
+      const usesGoogle = mapProvider === 'google' && googleKey;
+      if (usesGoogle) {
+        iframe.srcdoc = generateGoogleHtml(lat, lng, markersRef.current, showRoute, !!onMapPress, googleKey, vehicleIcons);
+      } else {
+        iframe.src = '/map-shell.html';
+      }
       iframeRef.current = iframe;
 
       iframe.onload = () => {
+        if (!usesGoogle) {
+          iframe.contentWindow?.postMessage({
+            type: 'init',
+            latitude: lat,
+            longitude: lng,
+            markers: markersRef.current,
+            showRoute,
+            enableClick: !!onMapPress,
+          }, window.location.origin);
+        }
         setIsLoading(false);
       };
 
@@ -398,6 +410,8 @@ function WebMapView({ initialRegion, markers = [], showRoute = false, onMapPress
       const win = iframeRef.current.contentWindow as any;
       if (win && win.updateMarkers) {
         win.updateMarkers(markers);
+      } else if (win) {
+        win.postMessage({ type: 'markers', markers, showRoute }, window.location.origin);
       }
     } catch (e) {
       // Cross-origin or not loaded yet
