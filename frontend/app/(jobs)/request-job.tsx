@@ -15,6 +15,7 @@ import { WebView } from 'react-native-webview';
 const PAPERWORK_ART=require('../../assets/modules/paperwork.png');
 const VERIFIED_ART=require('../../assets/professions/verified-tools.png');
 const MINIMUM_JOB_BUDGET = 15000;
+const MINIMUM_PAPERWORK_BUDGET = 10000;
 const CATEGORIES:{id:string;name:string;icon:keyof typeof Ionicons.glyphMap;art?:ImageSourcePropType}[] = [
   { id: 'tramites', name: 'Trámites', icon: 'document-text', art: PAPERWORK_ART },
   { id: 'electricista', name: 'Electricista', icon: 'flash', art: require('../../assets/professions/electrician.png') },
@@ -151,8 +152,9 @@ export default function RequestJobScreen() {
   };
 
   const handleSubmit = async () => {
+    const minimumBudget = category === 'tramites' ? MINIMUM_PAPERWORK_BUDGET : MINIMUM_JOB_BUDGET;
     if (!title.trim()) { Alert.alert('Error', 'Escribí un título'); return; }
-    if (!budget || parseFloat(budget) < MINIMUM_JOB_BUDGET) { Alert.alert('Presupuesto mínimo', 'Los oficios y trámites parten desde $15.000.'); return; }
+    if (!budget || parseFloat(budget) < minimumBudget) { Alert.alert('Presupuesto mínimo', `Esta categoría parte desde $${minimumBudget.toLocaleString('es-AR')}.`); return; }
     setLoading(true);
     try {
       const res = await apiService.post('/jobs/post', {
@@ -253,9 +255,9 @@ export default function RequestJobScreen() {
                 <Text style={s.label}>¿Cuánto querés pagar? *</Text>
                 <View style={s.priceRow}>
                   <Text style={{ fontSize: 24, fontWeight: '800', color: '#1C1C1E' }}>$</Text>
-                  <TextInput style={s.priceInput} placeholder="15000" placeholderTextColor="#C7C7CC" value={budget} onChangeText={t => setBudget(t.replace(/[^0-9]/g, ''))} keyboardType="number-pad" />
+                  <TextInput style={s.priceInput} placeholder={category === 'tramites' ? '10000' : '15000'} placeholderTextColor="#C7C7CC" value={budget} onChangeText={t => setBudget(t.replace(/[^0-9]/g, ''))} keyboardType="number-pad" />
                 </View>
-                <Text style={s.minimumBudgetHint}>Tarifa mínima de publicación: $15.000</Text>
+                <Text style={s.minimumBudgetHint}>Tarifa mínima de publicación: {category === 'tramites' ? '$10.000' : '$15.000'}</Text>
               </View>
 
               <View>

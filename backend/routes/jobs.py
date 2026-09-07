@@ -8,6 +8,7 @@ from utils import generate_id, get_current_user, get_settings
 
 router = APIRouter()
 MINIMUM_JOB_BUDGET = 15000
+MINIMUM_PAPERWORK_BUDGET = 10000
 
 PRIVATE_JOB_FIELDS = {"address", "location", "images"}
 
@@ -157,13 +158,15 @@ async def create_job_post(
         budget = float(data.get("budget", 0))
     except (TypeError, ValueError):
         raise HTTPException(status_code=422, detail="El presupuesto debe ser un importe válido")
-    if budget < MINIMUM_JOB_BUDGET:
-        raise HTTPException(status_code=422, detail=f"El presupuesto mínimo para oficios y trámites es ${MINIMUM_JOB_BUDGET:,.0f}")
+    category = data.get("category", "otro")
+    minimum_budget = MINIMUM_PAPERWORK_BUDGET if category == "tramites" else MINIMUM_JOB_BUDGET
+    if budget < minimum_budget:
+        raise HTTPException(status_code=422, detail=f"El presupuesto mínimo para esta categoría es ${minimum_budget:,.0f}")
     job = {
         "job_id": generate_id("job_"),
         "client_id": user["user_id"],
         "client_name": user.get("name", "Cliente"),
-        "category": data.get("category", "otro"),
+        "category": category,
         "title": data.get("title", ""),
         "description": data.get("description", ""),
         "budget": budget,
