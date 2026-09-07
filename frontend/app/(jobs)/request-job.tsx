@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, SafeAreaView, TouchableOpacity,
   ScrollView, TextInput, Alert, ActivityIndicator, Image,
-  KeyboardAvoidingView, Platform,
+  ImageSourcePropType, KeyboardAvoidingView, Platform, useWindowDimensions,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -12,24 +12,28 @@ import { useAuthStore } from '@/src/stores/authStore';
 import { socketService } from '@/src/services/socket';
 import { WebView } from 'react-native-webview';
 
-const CATEGORIES = [
-  { id: 'tramites', name: 'Trámites y gestiones', icon: 'document-text', color: '#FF7733' },
-  { id: 'electricista', name: 'Electricista', icon: 'flash', color: '#FF9500' },
-  { id: 'plomero', name: 'Plomero', icon: 'water', color: '#007AFF' },
-  { id: 'limpieza', name: 'Limpieza', icon: 'sparkles', color: '#34C759' },
-  { id: 'mudanza', name: 'Mudanza', icon: 'cube', color: '#AF52DE' },
-  { id: 'pintura', name: 'Pintura', icon: 'color-palette', color: '#FF3B30' },
-  { id: 'jardineria', name: 'Jardinería', icon: 'leaf', color: '#FF7733' },
-  { id: 'carpinteria', name: 'Carpintería', icon: 'hammer', color: '#8B4513' },
-  { id: 'mecanica', name: 'Mecánica', icon: 'construct', color: '#636366' },
-  { id: 'tecnologia', name: 'Tecnología', icon: 'laptop', color: '#5856D6' },
-  { id: 'otro', name: 'Otro', icon: 'ellipsis-horizontal', color: '#8E8E93' },
+const PAPERWORK_ART=require('../../assets/modules/paperwork.png');
+const VERIFIED_ART=require('../../assets/professions/verified-tools.png');
+const CATEGORIES:{id:string;name:string;icon:keyof typeof Ionicons.glyphMap;art?:ImageSourcePropType}[] = [
+  { id: 'tramites', name: 'Trámites', icon: 'document-text', art: PAPERWORK_ART },
+  { id: 'electricista', name: 'Electricista', icon: 'flash', art: require('../../assets/professions/electrician.png') },
+  { id: 'plomero', name: 'Plomero', icon: 'water', art: require('../../assets/professions/plumber.png') },
+  { id: 'limpieza', name: 'Limpieza', icon: 'sparkles', art: require('../../assets/professions/cleaner.png') },
+  { id: 'mudanza', name: 'Mudanza', icon: 'cube', art: require('../../assets/professions/mover.png') },
+  { id: 'pintura', name: 'Pintura', icon: 'color-palette', art: require('../../assets/professions/painter.png') },
+  { id: 'jardineria', name: 'Jardinería', icon: 'leaf', art: require('../../assets/professions/gardener.png') },
+  { id: 'carpinteria', name: 'Carpintería', icon: 'hammer', art: require('../../assets/professions/carpenter.png') },
+  { id: 'mecanica', name: 'Mecánica', icon: 'construct', art: require('../../assets/professions/mechanic.png') },
+  { id: 'tecnologia', name: 'Tecnología', icon: 'laptop', art: require('../../assets/professions/technician.png') },
+  { id: 'otro', name: 'Otro servicio', icon: 'ellipsis-horizontal' },
 ];
 
 type Phase = 'category' | 'details' | 'searching' | 'matched' | 'active';
 
 export default function RequestJobScreen() {
   const router = useRouter();
+  const { width } = useWindowDimensions();
+  const compact = width < 430;
   const { user } = useAuthStore();
   const params = useLocalSearchParams<{ lat?: string; lng?: string; addr?: string; service?: string }>();
   const isTramite = params.service === 'tramites';
@@ -180,22 +184,24 @@ export default function RequestJobScreen() {
           <TouchableOpacity onPress={() => router.back()} style={s.backBtn}>
             <Ionicons name="arrow-back" size={22} color="#1C1C1E" />
           </TouchableOpacity>
-          <Text style={s.headerTitle}>¿Qué necesitás?</Text>
+          <View style={s.headerCopy}><Text style={s.headerKicker}>MOLI PROFESIONALES</Text><Text style={[s.headerTitle,s.headerTitleMain]}>¿Qué necesitás?</Text></View>
+          <Image source={VERIFIED_ART} style={s.headerArt} resizeMode="contain"/>
         </View>
-        <ScrollView contentContainerStyle={{ padding: 16, gap: 10 }}>
-          {CATEGORIES.map(cat => (
+        <ScrollView contentContainerStyle={s.categoryContent} showsVerticalScrollIndicator={false}>
+          <View style={s.categoryIntro}><Text style={s.introEyebrow}>SOLUCIONES CERCA TUYO</Text><Text style={s.introTitle}>Elegí una categoría</Text><Text style={s.introText}>Te mostramos profesionales disponibles para resolverlo.</Text></View>
+          <View style={s.catGrid}>{CATEGORIES.map(cat => (
             <TouchableOpacity
               key={cat.id}
-              style={s.catCard}
+              activeOpacity={.84}
+              style={[s.catCard,compact?s.catCardCompact:s.catCardWide]}
               onPress={() => { setCategory(cat.id); setPhase('details'); }}
             >
-              <View style={[s.catIcon, { backgroundColor: cat.color + '18' }]}>
-                <Ionicons name={cat.icon as any} size={26} color={cat.color} />
-              </View>
-              <Text style={s.catName}>{cat.name}</Text>
-              <Ionicons name="chevron-forward" size={18} color="#C7C7CC" />
+              <View style={s.catVisual}>{cat.art?<Image source={cat.art} style={s.catImage} resizeMode="contain"/>:<View style={s.otherIcon}><Ionicons name={cat.icon} size={35} color="#FF5A1F"/></View>}<View style={s.catBadge}><Ionicons name={cat.icon} size={14} color="#fff"/></View></View>
+              <Text style={s.catName} numberOfLines={1}>{cat.name}</Text>
+              <Text style={s.catHint}>{cat.id==='tramites'?'Gestiones sin vueltas':'Profesionales cerca'}</Text>
+              <View style={s.catArrow}><Ionicons name="chevron-forward" size={14} color="#FF5A1F"/></View>
             </TouchableOpacity>
-          ))}
+          ))}</View>
         </ScrollView>
       </SafeAreaView>
     );
@@ -384,14 +390,31 @@ export default function RequestJobScreen() {
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
+  container: { flex: 1, backgroundColor: '#FFF8F2' },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#F0F0F0' },
-  backBtn: { width: 40, height: 40, borderRadius: 12, backgroundColor: '#F2F2F7', justifyContent: 'center', alignItems: 'center' },
-  headerTitle: { fontSize: 18, fontWeight: '700', color: '#1C1C1E', marginLeft: 12 },
-  catCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F8F8FA', borderRadius: 16, padding: 16 },
-  catIcon: { width: 48, height: 48, borderRadius: 14, justifyContent: 'center', alignItems: 'center' },
-  catName: { flex: 1, fontSize: 16, fontWeight: '600', color: '#1C1C1E', marginLeft: 14 },
+  header: { minHeight: 72, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10, backgroundColor: '#FFF8F2', borderBottomWidth: 1, borderBottomColor: '#F0DFD2', shadowColor: '#6E432B', shadowOffset: { width: 0, height: 4 }, shadowOpacity: .08, shadowRadius: 8, elevation: 4, zIndex: 5 },
+  backBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#fff', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#F0DFD2', shadowColor: '#6E432B', shadowOffset: { width: 0, height: 4 }, shadowOpacity: .13, shadowRadius: 7, elevation: 4 },
+  headerCopy: { flex: 1, marginLeft: 12 },
+  headerKicker: { fontSize: 9, lineHeight: 11, fontWeight: '900', letterSpacing: 1, color: '#E9480B' },
+  headerTitle: { fontSize: 19, lineHeight: 23, fontWeight: '900', color: '#202124', marginLeft: 12 },
+  headerTitleMain: { marginLeft: 0 },
+  headerArt: { width: 52, height: 52 },
+  categoryContent: { width: '100%', maxWidth: 760, alignSelf: 'center', padding: 18, paddingBottom: 44 },
+  categoryIntro: { backgroundColor: '#FF5A1F', borderRadius: 26, padding: 20, borderWidth: 2, borderColor: '#FF9867', borderBottomWidth: 5, borderBottomColor: '#E9480B', shadowColor: '#A9390C', shadowOffset: { width: 0, height: 7 }, shadowOpacity: .25, shadowRadius: 11, elevation: 8, marginBottom: 22 },
+  introEyebrow: { color: '#FFE6D8', fontSize: 9, fontWeight: '900', letterSpacing: 1.1 },
+  introTitle: { color: '#fff', fontSize: 25, fontWeight: '900', marginTop: 5, letterSpacing: -.5 },
+  introText: { color: '#FFF7F2', fontSize: 12, lineHeight: 17, marginTop: 6, maxWidth: 360 },
+  catGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 14 },
+  catCard: { backgroundColor: '#fff', borderRadius: 23, paddingTop: 6, paddingBottom: 13, borderWidth: 1, borderColor: '#F0DFD1', borderBottomWidth: 3, borderBottomColor: '#E8D6C8', shadowColor: '#6F4229', shadowOffset: { width: 0, height: 6 }, shadowOpacity: .16, shadowRadius: 9, elevation: 5, overflow: 'visible' },
+  catCardCompact: { width: '48.2%' },
+  catCardWide: { width: '31.7%' },
+  catVisual: { width: '100%', height: 122, borderRadius: 20, backgroundColor: '#FFF9F4', alignItems: 'center', justifyContent: 'flex-end', overflow: 'hidden' },
+  catImage: { width: 121, height: 121 },
+  otherIcon: { width: 75, height: 75, borderRadius: 25, backgroundColor: '#FFF0E7', alignItems: 'center', justifyContent: 'center', marginBottom: 20 },
+  catBadge: { position: 'absolute', left: 7, bottom: 5, width: 32, height: 32, borderRadius: 16, backgroundColor: '#FF5A1F', alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#fff', shadowColor: '#E9480B', shadowOffset: { width: 0, height: 3 }, shadowOpacity: .32, shadowRadius: 4, elevation: 5 },
+  catName: { fontSize: 14, lineHeight: 18, fontWeight: '900', color: '#202124', marginTop: 9, marginHorizontal: 11 },
+  catHint: { fontSize: 9, lineHeight: 12, fontWeight: '600', color: '#8A8D91', marginTop: 2, marginHorizontal: 11 },
+  catArrow: { position: 'absolute', right: 8, bottom: 13, width: 25, height: 25, borderRadius: 13, backgroundColor: '#FFF0E7', alignItems: 'center', justifyContent: 'center' },
   label: { fontSize: 13, fontWeight: '600', color: '#8E8E93', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 },
   input: { backgroundColor: '#F2F2F7', borderRadius: 14, padding: 14, fontSize: 15, color: '#1C1C1E' },
   photoBtn: { backgroundColor: '#F8F8FA', borderRadius: 14, padding: 20, alignItems: 'center', borderWidth: 1, borderColor: '#E5E5EA', borderStyle: 'dashed' },

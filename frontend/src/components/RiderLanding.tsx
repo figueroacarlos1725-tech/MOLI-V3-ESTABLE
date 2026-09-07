@@ -30,6 +30,7 @@ const PROFILE_ART:ImageSourcePropType[]=[PROFESSION_ART.electricista,PROFESSION_
 const VERIFIED_TOOLS=require('../../assets/professions/verified-tools.png');
 const TRAVEL_ART=require('../../assets/modules/travel.png');
 const PAPERWORK_ART=require('../../assets/modules/paperwork.png');
+const MARKETPLACE_ART=require('../../assets/modules/marketplace.png');
 const artKey=(value:string='')=>value.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
 const categoryArt=(category:Category)=>PROFESSION_ART[artKey(category.id||category.category_id||category.name)]||PROFESSION_ART[artKey(category.name)];
 
@@ -49,7 +50,7 @@ export default function RiderLanding({firstName,onProfile,onLogout}:{firstName:s
     <Text style={s.more}>También en Moli</Text><View style={s.utilityGrid}>
       <UtilityCard icon="document-text" artwork={PAPERWORK_ART} eyebrow="GESTIONES" title="Trámites" copy="Resolvé diligencias" onPress={()=>router.push({pathname:'/(jobs)/client-home',params:{service:'tramites'}})}/>
       <UtilityCard icon="car-sport" artwork={TRAVEL_ART} eyebrow="MOVILIDAD" title="Viajes" copy="Pedí auto o moto" onPress={()=>router.push('/(rider)/home')}/>
-      <UtilityCard icon="storefront" eyebrow="COMPRAS" title="Market" copy="Delivery o retiro" onPress={()=>router.push('/(marketplace)')}/>
+      <UtilityCard icon="storefront" artwork={MARKETPLACE_ART} eyebrow="COMPRAS" title="Market" copy="Delivery o retiro" onPress={()=>router.push('/(marketplace)')}/>
     </View>
     <TouchableOpacity style={s.logout} onPress={onLogout}><Ionicons name="swap-horizontal" size={19} color={C.gray}/><Text style={s.logoutText}>Cambiar cuenta</Text></TouchableOpacity>
   </ScrollView>;

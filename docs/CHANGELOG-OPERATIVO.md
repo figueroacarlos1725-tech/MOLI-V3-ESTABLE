@@ -9,6 +9,8 @@
 - Trámites, Viajes y Market pasan a tarjetas visuales completas con icono, categoría, descripción y acción; se añadieron proporciones compactas específicas para pantallas menores de 430 px.
 - Se sumaron ilustraciones 3D originales para Viajes y Trámites, optimizadas a 512 px y utilizadas en los accesos de la portada.
 - Se rediseñó el mapa cliente de trabajos/trámites: pin naranja tipo gota con pulso, controles Leaflet estilizados, encabezado con identidad de módulo y avatar, ubicación elevada y botón principal táctil alineado con la portada.
+- Marketplace recibió un icono 3D original de tienda barrial y dejó de usar el símbolo genérico en la portada.
+- La pantalla `¿Qué necesitás?` pasó de una lista plana a una grilla responsive con retratos reales del paquete Moli Oficios, insignias por categoría, sombras, profundidad y una introducción coherente con la identidad aprobada.
 - El color primario global pasa a naranja vivo `#FF5A1F` con profundidad `#E9480B`, manteniendo carbón y verde semántico.
 
 ## 2026-09-06 — Paquete visual de oficios
