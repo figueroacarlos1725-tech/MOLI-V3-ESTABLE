@@ -14,6 +14,7 @@ import { WebView } from 'react-native-webview';
 
 const PAPERWORK_ART=require('../../assets/modules/paperwork.png');
 const VERIFIED_ART=require('../../assets/professions/verified-tools.png');
+const MINIMUM_JOB_BUDGET = 15000;
 const CATEGORIES:{id:string;name:string;icon:keyof typeof Ionicons.glyphMap;art?:ImageSourcePropType}[] = [
   { id: 'tramites', name: 'Trámites', icon: 'document-text', art: PAPERWORK_ART },
   { id: 'electricista', name: 'Electricista', icon: 'flash', art: require('../../assets/professions/electrician.png') },
@@ -151,7 +152,7 @@ export default function RequestJobScreen() {
 
   const handleSubmit = async () => {
     if (!title.trim()) { Alert.alert('Error', 'Escribí un título'); return; }
-    if (!budget || parseFloat(budget) <= 0) { Alert.alert('Error', 'Ingresá cuánto querés pagar'); return; }
+    if (!budget || parseFloat(budget) < MINIMUM_JOB_BUDGET) { Alert.alert('Presupuesto mínimo', 'Los oficios y trámites parten desde $15.000.'); return; }
     setLoading(true);
     try {
       const res = await apiService.post('/jobs/post', {
@@ -252,8 +253,9 @@ export default function RequestJobScreen() {
                 <Text style={s.label}>¿Cuánto querés pagar? *</Text>
                 <View style={s.priceRow}>
                   <Text style={{ fontSize: 24, fontWeight: '800', color: '#1C1C1E' }}>$</Text>
-                  <TextInput style={s.priceInput} placeholder="2000" placeholderTextColor="#C7C7CC" value={budget} onChangeText={t => setBudget(t.replace(/[^0-9]/g, ''))} keyboardType="number-pad" />
+                  <TextInput style={s.priceInput} placeholder="15000" placeholderTextColor="#C7C7CC" value={budget} onChangeText={t => setBudget(t.replace(/[^0-9]/g, ''))} keyboardType="number-pad" />
                 </View>
+                <Text style={s.minimumBudgetHint}>Tarifa mínima de publicación: $15.000</Text>
               </View>
 
               <View>
@@ -281,52 +283,48 @@ export default function RequestJobScreen() {
 
   // ── PHASE: SEARCHING ──
   if (phase === 'searching') {
+    const reviewing = searchStatus === 'reviewing';
     return (
       <SafeAreaView style={s.container}>
-        <View style={{ flex: 1, padding: 24 }}>
-          {/* Budget display */}
-          <View style={{ alignItems: 'center', marginTop: 12 }}>
-            <Text style={{ fontSize: 13, color: '#8E8E93' }}>Tu presupuesto</Text>
-            <Text style={{ fontSize: 32, fontWeight: '800', color: '#FF7733' }}>${budget}</Text>
+        <View style={s.searchPage}>
+          <View style={s.searchHeader}>
+            <View><Text style={s.searchKicker}>MOLI PROFESIONALES</Text><Text style={s.searchHeaderTitle}>Tu solicitud está activa</Text></View>
+            <TouchableOpacity accessibilityRole="button" style={s.minimizeBtn} onPress={() => router.replace('/modules')}>
+              <Ionicons name="remove" size={25} color="#202124" />
+            </TouchableOpacity>
           </View>
 
-          {/* Status message */}
-          <View style={{ alignItems: 'center', marginTop: 16, marginBottom: 20 }}>
+          <View style={[s.searchStatusCard, reviewing && s.searchStatusCardReviewing]}>
+            <View style={s.searchStatusTop}>
+              <View style={[s.searchOrb, reviewing && s.searchOrbReviewing]}>
+                {reviewing ? <Ionicons name="eye" size={26} color="#fff"/> : <ActivityIndicator color="#fff"/>}
+              </View>
+              <View style={{flex:1}}><Text style={s.searchEyebrow}>{reviewing ? 'ALGUIEN LA ESTÁ VIENDO' : 'BUSCANDO CERCA TUYO'}</Text><Text style={s.searchMainTitle}>{reviewing ? `${reviewerName || 'Un profesional'} está revisando` : `Buscando ${catData?.name?.toLowerCase() || 'profesional'}`}</Text></View>
+              <View style={s.budgetPill}><Text style={s.budgetLabel}>OFRECÉS</Text><Text style={s.budgetValue}>${budget}</Text></View>
+            </View>
+            <View style={s.progressTrack}><View style={[s.progressFill, reviewing && {width:'82%',backgroundColor:'#FFB020'}]}/></View>
+            <Text style={s.searchStatusCopy}>{reviewing ? 'Tiene 30 segundos para decidir. Si no acepta, seguimos buscando automáticamente.' : 'Estamos notificando profesionales disponibles. Podés minimizar y continuar usando Moli.'}</Text>
+          </View>
+
+          <View style={s.searchMessage}>
             {searchStatus === 'reviewing' ? (
               <>
-                <View style={{ width: 60, height: 60, borderRadius: 30, backgroundColor: '#FFF3E0', justifyContent: 'center', alignItems: 'center', marginBottom: 12 }}>
-                  <Ionicons name="eye" size={30} color="#FF9500" />
-                </View>
-                <Text style={{ fontSize: 18, fontWeight: '800', color: '#1C1C1E', textAlign: 'center' }}>
-                  {reviewerName} está revisando tu propuesta...
-                </Text>
-                <Text style={{ fontSize: 13, color: '#8E8E93', marginTop: 4, textAlign: 'center' }}>
-                  Tiene 30 segundos para decidir
-                </Text>
+                <Ionicons name="notifications" size={18} color="#FF8A00"/><Text style={s.searchMessageText}>Te avisaremos apenas responda</Text>
               </>
             ) : searchStatus === 'declined' ? (
               <>
-                <View style={{ width: 60, height: 60, borderRadius: 30, backgroundColor: '#FFF5F5', justifyContent: 'center', alignItems: 'center', marginBottom: 12 }}>
-                  <Ionicons name="close-circle" size={30} color="#FF3B30" />
-                </View>
-                <Text style={{ fontSize: 18, fontWeight: '800', color: '#1C1C1E', textAlign: 'center' }}>No la aceptó</Text>
-                <Text style={{ fontSize: 13, color: '#8E8E93', marginTop: 4, textAlign: 'center' }}>Buscando otro profesional...</Text>
+                <Ionicons name="refresh" size={18} color="#FF5A1F"/><Text style={s.searchMessageText}>No pudo tomarlo. Ya buscamos otro profesional.</Text>
               </>
             ) : (
               <>
-                <ActivityIndicator size="large" color="#FF7733" style={{ marginBottom: 12 }} />
-                <Text style={{ fontSize: 18, fontWeight: '800', color: '#1C1C1E', textAlign: 'center' }}>
-                  Buscando {catData?.name?.toLowerCase() || 'profesional'}...
-                </Text>
-                <Text style={{ fontSize: 13, color: '#8E8E93', marginTop: 4, textAlign: 'center' }}>
-                  Notificando profesionales cercanos
-                </Text>
+                <Ionicons name="shield-checkmark" size={18} color="#20B768"/><Text style={s.searchMessageText}>Tu dirección exacta permanece protegida</Text>
               </>
             )}
           </View>
 
           {/* Snake Game */}
-          <View style={{ flex: 1, borderRadius: 20, overflow: 'hidden', marginBottom: 16 }}>
+          <View style={s.gameCard}>
+            <View style={s.gameLabel}><Ionicons name="game-controller" size={15} color="#FF5A1F"/><Text style={s.gameLabelText}>MIENTRAS ESPERÁS</Text></View>
             {Platform.OS === 'web' ? (
               <iframe
                 srcDoc={snakeGameHtml}
@@ -347,9 +345,7 @@ export default function RequestJobScreen() {
               Está tardando más de lo normal. Podés seguir esperando.
             </Text>
           )}
-          <TouchableOpacity style={s.cancelBtn} onPress={handleCancel}>
-            <Text style={{ color: '#FF3B30', fontWeight: '600', fontSize: 15 }}>Cancelar búsqueda</Text>
-          </TouchableOpacity>
+          <View style={s.searchActions}><TouchableOpacity style={s.keepBrowsingBtn} onPress={() => router.replace('/modules')}><Ionicons name="contract" size={18} color="#fff"/><Text style={s.keepBrowsingText}>Minimizar y seguir usando Moli</Text></TouchableOpacity><TouchableOpacity style={s.cancelBtn} onPress={handleCancel}><Text style={s.cancelText}>Cancelar solicitud</Text></TouchableOpacity></View>
         </View>
       </SafeAreaView>
     );
@@ -423,8 +419,21 @@ const s = StyleSheet.create({
   photoBtn: { backgroundColor: '#F8F8FA', borderRadius: 14, padding: 20, alignItems: 'center', borderWidth: 1, borderColor: '#E5E5EA', borderStyle: 'dashed' },
   priceRow: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#F2F2F7', borderRadius: 14, paddingHorizontal: 16, paddingVertical: 10 },
   priceInput: { flex: 1, fontSize: 28, fontWeight: '800', color: '#1C1C1E' },
+  minimumBudgetHint:{fontSize:11,fontWeight:'700',color:'#E9480B',marginTop:7},
   locationRow: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#F2F2F7', borderRadius: 14, padding: 14 },
   submitBtn: { flexDirection: 'row', backgroundColor: '#FF7733', paddingVertical: 18, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
   submitBtnText: { color: '#fff', fontSize: 17, fontWeight: '700' },
-  cancelBtn: { marginTop: 24, paddingVertical: 14 },
+  searchPage:{flex:1,width:'100%',maxWidth:620,alignSelf:'center',paddingHorizontal:18,paddingBottom:14},
+  searchHeader:{minHeight:72,flexDirection:'row',alignItems:'center',justifyContent:'space-between'},
+  searchKicker:{fontSize:9,fontWeight:'900',letterSpacing:1,color:'#E9480B'},searchHeaderTitle:{fontSize:20,fontWeight:'900',color:'#202124',marginTop:2},
+  minimizeBtn:{width:43,height:43,borderRadius:22,backgroundColor:'#fff',alignItems:'center',justifyContent:'center',borderWidth:1,borderColor:'#F0DFD2',shadowColor:'#6E432B',shadowOffset:{width:0,height:4},shadowOpacity:.13,shadowRadius:7,elevation:4},
+  searchStatusCard:{backgroundColor:'#FF5A1F',borderRadius:25,padding:17,borderWidth:2,borderColor:'#FF9867',borderBottomWidth:5,borderBottomColor:'#E9480B',shadowColor:'#A9390C',shadowOffset:{width:0,height:7},shadowOpacity:.24,shadowRadius:11,elevation:8},
+  searchStatusCardReviewing:{backgroundColor:'#FF7900',borderColor:'#FFB368',borderBottomColor:'#DB5700'},searchStatusTop:{flexDirection:'row',alignItems:'center',gap:11},
+  searchOrb:{width:48,height:48,borderRadius:16,backgroundColor:'rgba(255,255,255,.20)',alignItems:'center',justifyContent:'center',borderWidth:1,borderColor:'rgba(255,255,255,.45)'},searchOrbReviewing:{backgroundColor:'rgba(123,46,0,.18)'},
+  searchEyebrow:{color:'#FFE6D8',fontSize:8,fontWeight:'900',letterSpacing:.9},searchMainTitle:{color:'#fff',fontSize:17,lineHeight:21,fontWeight:'900',marginTop:2},
+  budgetPill:{backgroundColor:'#fff',borderRadius:15,paddingHorizontal:10,paddingVertical:7,alignItems:'center'},budgetLabel:{fontSize:7,fontWeight:'900',color:'#A55A35',letterSpacing:.6},budgetValue:{fontSize:15,fontWeight:'900',color:'#202124'},
+  progressTrack:{height:6,borderRadius:3,backgroundColor:'rgba(116,37,0,.20)',marginTop:14,overflow:'hidden'},progressFill:{height:'100%',width:'58%',borderRadius:3,backgroundColor:'#fff'},searchStatusCopy:{fontSize:11,lineHeight:16,fontWeight:'600',color:'#FFF4ED',marginTop:10},
+  searchMessage:{flexDirection:'row',alignItems:'center',justifyContent:'center',gap:7,paddingVertical:12},searchMessageText:{fontSize:11,fontWeight:'700',color:'#5F6267'},
+  gameCard:{flex:1,minHeight:230,borderRadius:24,overflow:'hidden',marginBottom:12,backgroundColor:'#fff',borderWidth:1,borderColor:'#F0DFD2',shadowColor:'#6E432B',shadowOffset:{width:0,height:5},shadowOpacity:.12,shadowRadius:9,elevation:4},gameLabel:{position:'absolute',top:10,left:12,zIndex:2,flexDirection:'row',alignItems:'center',gap:6,backgroundColor:'#FFF0E7',borderRadius:12,paddingHorizontal:9,paddingVertical:5},gameLabelText:{fontSize:8,fontWeight:'900',letterSpacing:.8,color:'#E9480B'},
+  searchActions:{gap:8},keepBrowsingBtn:{minHeight:52,borderRadius:17,backgroundColor:'#FF5A1F',flexDirection:'row',alignItems:'center',justifyContent:'center',gap:8,borderBottomWidth:4,borderBottomColor:'#E9480B'},keepBrowsingText:{color:'#fff',fontSize:14,fontWeight:'900'},cancelBtn:{alignItems:'center',paddingVertical:8},cancelText:{color:'#A1A1A6',fontSize:12,fontWeight:'700'},
 });

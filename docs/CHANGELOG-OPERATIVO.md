@@ -1,5 +1,13 @@
 # Changelog operativo
 
+## 2026-09-07 — Solicitudes profesionales persistentes
+
+- La espera de un profesional recibió una presentación premium con progreso, presupuesto, privacidad de la dirección y una acción explícita para minimizar sin cancelar.
+- La portada cliente muestra una tarjeta flotante para las solicitudes activas y permite volver a su seguimiento con un toque.
+- Los estados `revisando`, `aceptado` y `rechazado/continúa buscando` se reflejan en tiempo real mediante WebSocket y se reconcilian periódicamente con el servidor.
+- Cuando un profesional comienza a revisar, el backend conserva su nombre durante el bloqueo y envía una notificación push al cliente si existe un token registrado.
+- Se fijó una tarifa mínima de ARS 15.000 para publicar cualquier oficio o trámite, aplicada en frontend y backend.
+
 ## 2026-09-06 — Portada Moli Play Premium
 
 - Se aprobó e implementó la nueva dirección visual de la portada cliente: fondo crema con profundidad, buscador elevado, CTA táctil, hero verificado y categorías tipo misión.

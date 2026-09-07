@@ -7,6 +7,7 @@ from database import db
 from utils import generate_id, get_current_user, get_settings
 
 router = APIRouter()
+MINIMUM_JOB_BUDGET = 15000
 
 PRIVATE_JOB_FIELDS = {"address", "location", "images"}
 
@@ -152,6 +153,12 @@ async def create_job_post(
     user: dict = Depends(get_current_user)
 ):
     now = datetime.now(timezone.utc)
+    try:
+        budget = float(data.get("budget", 0))
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=422, detail="El presupuesto debe ser un importe válido")
+    if budget < MINIMUM_JOB_BUDGET:
+        raise HTTPException(status_code=422, detail=f"El presupuesto mínimo para oficios y trámites es ${MINIMUM_JOB_BUDGET:,.0f}")
     job = {
         "job_id": generate_id("job_"),
         "client_id": user["user_id"],
@@ -159,7 +166,7 @@ async def create_job_post(
         "category": data.get("category", "otro"),
         "title": data.get("title", ""),
         "description": data.get("description", ""),
-        "budget": data.get("budget", 0),
+        "budget": budget,
         "location": data.get("location"),
         "address": data.get("address", ""),
         "images": data.get("images", []),
@@ -244,7 +251,7 @@ async def list_job_posts(
     # Also release reviewing jobs with expired locks
     await db.job_posts.update_many(
         {"status": "reviewing", "reviewing_until": {"$lt": now.isoformat()}},
-        {"$set": {"status": "open", "reviewing_by": None, "reviewing_until": None}}
+        {"$set": {"status": "open", "reviewing_by": None, "reviewing_name": None, "reviewing_until": None}}
     )
     
     if status == "open":
@@ -342,6 +349,7 @@ async def start_job_review(
         {"$set": {
             "status": "reviewing",
             "reviewing_by": user["user_id"],
+            "reviewing_name": user.get("name", "Un profesional"),
             "reviewing_until": review_until.isoformat(),
             "updated_at": now,
         }}, return_document=ReturnDocument.AFTER
@@ -360,6 +368,19 @@ async def start_job_review(
         }, job["client_id"])
     except:
         pass
+
+    # Also notify the client when the app is minimized or in background.
+    try:
+        from notifications import send_push_notification
+        professional_name = user.get("name", "Un profesional")
+        await send_push_notification(
+            job["client_id"],
+            "Están revisando tu solicitud",
+            f"{professional_name} está evaluando tu pedido y te avisaremos qué decide.",
+            {"type": "job_reviewing", "job_id": job_id},
+        )
+    except Exception as push_error:
+        print(f"Job reviewing push notification error: {push_error}")
     
     return {"status": "reviewing", "review_seconds": 30}
 
@@ -392,6 +413,7 @@ async def accept_job_after_review(
             "assigned_at": now,
             "agreed_price": job["budget"],
             "reviewing_by": None,
+            "reviewing_name": None,
             "reviewing_until": None,
         }}, return_document=ReturnDocument.AFTER
     )
@@ -446,6 +468,7 @@ async def decline_job_after_review(
             {"$set": {
                 "status": "open",
                 "reviewing_by": None,
+                "reviewing_name": None,
                 "reviewing_until": None,
                 "updated_at": now,
             }}, return_document=ReturnDocument.AFTER

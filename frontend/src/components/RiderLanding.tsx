@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { apiService } from '@/src/services/api';
 import { MOLI_COLORS as C, MOLI_SHADOWS as SH } from '@/src/theme/colors';
+import ClientActiveRequests from '@/src/components/ClientActiveRequests';
 
 type Category={id?:string;category_id?:string;name:string;icon?:keyof typeof Ionicons.glyphMap};
 type Professional={user_id:string;name:string;categories:string[];rating?:number;total_jobs?:number};
@@ -38,7 +39,7 @@ export default function RiderLanding({firstName,onProfile,onLogout}:{firstName:s
   const router=useRouter(); const {width}=useWindowDimensions(); const compact=width<430; const [categories,setCategories]=useState(FALLBACK); const [pros,setPros]=useState<Professional[]>([]);
   useEffect(()=>{Promise.all([apiService.get('/jobs/categories').catch(()=>({categories:FALLBACK})),apiService.get('/jobs/professionals/available').catch(()=>({professionals:[]}))]).then(([c,p])=>{setCategories((c.categories||FALLBACK).slice(0,6));setPros((p.professionals||[]).slice(0,5));});},[]);
   const jobs=()=>router.push('/(jobs)/client-home');
-  return <ScrollView style={s.screen} contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
+  return <View style={s.root}><ScrollView style={s.screen} contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
     <View pointerEvents="none" style={s.glowOne}/><View pointerEvents="none" style={s.glowTwo}/><Text pointerEvents="none" style={s.sparkle}>✦</Text>
     <View style={s.header}><View style={s.brand}><Text style={s.brandName}>moli</Text><Text style={s.brandSpark}>✦</Text></View><View style={s.actions}><View style={s.bell}><Ionicons name="notifications-outline" size={23} color={C.black}/><View style={s.notificationBadge}><Text style={s.notificationText}>2</Text></View></View><TouchableOpacity style={s.profile} onPress={onProfile}><Image source={PROFILE_ART[3]} style={s.headerAvatar} resizeMode="cover"/><View style={s.profileDot}/></TouchableOpacity></View></View>
     <Text style={s.greeting}>Hola, {firstName}</Text><Text style={[s.title,compact&&s.titleCompact]}>¿Qué necesitás{`\n`}resolver hoy?</Text>
@@ -53,11 +54,12 @@ export default function RiderLanding({firstName,onProfile,onLogout}:{firstName:s
       <UtilityCard icon="storefront" artwork={MARKETPLACE_ART} eyebrow="COMPRAS" title="Market" copy="Delivery o retiro" onPress={()=>router.push('/(marketplace)')}/>
     </View>
     <TouchableOpacity style={s.logout} onPress={onLogout}><Ionicons name="swap-horizontal" size={19} color={C.gray}/><Text style={s.logoutText}>Cambiar cuenta</Text></TouchableOpacity>
-  </ScrollView>;
+  </ScrollView><ClientActiveRequests/></View>;
 }
 function Section({title,action}:{title:string;action:string}){return <View style={s.section}><Text style={s.sectionTitle}>{title}</Text><Text style={s.sectionAction}>{action}</Text></View>}
 function UtilityCard({icon,artwork,eyebrow,title,copy,onPress}:{icon:keyof typeof Ionicons.glyphMap;artwork?:ImageSourcePropType;eyebrow:string;title:string;copy:string;onPress:()=>void}){return <TouchableOpacity activeOpacity={.84} style={s.utilityCard} onPress={onPress}><View style={[s.utilityIcon,artwork?s.utilityArtBox:undefined]}>{artwork?<Image source={artwork} style={s.utilityArt} resizeMode="contain"/>:<Ionicons name={icon} size={25} color="#fff"/>}</View><Text style={s.utilityEyebrow}>{eyebrow}</Text><Text style={s.utilityTitle}>{title}</Text><Text style={s.utilityCopy}>{copy}</Text><View style={s.utilityArrow}><Ionicons name="chevron-forward" size={14} color={C.primary}/></View></TouchableOpacity>}
 const s=StyleSheet.create({
+  root:{flex:1,backgroundColor:'#FFF8F2'},
   screen:{backgroundColor:'#FFF8F2'},
   content:{width:'100%',maxWidth:720,alignSelf:'center',paddingHorizontal:20,paddingBottom:46,backgroundColor:'#FFF8F2',overflow:'hidden'},
   glowOne:{position:'absolute',width:350,height:350,borderRadius:175,backgroundColor:'#FFF0E3',top:80,right:-170,opacity:.72},
