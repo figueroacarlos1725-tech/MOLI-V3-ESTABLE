@@ -33,7 +33,10 @@ type Phase = 'category' | 'details' | 'searching' | 'matched' | 'active';
 export default function RequestJobScreen() {
   const router = useRouter();
   const { width } = useWindowDimensions();
-  const compact = width < 430;
+  // React Native Web can report a few extra CSS pixels when the browser uses
+  // display scaling. Keep the phone layout at two columns through 560 px so
+  // artwork and labels never get squeezed into narrow three-column cards.
+  const compact = width < 560;
   const { user } = useAuthStore();
   const params = useLocalSearchParams<{ lat?: string; lng?: string; addr?: string; service?: string }>();
   const isTramite = params.service === 'tramites';
