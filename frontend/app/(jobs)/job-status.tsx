@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView,
-  TextInput, ActivityIndicator, Alert, KeyboardAvoidingView, Platform, Vibration,
+  TextInput, ActivityIndicator, Alert, KeyboardAvoidingView, Platform, Vibration, Modal,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -27,6 +27,7 @@ export default function JobStatusScreen() {
   const [sending, setSending] = useState(false);
   const [showChat, setShowChat] = useState(false);
   const [cancelling, setCancelling] = useState(false);
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [showRating, setShowRating] = useState(false);
   const [hasRated, setHasRated] = useState(false);
   const [rating, setRating] = useState(5);
@@ -119,30 +120,19 @@ export default function JobStatusScreen() {
     setSending(false);
   };
 
-  const cancelJob = async () => {
+  const cancelJob = () => setShowCancelConfirm(true);
+
+  const confirmCancelJob = async () => {
     const jid = job?.job_id || params.jobId;
     if (!jid) { Alert.alert('Error', 'No se encontró el ID del trabajo'); return; }
-    
-    const isJobAssigned = job?.status === 'assigned' || job?.status === 'in_progress';
-    const title = isJobAssigned ? 'Cancelar trabajo asignado' : 'Cancelar trabajo';
-    const msg = isJobAssigned
-      ? 'Ya hay un profesional asignado. Se te cobrará una penalización del 20% del presupuesto. ¿Seguro?'
-      : '¿Seguro que querés cancelar este trabajo?';
-    
-    Alert.alert(title, msg, [
-      { text: 'No', style: 'cancel' },
-      { text: isJobAssigned ? 'Sí, pagar penalización' : 'Sí, cancelar', style: 'destructive', onPress: async () => {
-        setCancelling(true);
-        try {
-          await apiService.put(`/jobs/${jid}/status`, { status: 'cancelled' });
-          Alert.alert('Trabajo cancelado', isJobAssigned ? 'Se aplicó una penalización del 20%.' : '');
-          router.back();
-        } catch (e: any) {
-          Alert.alert('Error', e.message || 'No se pudo cancelar');
-        }
-        setCancelling(false);
-      }},
-    ]);
+    setCancelling(true);
+    try {
+      await apiService.put(`/jobs/${jid}/status`, { status: 'cancelled' });
+      setShowCancelConfirm(false);
+      router.replace('/modules');
+    } catch (e: any) {
+      Alert.alert('Error', e.message || 'No se pudo cancelar');
+    } finally { setCancelling(false); }
   };
 
   if (loading) {
@@ -283,6 +273,7 @@ export default function JobStatusScreen() {
             <Ionicons name={st.icon as any} size={24} color={st.color} />
             <Text style={[s.statusText, { color: st.color }]}>{st.label}</Text>
           </View>
+          {isOpen && <TouchableOpacity style={s.cancelSearchBtn} onPress={cancelJob} disabled={cancelling}><Ionicons name="stop-circle-outline" size={19} color="#FF3B30"/><Text style={s.cancelSearchText}>Cancelar búsqueda</Text></TouchableOpacity>}
 
           {/* Budget */}
           <View style={s.budgetCard}>
@@ -390,7 +381,7 @@ export default function JobStatusScreen() {
           )}
 
           {/* Cancel button */}
-          {(isOpen || isAssigned) && (
+          {isAssigned && (
             <TouchableOpacity style={s.cancelBtn} onPress={cancelJob} disabled={cancelling}>
               <Ionicons name="close-circle" size={18} color="#FF3B30" />
               <Text style={s.cancelBtnText}>{cancelling ? 'Cancelando...' : 'Cancelar trabajo'}</Text>
@@ -440,6 +431,9 @@ export default function JobStatusScreen() {
         entityType="job"
         entityId={job.job_id || params.jobId}
       />
+      <Modal visible={showCancelConfirm} transparent animationType="fade" onRequestClose={()=>setShowCancelConfirm(false)}>
+        <View style={s.confirmOverlay}><View style={s.confirmCard}><View style={s.confirmIcon}><Ionicons name="close-circle" size={34} color="#FF3B30"/></View><Text style={s.confirmTitle}>{isAssigned?'Cancelar servicio asignado':'Cancelar solicitud'}</Text><Text style={s.confirmCopy}>{isAssigned?'Ya hay un profesional asignado. Se aplicará la penalización configurada del 20%.':'La búsqueda se detendrá y la solicitud desaparecerá del inicio. Esta acción no se puede deshacer.'}</Text><TouchableOpacity style={s.confirmDanger} disabled={cancelling} onPress={confirmCancelJob}>{cancelling?<ActivityIndicator color="#fff"/>:<Text style={s.confirmDangerText}>{isAssigned?'Cancelar y aceptar penalización':'Sí, cancelar solicitud'}</Text>}</TouchableOpacity><TouchableOpacity style={s.confirmKeep} disabled={cancelling} onPress={()=>setShowCancelConfirm(false)}><Text style={s.confirmKeepText}>Seguir buscando</Text></TouchableOpacity></View></View>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }
@@ -469,6 +463,7 @@ const s = StyleSheet.create({
   chatBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
   cancelBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 16, borderRadius: 14, borderWidth: 1, borderColor: '#FF3B30', marginTop: 4 },
   cancelBtnText: { color: '#FF3B30', fontSize: 15, fontWeight: '600' },
+  cancelSearchBtn:{flexDirection:'row',alignItems:'center',justifyContent:'center',gap:7,backgroundColor:'#fff',borderRadius:14,paddingVertical:13,borderWidth:1,borderColor:'#FFD0CD',marginBottom:12},cancelSearchText:{color:'#FF3B30',fontSize:13,fontWeight:'900'},
   // Chat styles
   msgBubble: { maxWidth: '80%', padding: 12, borderRadius: 16, marginBottom: 8 },
   msgMine: { alignSelf: 'flex-end', backgroundColor: GREEN, borderBottomRightRadius: 4 },
@@ -479,4 +474,5 @@ const s = StyleSheet.create({
   chatInput: { flexDirection: 'row', alignItems: 'flex-end', backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: '#E5E5EA', paddingHorizontal: 12, paddingTop: 8, gap: 8 },
   chatTextInput: { flex: 1, backgroundColor: '#F2F2F7', borderRadius: 20, paddingHorizontal: 16, paddingVertical: 10, fontSize: 15, color: '#1C1C1E', maxHeight: 100 },
   sendBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: GREEN, justifyContent: 'center', alignItems: 'center', marginBottom: 2 },
+  confirmOverlay:{flex:1,backgroundColor:'rgba(32,33,36,.52)',alignItems:'center',justifyContent:'center',padding:22},confirmCard:{width:'100%',maxWidth:440,backgroundColor:'#FFF8F2',borderRadius:28,padding:22,alignItems:'center',borderWidth:1,borderColor:'#F0DFD2',shadowColor:'#000',shadowOffset:{width:0,height:10},shadowOpacity:.22,shadowRadius:20,elevation:20},confirmIcon:{width:68,height:68,borderRadius:23,backgroundColor:'#FFF0EF',alignItems:'center',justifyContent:'center'},confirmTitle:{fontSize:21,fontWeight:'900',color:'#202124',marginTop:14},confirmCopy:{fontSize:13,lineHeight:19,color:'#74777C',textAlign:'center',marginTop:7,marginBottom:18},confirmDanger:{width:'100%',minHeight:52,borderRadius:17,backgroundColor:'#FF3B30',alignItems:'center',justifyContent:'center'},confirmDangerText:{color:'#fff',fontSize:14,fontWeight:'900'},confirmKeep:{paddingVertical:14},confirmKeepText:{fontSize:13,fontWeight:'800',color:'#5E6166'},
 });

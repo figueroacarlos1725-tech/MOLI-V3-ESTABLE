@@ -12,6 +12,13 @@ MINIMUM_PAPERWORK_BUDGET = 10000
 
 PRIVATE_JOB_FIELDS = {"address", "location", "images"}
 
+async def _store_client_notification(client_id: str, event_type: str, title: str, body: str, job_id: str) -> None:
+    await db.app_notifications.insert_one({
+        "notification_id": generate_id("not_"), "user_id": client_id,
+        "type": event_type, "title": title, "body": body, "job_id": job_id,
+        "read": False, "created_at": datetime.now(timezone.utc),
+    })
+
 def _is_admin(user: dict) -> bool:
     return user.get("user_type") == "admin"
 
@@ -359,6 +366,9 @@ async def start_job_review(
     )
     if not locked:
         raise HTTPException(status_code=409, detail="El trabajo no está disponible para revisión")
+
+    professional_name = user.get("name", "Un profesional")
+    await _store_client_notification(job["client_id"], "job_reviewing", "Están revisando tu solicitud", f"{professional_name} está evaluando tu pedido.", job_id)
     
     # Notify client that someone is reviewing
     try:
@@ -375,7 +385,6 @@ async def start_job_review(
     # Also notify the client when the app is minimized or in background.
     try:
         from notifications import send_push_notification
-        professional_name = user.get("name", "Un profesional")
         await send_push_notification(
             job["client_id"],
             "Están revisando tu solicitud",
@@ -422,6 +431,8 @@ async def accept_job_after_review(
     )
     if not assigned:
         raise HTTPException(status_code=409, detail="La revisión venció o el trabajo ya no está disponible")
+
+    await _store_client_notification(job["client_id"], "job_accepted", "Profesional encontrado", f"{user.get('name', 'Un profesional')} aceptó tu solicitud.", job_id)
     
     # Notify client
     try:
@@ -478,6 +489,8 @@ async def decline_job_after_review(
         )
     if not released:
         raise HTTPException(status_code=409, detail="No estás revisando este trabajo")
+
+    await _store_client_notification(job["client_id"], "job_declined", "Seguimos buscando", "El profesional no pudo tomar la solicitud. Ya estamos buscando otro.", job_id)
     
     # Notify client
     try:

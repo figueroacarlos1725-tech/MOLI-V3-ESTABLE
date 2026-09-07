@@ -5,6 +5,7 @@ import { useRouter } from 'expo-router';
 import { apiService } from '@/src/services/api';
 import { MOLI_COLORS as C, MOLI_SHADOWS as SH } from '@/src/theme/colors';
 import ClientActiveRequests from '@/src/components/ClientActiveRequests';
+import ClientNotificationBell from '@/src/components/ClientNotificationBell';
 
 type Category={id?:string;category_id?:string;name:string;icon?:keyof typeof Ionicons.glyphMap};
 type Professional={user_id:string;name:string;categories:string[];rating?:number;total_jobs?:number};
@@ -41,7 +42,7 @@ export default function RiderLanding({firstName,onProfile,onLogout}:{firstName:s
   const jobs=()=>router.push('/(jobs)/client-home');
   return <View style={s.root}><ScrollView style={s.screen} contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
     <View pointerEvents="none" style={s.glowOne}/><View pointerEvents="none" style={s.glowTwo}/><Text pointerEvents="none" style={s.sparkle}>✦</Text>
-    <View style={s.header}><View style={s.brand}><Text style={s.brandName}>moli</Text><Text style={s.brandSpark}>✦</Text></View><View style={s.actions}><View style={s.bell}><Ionicons name="notifications-outline" size={23} color={C.black}/><View style={s.notificationBadge}><Text style={s.notificationText}>2</Text></View></View><TouchableOpacity style={s.profile} onPress={onProfile}><Image source={PROFILE_ART[3]} style={s.headerAvatar} resizeMode="cover"/><View style={s.profileDot}/></TouchableOpacity></View></View>
+    <View style={s.header}><View style={s.brand}><Text style={s.brandName}>moli</Text><Text style={s.brandSpark}>✦</Text></View><View style={s.actions}><ClientNotificationBell/><TouchableOpacity style={s.profile} onPress={onProfile}><Image source={PROFILE_ART[3]} style={s.headerAvatar} resizeMode="cover"/><View style={s.profileDot}/></TouchableOpacity></View></View>
     <Text style={s.greeting}>Hola, {firstName}</Text><Text style={[s.title,compact&&s.titleCompact]}>¿Qué necesitás{`\n`}resolver hoy?</Text>
     <TouchableOpacity style={s.search} onPress={jobs}><Ionicons name="search" size={27} color="#949494"/><Text style={s.searchText}>Buscá un profesional o servicio</Text><View style={s.searchButton}><Ionicons name="search" size={25} color="#fff"/></View></TouchableOpacity>
     <TouchableOpacity style={[s.hero,compact&&s.heroCompact]} onPress={jobs}><View style={s.heroShine}/><Text style={s.heroSparkOne}>✦</Text><Text style={s.heroSparkTwo}>✦</Text><View style={s.heroCopy}><Text style={[s.heroTitle,compact&&s.heroTitleCompact]}>Necesito un{`\n`}profesional</Text><Text style={[s.heroText,compact&&s.heroTextCompact]}>Contanos qué necesitás y{`\n`}encontrá ayuda confiable.</Text><View style={[s.heroButton,compact&&s.heroButtonCompact]}><Text style={s.heroButtonText}>PEDIR AHORA</Text><Ionicons name="chevron-forward" size={20} color={C.primaryDark}/></View></View><View style={[s.heroArt,compact&&s.heroArtCompact]}><Image source={VERIFIED_TOOLS} style={[s.heroImage,compact&&s.heroImageCompact]} resizeMode="contain"/></View></TouchableOpacity>
