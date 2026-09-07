@@ -218,41 +218,43 @@ export default function RequestJobScreen() {
     return (
       <SafeAreaView style={s.container}>
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
-          <ScrollView contentContainerStyle={{ paddingBottom: 40 }} keyboardShouldPersistTaps="handled">
+          <ScrollView contentContainerStyle={s.detailsContent} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
             <View style={s.header}>
               <TouchableOpacity onPress={() => setPhase('category')} style={s.backBtn}>
                 <Ionicons name="arrow-back" size={22} color="#1C1C1E" />
               </TouchableOpacity>
-              <Text style={s.headerTitle}>{catData?.name || 'Nuevo trabajo'}</Text>
+              <View style={s.headerCopy}><Text style={s.headerKicker}>NUEVA SOLICITUD</Text><Text style={[s.headerTitle,s.headerTitleMain]}>{catData?.name || 'Nuevo trabajo'}</Text></View>
+              {catData?.art ? <Image source={catData.art} style={s.headerArt} resizeMode="contain"/> : <Ionicons name={catData?.icon || 'construct'} size={30} color="#FF5A1F"/>}
             </View>
 
-            <View style={{ padding: 20, gap: 16 }}>
-              <View>
-                <Text style={s.label}>¿Qué necesitás? *</Text>
+            <View style={s.detailsBody}>
+              <View style={s.detailsHero}><View style={s.detailsHeroIcon}><Ionicons name="sparkles" size={22} color="#fff"/></View><View style={{flex:1}}><Text style={s.detailsHeroTitle}>Contanos qué necesitás</Text><Text style={s.detailsHeroCopy}>Cuantos más detalles agregues, mejor será la respuesta.</Text></View></View>
+              <View style={s.formCard}>
+                <View style={s.fieldHeading}><View style={s.fieldIcon}><Ionicons name="create" size={17} color="#FF5A1F"/></View><Text style={s.label}>¿Qué necesitás? *</Text></View>
                 <TextInput style={s.input} placeholder="Ej: Arreglar canilla que gotea" placeholderTextColor="#C7C7CC" value={title} onChangeText={setTitle} />
               </View>
 
-              <View>
-                <Text style={s.label}>Descripción (opcional)</Text>
+              <View style={s.formCard}>
+                <View style={s.fieldHeading}><View style={s.fieldIcon}><Ionicons name="reader" size={17} color="#FF5A1F"/></View><Text style={s.label}>Descripción (opcional)</Text></View>
                 <TextInput style={[s.input, { minHeight: 80 }]} placeholder="Detalles del trabajo..." placeholderTextColor="#C7C7CC" value={description} onChangeText={setDescription} multiline textAlignVertical="top" />
               </View>
 
-              <View>
-                <Text style={s.label}>Foto del trabajo (opcional)</Text>
+              <View style={s.formCard}>
+                <View style={s.fieldHeading}><View style={s.fieldIcon}><Ionicons name="camera" size={17} color="#FF5A1F"/></View><Text style={s.label}>Foto del trabajo (opcional)</Text></View>
                 <TouchableOpacity style={s.photoBtn} onPress={pickImage}>
                   {photo ? (
                     <Image source={{ uri: photo }} style={{ width: '100%', height: 150, borderRadius: 12 }} resizeMode="cover" />
                   ) : (
                     <View style={{ alignItems: 'center', gap: 8 }}>
-                      <Ionicons name="camera" size={32} color="#C7C7CC" />
-                      <Text style={{ color: '#8E8E93', fontSize: 13 }}>Subir foto</Text>
+                      <View style={s.photoIcon}><Ionicons name="add" size={25} color="#fff" /></View>
+                      <Text style={s.photoText}>Agregar una foto</Text><Text style={s.photoHint}>Ayuda al profesional a evaluar mejor</Text>
                     </View>
                   )}
                 </TouchableOpacity>
               </View>
 
-              <View>
-                <Text style={s.label}>¿Cuánto querés pagar? *</Text>
+              <View style={s.formCard}>
+                <View style={s.fieldHeading}><View style={s.fieldIcon}><Ionicons name="wallet" size={17} color="#FF5A1F"/></View><Text style={s.label}>¿Cuánto querés pagar? *</Text></View>
                 <View style={s.priceRow}>
                   <Text style={{ fontSize: 24, fontWeight: '800', color: '#1C1C1E' }}>$</Text>
                   <TextInput style={s.priceInput} placeholder={category === 'tramites' ? '10000' : '15000'} placeholderTextColor="#C7C7CC" value={budget} onChangeText={t => setBudget(t.replace(/[^0-9]/g, ''))} keyboardType="number-pad" />
@@ -260,8 +262,8 @@ export default function RequestJobScreen() {
                 <Text style={s.minimumBudgetHint}>Tarifa mínima de publicación: {category === 'tramites' ? '$10.000' : '$15.000'}</Text>
               </View>
 
-              <View>
-                <Text style={s.label}>Ubicación</Text>
+              <View style={s.formCard}>
+                <View style={s.fieldHeading}><View style={s.fieldIcon}><Ionicons name="location" size={17} color="#FF5A1F"/></View><Text style={s.label}>Ubicación del servicio</Text></View>
                 <View style={s.locationRow}>
                   <Ionicons name="location" size={20} color="#FF7733" />
                   <Text style={{ flex: 1, fontSize: 14, color: '#1C1C1E' }}>{address}</Text>
@@ -270,7 +272,7 @@ export default function RequestJobScreen() {
 
               <TouchableOpacity style={s.submitBtn} onPress={handleSubmit} disabled={loading}>
                 {loading ? <ActivityIndicator color="#fff" /> : (
-                  <Text style={s.submitBtnText}>Buscar profesional</Text>
+                  <><Ionicons name="search" size={20} color="#fff"/><Text style={s.submitBtnText}>Buscar profesional</Text><Ionicons name="arrow-forward" size={20} color="#fff"/></>
                 )}
               </TouchableOpacity>
             </View>
@@ -401,6 +403,10 @@ const s = StyleSheet.create({
   headerTitleMain: { marginLeft: 0 },
   headerArt: { width: 52, height: 52 },
   categoryContent: { width: '100%', maxWidth: 760, alignSelf: 'center', padding: 18, paddingBottom: 44 },
+  detailsContent:{width:'100%',maxWidth:650,alignSelf:'center',paddingBottom:42},detailsBody:{padding:18,gap:13},
+  detailsHero:{flexDirection:'row',alignItems:'center',gap:12,backgroundColor:'#FF5A1F',borderRadius:23,padding:16,borderWidth:2,borderColor:'#FF9867',borderBottomWidth:5,borderBottomColor:'#E9480B',shadowColor:'#A9390C',shadowOffset:{width:0,height:6},shadowOpacity:.2,shadowRadius:9,elevation:7},
+  detailsHeroIcon:{width:44,height:44,borderRadius:15,backgroundColor:'rgba(255,255,255,.2)',alignItems:'center',justifyContent:'center',borderWidth:1,borderColor:'rgba(255,255,255,.42)'},detailsHeroTitle:{color:'#fff',fontSize:18,fontWeight:'900'},detailsHeroCopy:{color:'#FFF1E9',fontSize:11,lineHeight:15,fontWeight:'600',marginTop:3},
+  formCard:{backgroundColor:'#fff',borderRadius:21,padding:14,borderWidth:1,borderColor:'#F0DFD2',borderBottomWidth:3,borderBottomColor:'#E8D6C8',shadowColor:'#6F4229',shadowOffset:{width:0,height:5},shadowOpacity:.11,shadowRadius:8,elevation:4},fieldHeading:{flexDirection:'row',alignItems:'center',gap:8,marginBottom:9},fieldIcon:{width:30,height:30,borderRadius:11,backgroundColor:'#FFF0E7',alignItems:'center',justifyContent:'center'},
   categoryIntro: { backgroundColor: '#FF5A1F', borderRadius: 26, padding: 20, borderWidth: 2, borderColor: '#FF9867', borderBottomWidth: 5, borderBottomColor: '#E9480B', shadowColor: '#A9390C', shadowOffset: { width: 0, height: 7 }, shadowOpacity: .25, shadowRadius: 11, elevation: 8, marginBottom: 22 },
   introEyebrow: { color: '#FFE6D8', fontSize: 9, fontWeight: '900', letterSpacing: 1.1 },
   introTitle: { color: '#fff', fontSize: 25, fontWeight: '900', marginTop: 5, letterSpacing: -.5 },
@@ -416,15 +422,15 @@ const s = StyleSheet.create({
   catName: { fontSize: 14, lineHeight: 18, fontWeight: '900', color: '#202124', marginTop: 9, marginHorizontal: 11 },
   catHint: { fontSize: 9, lineHeight: 12, fontWeight: '600', color: '#8A8D91', marginTop: 2, marginHorizontal: 11 },
   catArrow: { position: 'absolute', right: 8, bottom: 13, width: 25, height: 25, borderRadius: 13, backgroundColor: '#FFF0E7', alignItems: 'center', justifyContent: 'center' },
-  label: { fontSize: 13, fontWeight: '600', color: '#8E8E93', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 },
-  input: { backgroundColor: '#F2F2F7', borderRadius: 14, padding: 14, fontSize: 15, color: '#1C1C1E' },
-  photoBtn: { backgroundColor: '#F8F8FA', borderRadius: 14, padding: 20, alignItems: 'center', borderWidth: 1, borderColor: '#E5E5EA', borderStyle: 'dashed' },
+  label: { fontSize: 11, fontWeight: '900', color: '#585B60', textTransform: 'uppercase', letterSpacing: 0.5 },
+  input: { backgroundColor: '#FAF7F4', borderRadius: 14, padding: 14, fontSize: 15, color: '#1C1C1E',borderWidth:1,borderColor:'#F1E7DF' },
+  photoBtn: { backgroundColor: '#FFF9F5', borderRadius: 16, padding: 18, alignItems: 'center', borderWidth: 1.5, borderColor: '#FFD8C5', borderStyle: 'dashed' },photoIcon:{width:42,height:42,borderRadius:14,backgroundColor:'#FF5A1F',alignItems:'center',justifyContent:'center'},photoText:{color:'#202124',fontSize:13,fontWeight:'900'},photoHint:{color:'#96999D',fontSize:10,fontWeight:'600'},
   priceRow: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#F2F2F7', borderRadius: 14, paddingHorizontal: 16, paddingVertical: 10 },
   priceInput: { flex: 1, fontSize: 28, fontWeight: '800', color: '#1C1C1E' },
   minimumBudgetHint:{fontSize:11,fontWeight:'700',color:'#E9480B',marginTop:7},
   locationRow: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#F2F2F7', borderRadius: 14, padding: 14 },
-  submitBtn: { flexDirection: 'row', backgroundColor: '#FF7733', paddingVertical: 18, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
-  submitBtnText: { color: '#fff', fontSize: 17, fontWeight: '700' },
+  submitBtn: { flexDirection: 'row',gap:10, backgroundColor: '#FF5A1F', paddingVertical: 17, borderRadius: 17, alignItems: 'center', justifyContent: 'center',borderBottomWidth:5,borderBottomColor:'#E9480B',shadowColor:'#A9390C',shadowOffset:{width:0,height:6},shadowOpacity:.22,shadowRadius:8,elevation:7 },
+  submitBtnText: { color: '#fff', fontSize: 16, fontWeight: '900',flex:1,textAlign:'center',marginLeft:30 },
   searchPage:{flex:1,width:'100%',maxWidth:620,alignSelf:'center',paddingHorizontal:18,paddingBottom:14},
   searchHeader:{minHeight:72,flexDirection:'row',alignItems:'center',justifyContent:'space-between'},
   searchKicker:{fontSize:9,fontWeight:'900',letterSpacing:1,color:'#E9480B'},searchHeaderTitle:{fontSize:20,fontWeight:'900',color:'#202124',marginTop:2},
