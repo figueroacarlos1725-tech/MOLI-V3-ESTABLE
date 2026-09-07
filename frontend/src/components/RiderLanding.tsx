@@ -33,6 +33,7 @@ const VERIFIED_TOOLS=require('../../assets/professions/verified-tools.png');
 const TRAVEL_ART=require('../../assets/modules/travel.png');
 const PAPERWORK_ART=require('../../assets/modules/paperwork.png');
 const MARKETPLACE_ART=require('../../assets/modules/marketplace.png');
+const DELIVERY_ART=require('../../assets/modules/delivery.png');
 const artKey=(value:string='')=>value.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
 const categoryArt=(category:Category)=>PROFESSION_ART[artKey(category.id||category.category_id||category.name)]||PROFESSION_ART[artKey(category.name)];
 
@@ -46,18 +47,21 @@ export default function RiderLanding({firstName,onProfile,onLogout}:{firstName:s
     <Text style={s.greeting}>Hola, {firstName}</Text><Text style={[s.title,compact&&s.titleCompact]}>¿Qué necesitás{`\n`}resolver hoy?</Text>
     <TouchableOpacity style={s.search} onPress={jobs}><Ionicons name="search" size={27} color="#949494"/><Text style={s.searchText}>Buscá un profesional o servicio</Text><View style={s.searchButton}><Ionicons name="search" size={25} color="#fff"/></View></TouchableOpacity>
     <TouchableOpacity style={[s.hero,compact&&s.heroCompact]} onPress={jobs}><View style={s.heroShine}/><Text style={s.heroSparkOne}>✦</Text><Text style={s.heroSparkTwo}>✦</Text><View style={s.heroCopy}><Text style={[s.heroTitle,compact&&s.heroTitleCompact]}>Necesito un{`\n`}profesional</Text><Text style={[s.heroText,compact&&s.heroTextCompact]}>Contanos qué necesitás y{`\n`}encontrá ayuda confiable.</Text><View style={[s.heroButton,compact&&s.heroButtonCompact]}><Text style={s.heroButtonText}>PEDIR AHORA</Text><Ionicons name="chevron-forward" size={20} color={C.primaryDark}/></View></View><View style={[s.heroArt,compact&&s.heroArtCompact]}><Image source={VERIFIED_TOOLS} style={[s.heroImage,compact&&s.heroImageCompact]} resizeMode="contain"/></View></TouchableOpacity>
-    <View style={s.carouselDots}><View style={s.dotActive}/><View style={s.dot}/><View style={s.dot}/></View>
+    <View style={s.serviceStack}>
+      <ServiceCard artwork={TRAVEL_ART} eyebrow="MOVETE SEGURO" title="Pedir un viaje" copy="Auto o moto, con seguimiento en vivo" action="VIAJAR" onPress={()=>router.push('/(rider)/home')}/>
+      <ServiceCard artwork={PAPERWORK_ART} eyebrow="GESTIONES SIN VUELTAS" title="Hacer un trámite" copy="Pedí una gestión y seguí cada paso" action="RESOLVER" onPress={()=>router.push({pathname:'/(jobs)/client-home',params:{service:'tramites'}})}/>
+      <ServiceCard artwork={DELIVERY_ART} eyebrow="PAQUETERÍA MOLI" title="Enviar o recibir" copy="Moto delivery con seguimiento en vivo" action="ENVIAR" onPress={()=>router.push({pathname:'/(rider)/home',params:{service:'delivery'}})}/>
+    </View>
     <Section title="Servicios populares" action="Ver todos"/><View style={s.grid}>{categories.map((c,i)=>{const artwork=categoryArt(c);return <TouchableOpacity activeOpacity={0.82} key={c.id||c.category_id||i} style={s.category} onPress={jobs}><View style={[s.categoryIcon,compact&&s.categoryIconCompact]}>{artwork?<Image source={artwork} style={[s.categoryImage,compact&&s.categoryImageCompact]} resizeMode="contain"/>:<Ionicons name={(c.icon||'grid') as any} size={27} color={C.primary}/>}<View style={s.categoryBadge}><Ionicons name={(c.icon||'sparkles') as any} size={13} color="#fff"/></View></View><Text style={s.categoryText} numberOfLines={1}>{c.name}</Text></TouchableOpacity>})}</View>
     <Section title="Disponibles ahora" action="VER TODOS  ›"/><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.proRow}>{(pros.length?pros:[{user_id:'nearby',name:'Profesional verificado',categories:['Servicios'],rating:5,total_jobs:128}]).map((p,index)=><TouchableOpacity activeOpacity={0.84} key={p.user_id} style={s.proCard} onPress={jobs}><View style={s.avatar}><Image source={PROFILE_ART[index%PROFILE_ART.length]} style={s.profileImage} resizeMode="cover"/><View style={s.available}/></View><View style={s.proInfo}><View style={s.verifiedRow}><Ionicons name="shield-checkmark" size={16} color={C.primary}/><Text style={s.verifiedText}>Profesional verificado</Text></View><Text style={s.proName} numberOfLines={1}>{p.name}</Text><View style={s.ratingRow}><Ionicons name="star" size={15} color="#FFB400"/><Text style={s.rating}>{(p.rating||5).toFixed(1)}</Text></View><Text style={s.jobsCount}>{p.total_jobs||128} trabajos</Text></View></TouchableOpacity>)}</ScrollView>
     <Text style={s.more}>También en Moli</Text><View style={s.utilityGrid}>
-      <UtilityCard icon="document-text" artwork={PAPERWORK_ART} eyebrow="GESTIONES" title="Trámites" copy="Resolvé diligencias" onPress={()=>router.push({pathname:'/(jobs)/client-home',params:{service:'tramites'}})}/>
-      <UtilityCard icon="car-sport" artwork={TRAVEL_ART} eyebrow="MOVILIDAD" title="Viajes" copy="Pedí auto o moto" onPress={()=>router.push('/(rider)/home')}/>
       <UtilityCard icon="storefront" artwork={MARKETPLACE_ART} eyebrow="COMPRAS" title="Market" copy="Delivery o retiro" onPress={()=>router.push('/(marketplace)')}/>
     </View>
     <TouchableOpacity style={s.logout} onPress={onLogout}><Ionicons name="swap-horizontal" size={19} color={C.gray}/><Text style={s.logoutText}>Cambiar cuenta</Text></TouchableOpacity>
   </ScrollView><ClientActiveRequests/></View>;
 }
 function Section({title,action}:{title:string;action:string}){return <View style={s.section}><Text style={s.sectionTitle}>{title}</Text><Text style={s.sectionAction}>{action}</Text></View>}
+function ServiceCard({artwork,eyebrow,title,copy,action,onPress}:{artwork:ImageSourcePropType;eyebrow:string;title:string;copy:string;action:string;onPress:()=>void}){return <TouchableOpacity activeOpacity={.84} style={s.serviceCard} onPress={onPress}><View style={s.serviceArtBox}><Image source={artwork} style={s.serviceArt} resizeMode="contain"/></View><View style={s.serviceCopy}><Text style={s.serviceEyebrow}>{eyebrow}</Text><Text style={s.serviceTitle}>{title}</Text><Text style={s.serviceText}>{copy}</Text></View><View style={s.serviceAction}><Text style={s.serviceActionText}>{action}</Text><Ionicons name="arrow-forward" size={16} color="#fff"/></View></TouchableOpacity>}
 function UtilityCard({icon,artwork,eyebrow,title,copy,onPress}:{icon:keyof typeof Ionicons.glyphMap;artwork?:ImageSourcePropType;eyebrow:string;title:string;copy:string;onPress:()=>void}){return <TouchableOpacity activeOpacity={.84} style={s.utilityCard} onPress={onPress}><View style={[s.utilityIcon,artwork?s.utilityArtBox:undefined]}>{artwork?<Image source={artwork} style={s.utilityArt} resizeMode="contain"/>:<Ionicons name={icon} size={25} color="#fff"/>}</View><Text style={s.utilityEyebrow}>{eyebrow}</Text><Text style={s.utilityTitle}>{title}</Text><Text style={s.utilityCopy}>{copy}</Text><View style={s.utilityArrow}><Ionicons name="chevron-forward" size={14} color={C.primary}/></View></TouchableOpacity>}
 const s=StyleSheet.create({
   root:{flex:1,backgroundColor:'#FFF8F2'},
@@ -103,6 +107,16 @@ const s=StyleSheet.create({
   carouselDots:{height:24,marginTop:-12,alignSelf:'center',paddingHorizontal:18,backgroundColor:'#FFF8F2',borderTopLeftRadius:18,borderTopRightRadius:18,flexDirection:'row',alignItems:'center',gap:7,zIndex:4},
   dotActive:{width:19,height:8,borderRadius:4,backgroundColor:C.primary},
   dot:{width:8,height:8,borderRadius:4,backgroundColor:'#F0DCCE'},
+  serviceStack:{gap:13,marginTop:18},
+  serviceCard:{minHeight:104,backgroundColor:'#fff',borderRadius:25,padding:11,flexDirection:'row',alignItems:'center',gap:12,borderWidth:1,borderColor:'#F0DFD1',borderBottomWidth:3,borderBottomColor:'#E9D8CA',shadowColor:'#6F4229',shadowOffset:{width:0,height:7},shadowOpacity:.16,shadowRadius:11,elevation:6},
+  serviceArtBox:{width:84,height:80,borderRadius:20,backgroundColor:'#FFF3EA',alignItems:'center',justifyContent:'center',overflow:'hidden'},
+  serviceArt:{width:88,height:88},
+  serviceCopy:{flex:1,minWidth:0},
+  serviceEyebrow:{fontSize:8,fontWeight:'900',color:C.primary,letterSpacing:.9},
+  serviceTitle:{fontSize:18,fontWeight:'900',color:C.black,letterSpacing:-.3,marginTop:2},
+  serviceText:{fontSize:11,lineHeight:15,color:C.gray,marginTop:3},
+  serviceAction:{height:40,borderRadius:20,backgroundColor:C.primary,paddingHorizontal:13,flexDirection:'row',alignItems:'center',gap:5,borderBottomWidth:3,borderBottomColor:C.primaryDark,shadowColor:C.primaryDark,shadowOffset:{width:0,height:4},shadowOpacity:.25,shadowRadius:5,elevation:5},
+  serviceActionText:{fontSize:9,fontWeight:'900',color:'#fff',letterSpacing:.35},
   section:{flexDirection:'row',justifyContent:'space-between',alignItems:'center',marginTop:25,marginBottom:13},
   sectionTitle:{fontSize:20,fontWeight:'900',color:C.black,letterSpacing:-.35},
   sectionAction:{fontSize:10,fontWeight:'900',color:C.primaryDark,backgroundColor:'#fff',paddingHorizontal:12,paddingVertical:8,borderRadius:16,...SH.sm},

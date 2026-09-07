@@ -13,6 +13,7 @@
 - Revisión, rechazo y aceptación ahora generan actividad persistente aun cuando el cliente no tenga token push.
 - El detalle de una búsqueda abierta presenta la cancelación junto al estado y usa una confirmación propia compatible con web; al cancelar vuelve al inicio y desaparece la tarjeta flotante.
 - Se implementó la política de cancelación para trabajos y trámites: cliente 10% tras aceptación; profesional 2 minutos libres y luego 10%; tercera cancelación penalizada bloquea la cuenta. El cargo, la falta y el bloqueo se registran después de la transición atómica del servicio para evitar cobros duplicados por reintentos.
+- La portada cliente reemplaza el indicador de carrusel por tres tarjetas verticales explícitas para Viajes, Trámites y Enviar/Recibir. Se agregó un icono 3D propio de moto con paquete y el acceso de Envíos abre el formulario directamente en modo delivery.
 
 ## 2026-09-06 — Portada Moli Play Premium
 

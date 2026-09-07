@@ -18,7 +18,7 @@ import {
   Linking,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { MapView } from '@/src/components/MapView';
 import { useAuthStore } from '@/src/stores/authStore';
 import { useRideStore } from '@/src/stores/rideStore';
@@ -46,6 +46,7 @@ type Phase = 'idle' | 'destination' | 'confirm' | 'searching' | 'active' | 'comp
 export default function RiderHomeScreen() {
   const { user } = useAuthStore();
   const router = useRouter();
+  const params = useLocalSearchParams<{ service?: string }>();
   const { currentRequest, currentRide, bids, createRideRequest, acceptBid, fetchActiveRide, addBid, clearRequest, updateRideStatus } = useRideStore();
 
   // Core state
@@ -81,7 +82,7 @@ export default function RiderHomeScreen() {
   const [rideRating, setRideRating] = useState(0);
   const [firstRideDiscount, setFirstRideDiscount] = useState(0);
   const [addressHistory, setAddressHistory] = useState<any[]>([]);
-  const [serviceType, setServiceType] = useState<'ride' | 'delivery'>('ride');
+  const [serviceType, setServiceType] = useState<'ride' | 'delivery'>(params.service === 'delivery' ? 'delivery' : 'ride');
   const [showSnake, setShowSnake] = useState(false);
   const [vehicleIcons, setVehicleIcons] = useState<Record<string, any>>({});
 
