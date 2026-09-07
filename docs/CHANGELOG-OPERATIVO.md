@@ -6,6 +6,7 @@
 - El formulario previo a publicar también adopta tarjetas elevadas, iconografía contextual, carga de foto guiada y CTA con la misma profundidad visual de la portada.
 - La portada cliente muestra una tarjeta flotante para las solicitudes activas y permite volver a su seguimiento con un toque.
 - Los estados `revisando`, `aceptado` y `rechazado/continúa buscando` se reflejan en tiempo real mediante WebSocket y se reconcilian periódicamente con el servidor.
+- El proxy web QA ahora conserva la negociación `Upgrade` de WebSocket; antes degradaba `/api/ws/*` a HTTP y recibía 404.
 - Cuando un profesional comienza a revisar, el backend conserva su nombre durante el bloqueo y envía una notificación push al cliente si existe un token registrado.
 - Se fijó una tarifa mínima de ARS 15.000 para oficios y ARS 10.000 para Trámites, aplicada en frontend y backend.
 
