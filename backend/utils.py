@@ -51,6 +51,8 @@ async def get_current_user(authorization: Optional[str] = Header(None)) -> dict:
         user = await db.users.find_one({"user_id": user_id}, {"_id": 0})
         if not user:
             raise HTTPException(status_code=401, detail="User not found")
+        if user.get("is_blocked"):
+            raise HTTPException(status_code=403, detail="Cuenta bloqueada. Contactá a soporte para solicitar una revisión")
         return user
     except JWTError:
         raise HTTPException(status_code=401, detail="Invalid token")

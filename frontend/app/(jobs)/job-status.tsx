@@ -157,6 +157,14 @@ export default function JobStatusScreen() {
   }
 
   const isAssigned = job.status === 'assigned' || job.status === 'in_progress';
+  const isClientCanceller = user?.user_id === job.client_id;
+  const acceptedAtMs = job.assigned_at ? new Date(job.assigned_at).getTime() : 0;
+  const professionalFreeCancel = isAssigned && !isClientCanceller && acceptedAtMs > 0 && Date.now() - acceptedAtMs <= 120000;
+  const assignedCancelCopy = isClientCanceller
+    ? 'El profesional ya aceptó. Al cancelar se aplicará una multa del 10% del valor del trabajo.'
+    : professionalFreeCancel
+      ? 'Estás dentro de los primeros 2 minutos desde que aceptaste. Podés cancelar sin multa.'
+      : 'Pasaron más de 2 minutos desde que aceptaste. Al cancelar se aplicará una multa del 10% del valor del trabajo.';
   const isOpen = job.status === 'open' || job.status === 'reviewing';
   const isPendingCompletion = job.status === 'pending_completion';
   const isCompleted = job.status === 'completed';
@@ -432,7 +440,7 @@ export default function JobStatusScreen() {
         entityId={job.job_id || params.jobId}
       />
       <Modal visible={showCancelConfirm} transparent animationType="fade" onRequestClose={()=>setShowCancelConfirm(false)}>
-        <View style={s.confirmOverlay}><View style={s.confirmCard}><View style={s.confirmIcon}><Ionicons name="close-circle" size={34} color="#FF3B30"/></View><Text style={s.confirmTitle}>{isAssigned?'Cancelar servicio asignado':'Cancelar solicitud'}</Text><Text style={s.confirmCopy}>{isAssigned?'Ya hay un profesional asignado. Se aplicará la penalización configurada del 20%.':'La búsqueda se detendrá y la solicitud desaparecerá del inicio. Esta acción no se puede deshacer.'}</Text><TouchableOpacity style={s.confirmDanger} disabled={cancelling} onPress={confirmCancelJob}>{cancelling?<ActivityIndicator color="#fff"/>:<Text style={s.confirmDangerText}>{isAssigned?'Cancelar y aceptar penalización':'Sí, cancelar solicitud'}</Text>}</TouchableOpacity><TouchableOpacity style={s.confirmKeep} disabled={cancelling} onPress={()=>setShowCancelConfirm(false)}><Text style={s.confirmKeepText}>Seguir buscando</Text></TouchableOpacity></View></View>
+        <View style={s.confirmOverlay}><View style={s.confirmCard}><View style={s.confirmIcon}><Ionicons name="close-circle" size={34} color="#FF3B30"/></View><Text style={s.confirmTitle}>{isAssigned?'Cancelar servicio asignado':'Cancelar solicitud'}</Text><Text style={s.confirmCopy}>{isAssigned?assignedCancelCopy:'La búsqueda se detendrá y la solicitud desaparecerá del inicio. Esta acción no se puede deshacer.'}</Text><Text style={s.confirmWarning}>Cada cancelación con multa suma una falta. En la tercera, la cuenta queda bloqueada.</Text><TouchableOpacity style={s.confirmDanger} disabled={cancelling} onPress={confirmCancelJob}>{cancelling?<ActivityIndicator color="#fff"/>:<Text style={s.confirmDangerText}>{isAssigned&&!professionalFreeCancel?'Cancelar y aceptar multa':'Sí, cancelar'}</Text>}</TouchableOpacity><TouchableOpacity style={s.confirmKeep} disabled={cancelling} onPress={()=>setShowCancelConfirm(false)}><Text style={s.confirmKeepText}>Volver</Text></TouchableOpacity></View></View>
       </Modal>
     </KeyboardAvoidingView>
   );
@@ -474,5 +482,5 @@ const s = StyleSheet.create({
   chatInput: { flexDirection: 'row', alignItems: 'flex-end', backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: '#E5E5EA', paddingHorizontal: 12, paddingTop: 8, gap: 8 },
   chatTextInput: { flex: 1, backgroundColor: '#F2F2F7', borderRadius: 20, paddingHorizontal: 16, paddingVertical: 10, fontSize: 15, color: '#1C1C1E', maxHeight: 100 },
   sendBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: GREEN, justifyContent: 'center', alignItems: 'center', marginBottom: 2 },
-  confirmOverlay:{flex:1,backgroundColor:'rgba(32,33,36,.52)',alignItems:'center',justifyContent:'center',padding:22},confirmCard:{width:'100%',maxWidth:440,backgroundColor:'#FFF8F2',borderRadius:28,padding:22,alignItems:'center',borderWidth:1,borderColor:'#F0DFD2',shadowColor:'#000',shadowOffset:{width:0,height:10},shadowOpacity:.22,shadowRadius:20,elevation:20},confirmIcon:{width:68,height:68,borderRadius:23,backgroundColor:'#FFF0EF',alignItems:'center',justifyContent:'center'},confirmTitle:{fontSize:21,fontWeight:'900',color:'#202124',marginTop:14},confirmCopy:{fontSize:13,lineHeight:19,color:'#74777C',textAlign:'center',marginTop:7,marginBottom:18},confirmDanger:{width:'100%',minHeight:52,borderRadius:17,backgroundColor:'#FF3B30',alignItems:'center',justifyContent:'center'},confirmDangerText:{color:'#fff',fontSize:14,fontWeight:'900'},confirmKeep:{paddingVertical:14},confirmKeepText:{fontSize:13,fontWeight:'800',color:'#5E6166'},
+  confirmOverlay:{flex:1,backgroundColor:'rgba(32,33,36,.52)',alignItems:'center',justifyContent:'center',padding:22},confirmCard:{width:'100%',maxWidth:440,backgroundColor:'#FFF8F2',borderRadius:28,padding:22,alignItems:'center',borderWidth:1,borderColor:'#F0DFD2',shadowColor:'#000',shadowOffset:{width:0,height:10},shadowOpacity:.22,shadowRadius:20,elevation:20},confirmIcon:{width:68,height:68,borderRadius:23,backgroundColor:'#FFF0EF',alignItems:'center',justifyContent:'center'},confirmTitle:{fontSize:21,fontWeight:'900',color:'#202124',marginTop:14},confirmCopy:{fontSize:13,lineHeight:19,color:'#74777C',textAlign:'center',marginTop:7,marginBottom:12},confirmWarning:{fontSize:12,lineHeight:18,color:'#9A6700',textAlign:'center',backgroundColor:'#FFF3CD',borderRadius:12,padding:10,marginBottom:16},confirmDanger:{width:'100%',minHeight:52,borderRadius:17,backgroundColor:'#FF3B30',alignItems:'center',justifyContent:'center'},confirmDangerText:{color:'#fff',fontSize:14,fontWeight:'900'},confirmKeep:{paddingVertical:14},confirmKeepText:{fontSize:13,fontWeight:'800',color:'#5E6166'},
 });

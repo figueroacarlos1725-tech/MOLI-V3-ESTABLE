@@ -9,6 +9,9 @@ from utils import generate_id, get_current_user, get_settings
 router = APIRouter()
 MINIMUM_JOB_BUDGET = 15000
 MINIMUM_PAPERWORK_BUDGET = 10000
+JOB_CANCELLATION_PENALTY_RATE = 0.10
+PROFESSIONAL_FREE_CANCEL_SECONDS = 120
+PENALIZED_CANCELLATIONS_BEFORE_BLOCK = 3
 
 PRIVATE_JOB_FIELDS = {"address", "location", "images"}
 
@@ -41,6 +44,8 @@ async def _require_professional(user: dict, *, available: bool = False) -> dict:
     profile = await db.professional_profiles.find_one({"user_id": user["user_id"]})
     if not profile:
         raise HTTPException(status_code=403, detail="Se requiere un perfil profesional")
+    if profile.get("is_blocked"):
+        raise HTTPException(status_code=403, detail="Tu cuenta profesional está bloqueada")
     if available and not profile.get("is_available", False):
         raise HTTPException(status_code=403, detail="El profesional no está disponible")
     return profile
@@ -700,7 +705,7 @@ async def update_job_status(
         if commission > 0 and job.get("assigned_to"):
             try:
                 from utils import adjust_wallet_balance
-                await adjust_wallet_balance(job["assigned_to"], -commission, f"Comisión Moli Trabajos {job_id}")
+                await adjust_wallet_balance(job["assigned_to"], -commission)
             except:
                 pass
         # Increment professional's total jobs
@@ -724,34 +729,89 @@ async def update_job_status(
     elif new_status == "cancelled":
         update["status"] = "cancelled"
         update["cancelled_by"] = user["user_id"]
-        # Penalty if assigned (20% of budget to the platform)
-        if job.get("status") in ("assigned", "in_progress") and job.get("budget"):
-            penalty = round(job["budget"] * 0.20, 2)
-            update["cancellation_penalty"] = penalty
-            # Debit from canceller's wallet
-            try:
-                from utils import adjust_wallet_balance
-                await adjust_wallet_balance(user["user_id"], -penalty, f"Penalización cancelación trabajo {job_id}")
-            except:
-                pass
-            # Notify the other party
-            other_id = job.get("assigned_to") if user["user_id"] == job["client_id"] else job["client_id"]
-            if other_id:
-                try:
-                    from websocket_manager import manager
-                    await manager.send_personal_message({
-                        "type": "job_cancelled",
-                        "job_id": job_id,
-                        "message": "El trabajo fue cancelado por la otra parte.",
-                    }, other_id)
-                except:
-                    pass
+        update["cancelled_at"] = now
+        penalty_applies = False
+        canceller_type = "admin"
+        if not _is_admin(user):
+            canceller_type = "client" if user["user_id"] == job.get("client_id") else "professional"
+            if current_status in {"assigned", "in_progress"}:
+                if canceller_type == "client":
+                    penalty_applies = True
+                else:
+                    assigned_at = job.get("assigned_at")
+                    penalty_applies = True
+                    if isinstance(assigned_at, str):
+                        try:
+                            assigned_at = datetime.fromisoformat(assigned_at.replace("Z", "+00:00"))
+                        except ValueError:
+                            assigned_at = None
+                    if isinstance(assigned_at, datetime):
+                        if assigned_at.tzinfo is None:
+                            assigned_at = assigned_at.replace(tzinfo=timezone.utc)
+                        penalty_applies = (now - assigned_at).total_seconds() > PROFESSIONAL_FREE_CANCEL_SECONDS
+        penalty = round(float(job.get("budget") or 0) * JOB_CANCELLATION_PENALTY_RATE, 2) if penalty_applies else 0
+        update["cancellation_penalty"] = penalty
+        update["cancellation_penalty_rate"] = JOB_CANCELLATION_PENALTY_RATE if penalty_applies else 0
+        update["canceller_type"] = canceller_type
     updated = await db.job_posts.update_one(
         {"job_id": job_id, "status": current_status}, {"$set": update}
     )
     if updated.modified_count != 1:
         raise HTTPException(status_code=409, detail="El trabajo cambió de estado; actualizá e intentá de nuevo")
-    return {"status": "updated", "job_status": update.get("status", new_status)}
+
+    penalty_info = {"penalty_applied": False, "penalty_amount": 0, "blocked": False}
+    if new_status == "cancelled":
+        penalty_amount = update.get("cancellation_penalty", 0)
+        if penalty_amount > 0:
+            from utils import adjust_wallet_balance
+            await adjust_wallet_balance(user["user_id"], -penalty_amount)
+            await db.wallet_transactions.insert_one({
+                "transaction_id": generate_id("txn_"), "user_id": user["user_id"],
+                "amount": -penalty_amount, "transaction_type": "job_cancel_penalty",
+                "description": "Multa del 10% por cancelación de servicio aceptado",
+                "job_id": job_id, "status": "completed", "created_at": now,
+            })
+            prior_strikes = await db.cancellation_records.count_documents({
+                "user_id": user["user_id"], "service_type": "jobs", "penalty_amount": {"$gt": 0}
+            })
+            strike_count = prior_strikes + 1
+            blocked = strike_count >= PENALIZED_CANCELLATIONS_BEFORE_BLOCK
+            await db.cancellation_records.insert_one({
+                "record_id": generate_id("cancel_"), "user_id": user["user_id"],
+                "user_type": update.get("canceller_type"), "service_type": "jobs",
+                "job_id": job_id, "penalty_amount": penalty_amount,
+                "penalty_rate": JOB_CANCELLATION_PENALTY_RATE, "cancel_number": strike_count,
+                "status": "charged", "block_applied": blocked, "created_at": now,
+            })
+            if blocked:
+                await db.users.update_one({"user_id": user["user_id"]}, {"$set": {
+                    "is_blocked": True, "block_reason": "job_penalized_cancellations", "blocked_at": now,
+                }})
+                await db.professional_profiles.update_one({"user_id": user["user_id"]}, {"$set": {
+                    "is_blocked": True, "is_available": False, "block_reason": "job_penalized_cancellations", "blocked_at": now,
+                }})
+                await db.drivers.update_one({"driver_id": user["user_id"]}, {"$set": {
+                    "is_blocked": True, "is_available": False, "is_online": False,
+                    "block_reason": "job_penalized_cancellations", "blocked_at": now, "blocked_until": None,
+                }})
+            penalty_info = {
+                "penalty_applied": True, "penalty_amount": penalty_amount,
+                "penalty_rate": JOB_CANCELLATION_PENALTY_RATE, "strike_count": strike_count,
+                "strikes_before_block": max(0, PENALIZED_CANCELLATIONS_BEFORE_BLOCK - strike_count),
+                "blocked": blocked,
+            }
+        other_id = job.get("assigned_to") if user["user_id"] == job.get("client_id") else job.get("client_id")
+        if other_id and not _is_admin(user):
+            try:
+                from websocket_manager import manager
+                await manager.send_personal_message({
+                    "type": "job_cancelled", "job_id": job_id,
+                    "message": "El trabajo fue cancelado por la otra parte.",
+                }, other_id)
+            except Exception:
+                pass
+
+    return {"status": "updated", "job_status": update.get("status", new_status), **penalty_info}
 
 
 @router.post("/api/jobs/{job_id}/rate")

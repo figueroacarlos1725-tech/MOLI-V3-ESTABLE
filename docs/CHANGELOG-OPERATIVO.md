@@ -12,6 +12,7 @@
 - La campana de la portada dejó de ser decorativa: abre un centro de notificaciones, muestra contador real y enlaza cada evento con el seguimiento de su solicitud.
 - Revisión, rechazo y aceptación ahora generan actividad persistente aun cuando el cliente no tenga token push.
 - El detalle de una búsqueda abierta presenta la cancelación junto al estado y usa una confirmación propia compatible con web; al cancelar vuelve al inicio y desaparece la tarjeta flotante.
+- Se implementó la política de cancelación para trabajos y trámites: cliente 10% tras aceptación; profesional 2 minutos libres y luego 10%; tercera cancelación penalizada bloquea la cuenta. El cargo, la falta y el bloqueo se registran después de la transición atómica del servicio para evitar cobros duplicados por reintentos.
 
 ## 2026-09-06 — Portada Moli Play Premium
 
@@ -53,6 +54,7 @@
 - Se añadió prueba del colapso determinista de versiones de comisión. No se modificaron secretos ni entornos externos.
 
 ## 2026-08-22 — Recuperación y preparación QA
+
 
 - Se recuperó el repositorio estable y se abrió `qa/role-flow-hardening`.
 - Se corrigió propagación del rol profesional en autenticación.
