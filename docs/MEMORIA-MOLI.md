@@ -200,6 +200,12 @@ El registro móvil exige teléfono y email. El canal `auto` intenta WhatsApp y u
 - El servidor conserva la autoridad sobre elegibilidad, frecuencia y límite por entidad; la app respeta la cuenta regresiva antes de habilitar la X y reporta impresión, clic, cierre y errores.
 - Las creatividades admiten imagen o video. Los únicos destinos admitidos en el cliente son HTTPS y rutas internas tipadas a comercio o producto; un producto promocionado se destaca al abrir su tienda.
 
+## Presentación de disponibilidad en Viajes
+
+- La portada de Viajes usa el mismo sistema visual naranja/crema de Moli: buscador elevado, controles redondeados, profundidad suave, identidad de módulo y una acción principal inequívoca.
+- Mientras el cliente todavía no publicó una solicitud se muestran autos y motos cercanos como una representación orientativa para dar contexto al mapa. La interfaz lo aclara y esas posiciones no se consideran conductores asignables ni una promesa de disponibilidad real.
+- Al existir una solicitud o un viaje activo desaparece la representación orientativa y el mapa muestra exclusivamente los datos operativos entregados por el backend.
+
 ## Próximos hitos
 
 1. Levantar y verificar backend/Mongo aislados.

@@ -1,5 +1,11 @@
 # Changelog operativo
 
+## 2026-09-07 — Panel premium de Viajes
+
+- Se rediseñó el inicio de Viajes con buscador elevado, origen contextual, selector Viaje/Envíos, accesos frecuentes y controles alineados con la identidad naranja de Moli.
+- Se incorporaron recursos propios de auto y moto y una vista orientativa de vehículos alrededor del punto de partida; la simulación desaparece ante una solicitud o viaje activo para no interferir con ubicaciones reales.
+- El panel identifica explícitamente que las posiciones previas a la confirmación son orientativas y conserva los conductores del backend como única fuente operativa.
+
 ## 2026-09-07 — Solicitudes profesionales persistentes
 
 - La espera de un profesional recibió una presentación premium con progreso, presupuesto, privacidad de la dirección y una acción explícita para minimizar sin cancelar.

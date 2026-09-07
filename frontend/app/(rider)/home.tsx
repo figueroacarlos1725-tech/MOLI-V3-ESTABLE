@@ -542,8 +542,17 @@ export default function RiderHomeScreen() {
     if (pickupLocation) m.push({ latitude: pickupLocation.latitude, longitude: pickupLocation.longitude, title: 'Recogida', type: 'pickup' as const, draggable: isDraggable });
     if (dropoffLocation) m.push({ latitude: dropoffLocation.latitude, longitude: dropoffLocation.longitude, title: 'Destino', type: 'dropoff' as const, draggable: phase === 'confirm' });
     if (currentRide?.driver_location) m.push({ latitude: currentRide.driver_location.latitude, longitude: currentRide.driver_location.longitude, title: 'Conductor', type: 'driver' as const });
+    if (phase === 'idle' && !currentRide) {
+      const center = pickupLocation || userLocation || { latitude: -28.4696, longitude: -65.7852 };
+      m.push(
+        { latitude: center.latitude + 0.0024, longitude: center.longitude - 0.0021, title: 'Moto cerca', type: 'driver' as const, vehicleType: 'moto', preview: true },
+        { latitude: center.latitude - 0.0028, longitude: center.longitude + 0.0019, title: 'Auto cerca', type: 'driver' as const, vehicleType: 'economy', preview: true },
+        { latitude: center.latitude + 0.0011, longitude: center.longitude + 0.0033, title: 'Moto cerca', type: 'driver' as const, vehicleType: 'moto', preview: true },
+        { latitude: center.latitude - 0.0016, longitude: center.longitude - 0.0031, title: 'Auto cerca', type: 'driver' as const, vehicleType: 'economy', preview: true },
+      );
+    }
     return m;
-  }, [pickupLocation?.latitude, pickupLocation?.longitude, dropoffLocation?.latitude, dropoffLocation?.longitude, currentRide?.driver_location?.latitude, phase]);
+  }, [pickupLocation?.latitude, pickupLocation?.longitude, dropoffLocation?.latitude, dropoffLocation?.longitude, currentRide?.driver_location?.latitude, currentRide, phase, userLocation?.latitude, userLocation?.longitude]);
 
   const nameMap: Record<string, string> = { economy: 'Auto', moto: 'Moto', comfort: 'Confort', premium: 'Premium', xl: 'XL' };
   const selectedFare = fareEstimates.find((e: any) => e.vehicle_type === selectedVehicle);
@@ -821,6 +830,16 @@ export default function RiderHomeScreen() {
           </TouchableOpacity>
         )}
 
+        {phase === 'idle' && !currentRide && (
+          <View style={s.mapBrand}>
+            <Text style={s.mapBrandMoli}>moli</Text><View style={s.mapBrandDivider} /><Text style={s.mapBrandMode}>VIAJES</Text>
+          </View>
+        )}
+
+        {phase === 'idle' && !currentRide && (
+          <View style={s.nearbyMapChip}><View style={s.liveDot} /><Text style={s.nearbyMapText}>Vehículos cerca</Text></View>
+        )}
+
         {/* Back button when confirming */}
         {(phase === 'confirm' || phase === 'searching') && (
           <TouchableOpacity style={s.mapBackBtn} onPress={handleBackToIdle}>
@@ -832,45 +851,56 @@ export default function RiderHomeScreen() {
       {/* ═══ Bottom Panel ═══ */}
       {phase === 'idle' && (
         <View style={s.bottomPanel}>
+          <View style={s.panelHandle} />
           {/* Header with greeting */}
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+          <View style={s.rideHeader}>
             <View>
-              <Text style={{ fontSize: 22, fontWeight: '800', color: '#1C1C1E' }}>¡Hola, {user?.name?.split(' ')[0] || 'ahí'}!</Text>
-              <Text style={{ fontSize: 13, color: '#8E8E93', marginTop: 2 }}>¿A dónde te llevamos hoy?</Text>
+              <Text style={s.rideEyebrow}>MOLI VIAJES</Text>
+              <Text style={s.rideTitle}>¿A dónde vamos?</Text>
             </View>
-            <TouchableOpacity style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: '#F2F2F7', justifyContent: 'center', alignItems: 'center' }} onPress={() => router.push('/support' as any)}>
-              <Ionicons name="headset" size={20} color="#00C853" />
+            <TouchableOpacity style={s.supportBtn} onPress={() => router.push('/support' as any)}>
+              <Ionicons name="headset" size={20} color="#FF5A1F" />
             </TouchableOpacity>
           </View>
 
           {/* Search bar */}
           <TouchableOpacity style={s.searchBar} onPress={() => { setSearchType('dropoff'); setSearchModal(true); }}>
-            <View style={s.searchIcon}><Ionicons name="search" size={20} color="#00C853" /></View>
-            <Text style={s.searchPlaceholder}>¿A dónde vamos?</Text>
-            <View style={{ flexDirection: 'row', gap: 4 }}>
-              <TouchableOpacity style={{ paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8, backgroundColor: '#E8F5E9' }} onPress={() => { setSearchType('dropoff'); setSearchModal(true); }}>
-                <Text style={{ fontSize: 11, fontWeight: '600', color: '#00C853' }}>Ahora</Text>
-              </TouchableOpacity>
-            </View>
+            <Text style={s.searchPlaceholder}>Buscá tu destino</Text>
+            <View style={s.searchIcon}><Ionicons name="search" size={22} color="#fff" /></View>
           </TouchableOpacity>
 
           {/* Origin row */}
           <TouchableOpacity style={s.originRow} onPress={() => { setSearchType('pickup'); setSearchModal(true); }}>
-            <View style={[s.dot, { backgroundColor: '#34C759' }]} />
-            <Text style={s.originText} numberOfLines={1}>{pickupAddress || 'Mi ubicación'}</Text>
+            <View style={s.originIcon}><Ionicons name="navigate" size={16} color="#FF5A1F" /></View>
+            <View style={{ flex: 1 }}>
+              <Text style={s.originLabel}>SALÍS DESDE</Text>
+              <Text style={s.originText} numberOfLines={1}>{pickupAddress || 'Tu ubicación actual'}</Text>
+            </View>
             <TouchableOpacity onPress={initLocation} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-              <Ionicons name="locate" size={18} color="#00C853" />
+              <Ionicons name="locate" size={20} color="#FF5A1F" />
             </TouchableOpacity>
           </TouchableOpacity>
+
+          <View style={s.nearbySummary}>
+            <View style={s.vehiclePreviewStack}>
+              <View style={s.vehiclePreviewBubble}><Image source={require('../../assets/vehicles/map-car-moli.png')} style={s.vehiclePreviewImage} /></View>
+              <View style={[s.vehiclePreviewBubble, s.vehiclePreviewOverlap]}><Image source={require('../../assets/vehicles/map-moto-moli.png')} style={s.vehiclePreviewImage} /></View>
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={s.nearbyTitle}>Autos y motos cerca</Text>
+              <Text style={s.nearbyCaption}>Posiciones orientativas hasta confirmar el viaje</Text>
+            </View>
+            <View style={s.nearbyCount}><Text style={s.nearbyCountText}>4</Text></View>
+          </View>
 
           {/* Quick actions: Viaje / Envíos */}
           <View style={{ flexDirection: 'row', gap: 10, marginTop: 14 }}>
             <TouchableOpacity
-              style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14, borderRadius: 14, backgroundColor: serviceType === 'ride' ? '#E8F5E9' : '#F2F2F7', borderWidth: serviceType === 'ride' ? 1.5 : 0, borderColor: '#00C853' }}
+              style={[s.serviceCard, serviceType === 'ride' && s.serviceCardActive]}
               onPress={() => setServiceType('ride')}
             >
-              <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: serviceType === 'ride' ? '#00C853' : '#E5E5EA', justifyContent: 'center', alignItems: 'center' }}>
-                <Ionicons name="car" size={20} color={serviceType === 'ride' ? '#fff' : '#8E8E93'} />
+              <View style={s.serviceIconWrap}>
+                <Image source={require('../../assets/vehicles/map-car-moli.png')} style={s.serviceVehicleImage} />
               </View>
               <View>
                 <Text style={{ fontSize: 14, fontWeight: '700', color: '#1C1C1E' }}>Viaje</Text>
@@ -878,11 +908,11 @@ export default function RiderHomeScreen() {
               </View>
             </TouchableOpacity>
             <TouchableOpacity
-              style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14, borderRadius: 14, backgroundColor: serviceType === 'delivery' ? '#FFF8E1' : '#F2F2F7', borderWidth: serviceType === 'delivery' ? 1.5 : 0, borderColor: '#FF9500' }}
+              style={[s.serviceCard, serviceType === 'delivery' && s.serviceCardActive]}
               onPress={() => setServiceType('delivery')}
             >
-              <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: serviceType === 'delivery' ? '#FF9500' : '#E5E5EA', justifyContent: 'center', alignItems: 'center' }}>
-                <Ionicons name="cube" size={20} color={serviceType === 'delivery' ? '#fff' : '#8E8E93'} />
+              <View style={s.serviceIconWrap}>
+                <Image source={require('../../assets/vehicles/map-moto-moli.png')} style={s.serviceVehicleImage} />
               </View>
               <View>
                 <Text style={{ fontSize: 14, fontWeight: '700', color: '#1C1C1E' }}>Envíos</Text>
@@ -894,9 +924,9 @@ export default function RiderHomeScreen() {
           {/* Suggestions: Casa, Trabajo, Aeropuerto */}
           <View style={{ flexDirection: 'row', gap: 8, marginTop: 14 }}>
             {[
-              { icon: 'home', label: 'Casa', color: '#007AFF' },
-              { icon: 'briefcase', label: 'Trabajo', color: '#FF9500' },
-              { icon: 'airplane', label: 'Aeropuerto', color: '#AF52DE' },
+              { icon: 'home', label: 'Casa', color: '#FF5A1F' },
+              { icon: 'briefcase', label: 'Trabajo', color: '#FF8A3D' },
+              { icon: 'airplane', label: 'Aeropuerto', color: '#E9480B' },
             ].map((sug, i) => (
               <TouchableOpacity
                 key={i}
@@ -1246,19 +1276,46 @@ const s = StyleSheet.create({
   // ─── Map ──────────
   mapFull: { flex: 1 },
   mapBackBtn: { position: 'absolute', top: Platform.OS === 'ios' ? 54 : 38, left: 16, width: 44, height: 44, borderRadius: 22, backgroundColor: '#fff', justifyContent: 'center', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.15, shadowRadius: 6, elevation: 4, zIndex: 2 },
-  hamburgerBtn: { position: 'absolute', top: Platform.OS === 'ios' ? 54 : 38, left: 16, width: 44, height: 44, borderRadius: 22, backgroundColor: '#fff', justifyContent: 'center', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.15, shadowRadius: 6, elevation: 4, zIndex: 2 },
+  hamburgerBtn: { position: 'absolute', top: Platform.OS === 'ios' ? 54 : 38, left: 16, width: 46, height: 46, borderRadius: 23, backgroundColor: '#FFFDFB', justifyContent: 'center', alignItems: 'center', shadowColor: '#5A2B14', shadowOffset: { width: 0, height: 5 }, shadowOpacity: 0.18, shadowRadius: 10, elevation: 6, zIndex: 2, borderWidth: 1, borderColor: '#FFF0E7' },
+  mapBrand: { position: 'absolute', top: Platform.OS === 'ios' ? 55 : 39, alignSelf: 'center', height: 44, paddingHorizontal: 16, borderRadius: 22, backgroundColor: '#FFFDFB', flexDirection: 'row', alignItems: 'center', shadowColor: '#5A2B14', shadowOffset: { width: 0, height: 5 }, shadowOpacity: 0.14, shadowRadius: 10, elevation: 5, zIndex: 2, borderWidth: 1, borderColor: '#FFF0E7' },
+  mapBrandMoli: { fontSize: 21, lineHeight: 24, fontWeight: '900', color: '#FF5A1F', letterSpacing: -1 },
+  mapBrandDivider: { width: 1, height: 18, backgroundColor: '#FFD8C6', marginHorizontal: 9 },
+  mapBrandMode: { fontSize: 10, fontWeight: '900', color: '#24201E', letterSpacing: 1.5 },
+  nearbyMapChip: { position: 'absolute', top: Platform.OS === 'ios' ? 108 : 92, alignSelf: 'center', flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,253,251,0.95)', paddingHorizontal: 12, paddingVertical: 7, borderRadius: 18, gap: 7, zIndex: 2, shadowColor: '#5A2B14', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.12, shadowRadius: 8, elevation: 4 },
+  liveDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#22C55E', borderWidth: 2, borderColor: '#DCFCE7' },
+  nearbyMapText: { fontSize: 11, fontWeight: '800', color: '#3C3330' },
   dragHint: { position: 'absolute', top: Platform.OS === 'ios' ? 54 : 38, alignSelf: 'center', flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(28,28,30,0.85)', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, gap: 6, zIndex: 2 },
   dragHintText: { color: '#fff', fontSize: 12, fontWeight: '600' },
 
   // ─── Idle Bottom Panel ───
-  bottomPanel: { backgroundColor: '#fff', borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: 20, paddingTop: 20, paddingBottom: 24, shadowColor: '#000', shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 8 },
+  bottomPanel: { backgroundColor: '#FFF9F4', borderTopLeftRadius: 30, borderTopRightRadius: 30, paddingHorizontal: 20, paddingTop: 10, paddingBottom: 24, shadowColor: '#6D2C0D', shadowOffset: { width: 0, height: -7 }, shadowOpacity: 0.15, shadowRadius: 18, elevation: 12, borderTopWidth: 1, borderColor: '#FFE5D7' },
+  panelHandle: { alignSelf: 'center', width: 44, height: 5, borderRadius: 3, backgroundColor: '#E7D8CF', marginBottom: 12 },
+  rideHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 13 },
+  rideEyebrow: { fontSize: 10, fontWeight: '900', letterSpacing: 1.8, color: '#FF5A1F', marginBottom: 2 },
+  rideTitle: { fontSize: 25, lineHeight: 30, fontWeight: '900', color: '#201C1A', letterSpacing: -0.6 },
+  supportBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#FFF', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#FFE3D4', shadowColor: '#7A3516', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 8, elevation: 3 },
   greeting: { fontSize: 22, fontWeight: '700', color: '#1C1C1E', marginBottom: 16 },
-  searchBar: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F2F2F7', borderRadius: 14, paddingHorizontal: 16, paddingVertical: 16, marginBottom: 12 },
-  searchIcon: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#E8F5E9', justifyContent: 'center', alignItems: 'center', marginRight: 12 },
-  searchPlaceholder: { flex: 1, fontSize: 16, color: '#8E8E93' },
-  originRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 4, gap: 12 },
+  searchBar: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF', borderRadius: 25, paddingLeft: 20, paddingRight: 6, paddingVertical: 6, minHeight: 58, marginBottom: 10, borderWidth: 1, borderColor: '#FFE0D0', shadowColor: '#7B3211', shadowOffset: { width: 0, height: 7 }, shadowOpacity: 0.14, shadowRadius: 13, elevation: 5 },
+  searchIcon: { width: 46, height: 46, borderRadius: 23, backgroundColor: '#FF5A1F', justifyContent: 'center', alignItems: 'center', shadowColor: '#C53A00', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.25, shadowRadius: 7, elevation: 4 },
+  searchPlaceholder: { flex: 1, fontSize: 16, fontWeight: '600', color: '#8C817C' },
+  originRow: { flexDirection: 'row', alignItems: 'center', minHeight: 54, paddingVertical: 8, paddingHorizontal: 12, gap: 11, backgroundColor: '#FFF', borderRadius: 16, borderWidth: 1, borderColor: '#F5E9E2' },
+  originIcon: { width: 34, height: 34, borderRadius: 12, backgroundColor: '#FFF0E8', justifyContent: 'center', alignItems: 'center' },
+  originLabel: { fontSize: 9, fontWeight: '900', letterSpacing: 1.1, color: '#C66A40', marginBottom: 2 },
   dot: { width: 10, height: 10, borderRadius: 5 },
-  originText: { flex: 1, fontSize: 14, color: '#1C1C1E' },
+  originText: { fontSize: 13, fontWeight: '600', color: '#2B2623' },
+  nearbySummary: { flexDirection: 'row', alignItems: 'center', marginTop: 10, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 16, backgroundColor: '#FFF1E9', borderWidth: 1, borderColor: '#FFDDCB' },
+  vehiclePreviewStack: { width: 63, flexDirection: 'row', alignItems: 'center' },
+  vehiclePreviewBubble: { width: 38, height: 38, borderRadius: 19, backgroundColor: '#FFF', borderWidth: 2, borderColor: '#FFF', alignItems: 'center', justifyContent: 'center', shadowColor: '#A64010', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.16, shadowRadius: 5, elevation: 3 },
+  vehiclePreviewOverlap: { marginLeft: -13 },
+  vehiclePreviewImage: { width: 34, height: 34, resizeMode: 'contain' },
+  nearbyTitle: { fontSize: 12, fontWeight: '800', color: '#2B2623' },
+  nearbyCaption: { fontSize: 9.5, color: '#8D7770', marginTop: 1 },
+  nearbyCount: { minWidth: 27, height: 27, paddingHorizontal: 7, borderRadius: 14, backgroundColor: '#FF5A1F', alignItems: 'center', justifyContent: 'center' },
+  nearbyCountText: { color: '#FFF', fontSize: 12, fontWeight: '900' },
+  serviceCard: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 9, padding: 10, borderRadius: 17, backgroundColor: '#FFF', borderWidth: 1, borderColor: '#F2E8E2', shadowColor: '#7B3211', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 7, elevation: 2 },
+  serviceCardActive: { backgroundColor: '#FFF0E8', borderColor: '#FF8A52', borderWidth: 1.5 },
+  serviceIconWrap: { width: 45, height: 45, borderRadius: 14, backgroundColor: '#FFF', alignItems: 'center', justifyContent: 'center' },
+  serviceVehicleImage: { width: 43, height: 43, resizeMode: 'contain' },
   moliBanner: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F8F4FF', borderRadius: 12, padding: 12, marginTop: 8 },
   moliTag: { backgroundColor: '#7C3AED', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, marginRight: 10 },
   moliTagText: { color: '#fff', fontSize: 11, fontWeight: '700' },
@@ -1292,7 +1349,7 @@ const s = StyleSheet.create({
   payRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 12, gap: 10, borderTopWidth: 1, borderTopColor: '#F2F2F7' },
   payText: { flex: 1, fontSize: 14, fontWeight: '600', color: '#1C1C1E' },
 
-  confirmBtn: { backgroundColor: '#1C1C1E', marginHorizontal: 20, paddingVertical: 18, borderRadius: 14, alignItems: 'center' },
+  confirmBtn: { backgroundColor: '#FF5A1F', marginHorizontal: 20, paddingVertical: 18, borderRadius: 18, alignItems: 'center', shadowColor: '#B73600', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.24, shadowRadius: 10, elevation: 5 },
   confirmBtnText: { color: '#fff', fontSize: 17, fontWeight: '700' },
 
   // ─── Searching Panel ───
