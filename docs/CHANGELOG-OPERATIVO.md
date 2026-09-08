@@ -121,3 +121,4 @@
 - El mapa de Viajes muestra autos y motos recortados directamente sobre el mapa, sin círculos ni pulsos; su tamaño se adapta al nivel de zoom y los puntos de origen/destino usan pines Moli en forma de marcador.
 - Las rutas visuales de Administración y Despacho ahora aplican control de acceso por rol en su propio layout: una sesión cliente o prestador es redirigida fuera del panel aunque intente abrir su URL directamente.
 - La espera de Viajes adopta el panel responsive Moli aprobado: radar naranja, estado humano, resumen de vehículo/pago/tarifa, aviso de privacidad, acceso al juego y cancelación visible. La M central late suavemente solo mientras continúa la búsqueda.
+- Se agregó la entrada web inequívoca `/solicitar-viaje` para abrir el flujo de solicitud. `/rides` conserva su significado de Historial; la nueva entrada valida sesión cliente y evita colisiones entre rutas agrupadas con el mismo nombre.

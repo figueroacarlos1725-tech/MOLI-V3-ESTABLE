@@ -39,6 +39,7 @@ export default function RootLayout() {
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="index" />
         <Stack.Screen name="modules" />
+        <Stack.Screen name="solicitar-viaje" />
         <Stack.Screen name="provider-hub" />
         <Stack.Screen name="(auth)" />
         <Stack.Screen name="(rider)" />
