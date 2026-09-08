@@ -16,7 +16,10 @@ PENALIZED_CANCELLATIONS_BEFORE_BLOCK = 3
 NEGOTIATION_SECONDS = 35
 MAX_NEGOTIATION_ROUNDS = 3
 
-PRIVATE_JOB_FIELDS = {"address", "location", "images"}
+PRIVATE_JOB_FIELDS = {
+    "address", "location", "images", "paperwork_address", "paperwork_location",
+    "pickup_address", "pickup_location", "attachments",
+}
 
 async def _store_client_notification(client_id: str, event_type: str, title: str, body: str, job_id: str) -> None:
     await db.app_notifications.insert_one({
@@ -128,6 +131,11 @@ async def update_professional_profile(
             update_fields["location"] = data["location"]
         if "name" in data:
             update_fields["name"] = data["name"]
+        if "accepted_services" in data:
+            allowed = {"rides", "deliveries", "paperwork", "jobs"}
+            update_fields["accepted_services"] = [x for x in data["accepted_services"] if x in allowed]
+        if "work_radius_km" in data:
+            update_fields["work_radius_km"] = max(1, min(50, int(data["work_radius_km"])))
         
         await db.professional_profiles.update_one(
             {"user_id": user["user_id"]},
@@ -144,6 +152,8 @@ async def update_professional_profile(
             "portfolio_images": data.get("portfolio_images", []),
             "is_available": data.get("is_available", True),
             "location": data.get("location"),
+            "accepted_services": data.get("accepted_services", ["jobs", "paperwork"]),
+            "work_radius_km": max(1, min(50, int(data.get("work_radius_km", 10)))),
             "rating": 5.0,
             "total_jobs": 0,
             "created_at": now,
@@ -188,6 +198,12 @@ async def create_job_post(
         "location": data.get("location"),
         "address": data.get("address", ""),
         "images": data.get("images", []),
+        "paperwork_address": data.get("paperwork_address", ""),
+        "paperwork_location": data.get("paperwork_location"),
+        "requires_pickup": bool(data.get("requires_pickup", False)),
+        "pickup_address": data.get("pickup_address", ""),
+        "pickup_location": data.get("pickup_location"),
+        "attachments": data.get("attachments", []),
         "status": "open",  # open, reviewing, assigned, in_progress, completed, cancelled
         "assigned_to": None,
         "reviewing_by": None,  # professional currently reviewing (30s lock)

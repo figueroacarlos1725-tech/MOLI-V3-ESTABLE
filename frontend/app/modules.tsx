@@ -22,7 +22,7 @@ export default function ModulesScreen(){
     <Text style={s.sectionTitle}>{isDriver?'Tus servicios':'Explorá Moli'}</Text><View style={s.cards}>
       <ModuleCard featured title="Moli Viajes" eyebrow={isDriver?'GANÁ EN MOVIMIENTO':'LLEGÁ SEGURO'} description={isDriver?'Conectate y recibí solicitudes cercanas.':'Pedí auto o moto y seguí todo en vivo.'} icon="car-sport" color={ACCENT} onPress={()=>router.replace(isDriver?'/(driver)/home':'/(rider)/home')}/>
       <ModuleCard title="Moli Trabajos" eyebrow="PROFESIONALES CERCA" description={isDriver?'Ofrecé servicios según tu perfil.':'Encontrá ayuda confiable para cada tarea.'} icon="briefcase" color={C.info} onPress={()=>router.push(isDriver?'/(jobs)/home':'/(jobs)/client-home')}/>
-      {!isDriver&&<ModuleCard title="Moli Trámites" eyebrow="GESTIONES SIN VUELTAS" description="Pedí diligencias y trámites con seguimiento en vivo." icon="document-text" color={ACCENT} onPress={()=>router.push({pathname:'/(jobs)/client-home',params:{service:'tramites'}})}/>}
+      {!isDriver&&<ModuleCard title="Moli Trámites" eyebrow="GESTIONES SIN VUELTAS" description="Pedí diligencias y trámites con seguimiento en vivo." icon="document-text" color={ACCENT} onPress={()=>router.push('/(jobs)/paperwork-request' as never)}/>}
       <ModuleCard title="Moli Market" eyebrow="COMPRÁ CERCA" description="Pedí delivery o retiralo directamente en el local." icon="storefront" color={C.warning} onPress={()=>router.push('/(marketplace)')}/>
     </View><TouchableOpacity style={s.switchAccount} onPress={changeAccount}><Ionicons name="swap-horizontal" size={19} color={C.gray}/><Text style={s.switchText}>Cambiar cuenta</Text></TouchableOpacity>
   </ScrollView></SafeAreaView>;

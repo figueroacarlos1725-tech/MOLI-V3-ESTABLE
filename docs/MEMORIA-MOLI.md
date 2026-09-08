@@ -231,6 +231,13 @@ El registro móvil exige teléfono y email. El canal `auto` intenta WhatsApp y u
 - La pantalla de búsqueda de conductor comparte una composición responsive en web y móvil: mapa superior, panel crema elevado, radar Moli, progreso legible, resumen y acciones. La M del radar usa un latido moderado mientras busca y detiene la animación al encontrar conductor, pedir continuación o abandonar la fase.
 - Para enlaces externos y QA, el flujo cliente de pedir viaje usa `/solicitar-viaje`; `/rides` es exclusivamente Historial de viajes. La entrada dedicada exige una sesión de tipo cliente antes de renderizar el solicitador.
 
+## Panel unificado y flujo premium de Trámites
+
+- El prestador multirrol dispone de una portada única para Viajes, Envíos, Trámites y Trabajos, con disponibilidad general, accesos tipados, oportunidades y preferencias persistentes de actividad y radio.
+- El alta de un trámite es un asistente de cuatro pasos: lugar de la gestión, necesidad de retiro previo, confirmación de puntos y detalle/documentación. El presupuesto mínimo permanece en $10.000.
+- Los puntos exactos, direcciones y adjuntos de un trámite son privados antes de la asignación. El backend los redacta de las vistas para profesionales no asignados.
+- Después de publicar, el trámite reutiliza la negociación segura de 35 segundos, hasta tres contrapropuestas, estados del servicio, cancelaciones y calificación del flujo de trabajos.
+
 ## Próximos hitos
 
 1. Levantar y verificar backend/Mongo aislados.
