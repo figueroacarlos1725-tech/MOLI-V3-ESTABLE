@@ -118,3 +118,4 @@
 - Billetera permite solicitar retiros por alias mediante una operación pendiente e idempotente que valida saldo disponible.
 - Se agregó una imagen web QA con configuración nginx `try_files ... /index.html` para evitar rutas internas 404.
 - Se conectó la API unificada de campañas con los flujos cliente de viaje, trabajo, trámite, comercio y pedido; la app muestra imagen/video, respeta countdown/frecuencia del servidor y limita la navegación a HTTPS o destinos Marketplace tipados.
+- El mapa de Viajes muestra autos y motos recortados directamente sobre el mapa, sin círculos ni pulsos; su tamaño se adapta al nivel de zoom y los puntos de origen/destino usan pines Moli en forma de marcador.

@@ -205,6 +205,7 @@ El registro móvil exige teléfono y email. El canal `auto` intenta WhatsApp y u
 - La portada de Viajes usa el mismo sistema visual naranja/crema de Moli: buscador elevado, controles redondeados, profundidad suave, identidad de módulo y una acción principal inequívoca.
 - Mientras el cliente todavía no publicó una solicitud se muestran autos y motos cercanos como una representación orientativa para dar contexto al mapa. La interfaz lo aclara y esas posiciones no se consideran conductores asignables ni una promesa de disponibilidad real.
 - Al existir una solicitud o un viaje activo desaparece la representación orientativa y el mapa muestra exclusivamente los datos operativos entregados por el backend.
+- Los vehículos del mapa se presentan como recortes transparentes sin fondo decorativo y reducen su tamaño progresivamente al alejar el zoom para no ocultar calles ni puntos de interés. Los puntos operativos usan el pin naranja/carbón propio de Moli.
 
 ## Próximos hitos
 

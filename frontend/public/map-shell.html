@@ -8,15 +8,14 @@
   <style>
     *{box-sizing:border-box}html,body,#map{width:100%;height:100%;margin:0;background:#f1efed}
     .leaflet-div-icon{background:none!important;border:0!important}
-    .vehicle{position:relative;isolation:isolate;width:54px;height:54px;display:grid;place-items:center;border:2px solid #ff7b46;border-radius:50%;background:#fff;box-shadow:0 5px 12px rgba(60,28,13,.26)}
-    .vehicle:before{content:"";position:absolute;z-index:-1;width:44px;height:44px;border-radius:50%;background:rgba(255,90,31,.2);animation:pulse 2.2s ease-out infinite}
-    .vehicle img{position:relative;z-index:2;width:48px;height:48px;object-fit:contain}
-    .pin{width:22px;height:22px;border:4px solid #fff;border-radius:50%;box-shadow:0 3px 9px rgba(0,0,0,.3)}
+    .vehicle-frame{width:54px;height:54px;display:grid;place-items:center;background:transparent}
+    .vehicle{width:var(--vehicle-size,36px);height:var(--vehicle-size,36px);object-fit:contain;filter:drop-shadow(0 3px 3px rgba(45,24,15,.34));transition:width .18s ease,height .18s ease}
+    .pin{position:relative;width:28px;height:28px;border:3px solid #fff;border-radius:50% 50% 50% 0;box-shadow:0 4px 10px rgba(62,30,14,.32);transform:rotate(-45deg)}
+    .pin:after{content:"";position:absolute;inset:7px;border-radius:50%;background:#fff}
     .pin.pickup{background:#ff5a1f}.pin.dropoff{background:#202124}
     .leaflet-control-zoom{border:0!important;box-shadow:0 5px 14px rgba(62,30,14,.16)!important}
     .leaflet-control-zoom a{color:#ff5a1f!important;border-color:#f5e4da!important}
     .leaflet-control-attribution{font-size:9px!important;opacity:.65}
-    @keyframes pulse{from{transform:scale(.75);opacity:1}to{transform:scale(1.65);opacity:0}}
   </style>
 </head>
 <body>
@@ -32,11 +31,19 @@
     const iconFor=m=>{
       if(m.type==='driver'){
         const src=m.vehicleType==='moto'?'/vehicles/map-moto-moli.png':'/vehicles/map-car-moli.png';
-        return L.divIcon({className:'leaflet-div-icon',html:`<div class="vehicle"><img src="${src}" alt=""></div>`,iconSize:[54,54],iconAnchor:[27,27]});
+        return L.divIcon({className:'leaflet-div-icon',html:`<div class="vehicle-frame"><img class="vehicle" src="${src}" alt=""></div>`,iconSize:[54,54],iconAnchor:[27,27]});
       }
       const kind=m.type==='dropoff'?'dropoff':'pickup';
-      return L.divIcon({className:'leaflet-div-icon',html:`<div class="pin ${kind}"></div>`,iconSize:[22,22],iconAnchor:[11,11]});
+      return L.divIcon({className:'leaflet-div-icon',html:`<div class="pin ${kind}"></div>`,iconSize:[28,28],iconAnchor:[14,28]});
     };
+
+    function resizeVehicles(){
+      const zoom=map.getZoom();
+      const size=zoom<=12?20:zoom===13?25:zoom===14?31:zoom===15?37:zoom===16?43:48;
+      document.documentElement.style.setProperty('--vehicle-size',`${size}px`);
+    }
+    map.on('zoomend',resizeVehicles);
+    resizeVehicles();
 
     function render(items,showRoute){
       markers.forEach(marker=>map.removeLayer(marker));
