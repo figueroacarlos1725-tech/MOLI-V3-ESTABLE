@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, Modal,
-  ActivityIndicator, ScrollView, Dimensions, Platform, Alert, Vibration, Image,
+  ActivityIndicator, ScrollView, Dimensions, Platform, Alert, Vibration, Image, TextInput,
 } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -14,7 +14,7 @@ import { socketService } from '@/src/services/socket';
 
 const { width } = Dimensions.get('window');
 const GREEN = '#FF7733';
-const REVIEW_SECONDS = 30;
+const REVIEW_SECONDS = 35;
 
 const CAT_ICONS: Record<string, { icon: string; color: string }> = {
   electricista: { icon: '⚡', color: '#FF9500' },
@@ -53,6 +53,8 @@ export default function JobsHomeScreen() {
   const [selectedJob, setSelectedJob] = useState<any>(null);
   const [accepting, setAccepting] = useState(false);
   const [acceptedJob, setAcceptedJob] = useState<any>(null);
+  const [showCounter, setShowCounter] = useState(false);
+  const [counterPrice, setCounterPrice] = useState('');
   const [mapReady, setMapReady] = useState(false);
   const [myActiveJobs, setMyActiveJobs] = useState<any[]>([]);
 
@@ -106,8 +108,14 @@ export default function JobsHomeScreen() {
         setIncomingJob(msg);
       }
     });
+    const unsubCounter = socketService.on('job_counter_offer', async (msg: any) => {
+      if (msg.turn === 'professional') {
+        const res = await apiService.get(`/jobs/detail/${msg.job_id}`).catch(()=>null);
+        if (res?.job) { setReviewingJob(res.job); setCounterPrice(''); setShowCounter(false); setReviewTimer(35); Vibration.vibrate([0,300,100,300]); }
+      }
+    });
 
-    return () => { unsubNewJob(); };
+    return () => { unsubNewJob(); unsubCounter(); };
   }, [user?.user_id, hasProfile, isAvailable]);
 
   // ─── Refresh jobs periodically ───
@@ -137,7 +145,8 @@ export default function JobsHomeScreen() {
         setReviewTimer(prev => {
           if (prev <= 1) {
             clearInterval(timerRef.current);
-            handleDeclineJob();
+            if (reviewingJob?.status === 'negotiating') { setReviewingJob(null); loadAll(); }
+            else handleDeclineJob();
             return 0;
           }
           return prev - 1;
@@ -179,7 +188,8 @@ export default function JobsHomeScreen() {
     if (!reviewingJob) return;
     setAccepting(true);
     try {
-      await apiService.post(`/jobs/${reviewingJob.job_id}/accept`, {});
+      if (reviewingJob.status === 'negotiating') await apiService.post(`/jobs/${reviewingJob.job_id}/negotiation/respond`, { action: 'accept' });
+      else await apiService.post(`/jobs/${reviewingJob.job_id}/accept`, {});
       clearInterval(timerRef.current);
       setAcceptedJob(reviewingJob);
       setReviewingJob(null);
@@ -187,6 +197,19 @@ export default function JobsHomeScreen() {
     } catch (e: any) {
       Alert.alert('Error', e.message || 'No se pudo aceptar');
     }
+    setAccepting(false);
+  };
+
+  const handleCounterOffer = async () => {
+    if (!reviewingJob || !counterPrice || Number(counterPrice) <= 0) return;
+    setAccepting(true);
+    try {
+      if (reviewingJob.status === 'negotiating') await apiService.post(`/jobs/${reviewingJob.job_id}/negotiation/respond`, { action: 'counter', price: Number(counterPrice) });
+      else await apiService.post(`/jobs/${reviewingJob.job_id}/counter-offer`, { price: Number(counterPrice) });
+      clearInterval(timerRef.current);
+      Alert.alert('Contrapropuesta enviada', 'El cliente tiene 35 segundos para responder.');
+      setReviewingJob(null); setShowCounter(false); setCounterPrice('');
+    } catch (e: any) { Alert.alert('No se pudo enviar', e.message); }
     setAccepting(false);
   };
 
@@ -470,7 +493,7 @@ function addJobMarker(lat,lng,jobId,emoji,title,budget,cat){
         </View>
       </Modal>
 
-      {/* ═══ 30-second review modal ═══ */}
+      {/* ═══ 35-second review modal ═══ */}
       <Modal visible={!!reviewingJob} transparent animationType="fade">
         <View style={s.alertOverlay}>
           <View style={s.reviewCard}>
@@ -514,10 +537,18 @@ function addJobMarker(lat,lng,jobId,emoji,title,budget,cat){
               ) : null}
             </ScrollView>
 
-            <View style={{ flexDirection: 'row', gap: 12, marginTop: 20 }}>
+            {showCounter && <View style={s.counterBox}>
+              <Text style={s.counterTitle}>Tu contrapropuesta</Text>
+              <View style={s.counterInputRow}><Text style={s.counterCurrency}>$</Text><TextInput value={counterPrice} onChangeText={t=>setCounterPrice(t.replace(/[^0-9]/g,''))} keyboardType="numeric" placeholder={String(reviewingJob?.budget||15000)} style={s.counterInput}/></View>
+              <Text style={s.counterHint}>El cliente tendrá 35 segundos · Máximo 3 rondas</Text>
+            </View>}
+            <View style={{ flexDirection: 'row', gap: 8, marginTop: 16 }}>
               <TouchableOpacity style={s.declineBtn} onPress={handleDeclineJob}>
                 <Ionicons name="close-circle" size={20} color="#FF3B30" />
                 <Text style={s.declineBtnText}>Rechazar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={s.counterBtn} onPress={()=>showCounter?handleCounterOffer():setShowCounter(true)} disabled={accepting}>
+                <Ionicons name="swap-horizontal" size={18} color={GREEN}/><Text style={s.counterBtnText}>{showCounter?'Enviar':'Proponer'}</Text>
               </TouchableOpacity>
               <TouchableOpacity style={s.acceptBtn} onPress={handleAcceptJob} disabled={accepting}>
                 {accepting ? <ActivityIndicator color="#fff" size="small" /> : (
@@ -694,6 +725,9 @@ const s = StyleSheet.create({
   reviewDesc: { fontSize: 14, color: '#636366', lineHeight: 20 },
   declineBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 16, borderRadius: 14, backgroundColor: '#FFF5F5', borderWidth: 1, borderColor: '#FF3B30' },
   declineBtnText: { color: '#FF3B30', fontSize: 15, fontWeight: '700' },
+  counterBox:{backgroundColor:'#FFF4EC',borderRadius:18,padding:13,marginTop:14,borderWidth:1,borderColor:'#FFD6C2'},
+  counterTitle:{fontSize:13,fontWeight:'900',color:'#202124'},counterInputRow:{flexDirection:'row',alignItems:'center',marginTop:8,backgroundColor:'#fff',borderRadius:13,paddingHorizontal:12},counterCurrency:{fontSize:22,fontWeight:'900'},counterInput:{flex:1,fontSize:22,fontWeight:'900',paddingVertical:10},counterHint:{fontSize:10,color:'#7C716B',marginTop:7},
+  counterBtn:{flex:1,flexDirection:'row',gap:4,minHeight:50,borderRadius:14,borderWidth:1.5,borderColor:GREEN,alignItems:'center',justifyContent:'center'},counterBtnText:{color:GREEN,fontSize:12,fontWeight:'900'},
   acceptBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 16, borderRadius: 14, backgroundColor: GREEN },
   acceptBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
 

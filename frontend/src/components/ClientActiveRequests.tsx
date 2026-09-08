@@ -7,7 +7,7 @@ import { socketService } from '@/src/services/socket';
 import { useAuthStore } from '@/src/stores/authStore';
 
 const ORANGE = '#FF5A1F';
-const ACTIVE = new Set(['open', 'reviewing', 'assigned', 'in_progress', 'pending_completion']);
+const ACTIVE = new Set(['open', 'reviewing', 'negotiating', 'assigned', 'in_progress', 'pending_completion']);
 const PRO_ART = require('../../assets/professions/technician.png');
 
 type ActiveJob = {
@@ -22,6 +22,7 @@ type ActiveJob = {
 
 const statusCopy = (job: ActiveJob) => {
   if (job.status === 'reviewing') return { label: `${job.reviewing_name || 'Un profesional'} está revisando`, icon: 'eye' as const, color: '#FF8A00' };
+  if (job.status === 'negotiating') return { label: 'Contrapropuesta esperando respuesta', icon: 'swap-horizontal' as const, color: '#FF5A1F' };
   if (job.status === 'assigned') return { label: `${job.assigned_name || 'Tu profesional'} aceptó`, icon: 'checkmark-circle' as const, color: '#20B768' };
   if (job.status === 'in_progress') return { label: 'Trabajo en curso', icon: 'construct' as const, color: '#20B768' };
   if (job.status === 'pending_completion') return { label: 'Esperando tu confirmación', icon: 'hourglass' as const, color: '#3478F6' };

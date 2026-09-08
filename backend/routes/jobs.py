@@ -5,6 +5,7 @@ from datetime import datetime, timezone, timedelta
 from pymongo import ReturnDocument
 from database import db
 from utils import generate_id, get_current_user, get_settings
+from websocket_manager import manager
 
 router = APIRouter()
 MINIMUM_JOB_BUDGET = 15000
@@ -12,6 +13,8 @@ MINIMUM_PAPERWORK_BUDGET = 10000
 JOB_CANCELLATION_PENALTY_RATE = 0.10
 PROFESSIONAL_FREE_CANCEL_SECONDS = 120
 PENALIZED_CANCELLATIONS_BEFORE_BLOCK = 3
+NEGOTIATION_SECONDS = 35
+MAX_NEGOTIATION_ROUNDS = 3
 
 PRIVATE_JOB_FIELDS = {"address", "location", "images"}
 
@@ -268,6 +271,12 @@ async def list_job_posts(
         {"status": "reviewing", "reviewing_until": {"$lt": now.isoformat()}},
         {"$set": {"status": "open", "reviewing_by": None, "reviewing_name": None, "reviewing_until": None}}
     )
+    await db.job_posts.update_many(
+        {"status": "negotiating", "negotiation_deadline": {"$lt": now.isoformat()}},
+        {"$set": {"status": "open", "reviewing_by": None, "reviewing_name": None,
+                  "reviewing_until": None, "negotiation_turn": None, "negotiation_deadline": None,
+                  "updated_at": now}}
+    )
     
     if status == "open":
         query = {"status": {"$in": ["open", "reviewing"]}}
@@ -304,6 +313,12 @@ async def get_my_offers(user: dict = Depends(get_current_user)):
 
 @router.get("/api/jobs/my-posts")
 async def get_my_job_posts(user: dict = Depends(get_current_user)):
+    now = datetime.now(timezone.utc)
+    await db.job_posts.update_many(
+        {"client_id": user["user_id"], "status": "negotiating", "negotiation_deadline": {"$lt": now.isoformat()}},
+        {"$set": {"status": "open", "reviewing_by": None, "reviewing_name": None,
+                  "reviewing_until": None, "negotiation_turn": None, "negotiation_deadline": None,
+                  "updated_at": now}})
     jobs = await db.job_posts.find(
         {"client_id": user["user_id"]}, {"_id": 0}
     ).sort("created_at", -1).to_list(50)
@@ -334,14 +349,14 @@ async def get_job_detail(job_id: str, user: dict = Depends(get_current_user)):
     return {"job": _job_for_user(job, user), "offers": offers}
 
 
-# ─── JOB REVIEW (30-second lock) ────────────────
+# ─── JOB REVIEW / NEGOTIATION (35-second turns) ────────────────
 
 @router.post("/api/jobs/{job_id}/review")
 async def start_job_review(
     job_id: str,
     user: dict = Depends(get_current_user)
 ):
-    """Professional starts reviewing a job - 30 second lock"""
+    """Professional starts reviewing a job - 35 second lock"""
     now = datetime.now(timezone.utc)
     now_iso = now.isoformat()
     await _require_professional(user, available=True)
@@ -353,8 +368,8 @@ async def start_job_review(
     if job.get("client_id") == user["user_id"]:
         raise HTTPException(status_code=403, detail="No podés revisar tu propio trabajo")
     
-    # Lock job for 30 seconds
-    review_until = now + timedelta(seconds=30)
+    # Lock job for the same decision window used by negotiation.
+    review_until = now + timedelta(seconds=NEGOTIATION_SECONDS)
     locked = await db.job_posts.find_one_and_update(
         {"job_id": job_id, "$or": [
             {"status": "open"},
@@ -399,7 +414,7 @@ async def start_job_review(
     except Exception as push_error:
         print(f"Job reviewing push notification error: {push_error}")
     
-    return {"status": "reviewing", "review_seconds": 30}
+    return {"status": "reviewing", "review_seconds": NEGOTIATION_SECONDS}
 
 
 @router.post("/api/jobs/{job_id}/accept")
@@ -509,6 +524,115 @@ async def decline_job_after_review(
         pass
     
     return {"status": "declined", "job_id": job_id}
+
+
+@router.post("/api/jobs/{job_id}/counter-offer")
+async def start_job_negotiation(job_id: str, data: dict = Body(...), user: dict = Depends(get_current_user)):
+    """Professional proposes a price while holding the 35-second review lock."""
+    await _require_professional(user, available=True)
+    now = datetime.now(timezone.utc)
+    price = float(data.get("price") or 0)
+    if price <= 0:
+        raise HTTPException(status_code=422, detail="Ingresá una contrapropuesta válida")
+    job = await db.job_posts.find_one({"job_id": job_id})
+    if not job:
+        raise HTTPException(status_code=404, detail="Trabajo no encontrado")
+    if job.get("status") == "negotiating" and job.get("negotiation_deadline", "") <= datetime.now(timezone.utc).isoformat():
+        await db.job_posts.update_one({"job_id": job_id, "status": "negotiating"}, {"$set": {
+            "status": "open", "reviewing_by": None, "reviewing_name": None, "reviewing_until": None,
+            "negotiation_turn": None, "negotiation_deadline": None, "updated_at": datetime.now(timezone.utc)}})
+        job.update({"status": "open", "reviewing_by": None, "reviewing_name": None,
+                    "reviewing_until": None, "negotiation_turn": None, "negotiation_deadline": None})
+    updated = await db.job_posts.find_one_and_update(
+        {"job_id": job_id, "status": "reviewing", "reviewing_by": user["user_id"],
+         "reviewing_until": {"$gt": now.isoformat()}},
+        {"$set": {"status": "negotiating", "negotiation_round": 1,
+                  "negotiation_turn": "client", "negotiation_price": price,
+                  "negotiation_by": user["user_id"],
+                  "negotiation_deadline": (now + timedelta(seconds=NEGOTIATION_SECONDS)).isoformat(),
+                  "updated_at": now}},
+        return_document=ReturnDocument.AFTER,
+    )
+    if not updated:
+        raise HTTPException(status_code=409, detail="La revisión venció o ya no está disponible")
+    message = f"{user.get('name', 'El profesional')} propuso ${price:,.0f}"
+    await _store_client_notification(job["client_id"], "job_counter_offer", "Nueva contrapropuesta", message, job_id)
+    await manager.send_personal_message({"type": "job_counter_offer", "job_id": job_id,
+        "professional_name": user.get("name", "Profesional"), "price": price,
+        "round": 1, "max_rounds": MAX_NEGOTIATION_ROUNDS,
+        "deadline": updated["negotiation_deadline"]}, job["client_id"])
+    return {"status": "negotiating", "turn": "client", "round": 1,
+            "max_rounds": MAX_NEGOTIATION_ROUNDS, "deadline": updated["negotiation_deadline"]}
+
+
+@router.post("/api/jobs/{job_id}/negotiation/respond")
+async def respond_job_negotiation(job_id: str, data: dict = Body(...), user: dict = Depends(get_current_user)):
+    """Accept, counter or decline the current negotiation turn."""
+    now = datetime.now(timezone.utc)
+    job = await db.job_posts.find_one({"job_id": job_id})
+    if not job:
+        raise HTTPException(status_code=404, detail="Trabajo no encontrado")
+    if job.get("status") != "negotiating" or job.get("negotiation_deadline", "") <= now.isoformat():
+        await db.job_posts.update_one({"job_id": job_id, "status": "negotiating"}, {"$set": {
+            "status": "open", "reviewing_by": None, "reviewing_name": None,
+            "reviewing_until": None, "negotiation_turn": None, "negotiation_deadline": None}})
+        raise HTTPException(status_code=409, detail="La contrapropuesta venció; seguimos buscando otro profesional")
+
+    is_client = user["user_id"] == job.get("client_id")
+    is_professional = user["user_id"] == job.get("reviewing_by")
+    expected = "client" if is_client else "professional" if is_professional else None
+    if not expected or job.get("negotiation_turn") != expected:
+        raise HTTPException(status_code=403, detail="No es tu turno para responder")
+    action = data.get("action")
+    if action == "accept":
+        professional_id = job.get("reviewing_by")
+        professional = await db.users.find_one({"user_id": professional_id}, {"_id": 0, "name": 1}) or {}
+        assigned = await db.job_posts.find_one_and_update(
+            {"job_id": job_id, "status": "negotiating", "negotiation_turn": expected},
+            {"$set": {"status": "assigned", "assigned_to": professional_id,
+                      "assigned_name": professional.get("name", job.get("reviewing_name", "Profesional")),
+                      "assigned_at": now, "agreed_price": job.get("negotiation_price"),
+                      "reviewing_by": None, "reviewing_name": None, "reviewing_until": None,
+                      "negotiation_turn": None, "negotiation_deadline": None}},
+            return_document=ReturnDocument.AFTER)
+        other_id = professional_id if is_client else job["client_id"]
+        await manager.send_personal_message({"type": "job_accepted", "job_id": job_id,
+            "professional_id": professional_id, "professional_name": assigned.get("assigned_name"),
+            "agreed_price": assigned.get("agreed_price")}, other_id)
+        return {"status": "accepted", "agreed_price": assigned.get("agreed_price")}
+    if action == "decline":
+        await db.job_posts.update_one({"job_id": job_id, "status": "negotiating"}, {"$set": {
+            "status": "open", "reviewing_by": None, "reviewing_name": None, "reviewing_until": None,
+            "negotiation_turn": None, "negotiation_deadline": None, "updated_at": now}})
+        await manager.send_personal_message({"type": "job_negotiation_ended", "job_id": job_id,
+            "message": "No hubo acuerdo. Seguimos buscando otro profesional."}, job["client_id"])
+        return {"status": "open"}
+    if action != "counter":
+        raise HTTPException(status_code=422, detail="Respuesta inválida")
+    current_round = int(job.get("negotiation_round") or 1)
+    if current_round >= MAX_NEGOTIATION_ROUNDS:
+        await db.job_posts.update_one({"job_id": job_id, "status": "negotiating"}, {"$set": {
+            "status": "open", "reviewing_by": None, "reviewing_name": None, "reviewing_until": None,
+            "negotiation_turn": None, "negotiation_deadline": None, "updated_at": now}})
+        await manager.send_personal_message({"type": "job_negotiation_ended", "job_id": job_id,
+            "message": "Se completaron las 3 rondas. Seguimos buscando otro profesional."}, job["client_id"])
+        raise HTTPException(status_code=409, detail="Se alcanzó el máximo de 3 contrapropuestas")
+    price = float(data.get("price") or 0)
+    if price <= 0:
+        raise HTTPException(status_code=422, detail="Ingresá una contraoferta válida")
+    next_turn = "professional" if is_client else "client"
+    new_round = current_round + 1
+    deadline = (now + timedelta(seconds=NEGOTIATION_SECONDS)).isoformat()
+    await db.job_posts.update_one({"job_id": job_id, "status": "negotiating", "negotiation_turn": expected},
+        {"$set": {"negotiation_round": new_round, "negotiation_turn": next_turn,
+                  "negotiation_price": price, "negotiation_by": user["user_id"],
+                  "negotiation_deadline": deadline, "updated_at": now}})
+    other_id = job.get("reviewing_by") if is_client else job["client_id"]
+    await manager.send_personal_message({"type": "job_counter_offer", "job_id": job_id,
+        "price": price, "round": new_round, "max_rounds": MAX_NEGOTIATION_ROUNDS,
+        "turn": next_turn, "deadline": deadline}, other_id)
+    return {"status": "negotiating", "turn": next_turn, "round": new_round,
+            "max_rounds": MAX_NEGOTIATION_ROUNDS, "deadline": deadline}
 
 @router.post("/api/jobs/{job_id}/offer")
 async def send_job_offer(

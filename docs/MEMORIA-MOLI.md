@@ -2,6 +2,20 @@
 
 Última actualización: 2026-09-08
 
+## Negociación de profesionales y trámites
+
+- Al revisar una solicitud, el profesional obtiene un bloqueo exclusivo de 35 segundos.
+- Puede aceptar el presupuesto, rechazar o iniciar una contrapropuesta. Cada turno del cliente/profesional dura 35 segundos y el máximo es tres rondas.
+- El estado persistido es `negotiating`, con `negotiation_round`, `negotiation_turn`, `negotiation_price` y `negotiation_deadline`.
+- Si vence el turno, se rechaza o finalizan tres rondas sin acuerdo, el trabajo vuelve a `open` para continuar buscando otro profesional.
+- La dirección exacta solo se revela después de quedar `assigned`.
+
+## Envíos: Enviar y Recibir
+
+- Enviar usa la ubicación actual como retiro y solicita el destino.
+- Recibir solicita primero el punto de retiro y usa la ubicación actual como destino.
+- Tanto retiro como entrega pueden editarse antes de confirmar.
+
 ## Seguimiento persistente de viajes
 
 - Una solicitud de viaje pendiente continúa activa cuando el cliente minimiza la búsqueda y vuelve a `/modules`.

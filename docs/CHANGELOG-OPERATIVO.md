@@ -1,5 +1,12 @@
 # Changelog operativo
 
+## 2026-09-08 — Negociación profesional y dirección de envíos
+
+- La revisión profesional y cada turno de negociación duran 35 segundos.
+- Profesional y cliente pueden aceptar, rechazar o contrapropuestar con un máximo de tres rondas; al vencer o no acordar, la solicitud vuelve automáticamente a búsqueda.
+- La dirección exacta continúa protegida hasta la asignación definitiva.
+- En Moli Envíos se agregó la elección Enviar/Recibir: Enviar parte de la ubicación actual; Recibir termina en la ubicación actual. Ambos puntos siguen siendo editables.
+
 ## 2026-09-08 — Viaje minimizable y seguimiento persistente
 
 - La búsqueda de conductor se puede minimizar sin cancelar la solicitud.

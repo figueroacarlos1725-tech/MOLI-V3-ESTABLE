@@ -84,6 +84,7 @@ export default function RiderHomeScreen() {
   const [firstRideDiscount, setFirstRideDiscount] = useState(0);
   const [addressHistory, setAddressHistory] = useState<any[]>([]);
   const [serviceType, setServiceType] = useState<'ride' | 'delivery'>(params.service === 'delivery' ? 'delivery' : 'ride');
+  const [deliveryDirection, setDeliveryDirection] = useState<'send' | 'receive'>('send');
   const [showSnake, setShowSnake] = useState(false);
   const [vehicleIcons, setVehicleIcons] = useState<Record<string, any>>({});
 
@@ -566,6 +567,18 @@ export default function RiderHomeScreen() {
     setPhase('idle');
   };
 
+  const chooseDeliveryDirection = (direction: 'send' | 'receive') => {
+    setDeliveryDirection(direction); setServiceType('delivery'); setRouteInfo(null); setFareEstimates([]); estimateFetched.current=false;
+    if (direction === 'receive') {
+      setPickupLocation(null); setPickupAddress('');
+      if (userLocation) { setDropoffLocation(userLocation); setDropoffAddress('Mi ubicación actual'); }
+    } else {
+      if (userLocation) { setPickupLocation(userLocation); setPickupAddress('Mi ubicación actual'); }
+      setDropoffLocation(null); setDropoffAddress('');
+    }
+    setPhase('idle');
+  };
+
   const handleMinimizeSearch = () => {
     router.replace('/modules');
   };
@@ -896,8 +909,8 @@ export default function RiderHomeScreen() {
           {/* Header with greeting */}
           <View style={s.rideHeader}>
             <View>
-              <Text style={s.rideEyebrow}>MOLI VIAJES</Text>
-              <Text style={s.rideTitle}>¿A dónde vamos?</Text>
+              <Text style={s.rideEyebrow}>{serviceType === 'delivery' ? 'MOLI ENVÍOS' : 'MOLI VIAJES'}</Text>
+              <Text style={s.rideTitle}>{serviceType === 'delivery' ? (deliveryDirection === 'send' ? '¿A dónde lo enviamos?' : '¿Dónde lo retiramos?') : '¿A dónde vamos?'}</Text>
             </View>
             <TouchableOpacity style={s.supportBtn} onPress={() => router.push('/support' as any)}>
               <Ionicons name="headset" size={20} color="#FF5A1F" />
@@ -905,8 +918,8 @@ export default function RiderHomeScreen() {
           </View>
 
           {/* Search bar */}
-          <TouchableOpacity style={s.searchBar} onPress={() => { setSearchType('dropoff'); setSearchModal(true); }}>
-            <Text style={s.searchPlaceholder}>Buscá tu destino</Text>
+          <TouchableOpacity style={s.searchBar} onPress={() => { setSearchType(serviceType === 'delivery' && deliveryDirection === 'receive' ? 'pickup' : 'dropoff'); setSearchModal(true); }}>
+            <Text style={s.searchPlaceholder}>{serviceType === 'delivery' && deliveryDirection === 'receive' ? 'Buscá el punto de retiro' : 'Buscá tu destino'}</Text>
             <View style={s.searchIcon}><Ionicons name="search" size={22} color="#fff" /></View>
           </TouchableOpacity>
 
@@ -914,8 +927,8 @@ export default function RiderHomeScreen() {
           <TouchableOpacity style={s.originRow} onPress={() => { setSearchType('pickup'); setSearchModal(true); }}>
             <View style={s.originIcon}><Ionicons name="navigate" size={16} color="#FF5A1F" /></View>
             <View style={{ flex: 1 }}>
-              <Text style={s.originLabel}>SALÍS DESDE</Text>
-              <Text style={s.originText} numberOfLines={1}>{pickupAddress || 'Tu ubicación actual'}</Text>
+              <Text style={s.originLabel}>{serviceType === 'delivery' ? 'PUNTO DE RETIRO' : 'SALÍS DESDE'}</Text>
+              <Text style={s.originText} numberOfLines={1}>{pickupAddress || (deliveryDirection === 'receive' ? 'Elegí dónde retirar' : 'Tu ubicación actual')}</Text>
             </View>
             <TouchableOpacity onPress={initLocation} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
               <Ionicons name="locate" size={20} color="#FF5A1F" />
@@ -950,7 +963,7 @@ export default function RiderHomeScreen() {
             </TouchableOpacity>
             <TouchableOpacity
               style={[s.serviceCard, serviceType === 'delivery' && s.serviceCardActive]}
-              onPress={() => setServiceType('delivery')}
+              onPress={() => chooseDeliveryDirection('send')}
             >
               <View style={s.serviceIconWrap}>
                 <Image source={require('../../assets/vehicles/map-moto-moli.png')} style={s.serviceVehicleImage} />
@@ -961,6 +974,10 @@ export default function RiderHomeScreen() {
               </View>
             </TouchableOpacity>
           </View>
+          {serviceType === 'delivery' && <View style={s.deliveryModeWrap}>
+            <TouchableOpacity style={[s.deliveryMode,deliveryDirection==='send'&&s.deliveryModeActive]} onPress={()=>chooseDeliveryDirection('send')}><Ionicons name="paper-plane" size={17} color={deliveryDirection==='send'?'#fff':'#FF5A1F'}/><View><Text style={[s.deliveryModeTitle,deliveryDirection==='send'&&s.deliveryModeTitleActive]}>Enviar</Text><Text style={[s.deliveryModeText,deliveryDirection==='send'&&s.deliveryModeTextActive]}>Sale desde donde estás</Text></View></TouchableOpacity>
+            <TouchableOpacity style={[s.deliveryMode,deliveryDirection==='receive'&&s.deliveryModeActive]} onPress={()=>chooseDeliveryDirection('receive')}><Ionicons name="download" size={17} color={deliveryDirection==='receive'?'#fff':'#FF5A1F'}/><View><Text style={[s.deliveryModeTitle,deliveryDirection==='receive'&&s.deliveryModeTitleActive]}>Recibir</Text><Text style={[s.deliveryModeText,deliveryDirection==='receive'&&s.deliveryModeTextActive]}>Llega hasta donde estás</Text></View></TouchableOpacity>
+          </View>}
 
           {/* Suggestions: Casa, Trabajo, Aeropuerto */}
           <View style={{ flexDirection: 'row', gap: 8, marginTop: 14 }}>
@@ -1377,6 +1394,7 @@ const s = StyleSheet.create({
   nearbyCount: { minWidth: 27, height: 27, paddingHorizontal: 7, borderRadius: 14, backgroundColor: '#FF5A1F', alignItems: 'center', justifyContent: 'center' },
   nearbyCountText: { color: '#FFF', fontSize: 12, fontWeight: '900' },
   serviceCard: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 9, padding: 10, borderRadius: 17, backgroundColor: '#FFF', borderWidth: 1, borderColor: '#F2E8E2', shadowColor: '#7B3211', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 7, elevation: 2 },
+  deliveryModeWrap:{flexDirection:'row',gap:8,marginTop:10},deliveryMode:{flex:1,minHeight:58,borderRadius:17,borderWidth:1.5,borderColor:'#FFD5C2',backgroundColor:'#FFF',flexDirection:'row',alignItems:'center',gap:8,paddingHorizontal:12},deliveryModeActive:{backgroundColor:'#FF5A1F',borderColor:'#FF5A1F',shadowColor:'#B73600',shadowOffset:{width:0,height:5},shadowOpacity:.2,shadowRadius:8,elevation:4},deliveryModeTitle:{fontSize:13,fontWeight:'900',color:'#202124'},deliveryModeTitleActive:{color:'#FFF'},deliveryModeText:{fontSize:9,color:'#807670',marginTop:2},deliveryModeTextActive:{color:'#FFE4D7'},
   serviceCardActive: { backgroundColor: '#FFF0E8', borderColor: '#FF8A52', borderWidth: 1.5 },
   serviceIconWrap: { width: 45, height: 45, borderRadius: 14, backgroundColor: '#FFF', alignItems: 'center', justifyContent: 'center' },
   serviceVehicleImage: { width: 43, height: 43, resizeMode: 'contain' },

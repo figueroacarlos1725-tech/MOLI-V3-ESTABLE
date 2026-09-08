@@ -33,6 +33,8 @@ export default function JobStatusScreen() {
   const [rating, setRating] = useState(5);
   const [ratingComment, setRatingComment] = useState('');
   const [submittingRating, setSubmittingRating] = useState(false);
+  const [counterPrice, setCounterPrice] = useState('');
+  const [negotiationSeconds, setNegotiationSeconds] = useState(35);
 
   const loadJob = useCallback(async () => {
     try {
@@ -51,6 +53,11 @@ export default function JobStatusScreen() {
 
   useEffect(() => { loadJob(); }, [loadJob]);
   useEffect(() => { if (showChat) loadMessages(); }, [showChat, loadMessages]);
+  useEffect(() => {
+    if (job?.status !== 'negotiating' || !job.negotiation_deadline) return;
+    const tick=()=>setNegotiationSeconds(Math.max(0,Math.ceil((new Date(job.negotiation_deadline).getTime()-Date.now())/1000)));
+    tick(); const t=setInterval(tick,1000); return()=>clearInterval(t);
+  }, [job?.status, job?.negotiation_deadline]);
 
   // WebSocket for new messages + job updates
   useEffect(() => {
@@ -71,6 +78,10 @@ export default function JobStatusScreen() {
     const unsubReviewing = socketService.on('job_reviewing', (msg: any) => {
       if (msg.job_id === params.jobId) loadJob();
     });
+    const unsubCounter = socketService.on('job_counter_offer', (msg: any) => {
+      if (msg.job_id === params.jobId) { loadJob(); setNegotiationSeconds(35); Vibration.vibrate([0, 250, 120, 250]); }
+    });
+    const unsubEnded = socketService.on('job_negotiation_ended', (msg: any) => { if (msg.job_id === params.jobId) loadJob(); });
 
     const unsubCompletion = socketService.on('job_completion_request', (msg: any) => {
       if (msg.job_id === params.jobId) {
@@ -98,7 +109,7 @@ export default function JobStatusScreen() {
 
     // Poll job status
     const iv = setInterval(loadJob, 8000);
-    return () => { unsub(); unsubAccepted(); unsubReviewing(); unsubCompletion(); unsubCompleted(); clearInterval(iv); };
+    return () => { unsub(); unsubAccepted(); unsubReviewing(); unsubCounter(); unsubEnded(); unsubCompletion(); unsubCompleted(); clearInterval(iv); };
   }, [user?.user_id, params.jobId, loadJob]);
 
   const sendMessage = async () => {
@@ -166,6 +177,8 @@ export default function JobStatusScreen() {
       ? 'Estás dentro de los primeros 2 minutos desde que aceptaste. Podés cancelar sin multa.'
       : 'Pasaron más de 2 minutos desde que aceptaste. Al cancelar se aplicará una multa del 10% del valor del trabajo.';
   const isOpen = job.status === 'open' || job.status === 'reviewing';
+  const isNegotiating = job.status === 'negotiating';
+  const myNegotiationTurn = isNegotiating && ((job.negotiation_turn === 'client' && user?.user_id === job.client_id) || (job.negotiation_turn === 'professional' && user?.user_id === job.reviewing_by));
   const isPendingCompletion = job.status === 'pending_completion';
   const isCompleted = job.status === 'completed';
   const iWasRequester = job.completed_by === user?.user_id;
@@ -174,6 +187,7 @@ export default function JobStatusScreen() {
   const statusConfig: Record<string, { color: string; icon: string; label: string }> = {
     open: { color: '#FF9500', icon: 'search', label: 'Buscando profesional...' },
     reviewing: { color: '#007AFF', icon: 'eye', label: 'Un profesional lo está revisando' },
+    negotiating: { color: '#FF7733', icon: 'swap-horizontal', label: 'Negociación en curso' },
     assigned: { color: GREEN, icon: 'checkmark-circle', label: 'Profesional asignado' },
     in_progress: { color: GREEN, icon: 'construct', label: 'En progreso' },
     pending_completion: { color: '#007AFF', icon: 'hourglass', label: iWasRequester ? 'Esperando confirmación...' : '¡Confirma que el trabajo terminó!' },
@@ -210,6 +224,11 @@ export default function JobStatusScreen() {
   };
 
   const st = statusConfig[job.status] || statusConfig.open;
+
+  const respondNegotiation=async(action:'accept'|'counter'|'decline')=>{
+    try{await apiService.post(`/jobs/${params.jobId}/negotiation/respond`,{action,price:action==='counter'?Number(counterPrice):undefined});setCounterPrice('');loadJob();}
+    catch(e:any){Alert.alert('No se pudo responder',e.message);loadJob();}
+  };
 
   return (
     <KeyboardAvoidingView style={[s.container, { paddingTop: insets.top }]} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
@@ -282,6 +301,12 @@ export default function JobStatusScreen() {
             <Text style={[s.statusText, { color: st.color }]}>{st.label}</Text>
           </View>
           {isOpen && <TouchableOpacity style={s.cancelSearchBtn} onPress={cancelJob} disabled={cancelling}><Ionicons name="stop-circle-outline" size={19} color="#FF3B30"/><Text style={s.cancelSearchText}>Cancelar búsqueda</Text></TouchableOpacity>}
+
+          {isNegotiating && <View style={s.negotiationCard}>
+            <View style={s.negotiationTop}><View><Text style={s.negotiationEyebrow}>CONTRAPROPUESTA · RONDA {job.negotiation_round || 1} DE 3</Text><Text style={s.negotiationPrice}>${Number(job.negotiation_price||0).toLocaleString('es-AR')}</Text></View><View style={s.timerPill}><Ionicons name="timer" size={16} color="#FF5A1F"/><Text style={s.timerValue}>{negotiationSeconds}s</Text></View></View>
+            <Text style={s.negotiationCopy}>{myNegotiationTurn?'Es tu turno: aceptá o enviá una contraoferta.':'Esperando la respuesta de la otra persona…'}</Text>
+            {myNegotiationTurn && <><View style={s.clientCounterRow}><Text style={s.clientCounterCurrency}>$</Text><TextInput style={s.clientCounterInput} value={counterPrice} onChangeText={t=>setCounterPrice(t.replace(/[^0-9]/g,''))} keyboardType="numeric" placeholder="Tu contraoferta"/></View><View style={s.negotiationActions}><TouchableOpacity style={s.negDecline} onPress={()=>respondNegotiation('decline')}><Text style={s.negDeclineText}>No aceptar</Text></TouchableOpacity><TouchableOpacity style={s.negCounter} disabled={!counterPrice} onPress={()=>respondNegotiation('counter')}><Text style={s.negCounterText}>Contraofertar</Text></TouchableOpacity><TouchableOpacity style={s.negAccept} onPress={()=>respondNegotiation('accept')}><Text style={s.negAcceptText}>Aceptar</Text></TouchableOpacity></View></>}
+          </View>}
 
           {/* Budget */}
           <View style={s.budgetCard}>
@@ -455,6 +480,7 @@ const s = StyleSheet.create({
   statusBanner: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 16, borderRadius: 14, borderLeftWidth: 4, marginBottom: 12 },
   statusText: { fontSize: 15, fontWeight: '700', flex: 1 },
   budgetCard: { backgroundColor: GREEN, borderRadius: 16, padding: 20, marginBottom: 12, alignItems: 'center' },
+  negotiationCard:{backgroundColor:'#202124',borderRadius:24,padding:17,marginBottom:13,shadowColor:'#6D2C0D',shadowOffset:{width:0,height:8},shadowOpacity:.25,shadowRadius:14,elevation:8},negotiationTop:{flexDirection:'row',justifyContent:'space-between',alignItems:'center'},negotiationEyebrow:{fontSize:9,fontWeight:'900',letterSpacing:.8,color:'#FF986D'},negotiationPrice:{fontSize:31,fontWeight:'900',color:'#fff',marginTop:3},timerPill:{flexDirection:'row',alignItems:'center',gap:5,backgroundColor:'#FFF0E8',paddingHorizontal:11,paddingVertical:8,borderRadius:18},timerValue:{fontSize:15,fontWeight:'900',color:'#FF5A1F'},negotiationCopy:{fontSize:12,color:'#D6D0CC',marginTop:9},clientCounterRow:{flexDirection:'row',alignItems:'center',marginTop:12},clientCounterCurrency:{color:'#fff',fontSize:20,fontWeight:'900',marginRight:7},clientCounterInput:{flex:1,backgroundColor:'#fff',borderRadius:13,paddingHorizontal:12,paddingVertical:10,fontWeight:'800'},negotiationActions:{flexDirection:'row',gap:6,marginTop:10},negDecline:{flex:1,paddingVertical:12,alignItems:'center'},negDeclineText:{color:'#FF8C7C',fontSize:11,fontWeight:'800'},negCounter:{flex:1.25,paddingVertical:12,alignItems:'center',borderWidth:1,borderColor:'#FF7733',borderRadius:13},negCounterText:{color:'#FF986D',fontSize:11,fontWeight:'800'},negAccept:{flex:1,paddingVertical:12,alignItems:'center',backgroundColor:'#FF5A1F',borderRadius:13},negAcceptText:{color:'#fff',fontSize:11,fontWeight:'900'},
   budgetLabel: { fontSize: 13, color: 'rgba(255,255,255,0.7)' },
   budgetValue: { fontSize: 36, fontWeight: '800', color: '#fff', marginTop: 4 },
   infoCard: { backgroundColor: '#fff', borderRadius: 16, padding: 16, marginBottom: 12 },
