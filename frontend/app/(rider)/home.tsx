@@ -13,6 +13,7 @@ import {
   Platform,
   Dimensions,
   Animated,
+  Easing,
   Vibration,
   Image,
   Linking,
@@ -92,6 +93,27 @@ export default function RiderHomeScreen() {
   // Refs to prevent loops
   const estimateFetched = useRef(false);
   const lastRideStatus = useRef<string>('');
+  const searchHeartbeat = useRef(new Animated.Value(1)).current;
+  const searchRadar = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (phase !== 'searching' || driverFound || showContinuePrompt) {
+      searchHeartbeat.stopAnimation();
+      searchRadar.stopAnimation();
+      searchHeartbeat.setValue(1);
+      searchRadar.setValue(0);
+      return;
+    }
+    const heartbeatLoop = Animated.loop(Animated.sequence([
+      Animated.timing(searchHeartbeat, { toValue: 1.12, duration: 340, easing: Easing.out(Easing.quad), useNativeDriver: true }),
+      Animated.timing(searchHeartbeat, { toValue: 1, duration: 420, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
+      Animated.delay(420),
+    ]));
+    const radarLoop = Animated.loop(Animated.timing(searchRadar, { toValue: 1, duration: 2200, easing: Easing.out(Easing.quad), useNativeDriver: true }));
+    heartbeatLoop.start();
+    radarLoop.start();
+    return () => { heartbeatLoop.stop(); radarLoop.stop(); };
+  }, [phase, driverFound, showContinuePrompt, searchHeartbeat, searchRadar]);
 
   // ─── Sounds ───────────────────────────────
   const playSound = async (type: 'accepted' | 'arrived' | 'completed') => {
@@ -846,6 +868,12 @@ export default function RiderHomeScreen() {
             <Ionicons name="arrow-back" size={24} color="#1C1C1E" />
           </TouchableOpacity>
         )}
+        {phase === 'searching' && (
+          <View style={s.searchingMapChip}>
+            <Ionicons name="radio-outline" size={17} color="#FF5A1F" />
+            <Text style={s.searchingMapChipText}>Buscando cerca tuyo</Text>
+          </View>
+        )}
       </View>
 
       {/* ═══ Bottom Panel ═══ */}
@@ -1162,23 +1190,44 @@ export default function RiderHomeScreen() {
             </View>
           ) : (
             <View style={s.searchingContainer}>
-              <ActivityIndicator size="large" color="#00C853" />
-              <Text style={s.searchingText}>{dispatchMsg || 'Buscando conductores cercanos...'}</Text>
-              {dispatchProgress && (
-                <View style={s.progressBar}>
-                  <View style={[s.progressFill, { width: `${Math.min((dispatchProgress.i / Math.max(dispatchProgress.t, 1)) * 100, 100)}%` }]} />
+              <View style={s.panelHandle} />
+              <View style={s.searchRadarWrap}>
+                <Animated.View style={[s.searchRadarPulse, { opacity: searchRadar.interpolate({ inputRange: [0, .75, 1], outputRange: [.4, .12, 0] }), transform: [{ scale: searchRadar.interpolate({ inputRange: [0, 1], outputRange: [.62, 1.42] }) }] }]} />
+                <View style={s.searchRadarRingOuter} />
+                <View style={s.searchRadarRingInner} />
+                <View style={[s.radarVehicle, s.radarVehicleLeft]}><VehicleIcon kind="moto" size={38} backgroundColor="transparent" /></View>
+                <View style={[s.radarVehicle, s.radarVehicleRight]}><VehicleIcon kind="car" size={40} backgroundColor="transparent" /></View>
+                <Animated.View style={[s.searchMoliOrb, { transform: [{ scale: searchHeartbeat }] }]}>
+                  <Text style={s.searchMoliLetter}>M</Text>
+                </Animated.View>
+              </View>
+              <Text style={s.searchingTitle}>Buscando tu conductor</Text>
+              <Text style={s.searchingSubtitle}>Estamos avisando a los más cercanos</Text>
+
+              <View style={s.searchStatusCard}>
+                <View style={s.searchAvatar}><Ionicons name="person" size={23} color="#FF5A1F" /></View>
+                <View style={s.searchStatusCopy}>
+                  <View style={s.searchDots}><View style={s.searchDotStrong} /><View style={s.searchDot} /><View style={s.searchDotSoft} /></View>
+                  <Text style={s.searchStatusText}>{dispatchMsg && !dispatchMsg.includes('0/0') ? dispatchMsg : 'Avisando a conductores cercanos'}</Text>
                 </View>
-              )}
-              <Text style={s.searchingHint}>El sistema busca al conductor más cercano</Text>
+              </View>
+
+              <View style={s.searchTripCard}>
+                <VehicleIcon kind={selectedVehicle === 'moto' ? 'moto' : 'car'} size={46} color="#202124" backgroundColor="#FFF4EC" />
+                <View style={{ flex: 1 }}><Text style={s.searchTripMeta}>{nameMap[selectedVehicle] || 'Auto'} · Efectivo</Text><Text style={s.searchTripPrice}>{selectedFare ? `$ ${Math.round(selectedFare.estimated_fare).toLocaleString('es-AR')}` : 'Calculando tarifa'}</Text></View>
+                <Ionicons name="chevron-down" size={20} color="#6F6762" />
+              </View>
+
+              <View style={s.searchPrivacy}><Ionicons name="shield-checkmark" size={17} color="#8E8E93" /><Text style={s.searchPrivacyText}>Tu ubicación exacta se comparte solo al confirmar</Text></View>
 
               {/* Snake game while waiting */}
               {!showSnake ? (
                 <TouchableOpacity
-                  style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#F2F2F7', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 12, marginTop: 8 }}
+                  style={s.playWhileWaitingBtn}
                   onPress={() => setShowSnake(true)}
                 >
-                  <Ionicons name="game-controller" size={20} color="#00C853" />
-                  <Text style={{ fontSize: 14, fontWeight: '600', color: '#1C1C1E' }}>Jugar mientras esperás</Text>
+                  <View style={s.playIcon}><Ionicons name="game-controller" size={24} color="#FF5A1F" /></View>
+                  <Text style={s.playWhileWaitingText}>Jugá mientras esperás</Text>
                 </TouchableOpacity>
               ) : (
                 <SnakeGame onClose={() => setShowSnake(false)} />
@@ -1276,6 +1325,8 @@ const s = StyleSheet.create({
   // ─── Map ──────────
   mapFull: { flex: 1 },
   mapBackBtn: { position: 'absolute', top: Platform.OS === 'ios' ? 54 : 38, left: 16, width: 44, height: 44, borderRadius: 22, backgroundColor: '#fff', justifyContent: 'center', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.15, shadowRadius: 6, elevation: 4, zIndex: 2 },
+  searchingMapChip: { position: 'absolute', top: Platform.OS === 'ios' ? 54 : 38, left: 72, flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 44, paddingHorizontal: 16, borderRadius: 22, backgroundColor: '#FFFDFB', borderWidth: 1, borderColor: '#FFE4D6', shadowColor: '#6D2C0D', shadowOffset: { width: 0, height: 4 }, shadowOpacity: .14, shadowRadius: 9, elevation: 5, zIndex: 2 },
+  searchingMapChipText: { fontSize: 13, fontWeight: '800', color: '#282321' },
   hamburgerBtn: { position: 'absolute', top: Platform.OS === 'ios' ? 54 : 38, left: 16, width: 46, height: 46, borderRadius: 23, backgroundColor: '#FFFDFB', justifyContent: 'center', alignItems: 'center', shadowColor: '#5A2B14', shadowOffset: { width: 0, height: 5 }, shadowOpacity: 0.18, shadowRadius: 10, elevation: 6, zIndex: 2, borderWidth: 1, borderColor: '#FFF0E7' },
   mapBrand: { position: 'absolute', top: Platform.OS === 'ios' ? 55 : 39, alignSelf: 'center', height: 44, paddingHorizontal: 16, borderRadius: 22, backgroundColor: '#FFFDFB', flexDirection: 'row', alignItems: 'center', shadowColor: '#5A2B14', shadowOffset: { width: 0, height: 5 }, shadowOpacity: 0.14, shadowRadius: 10, elevation: 5, zIndex: 2, borderWidth: 1, borderColor: '#FFF0E7' },
   mapBrandMoli: { fontSize: 21, lineHeight: 24, fontWeight: '900', color: '#FF5A1F', letterSpacing: -1 },
@@ -1353,14 +1404,41 @@ const s = StyleSheet.create({
   confirmBtnText: { color: '#fff', fontSize: 17, fontWeight: '700' },
 
   // ─── Searching Panel ───
-  searchingPanel: { backgroundColor: '#fff', borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingVertical: 40, paddingHorizontal: 20, shadowColor: '#000', shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 8 },
+  searchingPanel: { backgroundColor: '#FFF9F4', borderTopLeftRadius: 30, borderTopRightRadius: 30, paddingTop: 9, paddingBottom: Platform.OS === 'ios' ? 28 : 20, paddingHorizontal: 20, shadowColor: '#6D2C0D', shadowOffset: { width: 0, height: -7 }, shadowOpacity: 0.16, shadowRadius: 18, elevation: 12, borderTopWidth: 1, borderColor: '#FFE5D7', maxHeight: Platform.OS === 'web' && SW > 720 ? SH * .53 : SH * .6 },
   searchingContainer: { alignItems: 'center' },
+  searchRadarWrap: { width: Platform.OS === 'web' && SW > 720 ? 118 : 104, height: Platform.OS === 'web' && SW > 720 ? 118 : 104, alignItems: 'center', justifyContent: 'center', marginBottom: 3 },
+  searchRadarPulse: { position: 'absolute', width: 92, height: 92, borderRadius: 46, backgroundColor: '#FF8B58' },
+  searchRadarRingOuter: { position: 'absolute', width: 100, height: 100, borderRadius: 50, borderWidth: 1.5, borderColor: '#FFD1BB' },
+  searchRadarRingInner: { position: 'absolute', width: 76, height: 76, borderRadius: 38, borderWidth: 1.5, borderColor: '#FFB18E' },
+  searchMoliOrb: { width: 58, height: 58, borderRadius: 29, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FF5A1F', borderWidth: 3, borderColor: '#FFF', shadowColor: '#C83A00', shadowOffset: { width: 0, height: 7 }, shadowOpacity: .28, shadowRadius: 11, elevation: 7 },
+  searchMoliLetter: { color: '#FFF', fontSize: 26, lineHeight: 30, fontWeight: '900' },
+  radarVehicle: { position: 'absolute', zIndex: 2 },
+  radarVehicleLeft: { left: -5, bottom: 4, transform: [{ rotate: '-12deg' }] },
+  radarVehicleRight: { right: -6, top: 3, transform: [{ rotate: '9deg' }] },
+  searchingTitle: { fontSize: Platform.OS === 'web' && SW > 720 ? 28 : 23, lineHeight: 32, fontWeight: '900', color: '#201C1A', letterSpacing: -.5, textAlign: 'center' },
+  searchingSubtitle: { fontSize: 13, color: '#867A74', marginTop: 2, marginBottom: 12, textAlign: 'center' },
+  searchStatusCard: { width: '100%', maxWidth: 620, minHeight: 66, flexDirection: 'row', alignItems: 'center', padding: 10, borderRadius: 19, backgroundColor: '#FFF', borderWidth: 1, borderColor: '#F3E6DE', shadowColor: '#633017', shadowOffset: { width: 0, height: 5 }, shadowOpacity: .1, shadowRadius: 10, elevation: 3 },
+  searchAvatar: { width: 46, height: 46, borderRadius: 23, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFF0E8', marginRight: 11 },
+  searchStatusCopy: { flex: 1 },
+  searchDots: { flexDirection: 'row', gap: 5, marginBottom: 5 },
+  searchDotStrong: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#FF5A1F' },
+  searchDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#FF8B58' },
+  searchDotSoft: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#FFC3A8' },
+  searchStatusText: { fontSize: 14, fontWeight: '800', color: '#282321' },
+  searchTripCard: { width: '100%', maxWidth: 620, minHeight: 66, flexDirection: 'row', alignItems: 'center', gap: 11, padding: 9, marginTop: 9, borderRadius: 19, backgroundColor: '#FFF', borderWidth: 1, borderColor: '#F3E6DE', shadowColor: '#633017', shadowOffset: { width: 0, height: 4 }, shadowOpacity: .08, shadowRadius: 8, elevation: 2 },
+  searchTripMeta: { fontSize: 12, color: '#827872', marginBottom: 2 },
+  searchTripPrice: { fontSize: 18, fontWeight: '900', color: '#201C1A' },
+  searchPrivacy: { flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 10, paddingHorizontal: 5 },
+  searchPrivacyText: { fontSize: 11, color: '#8E8E93', textAlign: 'center' },
+  playWhileWaitingBtn: { width: '100%', maxWidth: 620, minHeight: 54, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, backgroundColor: '#FFF', borderWidth: 1, borderColor: '#F0DED4', paddingHorizontal: 16, borderRadius: 17, marginTop: 12, shadowColor: '#6D2C0D', shadowOffset: { width: 0, height: 4 }, shadowOpacity: .1, shadowRadius: 8, elevation: 3 },
+  playIcon: { width: 34, height: 34, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFF0E8' },
+  playWhileWaitingText: { fontSize: 14, fontWeight: '800', color: '#282321' },
   searchingText: { fontSize: 17, fontWeight: '600', color: '#1C1C1E', marginTop: 20, textAlign: 'center' },
   progressBar: { width: '70%', height: 4, backgroundColor: '#E5E5EA', borderRadius: 2, marginTop: 16, overflow: 'hidden' },
   progressFill: { height: '100%', backgroundColor: '#00C853', borderRadius: 2 },
   searchingHint: { fontSize: 13, color: '#8E8E93', marginTop: 12 },
-  cancelSearchBtn: { marginTop: 24, paddingVertical: 12, paddingHorizontal: 32, borderRadius: 10, borderWidth: 1.5, borderColor: '#FF3B30' },
-  cancelSearchText: { color: '#FF3B30', fontSize: 15, fontWeight: '600' },
+  cancelSearchBtn: { width: '100%', maxWidth: 620, marginTop: 10, minHeight: 52, justifyContent: 'center', alignItems: 'center', borderRadius: 17, borderWidth: 1.5, borderColor: '#FF5A1F', backgroundColor: '#FFF9F4' },
+  cancelSearchText: { color: '#F04B14', fontSize: 15, fontWeight: '800' },
   cancelActiveBtn: {
     flexDirection: 'row',
     alignItems: 'center',
