@@ -206,6 +206,7 @@ El registro móvil exige teléfono y email. El canal `auto` intenta WhatsApp y u
 - Mientras el cliente todavía no publicó una solicitud se muestran autos y motos cercanos como una representación orientativa para dar contexto al mapa. La interfaz lo aclara y esas posiciones no se consideran conductores asignables ni una promesa de disponibilidad real.
 - Al existir una solicitud o un viaje activo desaparece la representación orientativa y el mapa muestra exclusivamente los datos operativos entregados por el backend.
 - Los vehículos del mapa se presentan como recortes transparentes sin fondo decorativo y reducen su tamaño progresivamente al alejar el zoom para no ocultar calles ni puntos de interés. Los puntos operativos usan el pin naranja/carbón propio de Moli.
+- Administración y Despacho tienen guardas de interfaz independientes basadas en sesión y rol, además de la autorización del backend. Un cliente o prestador nunca debe renderizar esas vistas por navegación directa, historial o enlace equivocado.
 
 ## Próximos hitos
 

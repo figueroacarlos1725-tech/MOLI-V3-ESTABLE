@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Platform, Dimensions } from 'react-native';
-import { Tabs, usePathname, useRouter } from 'expo-router';
+import { Redirect, Tabs, usePathname, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthStore } from '@/src/stores/authStore';
@@ -100,6 +100,14 @@ function AdminSidebar() {
 }
 
 export default function AdminLayout() {
+  const { user, isAuthenticated, isLoading } = useAuthStore();
+
+  if (isLoading) return null;
+  if (!isAuthenticated) return <Redirect href="/(auth)/welcome" />;
+  if (user?.user_type !== 'admin') {
+    return <Redirect href={user?.user_type === 'dispatcher' ? '/(dispatch)/home' : user?.user_type === 'driver' ? '/provider-hub' : '/modules'} />;
+  }
+
   if (isDesktop) {
     return (
       <View style={styles.desktopContainer}>
