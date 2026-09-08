@@ -7,6 +7,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Button } from '@/src/components/Button';
 import { apiService } from '@/src/services/api';
+import { useAuthStore } from '@/src/stores/authStore';
 
 const CATEGORY_OPTIONS = [
   { id: 'electricista', name: 'Electricista', icon: 'flash' },
@@ -23,6 +24,7 @@ const CATEGORY_OPTIONS = [
 
 export default function SetupProfileScreen() {
   const router = useRouter();
+  const updateUser = useAuthStore(state => state.updateUser);
   const [selectedCats, setSelectedCats] = useState<string[]>([]);
   const [description, setDescription] = useState('');
   const [hourlyRate, setHourlyRate] = useState('');
@@ -54,6 +56,7 @@ export default function SetupProfileScreen() {
         hourly_rate: parseFloat(hourlyRate) || 0,
         is_available: true,
       });
+      updateUser({ is_professional: true });
       Alert.alert('Perfil guardado', 'Ya podés recibir y ofertar trabajos');
       router.back();
     } catch (e: any) {

@@ -162,6 +162,16 @@ async def update_professional_profile(
         await db.professional_profiles.insert_one(profile_data)
         profile_data.pop("_id", None)
         result = profile_data
+
+    if data.get("categories"):
+        await db.users.update_one(
+            {"user_id": user["user_id"]},
+            {"$set": {"is_professional": True, "updated_at": now}},
+        )
+        await db.drivers.update_one(
+            {"user_id": user["user_id"]},
+            {"$set": {"is_professional": True}},
+        )
     
     # Serialize datetimes
     if result:
