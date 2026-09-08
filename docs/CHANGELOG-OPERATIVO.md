@@ -1,5 +1,13 @@
 # Changelog operativo
 
+## 2026-09-08 — Viaje minimizable y seguimiento persistente
+
+- La búsqueda de conductor se puede minimizar sin cancelar la solicitud.
+- El inicio del cliente muestra una tarjeta flotante persistente para búsqueda, revisión de conductor y viaje aceptado/en curso.
+- Se agregó recuperación autenticada de la solicitud pendiente desde backend para conservar el estado al navegar o recargar.
+- El botón de cancelar búsqueda queda fijo y visible en pantallas móviles; el contenido superior puede desplazarse.
+- La pantalla de búsqueda informa en vivo qué conductor está revisando la solicitud.
+
 ## 2026-09-07 — Panel premium de Viajes
 
 - Se rediseñó el inicio de Viajes con buscador elevado, origen contextual, selector Viaje/Envíos, accesos frecuentes y controles alineados con la identidad naranja de Moli.

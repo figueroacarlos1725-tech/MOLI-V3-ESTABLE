@@ -68,6 +68,7 @@ interface RideState {
   isLoading: boolean;
   
   createRideRequest: (data: any) => Promise<RideRequest>;
+  fetchActiveRequest: () => Promise<RideRequest | null>;
   fetchActiveRide: () => Promise<Ride | null>;
   fetchRideHistory: () => Promise<void>;
   fetchPendingRequests: (lat: number, lng: number) => Promise<void>;
@@ -101,6 +102,18 @@ export const useRideStore = create<RideState>((set, get) => ({
     } catch (error) {
       set({ isLoading: false });
       throw error;
+    }
+  },
+
+  fetchActiveRequest: async () => {
+    try {
+      const response = await apiService.get('/rides/request/active');
+      const request = (response.request ?? null) as RideRequest | null;
+      set({ currentRequest: request });
+      return request;
+    } catch (error) {
+      console.error('Error fetching active ride request:', error);
+      return null;
     }
   },
 

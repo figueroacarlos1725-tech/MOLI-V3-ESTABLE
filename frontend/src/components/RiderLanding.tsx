@@ -6,6 +6,7 @@ import { apiService } from '@/src/services/api';
 import { MOLI_COLORS as C, MOLI_SHADOWS as SH } from '@/src/theme/colors';
 import ClientActiveRequests from '@/src/components/ClientActiveRequests';
 import ClientNotificationBell from '@/src/components/ClientNotificationBell';
+import ClientActiveRide from '@/src/components/ClientActiveRide';
 
 type Category={id?:string;category_id?:string;name:string;icon?:keyof typeof Ionicons.glyphMap};
 type Professional={user_id:string;name:string;categories:string[];rating?:number;total_jobs?:number};
@@ -58,7 +59,7 @@ export default function RiderLanding({firstName,onProfile,onLogout}:{firstName:s
       <UtilityCard icon="storefront" artwork={MARKETPLACE_ART} eyebrow="COMPRAS" title="Market" copy="Delivery o retiro" onPress={()=>router.push('/(marketplace)')}/>
     </View>
     <TouchableOpacity style={s.logout} onPress={onLogout}><Ionicons name="swap-horizontal" size={19} color={C.gray}/><Text style={s.logoutText}>Cambiar cuenta</Text></TouchableOpacity>
-  </ScrollView><ClientActiveRequests/></View>;
+  </ScrollView><ClientActiveRequests/><ClientActiveRide/></View>;
 }
 function Section({title,action}:{title:string;action:string}){return <View style={s.section}><Text style={s.sectionTitle}>{title}</Text><Text style={s.sectionAction}>{action}</Text></View>}
 function ServiceCard({artwork,eyebrow,title,copy,action,onPress}:{artwork:ImageSourcePropType;eyebrow:string;title:string;copy:string;action:string;onPress:()=>void}){return <TouchableOpacity activeOpacity={.84} style={s.serviceCard} onPress={onPress}><View style={s.serviceArtBox}><Image source={artwork} style={s.serviceArt} resizeMode="contain"/></View><View style={s.serviceCopy}><Text style={s.serviceEyebrow}>{eyebrow}</Text><Text style={s.serviceTitle}>{title}</Text><Text style={s.serviceText}>{copy}</Text></View><View style={s.serviceAction}><Text style={s.serviceActionText}>{action}</Text><Ionicons name="arrow-forward" size={16} color="#fff"/></View></TouchableOpacity>}

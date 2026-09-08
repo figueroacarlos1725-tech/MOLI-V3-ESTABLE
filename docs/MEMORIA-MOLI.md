@@ -1,6 +1,13 @@
 # Memoria viva de Moli
 
-Última actualización: 2026-09-06
+Última actualización: 2026-09-08
+
+## Seguimiento persistente de viajes
+
+- Una solicitud de viaje pendiente continúa activa cuando el cliente minimiza la búsqueda y vuelve a `/modules`.
+- `GET /api/rides/request/active` reconstruye la búsqueda pendiente autenticada e incluye el conductor que la está revisando cuando existe una oferta activa.
+- El inicio muestra una tarjeta flotante para los estados buscando, conductor revisando, aceptado, conductor llegando y viaje iniciado. Al tocarla abre `/solicitar-viaje`.
+- En la pantalla de búsqueda, la acción superior minimiza; la cancelación explícita queda fija abajo y llama al endpoint de cancelación.
 
 ## Enfoque de lanzamiento aprobado
 

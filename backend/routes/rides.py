@@ -26,6 +26,35 @@ from notifications import (
 router = APIRouter()
 
 
+@router.get("/api/rides/request/active")
+async def get_active_ride_request(user: dict = Depends(get_current_user)):
+    """Return the rider's pending search so it can survive navigation/reloads."""
+    if user["user_type"] not in ["rider", "admin"]:
+        raise HTTPException(status_code=403, detail="Only riders can view their active request")
+
+    request_doc = await db.ride_requests.find_one(
+        {"rider_id": user["user_id"], "status": {"$in": ["pending", "bidding", "searching"]}},
+        {"_id": 0},
+        sort=[("created_at", -1)],
+    )
+    if not request_doc:
+        return {"request": None}
+
+    reviewing_driver = None
+    driver_id = request_doc.get("current_offer_driver")
+    if driver_id:
+        reviewing_driver = await db.users.find_one(
+            {"user_id": driver_id},
+            {"_id": 0, "user_id": 1, "name": 1, "profile_picture": 1},
+        )
+
+    for field in ["created_at", "expires_at", "offer_sent_at"]:
+        if isinstance(request_doc.get(field), datetime):
+            request_doc[field] = request_doc[field].isoformat()
+    request_doc["reviewing_driver"] = reviewing_driver
+    return {"request": request_doc}
+
+
 @router.post("/api/rides/request", response_model=RideRequestResponse)
 async def create_ride_request(request: RideRequestCreate, user: dict = Depends(get_current_user)):
     if user["user_type"] not in ["rider", "admin"]:

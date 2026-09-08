@@ -48,7 +48,7 @@ export default function RiderHomeScreen() {
   const { user } = useAuthStore();
   const router = useRouter();
   const params = useLocalSearchParams<{ service?: string }>();
-  const { currentRequest, currentRide, bids, createRideRequest, acceptBid, fetchActiveRide, addBid, clearRequest, updateRideStatus } = useRideStore();
+  const { currentRequest, currentRide, bids, createRideRequest, acceptBid, fetchActiveRide, fetchActiveRequest, addBid, clearRequest, updateRideStatus } = useRideStore();
 
   // Core state
   const [phase, setPhase] = useState<Phase>('idle');
@@ -147,9 +147,12 @@ export default function RiderHomeScreen() {
   // ─── Init ─────────────────────────────────
   useEffect(() => {
     initLocation();
-    fetchActiveRide().then((ride) => {
+    fetchActiveRide().then(async (ride) => {
       if (ride && ['accepted', 'arrived', 'started'].includes(ride.status)) {
         setPhase('active');
+      } else {
+        const request = await fetchActiveRequest();
+        if (request) setPhase('searching');
       }
     });
     fetchBanners();
@@ -245,6 +248,12 @@ export default function RiderHomeScreen() {
       setDispatchMsg(`Buscando conductor ${d.driver_index}/${d.total_drivers}...`);
       setDispatchProgress({ i: d.driver_index, t: d.total_drivers });
     });
+    const unsubReviewing = socketService.on('driver_reviewing', (d: any) => {
+      setDispatchMsg(d.message || `${d.driver_name || 'Un conductor'} está viendo tu viaje`);
+    });
+    const unsubReviewEnded = socketService.on('driver_review_ended', (d: any) => {
+      setDispatchMsg(d.message || 'Buscando otro conductor...');
+    });
     const unsub3 = socketService.on('ride_accepted', () => {
       setDriverFound(true);
       setDispatchMsg('¡Conductor encontrado!');
@@ -309,7 +318,7 @@ export default function RiderHomeScreen() {
       }
     });
 
-    return () => { unsub1(); unsub2(); unsub3(); unsub4(); unsub5(); unsub6(); unsub7(); unsub8(); unsub9(); };
+    return () => { unsub1(); unsub2(); unsubReviewing(); unsubReviewEnded(); unsub3(); unsub4(); unsub5(); unsub6(); unsub7(); unsub8(); unsub9(); };
   }, [user]);
 
   // ─── Polling fallback when searching ──────
@@ -555,6 +564,10 @@ export default function RiderHomeScreen() {
     estimateFetched.current = false;
     clearRequest();
     setPhase('idle');
+  };
+
+  const handleMinimizeSearch = () => {
+    router.replace('/modules');
   };
 
   // ─── Memoized markers (prevents re-render loop) ───
@@ -864,8 +877,8 @@ export default function RiderHomeScreen() {
 
         {/* Back button when confirming */}
         {(phase === 'confirm' || phase === 'searching') && (
-          <TouchableOpacity style={s.mapBackBtn} onPress={handleBackToIdle}>
-            <Ionicons name="arrow-back" size={24} color="#1C1C1E" />
+          <TouchableOpacity style={s.mapBackBtn} onPress={phase === 'searching' ? handleMinimizeSearch : handleBackToIdle}>
+            <Ionicons name={phase === 'searching' ? 'contract-outline' : 'arrow-back'} size={24} color="#1C1C1E" />
           </TouchableOpacity>
         )}
         {phase === 'searching' && (
@@ -1189,7 +1202,8 @@ export default function RiderHomeScreen() {
               </TouchableOpacity>
             </View>
           ) : (
-            <View style={s.searchingContainer}>
+            <View style={[s.searchingContainer, s.searchingContainerBounded]}>
+              <ScrollView style={s.searchingScroll} contentContainerStyle={s.searchingScrollContent} showsVerticalScrollIndicator={false}>
               <View style={s.panelHandle} />
               <View style={s.searchRadarWrap}>
                 <Animated.View style={[s.searchRadarPulse, { opacity: searchRadar.interpolate({ inputRange: [0, .75, 1], outputRange: [.4, .12, 0] }), transform: [{ scale: searchRadar.interpolate({ inputRange: [0, 1], outputRange: [.62, 1.42] }) }] }]} />
@@ -1233,9 +1247,8 @@ export default function RiderHomeScreen() {
                 <SnakeGame onClose={() => setShowSnake(false)} />
               )}
 
-              <TouchableOpacity style={s.cancelSearchBtn} onPress={handleCancelSearch}>
-                <Text style={s.cancelSearchText}>Cancelar búsqueda</Text>
-              </TouchableOpacity>
+              </ScrollView>
+              <TouchableOpacity style={s.cancelSearchBtn} onPress={handleCancelSearch}><Text style={s.cancelSearchText}>Cancelar búsqueda</Text></TouchableOpacity>
             </View>
           )}
         </View>
@@ -1404,8 +1417,11 @@ const s = StyleSheet.create({
   confirmBtnText: { color: '#fff', fontSize: 17, fontWeight: '700' },
 
   // ─── Searching Panel ───
-  searchingPanel: { backgroundColor: '#FFF9F4', borderTopLeftRadius: 30, borderTopRightRadius: 30, paddingTop: 9, paddingBottom: Platform.OS === 'ios' ? 28 : 20, paddingHorizontal: 20, shadowColor: '#6D2C0D', shadowOffset: { width: 0, height: -7 }, shadowOpacity: 0.16, shadowRadius: 18, elevation: 12, borderTopWidth: 1, borderColor: '#FFE5D7', maxHeight: Platform.OS === 'web' && SW > 720 ? SH * .53 : SH * .6 },
+  searchingPanel: { backgroundColor: '#FFF9F4', borderTopLeftRadius: 30, borderTopRightRadius: 30, paddingTop: 9, paddingBottom: Platform.OS === 'ios' ? 28 : 20, paddingHorizontal: 20, shadowColor: '#6D2C0D', shadowOffset: { width: 0, height: -7 }, shadowOpacity: 0.16, shadowRadius: 18, elevation: 12, borderTopWidth: 1, borderColor: '#FFE5D7', height: Platform.OS === 'web' && SW > 720 ? SH * .53 : SH * .6, maxHeight: 570 },
   searchingContainer: { alignItems: 'center' },
+  searchingContainerBounded: { flex: 1, width: '100%' },
+  searchingScroll: { width: '100%' },
+  searchingScrollContent: { alignItems: 'center', paddingBottom: 4 },
   searchRadarWrap: { width: Platform.OS === 'web' && SW > 720 ? 118 : 104, height: Platform.OS === 'web' && SW > 720 ? 118 : 104, alignItems: 'center', justifyContent: 'center', marginBottom: 3 },
   searchRadarPulse: { position: 'absolute', width: 92, height: 92, borderRadius: 46, backgroundColor: '#FF8B58' },
   searchRadarRingOuter: { position: 'absolute', width: 100, height: 100, borderRadius: 50, borderWidth: 1.5, borderColor: '#FFD1BB' },
