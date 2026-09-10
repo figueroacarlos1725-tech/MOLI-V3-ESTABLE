@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator, Alert, Image, Modal, SafeAreaView, ScrollView, StyleSheet,
-  Switch, Text, TouchableOpacity, View,
+  Switch, Text, TextInput, TouchableOpacity, View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Redirect, useFocusEffect, useRouter } from 'expo-router';
@@ -65,6 +65,10 @@ export default function ProviderHub() {
   const [deliveries, setDeliveries] = useState<any[]>([]);
   const [rideOffer, setRideOffer] = useState<any>(null);
   const [countdown, setCountdown] = useState(25);
+  const [jobOffer, setJobOffer] = useState<any>(null);
+  const [jobCountdown, setJobCountdown] = useState(35);
+  const [reviewingJob, setReviewingJob] = useState(false);
+  const [counterPrice, setCounterPrice] = useState('');
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const allowed = useCallback((key: ServiceKey) =>
@@ -111,7 +115,15 @@ export default function ProviderHub() {
       setCountdown(offer.countdown || 25);
     });
     const unsubscribeExpired = socketService.on('ride_offer_expired', () => setRideOffer(null));
-    const unsubscribeJob = socketService.on('new_job_available', () => loadDashboard());
+    const unsubscribeJob = socketService.on('new_job_available', (job: any) => {
+      const isPaperwork = job?.category === 'tramites';
+      if (online && (isPaperwork ? prefs.paperwork : prefs.jobs)) {
+        setJobOffer(job);
+        setJobCountdown(35);
+        setReviewingJob(false);
+      }
+      loadDashboard();
+    });
     return () => { unsubscribeOffer(); unsubscribeExpired(); unsubscribeJob(); };
   }, [user?.user_id, prefs.rides, online, loadDashboard]);
 
@@ -127,6 +139,15 @@ export default function ProviderHub() {
     }), 1000);
     return () => { if (countdownRef.current) clearInterval(countdownRef.current); };
   }, [rideOffer?.request_id]);
+
+  useEffect(() => {
+    if (!jobOffer) return;
+    const timer = setInterval(() => setJobCountdown(value => {
+      if (value <= 1) { setJobOffer(null); return 0; }
+      return value - 1;
+    }), 1000);
+    return () => clearInterval(timer);
+  }, [jobOffer?.job_id]);
 
   const saveProfilePrefs = async (next: Record<ServiceKey, boolean>, nextOnline = online) => {
     if (!professional) return;
@@ -214,7 +235,49 @@ export default function ProviderHub() {
       router.push('/(driver)/deliveries');
       return;
     }
-    router.push(`/(jobs)/home?activity=${item.type === 'paperwork' ? 'tramites' : 'work'}` as any);
+    try {
+      await apiService.post(`/jobs/${item.id}/review`, {});
+      const detail = await apiService.get(`/jobs/detail/${item.id}`);
+      setJobOffer(detail.job || item.raw);
+      setReviewingJob(true);
+      setJobCountdown(35);
+    } catch (error: any) { Alert.alert('Oportunidad no disponible', error?.message || 'Otra persona comenzó a revisarla.'); }
+  };
+
+  const reviewIncomingJob = async () => {
+    if (!jobOffer?.job_id) return;
+    try {
+      await apiService.post(`/jobs/${jobOffer.job_id}/review`, {});
+      const detail = await apiService.get(`/jobs/detail/${jobOffer.job_id}`);
+      setJobOffer(detail.job || jobOffer);
+      setReviewingJob(true);
+      setJobCountdown(35);
+    } catch (error: any) { setJobOffer(null); Alert.alert('Oportunidad no disponible', error?.message || 'Ya fue tomada.'); }
+  };
+
+  const acceptJob = async () => {
+    if (!jobOffer?.job_id) return;
+    try {
+      await apiService.post(`/jobs/${jobOffer.job_id}/accept`, {});
+      setJobOffer(null);
+      router.push(`/(jobs)/home?activity=${jobOffer.category === 'tramites' ? 'tramites' : 'work'}` as any);
+    } catch (error: any) { Alert.alert('No se pudo aceptar', error?.message || 'La oportunidad venció.'); }
+  };
+
+  const rejectJob = async () => {
+    if (reviewingJob && jobOffer?.job_id) await apiService.post(`/jobs/${jobOffer.job_id}/decline`, {}).catch(() => {});
+    setJobOffer(null);
+  };
+
+  const counterJob = async () => {
+    const price = Number(counterPrice);
+    if (!jobOffer?.job_id || price <= 0) return Alert.alert('Ingresá un importe válido');
+    try {
+      await apiService.post(`/jobs/${jobOffer.job_id}/counter-offer`, { price });
+      setJobOffer(null);
+      setCounterPrice('');
+      Alert.alert('Propuesta enviada', 'El cliente tiene 35 segundos para responder.');
+    } catch (error: any) { Alert.alert('No se pudo enviar', error?.message || 'Intentá nuevamente.'); }
   };
 
   if (!driver && !professional) return <Redirect href="/modules" />;
@@ -287,6 +350,7 @@ export default function ProviderHub() {
       <SideMenu visible={menuOpen} onClose={() => setMenuOpen(false)} role="driver" />
       <Preferences visible={settingsOpen} onClose={() => setSettingsOpen(false)} onDone={async () => { try { await saveProfilePrefs(prefs); } finally { setSettingsOpen(false); } }} prefs={prefs} allowed={allowed} toggle={toggleService} radius={radius} setRadius={setRadius} />
       <RideOffer offer={rideOffer} countdown={countdown} onAccept={() => respondRide('accept')} onReject={() => respondRide('reject')} />
+      <JobOffer offer={jobOffer} countdown={jobCountdown} reviewing={reviewingJob} counterPrice={counterPrice} setCounterPrice={setCounterPrice} onCounter={counterJob} onReview={reviewIncomingJob} onAccept={acceptJob} onReject={rejectJob} />
     </SafeAreaView>
   );
 }
@@ -318,6 +382,19 @@ function RideOffer({ offer, countdown, onAccept, onReject }: any) {
   </View></View></Modal>;
 }
 
+function JobOffer({ offer, countdown, reviewing, counterPrice, setCounterPrice, onCounter, onReview, onAccept, onReject }: any) {
+  return <Modal visible={Boolean(offer)} transparent animationType="fade"><View style={styles.offerOverlay}><View style={styles.offerCard}>
+    <View style={styles.offerTimer}><Text style={styles.offerSeconds}>{countdown}</Text><Text style={styles.offerSecLabel}>seg</Text></View>
+    <Text style={styles.offerEyebrow}>{offer?.category === 'tramites' ? 'NUEVO TRÁMITE' : 'TRABAJO PROFESIONAL'}</Text>
+    <Image source={offer?.category === 'tramites' ? ART.paperwork : ART.jobs} style={{ width: 76, height: 70, resizeMode: 'contain', marginTop: 7 }} />
+    <Text style={styles.offerTitle}>{offer?.title || 'Nueva oportunidad'}</Text>
+    <View style={styles.privacyPill}><Ionicons name="shield-checkmark" size={15} color={ORANGE} /><Text style={styles.privacyText}>{reviewing ? 'Dirección disponible al aceptar' : 'Zona aproximada · revisá para continuar'}</Text></View>
+    <View style={styles.jobFacts}><View><Text style={styles.factLabel}>PRESUPUESTO</Text><Text style={styles.factValue}>{money(offer?.budget || 0)}</Text></View><View><Text style={styles.factLabel}>PAGO</Text><Text style={styles.factValue}>{offer?.payment_method || 'A coordinar'}</Text></View></View>
+    {reviewing ? <View style={styles.counterInputRow}><Text style={styles.currency}>$</Text><TextInput value={counterPrice} onChangeText={(text) => setCounterPrice(text.replace(/[^0-9]/g, ''))} keyboardType="numeric" placeholder={String(offer?.budget || 15000)} style={styles.counterInput} /></View> : null}
+    <View style={styles.offerActions}><TouchableOpacity style={styles.reject} onPress={onReject}><Text style={styles.rejectText}>Rechazar</Text></TouchableOpacity>{reviewing ? <><TouchableOpacity style={styles.counter} onPress={onCounter}><Text style={styles.counterText}>Contraofertar</Text></TouchableOpacity><TouchableOpacity style={styles.accept} onPress={onAccept}><Text style={styles.acceptText}>Aceptar</Text></TouchableOpacity></> : <TouchableOpacity style={styles.accept} onPress={onReview}><Text style={styles.acceptText}>Revisar</Text></TouchableOpacity>}</View>
+  </View></View></Modal>;
+}
+
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: WARM }, content: { width: '100%', maxWidth: 760, alignSelf: 'center', padding: 16, paddingBottom: 42 },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }, roundButton: { width: 46, height: 46, borderRadius: 23, backgroundColor: '#FFF', alignItems: 'center', justifyContent: 'center', elevation: 3, shadowColor: '#4F2A16', shadowOpacity: .1, shadowRadius: 9 }, logo: { fontSize: 32, fontWeight: '900', fontStyle: 'italic', color: ORANGE },
@@ -329,4 +406,6 @@ const styles = StyleSheet.create({
   newBadge: { backgroundColor: '#FFF0E8', paddingHorizontal: 9, paddingVertical: 5, borderRadius: 12 }, newBadgeText: { color: ORANGE, fontSize: 9, fontWeight: '900' }, opportunity: { backgroundColor: '#FFF', padding: 10, marginBottom: 9, borderRadius: 18, flexDirection: 'row', gap: 11, alignItems: 'center', borderWidth: 1, borderColor: '#F0E4DA', elevation: 2, shadowColor: '#4F2A16', shadowOpacity: .06, shadowRadius: 7 }, opportunityArt: { width: 54, height: 54, borderRadius: 16, backgroundColor: '#FFF0E8', alignItems: 'center', justifyContent: 'center' }, oppImage: { width: 48, height: 48, resizeMode: 'contain' }, kind: { color: ORANGE, fontSize: 9, fontWeight: '900' }, oppTitle: { color: INK, fontSize: 13, fontWeight: '900', marginTop: 2 }, oppCopy: { color: '#858585', fontSize: 10, marginTop: 3 }, price: { color: INK, fontWeight: '900', fontSize: 13, marginBottom: 8 }, empty: { alignItems: 'center', padding: 26, borderRadius: 22, backgroundColor: '#FFF', borderWidth: 1, borderColor: '#F0E4DA' }, emptyTitle: { color: INK, fontSize: 15, fontWeight: '900', marginTop: 8 }, emptyCopy: { color: '#898989', fontSize: 11, textAlign: 'center', marginTop: 4 },
   overlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,.38)' }, sheet: { backgroundColor: WARM, padding: 19, paddingBottom: 28, borderTopLeftRadius: 30, borderTopRightRadius: 30 }, handle: { width: 42, height: 5, borderRadius: 3, backgroundColor: '#DDD', alignSelf: 'center', marginBottom: 15 }, sheetHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 13 }, sheetTitle: { color: INK, fontSize: 22, fontWeight: '900' }, sheetCopy: { color: '#808080', fontSize: 11, marginTop: 3 }, prefRow: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 9, borderRadius: 17, backgroundColor: '#FFF', marginBottom: 8, borderWidth: 1, borderColor: '#F0E4DA' }, prefArt: { width: 43, height: 43, resizeMode: 'contain' }, prefTitle: { color: INK, fontSize: 14, fontWeight: '900' }, prefCopy: { color: '#888', fontSize: 10, marginTop: 2 }, radiusTitle: { color: INK, fontWeight: '900', fontSize: 14, marginTop: 8 }, radiusRow: { flexDirection: 'row', gap: 7, marginTop: 9 }, radius: { flex: 1, borderWidth: 1, borderColor: '#DDD', paddingVertical: 9, borderRadius: 14, alignItems: 'center' }, radiusActive: { backgroundColor: ORANGE, borderColor: ORANGE }, radiusText: { color: '#777', fontSize: 10, fontWeight: '800' }, radiusTextActive: { color: '#FFF' }, doneButton: { height: 52, borderRadius: 17, backgroundColor: ORANGE, alignItems: 'center', justifyContent: 'center', marginTop: 17 }, doneText: { color: '#FFF', fontWeight: '900', fontSize: 15 },
   offerOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,.58)', padding: 14 }, offerCard: { borderRadius: 28, backgroundColor: WARM, padding: 21, alignItems: 'center' }, offerTimer: { width: 66, height: 66, borderRadius: 33, borderWidth: 5, borderColor: ORANGE, alignItems: 'center', justifyContent: 'center' }, offerSeconds: { color: INK, fontSize: 25, fontWeight: '900', lineHeight: 26 }, offerSecLabel: { color: '#777', fontSize: 8, fontWeight: '800' }, offerEyebrow: { color: ORANGE, fontSize: 9, letterSpacing: 1.4, fontWeight: '900', marginTop: 13 }, offerTitle: { color: INK, fontSize: 24, fontWeight: '900', marginBottom: 15 }, offerRoute: { color: INK, fontSize: 13, fontWeight: '700', marginVertical: 5, textAlign: 'center' }, offerPrice: { color: INK, fontSize: 28, fontWeight: '900', marginTop: 15 }, offerActions: { flexDirection: 'row', gap: 9, marginTop: 18 }, reject: { flex: 1, height: 53, borderRadius: 17, borderWidth: 1.5, borderColor: '#D7D7D7', alignItems: 'center', justifyContent: 'center' }, rejectText: { color: INK, fontWeight: '900' }, accept: { flex: 1, height: 53, borderRadius: 17, backgroundColor: ORANGE, alignItems: 'center', justifyContent: 'center' }, acceptText: { color: '#FFF', fontWeight: '900' },
+  privacyPill: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#FFF0E8', paddingHorizontal: 11, paddingVertical: 8, borderRadius: 13 }, privacyText: { color: '#70402A', fontSize: 10, fontWeight: '700' }, jobFacts: { width: '100%', flexDirection: 'row', justifyContent: 'space-around', paddingVertical: 15, marginTop: 8, borderBottomWidth: 1, borderBottomColor: '#EEE2D8' }, factLabel: { color: '#999', fontSize: 8, fontWeight: '900', letterSpacing: 1 }, factValue: { color: INK, fontSize: 15, fontWeight: '900', marginTop: 3 }, counter: { flex: 1, height: 53, borderRadius: 17, borderWidth: 1.5, borderColor: ORANGE, alignItems: 'center', justifyContent: 'center' }, counterText: { color: ORANGE, fontSize: 11, fontWeight: '900' },
+  counterInputRow: { width: '100%', height: 48, marginTop: 12, borderWidth: 1.5, borderColor: '#FFD0BB', borderRadius: 15, backgroundColor: '#FFF', flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14 }, currency: { color: ORANGE, fontSize: 17, fontWeight: '900' }, counterInput: { flex: 1, color: INK, fontSize: 17, fontWeight: '900', marginLeft: 6, outlineStyle: 'none' } as any,
 });

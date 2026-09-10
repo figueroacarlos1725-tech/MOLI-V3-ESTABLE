@@ -1,5 +1,11 @@
 # Changelog operativo
 
+## 2026-09-10 — Recepción unificada y QA integral
+
+- Se integró la recepción premium de trabajos y trámites en el mapa único, con revisión de 35 segundos, dirección protegida, aceptación, rechazo y contrapropuesta.
+- La pantalla secundaria vuelve al mapa unificado y ya no duplica el control de conexión.
+- `scripts/qa_core_flows.ps1` validó en QA los ciclos completos cliente-profesional, cliente-trámite y cliente-viaje hasta finalización y calificación.
+
 ## 2026-09-08 — Negociación profesional y dirección de envíos
 
 - La revisión profesional y cada turno de negociación duran 35 segundos.

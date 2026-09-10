@@ -1,6 +1,12 @@
 # Memoria viva de Moli
 
-Última actualización: 2026-09-08
+Última actualización: 2026-09-10
+
+## Validación integral del prestador
+
+- El mapa unificado recibe oportunidades de viajes, entregas, trámites y trabajos según los interruptores persistidos del prestador.
+- Trabajos y trámites se presentan con zona aproximada y revisión exclusiva de 35 segundos; la dirección exacta continúa protegida hasta la asignación. Desde la oferta se puede rechazar, aceptar o enviar contrapropuesta.
+- El script reproducible `scripts/qa_core_flows.ps1` crea identidades efímeras de QA y valida por API: publicación, privacidad previa, revisión, aceptación, inicio, doble confirmación de finalización y calificación para trabajos/trámites; además valida despacho cercano, aceptación, llegada, inicio, finalización y calificación de viaje.
 
 ## Negociación de profesionales y trámites
 

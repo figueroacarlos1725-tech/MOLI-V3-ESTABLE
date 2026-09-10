@@ -307,9 +307,9 @@ function addJobMarker(lat,lng,jobId,emoji,title,budget,cat){
 
   return (
     <View style={[s.container, { paddingTop: insets.top }]}>
-      {/* Header with GO button */}
+      {/* This detail surface always returns to the unified opportunity center. */}
       <View style={s.header}>
-        <TouchableOpacity onPress={() => router.replace('/modules')} style={s.backBtn}>
+        <TouchableOpacity onPress={() => router.back()} style={s.backBtn}>
           <Ionicons name="arrow-back" size={22} color="#1C1C1E" />
         </TouchableOpacity>
         <Text style={s.headerTitle}>Moli Trabajos</Text>
@@ -317,23 +317,10 @@ function addJobMarker(lat,lng,jobId,emoji,title,budget,cat){
           <Text style={s.jobCountText}>{filteredJobs.length}</Text>
         </View>
 
-        {/* GO Button */}
-        <TouchableOpacity
-          style={[s.goBtn, isAvailable && s.goBtnActive]}
-          onPress={toggleAvailability}
-          disabled={togglingAvail}
-        >
-          {togglingAvail ? (
-            <ActivityIndicator size="small" color={isAvailable ? '#fff' : GREEN} />
-          ) : (
-            <>
-              <Ionicons name={isAvailable ? 'radio-button-on' : 'radio-button-off'} size={16} color={isAvailable ? '#fff' : GREEN} />
-              <Text style={[s.goBtnText, isAvailable && { color: '#fff' }]}>
-                {isAvailable ? 'EN LÍNEA' : 'OFFLINE'}
-              </Text>
-            </>
-          )}
-        </TouchableOpacity>
+        <View style={[s.goBtn, isAvailable && s.goBtnActive]}>
+          <Ionicons name={isAvailable ? 'radio-button-on' : 'radio-button-off'} size={16} color={isAvailable ? '#fff' : GREEN} />
+          <Text style={[s.goBtnText, isAvailable && { color: '#fff' }]}>{isAvailable ? 'EN LÍNEA' : 'OFFLINE'}</Text>
+        </View>
       </View>
 
       {/* Professional's active jobs banner */}
@@ -463,7 +450,7 @@ function addJobMarker(lat,lng,jobId,emoji,title,budget,cat){
           <Ionicons name="settings-outline" size={22} color="#8E8E93" />
           <Text style={s.navLabel}>Categorías</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={s.navBtn} onPress={() => router.replace('/modules')}>
+        <TouchableOpacity style={s.navBtn} onPress={() => router.push('/provider-hub')}>
           <Ionicons name="home-outline" size={22} color="#8E8E93" />
           <Text style={s.navLabel}>Inicio</Text>
         </TouchableOpacity>
