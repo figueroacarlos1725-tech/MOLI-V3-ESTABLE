@@ -69,6 +69,7 @@ export default function ProviderHub() {
   const [jobCountdown, setJobCountdown] = useState(35);
   const [reviewingJob, setReviewingJob] = useState(false);
   const [counterPrice, setCounterPrice] = useState('');
+  const [activeJob, setActiveJob] = useState<any>(null);
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const allowed = useCallback((key: ServiceKey) =>
@@ -83,8 +84,9 @@ export default function ProviderHub() {
       professional ? apiService.get('/jobs/professional/profile') : Promise.resolve(null),
       professional ? apiService.get('/jobs/posts?status=open') : Promise.resolve({ jobs: [] }),
       driver ? apiService.get('/marketplace/deliveries/driver/inbox') : Promise.resolve({ deliveries: [] }),
+      professional ? apiService.get('/jobs/my-active') : Promise.resolve({ jobs: [] }),
     ]);
-    const [earningResult, profileResult, jobsResult, deliveriesResult] = results;
+    const [earningResult, profileResult, jobsResult, deliveriesResult, activeResult] = results;
     if (earningResult.status === 'fulfilled' && earningResult.value) setEarnings(earningResult.value);
     if (profileResult.status === 'fulfilled' && profileResult.value?.profile) {
       const profile = profileResult.value.profile;
@@ -101,6 +103,7 @@ export default function ProviderHub() {
     }
     if (jobsResult.status === 'fulfilled') setJobs(jobsResult.value?.jobs || []);
     if (deliveriesResult.status === 'fulfilled') setDeliveries(deliveriesResult.value?.deliveries || []);
+    if (activeResult.status === 'fulfilled' && activeResult.value?.jobs?.length) setActiveJob(activeResult.value.jobs[0]);
     setLoading(false);
   }, [driver, professional]);
 
@@ -259,8 +262,9 @@ export default function ProviderHub() {
     if (!jobOffer?.job_id) return;
     try {
       await apiService.post(`/jobs/${jobOffer.job_id}/accept`, {});
+      const detail = await apiService.get(`/jobs/detail/${jobOffer.job_id}`);
+      setActiveJob(detail.job || jobOffer);
       setJobOffer(null);
-      router.push(`/(jobs)/home?activity=${jobOffer.category === 'tramites' ? 'tramites' : 'work'}` as any);
     } catch (error: any) { Alert.alert('No se pudo aceptar', error?.message || 'La oportunidad venció.'); }
   };
 
@@ -351,6 +355,7 @@ export default function ProviderHub() {
       <Preferences visible={settingsOpen} onClose={() => setSettingsOpen(false)} onDone={async () => { try { await saveProfilePrefs(prefs); } finally { setSettingsOpen(false); } }} prefs={prefs} allowed={allowed} toggle={toggleService} radius={radius} setRadius={setRadius} />
       <RideOffer offer={rideOffer} countdown={countdown} onAccept={() => respondRide('accept')} onReject={() => respondRide('reject')} />
       <JobOffer offer={jobOffer} countdown={jobCountdown} reviewing={reviewingJob} counterPrice={counterPrice} setCounterPrice={setCounterPrice} onCounter={counterJob} onReview={reviewIncomingJob} onAccept={acceptJob} onReject={rejectJob} />
+      <ActiveJob job={activeJob} location={location} onClose={() => setActiveJob(null)} onRefresh={loadDashboard} />
     </SafeAreaView>
   );
 }
@@ -395,6 +400,37 @@ function JobOffer({ offer, countdown, reviewing, counterPrice, setCounterPrice, 
   </View></View></Modal>;
 }
 
+function ActiveJob({ job, location, onClose, onRefresh }: any) {
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+  const destination = job?.location || location;
+  const next = job?.status === 'assigned' ? { status: 'in_progress', label: 'Llegué al lugar' } : job?.status === 'in_progress' ? { status: 'mark_completed', label: 'Marcar como finalizado' } : null;
+  const advance = async () => {
+    if (!next) return;
+    setBusy(true);
+    try { await apiService.put(`/jobs/${job.job_id}/status`, { status: next.status }); await onRefresh(); }
+    catch (error: any) { Alert.alert('No se pudo actualizar', error?.message || 'Intentá nuevamente.'); }
+    finally { setBusy(false); }
+  };
+  const cancel = () => Alert.alert('Cancelar servicio', 'Al cancelar un servicio aceptado puede aplicarse una multa del 10%.', [
+    { text: 'Volver', style: 'cancel' },
+    { text: 'Cancelar servicio', style: 'destructive', onPress: async () => { await apiService.put(`/jobs/${job.job_id}/status`, { status: 'cancelled' }); onClose(); await onRefresh(); } },
+  ]);
+  if (!job) return null;
+  const step = job.status === 'assigned' ? 1 : job.status === 'in_progress' ? 2 : 3;
+  return <Modal visible animationType="slide"><SafeAreaView style={styles.activeSafe}>
+    <View style={styles.activeTop}><TouchableOpacity style={styles.roundButton} onPress={onClose}><Ionicons name="arrow-back" size={23} color={INK} /></TouchableOpacity><Text style={styles.activeTopTitle}>Servicio en curso</Text><View style={{ width: 46 }} /></View>
+    <View style={styles.activeMap}><MapView initialRegion={{ ...destination, latitudeDelta: .025, longitudeDelta: .025 }} markers={[{ ...location, type: 'user', title: 'Tu ubicación' }, { ...destination, type: 'dropoff', title: 'Destino' }]} showRoute style={{ flex: 1 }} /></View>
+    <ScrollView style={styles.activeSheet} contentContainerStyle={{ padding: 18 }}>
+      <View style={styles.clientRow}><View style={styles.clientAvatar}><Ionicons name="person" size={27} color="#FFF" /></View><View style={{ flex: 1 }}><Text style={styles.clientName}>{job.client_name || 'Cliente'}</Text><Text style={styles.clientRating}>★ 4.9 · Identidad verificada</Text></View><TouchableOpacity style={styles.contactButton}><Ionicons name="call" size={20} color={INK} /></TouchableOpacity><TouchableOpacity style={styles.contactButton} onPress={() => router.push(`/chat?jobId=${job.job_id}` as any)}><Ionicons name="chatbubble" size={20} color={INK} /></TouchableOpacity></View>
+      <View style={styles.activeTitleRow}><View style={{ flex: 1 }}><Text style={styles.activeTitle}>{job.status === 'assigned' ? 'Yendo al domicilio' : job.status === 'in_progress' ? 'Trabajo en curso' : 'Esperando confirmación'}</Text><Text style={styles.activeSubtitle}>{job.title} · {job.address || 'Dirección confirmada'}</Text></View><View style={styles.gainPill}><Text style={styles.gainLabel}>Tu ganancia</Text><Text style={styles.gainValue}>{money((job.agreed_price || job.budget || 0) * .9)}</Text></View></View>
+      <View style={styles.steps}>{['Aceptado', 'En camino', 'Llegué', 'Finalizado'].map((label, index) => <View key={label} style={styles.step}><View style={[styles.stepDot, index <= step && styles.stepDone]}>{index <= step ? <Ionicons name="checkmark" size={13} color="#FFF" /> : null}</View><Text style={[styles.stepText, index <= step && styles.stepTextDone]}>{label}</Text></View>)}</View>
+      {next ? <TouchableOpacity style={styles.activePrimary} disabled={busy} onPress={advance}>{busy ? <ActivityIndicator color="#FFF" /> : <Text style={styles.activePrimaryText}>{next.label}</Text>}</TouchableOpacity> : null}
+      <TouchableOpacity onPress={cancel}><Text style={styles.cancelLink}>Cancelar servicio</Text></TouchableOpacity>
+    </ScrollView>
+  </SafeAreaView></Modal>;
+}
+
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: WARM }, content: { width: '100%', maxWidth: 760, alignSelf: 'center', padding: 16, paddingBottom: 42 },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }, roundButton: { width: 46, height: 46, borderRadius: 23, backgroundColor: '#FFF', alignItems: 'center', justifyContent: 'center', elevation: 3, shadowColor: '#4F2A16', shadowOpacity: .1, shadowRadius: 9 }, logo: { fontSize: 32, fontWeight: '900', fontStyle: 'italic', color: ORANGE },
@@ -408,4 +444,5 @@ const styles = StyleSheet.create({
   offerOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,.58)', padding: 14 }, offerCard: { borderRadius: 28, backgroundColor: WARM, padding: 21, alignItems: 'center' }, offerTimer: { width: 66, height: 66, borderRadius: 33, borderWidth: 5, borderColor: ORANGE, alignItems: 'center', justifyContent: 'center' }, offerSeconds: { color: INK, fontSize: 25, fontWeight: '900', lineHeight: 26 }, offerSecLabel: { color: '#777', fontSize: 8, fontWeight: '800' }, offerEyebrow: { color: ORANGE, fontSize: 9, letterSpacing: 1.4, fontWeight: '900', marginTop: 13 }, offerTitle: { color: INK, fontSize: 24, fontWeight: '900', marginBottom: 15 }, offerRoute: { color: INK, fontSize: 13, fontWeight: '700', marginVertical: 5, textAlign: 'center' }, offerPrice: { color: INK, fontSize: 28, fontWeight: '900', marginTop: 15 }, offerActions: { flexDirection: 'row', gap: 9, marginTop: 18 }, reject: { flex: 1, height: 53, borderRadius: 17, borderWidth: 1.5, borderColor: '#D7D7D7', alignItems: 'center', justifyContent: 'center' }, rejectText: { color: INK, fontWeight: '900' }, accept: { flex: 1, height: 53, borderRadius: 17, backgroundColor: ORANGE, alignItems: 'center', justifyContent: 'center' }, acceptText: { color: '#FFF', fontWeight: '900' },
   privacyPill: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#FFF0E8', paddingHorizontal: 11, paddingVertical: 8, borderRadius: 13 }, privacyText: { color: '#70402A', fontSize: 10, fontWeight: '700' }, jobFacts: { width: '100%', flexDirection: 'row', justifyContent: 'space-around', paddingVertical: 15, marginTop: 8, borderBottomWidth: 1, borderBottomColor: '#EEE2D8' }, factLabel: { color: '#999', fontSize: 8, fontWeight: '900', letterSpacing: 1 }, factValue: { color: INK, fontSize: 15, fontWeight: '900', marginTop: 3 }, counter: { flex: 1, height: 53, borderRadius: 17, borderWidth: 1.5, borderColor: ORANGE, alignItems: 'center', justifyContent: 'center' }, counterText: { color: ORANGE, fontSize: 11, fontWeight: '900' },
   counterInputRow: { width: '100%', height: 48, marginTop: 12, borderWidth: 1.5, borderColor: '#FFD0BB', borderRadius: 15, backgroundColor: '#FFF', flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14 }, currency: { color: ORANGE, fontSize: 17, fontWeight: '900' }, counterInput: { flex: 1, color: INK, fontSize: 17, fontWeight: '900', marginLeft: 6, outlineStyle: 'none' } as any,
+  activeSafe: { flex: 1, backgroundColor: WARM }, activeTop: { height: 68, paddingHorizontal: 15, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: WARM }, activeTopTitle: { color: INK, fontWeight: '900', fontSize: 17 }, activeMap: { height: '47%', minHeight: 260 }, activeSheet: { flex: 1, backgroundColor: WARM, marginTop: -22, borderTopLeftRadius: 28, borderTopRightRadius: 28 }, clientRow: { flexDirection: 'row', alignItems: 'center', gap: 9 }, clientAvatar: { width: 52, height: 52, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: INK }, clientName: { color: INK, fontSize: 17, fontWeight: '900' }, clientRating: { color: '#777', fontSize: 10, marginTop: 3 }, contactButton: { width: 43, height: 43, borderRadius: 22, backgroundColor: '#FFF', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#EEE2D8' }, activeTitleRow: { flexDirection: 'row', gap: 10, alignItems: 'center', marginTop: 18 }, activeTitle: { color: INK, fontSize: 22, fontWeight: '900' }, activeSubtitle: { color: '#737373', fontSize: 11, marginTop: 4 }, gainPill: { padding: 10, borderRadius: 14, backgroundColor: '#FFF0E8' }, gainLabel: { color: '#86604D', fontSize: 8, fontWeight: '800' }, gainValue: { color: INK, fontSize: 17, fontWeight: '900', marginTop: 2 }, steps: { flexDirection: 'row', marginTop: 23, marginBottom: 18 }, step: { flex: 1, alignItems: 'center' }, stepDot: { width: 25, height: 25, borderRadius: 13, backgroundColor: '#D5D5D5', alignItems: 'center', justifyContent: 'center' }, stepDone: { backgroundColor: ORANGE }, stepText: { color: '#999', fontSize: 8, marginTop: 6, textAlign: 'center' }, stepTextDone: { color: ORANGE, fontWeight: '900' }, activePrimary: { height: 55, backgroundColor: ORANGE, borderRadius: 18, alignItems: 'center', justifyContent: 'center' }, activePrimaryText: { color: '#FFF', fontSize: 16, fontWeight: '900' }, cancelLink: { color: '#777', fontSize: 11, textAlign: 'center', textDecorationLine: 'underline', marginVertical: 14 },
 });

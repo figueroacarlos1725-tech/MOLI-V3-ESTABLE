@@ -3,6 +3,7 @@
 ## 2026-09-10 — Recepción unificada y QA integral
 
 - Se integró la recepción premium de trabajos y trámites en el mapa único, con revisión de 35 segundos, dirección protegida, aceptación, rechazo y contrapropuesta.
+- Tras aceptar, el prestador permanece en una vista premium de servicio en curso con ruta, cliente, chat/llamada, ganancia, etapas operativas y cancelación advertida.
 - La pantalla secundaria vuelve al mapa unificado y ya no duplica el control de conexión.
 - `scripts/qa_core_flows.ps1` validó en QA los ciclos completos cliente-profesional, cliente-trámite y cliente-viaje hasta finalización y calificación.
 
