@@ -52,7 +52,7 @@
           "image": "./assets/icon.png",
           "imageWidth": 300,
           "resizeMode": "contain",
-          "backgroundColor": "#FFFFFF"
+          "backgroundColor": "#FFF9F3"
         }
       ],
       "expo-web-browser",

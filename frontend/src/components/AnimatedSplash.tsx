@@ -1,257 +1,61 @@
-import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, Dimensions } from 'react-native';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withTiming,
-  withDelay,
-  withSequence,
-  withSpring,
-  Easing,
-  interpolate,
-  type SharedValue,
-} from 'react-native-reanimated';
-import { MOLI_COLORS } from '@/src/theme/colors';
+import React,{useEffect} from 'react';
+import {Dimensions,StyleSheet,Text,View} from 'react-native';
+import {Ionicons} from '@expo/vector-icons';
+import Animated,{Easing,interpolate,useAnimatedStyle,useSharedValue,withDelay,withRepeat,withSequence,withSpring,withTiming} from 'react-native-reanimated';
 
-const { width, height } = Dimensions.get('window');
+const {width}=Dimensions.get('window');
+const ORANGE='#FF5A1F',INK='#17181C',CREAM='#FFF9F3';
 
-interface AnimatedSplashProps {
-  onFinish: () => void;
+export default function AnimatedSplash({onFinish}:{onFinish:()=>void}){
+ const enter=useSharedValue(0),shield=useSharedValue(.72),glow=useSharedValue(0),icons=useSharedValue(0),copy=useSharedValue(0),loading=useSharedValue(0),exit=useSharedValue(1);
+ useEffect(()=>{
+  enter.value=withSpring(1,{damping:15,stiffness:105});
+  shield.value=withDelay(120,withSpring(1,{damping:13,stiffness:95}));
+  glow.value=withDelay(450,withRepeat(withSequence(withTiming(1,{duration:850,easing:Easing.inOut(Easing.quad)}),withTiming(0,{duration:850,easing:Easing.inOut(Easing.quad)})),-1,true));
+  icons.value=withDelay(700,withTiming(1,{duration:650,easing:Easing.out(Easing.cubic)}));
+  copy.value=withDelay(1000,withTiming(1,{duration:520}));
+  loading.value=withDelay(350,withTiming(1,{duration:2100,easing:Easing.inOut(Easing.cubic)}));
+  const timer=setTimeout(()=>{exit.value=withTiming(0,{duration:330});setTimeout(onFinish,350)},2800);
+  return()=>clearTimeout(timer);
+ },[]);
+ const containerStyle=useAnimatedStyle(()=>({opacity:exit.value}));
+ const logoStyle=useAnimatedStyle(()=>({opacity:enter.value,transform:[{scale:interpolate(enter.value,[0,1],[.84,1])},{translateY:interpolate(enter.value,[0,1],[18,0])}]}));
+ const shieldStyle=useAnimatedStyle(()=>({opacity:interpolate(shield.value,[.72,1],[0,.18]),transform:[{scale:shield.value}]}));
+ const glowStyle=useAnimatedStyle(()=>({opacity:interpolate(glow.value,[0,1],[.16,.48]),transform:[{scale:interpolate(glow.value,[0,1],[.9,1.15])}]}));
+ const iconsStyle=useAnimatedStyle(()=>({opacity:icons.value,transform:[{translateY:interpolate(icons.value,[0,1],[16,0])}]}));
+ const copyStyle=useAnimatedStyle(()=>({opacity:copy.value,transform:[{translateY:interpolate(copy.value,[0,1],[10,0])}]}));
+ const loadStyle=useAnimatedStyle(()=>({width:interpolate(loading.value,[0,1],[22,Math.min(width*.52,260)])}));
+ return <Animated.View style={[s.page,containerStyle]}>
+  <View style={s.topGlow}/><Animated.View style={[s.logoGlow,glowStyle]}/>
+  <Animated.View style={[s.shield,shieldStyle]}><Ionicons name="shield-checkmark" size={132} color={ORANGE}/><Ionicons name="construct" size={66} color={ORANGE} style={s.wrench}/></Animated.View>
+  <Animated.View style={[s.logoWrap,logoStyle]}><View style={s.logoLine}><Text style={s.logo}>Moli</Text><Text style={s.sparkle}>✦</Text></View></Animated.View>
+  <Animated.View style={[s.modules,iconsStyle]}>
+   <ModuleIcon name="construct"/><Dots/><ModuleIcon name="folder-open"/><Dots/><ModuleIcon name="car-sport"/>
+  </Animated.View>
+  <Animated.View style={[s.copy,copyStyle]}><Text style={s.tagline}>Movete. Resolvé. Avanzá.</Text><Text style={s.subline}>Todo en un solo lugar</Text></Animated.View>
+  <View style={s.loadingTrack}><Animated.View style={[s.loadingFill,loadStyle]}/></View>
+ </Animated.View>
 }
-
-export default function AnimatedSplash({ onFinish }: AnimatedSplashProps) {
-  // Animation values
-  const logoScale = useSharedValue(0.3);
-  const logoOpacity = useSharedValue(0);
-  const letterSpacing = useSharedValue(40);
-  const sloganOpacity = useSharedValue(0);
-  const sloganTranslateY = useSharedValue(20);
-  const dotScale = useSharedValue(0);
-  const dotGlow = useSharedValue(0);
-  const lineWidth = useSharedValue(0);
-  const bgPulse = useSharedValue(0);
-  const exitScale = useSharedValue(1);
-  const exitOpacity = useSharedValue(1);
-
-  // Particle effects
-  const particle1 = useSharedValue(0);
-  const particle2 = useSharedValue(0);
-  const particle3 = useSharedValue(0);
-
-  useEffect(() => {
-    // Phase 1: Logo appears with spring bounce
-    logoOpacity.value = withTiming(1, { duration: 400, easing: Easing.out(Easing.cubic) });
-    logoScale.value = withSpring(1, { damping: 12, stiffness: 100, mass: 0.8 });
-    letterSpacing.value = withDelay(200, withTiming(8, { duration: 800, easing: Easing.out(Easing.exp) }));
-
-    // Phase 2: Green dot pops in
-    dotScale.value = withDelay(600, withSpring(1, { damping: 8, stiffness: 200 }));
-    dotGlow.value = withDelay(700, withSequence(
-      withTiming(1, { duration: 400 }),
-      withTiming(0.5, { duration: 300 }),
-      withTiming(1, { duration: 300 }),
-    ));
-
-    // Phase 3: Line extends
-    lineWidth.value = withDelay(900, withTiming(1, { duration: 600, easing: Easing.inOut(Easing.cubic) }));
-
-    // Phase 4: Slogan slides up
-    sloganOpacity.value = withDelay(1200, withTiming(1, { duration: 500 }));
-    sloganTranslateY.value = withDelay(1200, withSpring(0, { damping: 15, stiffness: 120 }));
-
-    // Phase 5: Particles float
-    particle1.value = withDelay(800, withTiming(1, { duration: 1500, easing: Easing.out(Easing.quad) }));
-    particle2.value = withDelay(1000, withTiming(1, { duration: 1500, easing: Easing.out(Easing.quad) }));
-    particle3.value = withDelay(1200, withTiming(1, { duration: 1500, easing: Easing.out(Easing.quad) }));
-
-    // Phase 6: Background pulse
-    bgPulse.value = withDelay(600, withSequence(
-      withTiming(1, { duration: 600 }),
-      withTiming(0, { duration: 600 }),
-    ));
-
-    // Phase 7: Exit animation
-    const timer = setTimeout(() => {
-      exitScale.value = withTiming(1.15, { duration: 300, easing: Easing.in(Easing.cubic) });
-      exitOpacity.value = withTiming(0, { duration: 350, easing: Easing.in(Easing.cubic) });
-      setTimeout(() => {
-        onFinish();
-      }, 400);
-    }, 2800);
-
-    return () => clearTimeout(timer);
-  }, []);
-
-  // Animated styles
-  const containerStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: exitScale.value }],
-    opacity: exitOpacity.value,
-  }));
-
-  const logoContainerStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: logoScale.value }],
-    opacity: logoOpacity.value,
-  }));
-
-  const logoTextStyle = useAnimatedStyle(() => ({
-    letterSpacing: letterSpacing.value,
-  }));
-
-  const dotStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: dotScale.value }],
-    opacity: dotGlow.value,
-  }));
-
-  const lineStyle = useAnimatedStyle(() => ({
-    width: interpolate(lineWidth.value, [0, 1], [0, width * 0.5]),
-    opacity: lineWidth.value,
-  }));
-
-  const sloganStyle = useAnimatedStyle(() => ({
-    opacity: sloganOpacity.value,
-    transform: [{ translateY: sloganTranslateY.value }],
-  }));
-
-  const bgPulseStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: interpolate(bgPulse.value, [0, 1], [0.8, 1.5]) }],
-    opacity: interpolate(bgPulse.value, [0, 0.5, 1], [0, 0.15, 0]),
-  }));
-
-  // Particles
-  const useParticleStyle = (val: SharedValue<number>, offsetX: number, offsetY: number) =>
-    useAnimatedStyle(() => ({
-      transform: [
-        { translateX: interpolate(val.value, [0, 1], [0, offsetX]) },
-        { translateY: interpolate(val.value, [0, 1], [0, offsetY]) },
-        { scale: interpolate(val.value, [0, 0.5, 1], [0, 1.2, 0]) },
-      ],
-      opacity: interpolate(val.value, [0, 0.3, 0.7, 1], [0, 0.8, 0.6, 0]),
-    }));
-
-  const p1Style = useParticleStyle(particle1, -60, -80);
-  const p2Style = useParticleStyle(particle2, 70, -50);
-  const p3Style = useParticleStyle(particle3, -30, 60);
-
-  return (
-    <Animated.View style={[st.container, containerStyle]}>
-      <View style={st.topOrb} />
-      <View style={st.bottomOrb} />
-      <View style={st.serviceHalo}>
-        <View style={[st.serviceBubble, st.bubbleOne]}><Text style={st.serviceEmoji}>🔧</Text></View>
-        <View style={[st.serviceBubble, st.bubbleTwo]}><Text style={st.serviceEmoji}>💡</Text></View>
-        <View style={[st.serviceBubble, st.bubbleThree]}><Text style={st.serviceEmoji}>🧹</Text></View>
-      </View>
-      {/* Background pulse ring */}
-      <Animated.View style={[st.bgPulse, bgPulseStyle]} />
-
-      {/* Particles */}
-      <Animated.View style={[st.particle, p1Style, { top: height * 0.42, left: width * 0.38 }]} />
-      <Animated.View style={[st.particle, st.particleSm, p2Style, { top: height * 0.43, left: width * 0.58 }]} />
-      <Animated.View style={[st.particle, p3Style, { top: height * 0.48, left: width * 0.45 }]} />
-
-      {/* Logo */}
-      <Animated.View style={[st.logoContainer, logoContainerStyle]}>
-        <View style={st.routePin}><Text style={st.routeM}>M</Text><View style={st.pinTip} /></View>
-        <View style={st.logoRow}>
-          <Animated.Text style={[st.logoText, logoTextStyle]}>Moli</Animated.Text>
-          <Animated.View style={[st.dot, dotStyle]} />
-        </View>
-      </Animated.View>
-
-      {/* Line divider */}
-      <Animated.View style={[st.line, lineStyle]} />
-
-      {/* Slogan */}
-      <Animated.View style={[st.sloganContainer, sloganStyle]}>
-        <Text style={st.sloganText}>PROFESIONALES Y TRÁMITES, CERCA TUYO</Text>
-      </Animated.View>
-    </Animated.View>
-  );
-}
-
-const st = StyleSheet.create({
-  container: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: MOLI_COLORS.surface,
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 9999,
-  },
-  bgPulse: {
-    position: 'absolute',
-    width: 200,
-    height: 200,
-    borderRadius: 100,
-    backgroundColor: 'rgba(255,119,51,0.10)',
-  },
-  particle: {
-    position: 'absolute',
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: 'rgba(255,119,51,0.65)',
-  },
-  particleSm: {
-    width: 5,
-    height: 5,
-    borderRadius: 2.5,
-    backgroundColor: 'rgba(32,33,36,0.20)',
-  },
-  logoContainer: {
-    alignItems: 'center',
-  },
-  serviceHalo: { position: 'absolute', width: 300, height: 300, alignItems: 'center', justifyContent: 'center' },
-  serviceBubble: { position: 'absolute', width: 50, height: 50, borderRadius: 18, backgroundColor: MOLI_COLORS.white, alignItems: 'center', justifyContent: 'center', shadowColor: '#202124', shadowOpacity: 0.08, shadowRadius: 12, elevation: 3 },
-  bubbleOne: { left: 2, top: 36, transform: [{ rotate: '-8deg' }] },
-  bubbleTwo: { right: 0, top: 58, transform: [{ rotate: '8deg' }] },
-  bubbleThree: { right: 22, bottom: 14, transform: [{ rotate: '-4deg' }] },
-  serviceEmoji: { fontSize: 22 },
-  routePin: {
-    width: 54, height: 54, borderRadius: 18, borderBottomRightRadius: 28,
-    backgroundColor: MOLI_COLORS.primary, alignItems: 'center', justifyContent: 'center', marginBottom: 18,
-    transform: [{ rotate: '8deg' }],
-  },
-  pinTip: { position: 'absolute', bottom: -5, right: 3, width: 14, height: 14, backgroundColor: MOLI_COLORS.primary, transform: [{ rotate: '22deg' }] },
-  routeM: { color: MOLI_COLORS.white, fontWeight: '900', fontSize: 26, transform: [{ rotate: '-8deg' }], zIndex: 2 },
-  logoRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-  },
-  logoText: {
-    fontSize: 72,
-    fontWeight: '900',
-    color: MOLI_COLORS.black,
-  },
-  dot: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    backgroundColor: MOLI_COLORS.primary,
-    marginBottom: 16,
-    marginLeft: 2,
-  },
-  line: {
-    height: 2,
-    backgroundColor: 'rgba(255,119,51,0.28)',
-    marginTop: 20,
-    borderRadius: 1,
-  },
-  sloganContainer: {
-    marginTop: 16,
-  },
-  sloganText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: MOLI_COLORS.gray,
-    letterSpacing: 3.2,
-    textAlign: 'center',
-  },
-  topOrb: {
-    position: 'absolute', top: -120, right: -100, width: 300, height: 300,
-    borderRadius: 150, backgroundColor: 'rgba(255,119,51,0.07)',
-  },
-  bottomOrb: {
-    position: 'absolute', bottom: -160, left: -130, width: 360, height: 360,
-    borderRadius: 180, backgroundColor: 'rgba(32,33,36,0.035)',
-  },
+function ModuleIcon({name}:{name:React.ComponentProps<typeof Ionicons>['name']}){return <View style={s.moduleIcon}><Ionicons name={name} size={25} color={ORANGE}/>{name==='construct'&&<View style={s.check}><Ionicons name="checkmark" size={9} color="#FFF"/></View>}</View>}
+function Dots(){return <View style={s.dots}>{[0,1,2,3].map(i=><View key={i} style={[s.dot,{opacity:.35+i*.14}]}/>)}</View>}
+const s=StyleSheet.create({
+ page:{...StyleSheet.absoluteFillObject,zIndex:9999,backgroundColor:CREAM,alignItems:'center',justifyContent:'center',overflow:'hidden'},
+ topGlow:{position:'absolute',top:'12%',width:360,height:360,borderRadius:180,backgroundColor:'rgba(255,190,112,.09)'},
+ logoGlow:{position:'absolute',top:'27%',width:250,height:250,borderRadius:125,backgroundColor:'rgba(255,161,77,.22)'},
+ shield:{position:'absolute',top:'22%',width:210,height:190,alignItems:'center',justifyContent:'center'},
+ wrench:{position:'absolute',right:19,bottom:25,transform:[{rotate:'-18deg'}]},
+ logoWrap:{marginTop:-45,alignItems:'center'},
+ logoLine:{flexDirection:'row',alignItems:'flex-start'},
+ logo:{fontSize:76,lineHeight:86,fontWeight:'900',letterSpacing:-4,color:ORANGE},
+ sparkle:{fontSize:27,lineHeight:35,color:ORANGE,marginLeft:3,marginTop:2},
+ modules:{position:'absolute',top:'61%',flexDirection:'row',alignItems:'center'},
+ moduleIcon:{width:66,height:66,borderRadius:21,backgroundColor:'#FFFDF9',alignItems:'center',justifyContent:'center',borderWidth:1,borderColor:'#F5E9DD',shadowColor:'#6A3A18',shadowOffset:{width:0,height:7},shadowOpacity:.12,shadowRadius:12,elevation:5},
+ check:{position:'absolute',right:10,bottom:9,width:16,height:16,borderRadius:8,backgroundColor:ORANGE,alignItems:'center',justifyContent:'center',borderWidth:2,borderColor:'#FFF'},
+ dots:{width:54,flexDirection:'row',justifyContent:'space-evenly',alignItems:'center'},
+ dot:{width:4,height:4,borderRadius:2,backgroundColor:ORANGE},
+ copy:{position:'absolute',top:'76%',alignItems:'center'},
+ tagline:{fontSize:22,fontWeight:'900',letterSpacing:-.6,color:INK},
+ subline:{fontSize:14,color:'#A0978E',marginTop:8},
+ loadingTrack:{position:'absolute',bottom:'9%',width:Math.min(width*.52,260),height:7,borderRadius:8,backgroundColor:'#EEE3D7',overflow:'hidden'},
+ loadingFill:{height:'100%',borderRadius:8,backgroundColor:ORANGE,shadowColor:ORANGE,shadowOpacity:.6,shadowRadius:8},
 });
