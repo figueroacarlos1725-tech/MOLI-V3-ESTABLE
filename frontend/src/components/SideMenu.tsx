@@ -43,12 +43,11 @@ export default function SideMenu({ visible, onClose, role }: SideMenuProps) {
   ];
 
   const driverItems: MenuItem[] = [
-    { icon: 'home', label: 'Inicio', route: '/modules' },
+    { icon: 'home', label: 'Centro de oportunidades', route: '/provider-hub' },
+    { icon: 'stats-chart', label: 'Ganancias y estadísticas', route: '/(driver)/earnings', color: '#FF5A1F' },
     { icon: 'speedometer', label: 'Taxímetro', route: '/(driver)/taximeter', color: '#FF9500' },
-    { icon: 'briefcase', label: 'Moli Trabajos', route: '/(jobs)/home', color: '#007AFF' },
     { icon: 'car-sport', label: 'Mi Vehículo', route: '/(driver)/profile', color: '#00C853' },
     { icon: 'list', label: 'Solicitudes', route: '/(driver)/rides' },
-    { icon: 'wallet', label: 'Billetera', route: '/(driver)/earnings' },
     { icon: 'mail', label: 'Bandeja de entrada', route: '/(driver)/inbox' },
     { icon: 'document-text', label: 'Mis Documentos', route: '/(driver)/documents' },
     { icon: 'chatbubbles', label: 'Soporte', route: '/support', color: '#007AFF' },

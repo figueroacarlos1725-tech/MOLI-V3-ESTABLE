@@ -234,6 +234,8 @@ El registro móvil exige teléfono y email. El canal `auto` intenta WhatsApp y u
 ## Panel unificado y flujo premium de Trámites
 
 - El prestador multirrol dispone de una portada única para Viajes, Envíos, Trámites y Trabajos, con disponibilidad general, accesos tipados, oportunidades y preferencias persistentes de actividad y radio.
+- Una sesión de conductor o conductor-profesional entra directamente al Centro de oportunidades. La pantalla de módulos es exclusiva del cliente y no debe volver a aparecer como un segundo inicio operativo.
+- La disponibilidad se gobierna desde un único control global del Centro de oportunidades; las actividades son filtros de recepción, no portadas adicionales con controles GO independientes.
 - Los interruptores de actividad persisten inmediatamente. Si un conductor activa Trabajos o Trámites sin perfil profesional, se abre el alta de especialidades; al guardarla se incorpora la capacidad profesional a su misma cuenta.
 - Cliente y prestador comparten un menú lateral premium con identidad Moli, rol visible y rutas separadas según permisos.
 - El alta de un trámite es un asistente de cuatro pasos: lugar de la gestión, necesidad de retiro previo, confirmación de puntos y detalle/documentación. El presupuesto mínimo permanece en $10.000.

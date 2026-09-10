@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, Image, ScrollView } from 'react-native';
-import { useRouter } from 'expo-router';
+import { Redirect, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '@/src/stores/authStore';
 import { MOLI_COLORS as C, MOLI_RADIUS as R, MOLI_SHADOWS as SH, MOLI_SPACING as S } from '@/src/theme/colors';
@@ -15,6 +15,7 @@ export default function ModulesScreen(){
   const router=useRouter(); const {user,logout}=useAuthStore(); const isDriver=user?.user_type==='driver'; const firstName=user?.name?.split(' ')[0]||'Usuario';
   const changeAccount=()=>{logout();router.replace('/(auth)/welcome')};
   if(!isDriver)return <SafeAreaView style={s.page}><RiderLanding firstName={firstName} onProfile={()=>router.push('/(rider)/profile')} onLogout={changeAccount}/></SafeAreaView>;
+  if(isDriver)return <Redirect href="/provider-hub"/>;
   return <SafeAreaView style={s.page}><ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
     <View style={s.header}><View style={s.brand}><Image source={require('../assets/icon.png')} style={s.logo}/><Text style={s.brandName}>moli</Text></View><TouchableOpacity style={s.profileButton} onPress={()=>router.push(isDriver?'/(driver)/profile':'/(rider)/profile')}><Text style={s.initial}>{firstName.charAt(0).toUpperCase()}</Text><View style={s.onlineDot}/></TouchableOpacity></View>
     <View style={s.hero}><Text style={s.kicker}>TODO EN UN SOLO LUGAR</Text><Text style={s.greeting}>Hola, {firstName}</Text><Text style={s.subtitle}>{isDriver?'Elegí cómo querés generar ingresos hoy.':'¿Cómo podemos ayudarte hoy?'}</Text></View>

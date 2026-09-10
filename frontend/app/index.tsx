@@ -52,15 +52,18 @@ export default function Index() {
     return <Redirect href="/(dispatch)/home" />;
   }
 
+  // Prestadores multirrol always use one operational home. Module selection
+  // is only for clients; this avoids a second home and repeated GO controls.
+  if (user?.user_type === 'driver') {
+    return <Redirect href="/provider-hub" />;
+  }
+
   // If Moli Trabajos is enabled, show module selection
   if (trabajosEnabled) {
     return <Redirect href="/modules" />;
   }
 
   // Otherwise go directly to the appropriate home
-  if (user?.user_type === 'driver') {
-    return <Redirect href="/provider-hub" />;
-  }
   return <Redirect href="/(rider)/home" />;
 }
 
