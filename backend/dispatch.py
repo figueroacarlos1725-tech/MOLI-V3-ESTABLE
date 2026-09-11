@@ -50,7 +50,8 @@ async def assign_ride_to_drivers(request_id: str, rider_id: str, sorted_drivers:
             pickup = current.get("pickup_location", {})
             result = await get_nearby_drivers(float(pickup.get("latitude", 0)), float(pickup.get("longitude", 0)),
                 radius_km=50, vehicle_type=current.get("vehicle_type"))
-            drivers = (result.get("drivers") or sorted_drivers or [])[:COHORT_SIZE]
+            excluded = set(current.get("excluded_drivers", [])) | set(current.get("declined_driver_ids", []))
+            drivers = [driver for driver in (result.get("drivers") or sorted_drivers or []) if driver.get("driver_id") not in excluded][:COHORT_SIZE]
             candidate_ids = [d["driver_id"] for d in drivers]
             await db.ride_requests.update_one({"request_id": request_id}, {"$set": {"candidate_driver_ids": candidate_ids}})
             for driver in drivers:

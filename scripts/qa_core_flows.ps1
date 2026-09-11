@@ -83,4 +83,27 @@ $rideFinal = Call GET "/rides/$($accepted.ride_id)" $clientToken
 if ($rideFinal.status -ne 'completed') { throw 'El viaje no terminó en completed' }
 Call POST "/rides/$($accepted.ride_id)/rate?rating=5&comment=QA%20OK" $clientToken | Out-Null
 Write-Output "PASS ride $requestId"
+
+# Cancellation and redispatch: free window, reason persisted, previous driver excluded.
+Call PUT "/drivers/availability?is_online=true&latitude=$testLat&longitude=$testLng" $providerToken | Out-Null
+$retryRide = Call POST '/rides/request' $clientToken @{
+  pickup_location = @{ latitude = $testLat; longitude = $testLng; address = 'Origen cancelación QA' };
+  dropoff_location = @{ latitude = $testLat + 0.02; longitude = $testLng + 0.02; address = 'Destino cancelación QA' };
+  vehicle_type = 'economy'; payment_method = 'cash'; ride_type = 'standard'
+}
+for ($i = 0; $i -lt 12; $i++) {
+  Start-Sleep -Seconds 1
+  $retryActive = Call GET '/rides/request/active' $clientToken
+  if ($retryActive.request.candidate_driver_ids -contains $provider.user.user_id) { break }
+}
+Call POST "/rides/request/$($retryRide.request_id)/review" $providerToken | Out-Null
+$retryAccepted = Call POST "/rides/$($retryRide.request_id)/driver-response?action=accept" $providerToken
+$cancelled = Call PUT "/rides/$($retryAccepted.ride_id)/status?status=cancelled&cancel_reason=driver_too_far&redispatch=true" $clientToken
+if ($cancelled.penalty.penalty_applied) { throw 'La cancelación dentro del minuto no fue gratuita' }
+if (-not $cancelled.redispatch_request_id) { throw 'No se creó la nueva búsqueda luego de cancelar' }
+$redispatched = Call GET '/rides/request/active' $clientToken
+if ($redispatched.request.request_id -ne $cancelled.redispatch_request_id) { throw 'La búsqueda relanzada no quedó activa' }
+if ($redispatched.request.excluded_drivers -notcontains $provider.user.user_id) { throw 'El conductor anterior no fue excluido' }
+Call POST "/rides/request/$($cancelled.redispatch_request_id)/cancel" $clientToken | Out-Null
+Write-Output "PASS cancellation redispatch $($cancelled.redispatch_request_id)"
 Write-Output 'ALL CORE FLOWS PASSED'

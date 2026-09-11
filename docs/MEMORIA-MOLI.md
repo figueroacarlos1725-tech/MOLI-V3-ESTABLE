@@ -266,3 +266,5 @@ El registro móvil exige teléfono y email. El canal `auto` intenta WhatsApp y u
 - Revisar una oportunidad crea un bloqueo exclusivo y atómico de 35 segundos. Solo ese conductor puede aceptar o rechazar; la aceptación también se reclama atómicamente para impedir dobles asignaciones.
 - Los demás conductores reciben estados explícitos de “otro conductor está revisando” y “otro conductor tomó esta oportunidad”, y vuelven al mapa sin perder su disponibilidad global.
 - Antes de aceptar solo se comparten coordenadas aproximadas; el recorrido exacto se libera al ganador.
+- Cancelaciones de viajes: ambas partes disponen de un período gratuito configurable (por defecto un minuto). Fuera de ese período se registra motivo y multa económica; por defecto la tercera cancelación penalizada dentro de la ventana configurada bloquea la cuenta. Importes, cantidad, ventana y duración del bloqueo se administran desde Configuración.
+- Si el cliente elige “conductor muy lejos” o “no quiero este conductor”, puede relanzar la misma solicitud; el conductor cancelado queda expresamente excluido y el cliente conserva origen, destino, modalidad y pago.

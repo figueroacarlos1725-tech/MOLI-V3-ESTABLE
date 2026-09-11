@@ -39,6 +39,9 @@ interface Settings {
   driver_max_negative_balance?: number;
   driver_block_after_cancels?: number;
   driver_block_hours?: number;
+  rider_block_after_cancels?: number;
+  rider_block_hours?: number;
+  cancellation_window_days?: number;
   rider_max_pending_penalties?: number;
   min_app_version?: string;
   update_message?: string;
@@ -94,7 +97,7 @@ export default function AdminSettingsScreen() {
           // Convert numeric fields
           if (['base_fare', 'per_km_rate', 'per_minute_rate', 'commission_rate', 'rider_cancel_penalty', 'driver_cancel_penalty', 'driver_max_negative_balance'].includes(key)) {
             payload[key] = parseFloat(String(value)) || 0;
-          } else if (['cancel_free_minutes', 'driver_block_after_cancels', 'driver_block_hours', 'rider_max_pending_penalties'].includes(key)) {
+          } else if (['cancel_free_minutes', 'driver_block_after_cancels', 'driver_block_hours', 'rider_max_pending_penalties', 'rider_block_after_cancels', 'rider_block_hours', 'cancellation_window_days'].includes(key)) {
             payload[key] = parseInt(String(value)) || 0;
           } else {
             payload[key] = value;
@@ -290,11 +293,14 @@ export default function AdminSettingsScreen() {
               <Text style={s.cardSubtitle}>Pasajero</Text>
               {renderField('Multa por cancelacion ($)', 'rider_cancel_penalty', { placeholder: '500', numeric: true })}
               {renderField('Max multas pendientes', 'rider_max_pending_penalties', { placeholder: '2', numeric: true })}
+              {renderField('Cancelaciones cliente antes de bloqueo', 'rider_block_after_cancels', { placeholder: '3', numeric: true })}
+              {renderField('Horas de bloqueo cliente', 'rider_block_hours', { placeholder: '24', numeric: true })}
               <View style={s.divider} />
               <Text style={s.cardSubtitle}>Conductor</Text>
               {renderField('Multa por cancelacion ($)', 'driver_cancel_penalty', { placeholder: '500', numeric: true })}
               {renderField('Cancelaciones antes de bloqueo', 'driver_block_after_cancels', { placeholder: '3', numeric: true })}
               {renderField('Horas de bloqueo (0=permanente)', 'driver_block_hours', { placeholder: '24', numeric: true })}
+              {renderField('Ventana para contar cancelaciones (dias)', 'cancellation_window_days', { placeholder: '30', numeric: true })}
               {renderField('Saldo negativo maximo ($)', 'driver_max_negative_balance', { placeholder: '-15000', numeric: true })}
               {renderField('Descuento primer viaje (%)', 'first_ride_discount', { placeholder: '10', numeric: true })}
               {renderField('Intervalo banners (segundos)', 'banner_interval_seconds', { placeholder: '90', numeric: true })}

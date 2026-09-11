@@ -77,7 +77,7 @@ interface RideState {
   updateRideStatus: (
     rideId: string,
     status: string,
-    extra?: { taximeter_fare?: number; taximeter_distance?: number; taximeter_wait?: number },
+    extra?: { taximeter_fare?: number; taximeter_distance?: number; taximeter_wait?: number; cancel_reason?: string; redispatch?: boolean },
   ) => Promise<any>;
   rateRide: (rideId: string, rating: number, comment?: string) => Promise<void>;
   addBid: (bid: Bid) => void;
@@ -168,12 +168,14 @@ export const useRideStore = create<RideState>((set, get) => ({
     }
   },
 
-  updateRideStatus: async (rideId, status, extra?: { taximeter_fare?: number; taximeter_distance?: number; taximeter_wait?: number }) => {
+  updateRideStatus: async (rideId, status, extra?: { taximeter_fare?: number; taximeter_distance?: number; taximeter_wait?: number; cancel_reason?: string; redispatch?: boolean }) => {
     try {
       let url = `/rides/${rideId}/status?status=${status}`;
       if (extra?.taximeter_fare) url += `&taximeter_fare=${extra.taximeter_fare}`;
       if (extra?.taximeter_distance) url += `&taximeter_distance=${extra.taximeter_distance}`;
       if (extra?.taximeter_wait) url += `&taximeter_wait=${extra.taximeter_wait}`;
+      if (extra?.cancel_reason) url += `&cancel_reason=${encodeURIComponent(extra.cancel_reason)}`;
+      if (extra?.redispatch) url += '&redispatch=true';
       const response = await apiService.put(url);
       const currentRide = get().currentRide;
       if (currentRide && currentRide.ride_id === rideId) {

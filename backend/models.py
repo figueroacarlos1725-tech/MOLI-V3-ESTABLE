@@ -171,6 +171,9 @@ class SettingsUpdate(BaseModel):
     driver_block_after_cancels: Optional[int] = None
     driver_block_hours: Optional[int] = None
     rider_max_pending_penalties: Optional[int] = None
+    rider_block_after_cancels: Optional[int] = None
+    rider_block_hours: Optional[int] = None
+    cancellation_window_days: Optional[int] = None
     min_app_version: Optional[str] = None
     update_message: Optional[str] = None
     trabajos_mode: Optional[str] = None

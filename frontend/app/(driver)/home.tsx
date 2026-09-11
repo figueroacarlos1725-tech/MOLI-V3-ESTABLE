@@ -703,10 +703,10 @@ export default function DriverHomeScreen() {
     }
   };
 
-  const handleCancelRide = async () => {
+  const handleCancelRide = async (reason = 'other') => {
     if (!currentRide) return;
     try {
-      const response = await updateRideStatus(currentRide.ride_id, 'cancelled');
+      const response = await updateRideStatus(currentRide.ride_id, 'cancelled', { cancel_reason: reason });
       setShowCancelModal(false);
       
       if (response?.penalty?.penalty_applied) {

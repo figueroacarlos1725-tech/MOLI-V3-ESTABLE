@@ -818,15 +818,16 @@ export default function RiderHomeScreen() {
         <CancelRideModal
           visible={showCancelModal}
           onClose={() => setShowCancelModal(false)}
-          onConfirmCancel={async () => {
+          onConfirmCancel={async (reason, redispatch) => {
             try {
-              const response = await updateRideStatus(currentRide.ride_id, 'cancelled');
+              const response = await updateRideStatus(currentRide.ride_id, 'cancelled', { cancel_reason: reason, redispatch });
               setShowCancelModal(false);
               if (response?.penalty?.penalty_applied) {
                 setErrorMsg(response.penalty.message);
               }
-              setPhase('idle');
-              fetchActiveRide();
+              setPhase(redispatch ? 'searching' : 'idle');
+              if (redispatch) await fetchActiveRequest();
+              else fetchActiveRide();
             } catch (e: any) {
               setErrorMsg(e.message || 'Error al cancelar');
             }

@@ -60,6 +60,17 @@ async def get_active_ride_request(user: dict = Depends(get_current_user)):
 async def create_ride_request(request: RideRequestCreate, user: dict = Depends(get_current_user)):
     if user["user_type"] not in ["rider", "admin"]:
         raise HTTPException(status_code=403, detail="Only riders can request rides")
+    if user.get("is_blocked"):
+        blocked_until = user.get("blocked_until")
+        if isinstance(blocked_until, str):
+            blocked_until = datetime.fromisoformat(blocked_until.replace("Z", "+00:00"))
+        if blocked_until and blocked_until.tzinfo is None:
+            blocked_until = blocked_until.replace(tzinfo=timezone.utc)
+        if blocked_until and blocked_until <= datetime.now(timezone.utc):
+            await db.users.update_one({"user_id": user["user_id"]}, {"$set": {"is_blocked": False},
+                "$unset": {"block_reason": "", "blocked_at": "", "blocked_until": ""}})
+        else:
+            raise HTTPException(status_code=403, detail="Tu cuenta está bloqueada temporalmente por cancelaciones reiteradas")
     
     # Calculate total distance including intermediate stops
     total_distance_km = 0.0
@@ -560,6 +571,8 @@ async def update_ride_status(
     taximeter_fare: float = Query(None),
     taximeter_distance: float = Query(None),
     taximeter_wait: float = Query(None),
+    cancel_reason: Optional[str] = Query(None),
+    redispatch: bool = Query(False),
     user: dict = Depends(get_current_user)
 ):
     ride = await db.rides.find_one({"ride_id": ride_id}, {"_id": 0})
@@ -712,6 +725,7 @@ async def update_ride_status(
     elif status == "cancelled":
         update_data["cancelled_at"] = now
         update_data["cancelled_by"] = user["user_id"]
+        update_data["cancel_reason"] = cancel_reason or "other"
         
         # Make driver available again
         await db.drivers.update_one(
@@ -741,10 +755,15 @@ async def update_ride_status(
             if canceller_type == "rider":
                 penalty_amount = settings.get("rider_cancel_penalty", 500)
                 
-                # Count existing pending penalties for rider
-                existing_pending = await db.cancellation_records.count_documents(
-                    {"user_id": user["user_id"], "status": "pending"}
+                window_days = settings.get("cancellation_window_days", 30)
+                block_after = settings.get("rider_block_after_cancels", 3)
+                block_hours = settings.get("rider_block_hours", 24)
+                window_start = now - timedelta(days=window_days)
+                existing_pending = await db.cancellation_records.count_documents({"user_id": user["user_id"], "status": "pending"})
+                recent_cancels = await db.cancellation_records.count_documents(
+                    {"user_id": user["user_id"], "user_type": "rider", "created_at": {"$gte": window_start}}
                 )
+                cancel_number = recent_cancels + 1
                 
                 # Record penalty
                 record = {
@@ -753,10 +772,19 @@ async def update_ride_status(
                     "user_type": "rider",
                     "ride_id": ride_id,
                     "penalty_amount": penalty_amount,
+                    "cancel_number": cancel_number,
+                    "reason": cancel_reason or "other",
                     "status": "pending",
                     "created_at": now,
                 }
                 await db.cancellation_records.insert_one(record)
+                blocked = cancel_number >= block_after
+                blocked_until = now + timedelta(hours=block_hours) if blocked and block_hours > 0 else None
+                if blocked:
+                    await db.users.update_one({"user_id": user["user_id"]}, {"$set": {
+                        "is_blocked": True, "block_reason": "cancellations", "blocked_at": now,
+                        "blocked_until": blocked_until,
+                    }})
                 
                 # Deduct from rider wallet
                 await adjust_wallet_balance(user["user_id"], -penalty_amount)
@@ -800,6 +828,9 @@ async def update_ride_status(
                     "penalty_amount": penalty_amount,
                     "message": f"Se aplicó una multa de ${penalty_amount} por cancelación tardía. Se sumará a tu próximo viaje.",
                     "pending_penalties": existing_pending + 1,
+                    "cancel_count": cancel_number,
+                    "blocked": blocked,
+                    "blocked_until": blocked_until.isoformat() if blocked_until else None,
                 }
                 
             elif canceller_type == "driver":
@@ -808,7 +839,7 @@ async def update_ride_status(
                 block_hours = settings.get("driver_block_hours", 24)
                 
                 # Count driver cancellations in last 30 days
-                thirty_days_ago = now - timedelta(days=30)
+                thirty_days_ago = now - timedelta(days=settings.get("cancellation_window_days", 30))
                 recent_cancels = await db.cancellation_records.count_documents(
                     {"user_id": user["user_id"], "user_type": "driver", "created_at": {"$gte": thirty_days_ago}}
                 )
@@ -822,6 +853,7 @@ async def update_ride_status(
                     "ride_id": ride_id,
                     "penalty_amount": penalty_amount,
                     "cancel_number": cancel_number,
+                    "reason": cancel_reason or "other",
                     "status": "charged",
                     "created_at": now,
                 }
@@ -909,8 +941,8 @@ async def update_ride_status(
                 
                 # Re-create ride request for dispatch
                 try:
-                    pickup = ride.get("pickup", {})
-                    dropoff = ride.get("dropoff", {})
+                    pickup = ride.get("pickup_location", {})
+                    dropoff = ride.get("dropoff_location", {})
                     new_req_id = generate_id("req_")
                     new_request_doc = {
                         "request_id": new_req_id,
@@ -973,13 +1005,13 @@ async def update_ride_status(
                 
                 # Re-dispatch
                 try:
-                    pickup = ride.get("pickup", {})
+                    pickup = ride.get("pickup_location", {})
                     new_req_id = generate_id("req_")
                     new_request_doc = {
                         "request_id": new_req_id,
                         "rider_id": ride["rider_id"],
                         "pickup_location": pickup,
-                        "dropoff_location": ride.get("dropoff", {}),
+                        "dropoff_location": ride.get("dropoff_location", {}),
                         "stops": ride.get("stops", []),
                         "ride_type": "instant",
                         "vehicle_type": ride.get("vehicle_type", "standard"),
@@ -1027,6 +1059,35 @@ async def update_ride_status(
                 }, ride["driver_id"])
     
     await db.rides.update_one({"ride_id": ride_id}, {"$set": update_data})
+
+    redispatch_request_id = None
+    if status == "cancelled" and canceller_type == "rider" and redispatch:
+        new_req_id = generate_id("req_")
+        new_request_doc = {
+            "request_id": new_req_id, "rider_id": ride["rider_id"],
+            "pickup_location": ride.get("pickup_location", {}),
+            "dropoff_location": ride.get("dropoff_location", {}),
+            "stops": ride.get("stops", []), "ride_type": ride.get("ride_type", "standard"),
+            "service_type": ride.get("service_type", "ride"), "vehicle_type": ride.get("vehicle_type", "economy"),
+            "status": "pending", "estimated_fare": ride.get("fare", 0),
+            "estimated_distance": ride.get("estimated_distance", ride.get("distance_km", 0)),
+            "estimated_duration": ride.get("estimated_duration", ride.get("duration_min", 0)),
+            "payment_method": ride.get("payment_method", "cash"), "bids": [], "created_at": now,
+            "expires_at": now + timedelta(minutes=5), "excluded_drivers": [ride["driver_id"]],
+            "redispatch_from": ride_id, "redispatch_reason": cancel_reason or "other",
+        }
+        await db.ride_requests.insert_one(new_request_doc)
+        nearby = await get_nearby_drivers(
+            new_request_doc["pickup_location"].get("latitude", 0),
+            new_request_doc["pickup_location"].get("longitude", 0),
+            radius_km=50, vehicle_type=ride.get("vehicle_type"),
+        )
+        eligible = [d for d in nearby.get("drivers", []) if d["driver_id"] != ride["driver_id"]]
+        task = asyncio.create_task(assign_ride_to_drivers(new_req_id, ride["rider_id"], eligible, new_request_doc))
+        assignment_tasks[new_req_id] = task
+        redispatch_request_id = new_req_id
+        await manager.send_personal_message({"type": "ride_redispatching", "request_id": new_req_id,
+            "message": "Listo, buscamos otro conductor y excluimos al anterior."}, ride["rider_id"])
     
     # Notify both parties
     other_user_id = ride["driver_id"] if user["user_id"] == ride["rider_id"] else ride["rider_id"]
@@ -1059,6 +1120,8 @@ async def update_ride_status(
     response = {"status": "success", "ride_status": status}
     if penalty_info:
         response["penalty"] = penalty_info
+    if redispatch_request_id:
+        response["redispatch_request_id"] = redispatch_request_id
     if status == "completed" and update_data.get("penalty_surcharge"):
         response["penalty_surcharge"] = update_data["penalty_surcharge"]
         response["new_fare"] = update_data["fare"]

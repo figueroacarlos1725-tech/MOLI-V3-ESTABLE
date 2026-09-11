@@ -99,6 +99,12 @@ async def get_wallet_status(user: dict = Depends(get_current_user)):
 async def get_cancellation_config(user: dict = Depends(get_current_user)):
     """Get cancellation configuration (public for users to know penalties)"""
     settings = await get_settings()
+    window_days = settings.get("cancellation_window_days", 30)
+    recent_count = await db.cancellation_records.count_documents({
+        "user_id": user["user_id"],
+        "user_type": user.get("user_type"),
+        "created_at": {"$gte": datetime.now(timezone.utc) - timedelta(days=window_days)},
+    })
     return {
         "cancel_free_minutes": settings.get("cancel_free_minutes", 1),
         "rider_cancel_penalty": settings.get("rider_cancel_penalty", 500),
@@ -106,7 +112,11 @@ async def get_cancellation_config(user: dict = Depends(get_current_user)):
         "driver_max_negative_balance": settings.get("driver_max_negative_balance", -15000),
         "driver_block_after_cancels": settings.get("driver_block_after_cancels", 3),
         "driver_block_hours": settings.get("driver_block_hours", 24),
+        "rider_block_after_cancels": settings.get("rider_block_after_cancels", 3),
+        "rider_block_hours": settings.get("rider_block_hours", 24),
+        "cancellation_window_days": settings.get("cancellation_window_days", 30),
         "currency_symbol": settings.get("currency_symbol", "$"),
+        "recent_cancel_count": recent_count,
     }
 
 
