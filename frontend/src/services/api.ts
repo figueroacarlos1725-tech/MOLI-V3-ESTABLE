@@ -32,7 +32,14 @@ class ApiService {
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({ detail: 'Request failed' }));
-      throw new Error(error.detail || 'Request failed');
+      const detail = error.detail;
+      if (detail && typeof detail === 'object') {
+        const err: any = new Error(detail.message || detail.error || 'No se pudo completar la solicitud');
+        err.detail = detail;
+        err.statusCode = response.status;
+        throw err;
+      }
+      throw new Error(typeof detail === 'string' ? detail : 'No se pudo completar la solicitud');
     }
 
     return response.json();
@@ -48,7 +55,14 @@ class ApiService {
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({ detail: 'Request failed' }));
-      throw new Error(error.detail || 'Request failed');
+      const detail = error.detail;
+      if (detail && typeof detail === 'object') {
+        const err: any = new Error(detail.message || detail.error || 'No se pudo completar la solicitud');
+        err.detail = detail;
+        err.statusCode = response.status;
+        throw err;
+      }
+      throw new Error(typeof detail === 'string' ? detail : 'No se pudo completar la solicitud');
     }
 
     return response.json();

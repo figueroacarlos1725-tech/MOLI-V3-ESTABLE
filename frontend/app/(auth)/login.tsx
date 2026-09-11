@@ -26,6 +26,7 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
+  const [loginError, setLoginError] = useState('');
 
   const validate = () => {
     const newErrors: { email?: string; password?: string } = {};
@@ -39,12 +40,18 @@ export default function LoginScreen() {
 
   const handleLogin = async () => {
     if (!validate()) return;
+    setLoginError('');
     setIsLoading(true);
     try {
-      await login(email, password);
+      await login(email.trim().toLowerCase(), password);
       router.replace('/');
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'Credenciales inválidas');
+      const rawMessage = error.message || '';
+      const message = !rawMessage || rawMessage === 'No se pudo completar la solicitud' || rawMessage === 'Request failed'
+        ? 'El correo o la contraseña no son correctos.'
+        : rawMessage;
+      setLoginError(message);
+      if (Platform.OS !== 'web') Alert.alert('No pudimos iniciar sesión', message);
     } finally {
       setIsLoading(false);
     }
@@ -96,7 +103,7 @@ export default function LoginScreen() {
               label="Email"
               placeholder="tu@email.com"
               value={email}
-              onChangeText={setEmail}
+              onChangeText={(value) => { setEmail(value); setLoginError(''); }}
               keyboardType="email-address"
               autoCapitalize="none"
               leftIcon="mail-outline"
@@ -107,7 +114,7 @@ export default function LoginScreen() {
               label="Contraseña"
               placeholder="Tu contraseña"
               value={password}
-              onChangeText={setPassword}
+              onChangeText={(value) => { setPassword(value); setLoginError(''); }}
               secureTextEntry
               leftIcon="lock-closed-outline"
               error={errors.password}
@@ -135,6 +142,16 @@ export default function LoginScreen() {
               <Text style={styles.googleLetter}>G</Text>
               <Text style={styles.googleText}>Continuar con Google</Text>
             </TouchableOpacity>
+
+            {!!loginError && (
+              <View style={styles.errorBanner} accessibilityRole="alert">
+                <Ionicons name="alert-circle" size={20} color="#B42318" />
+                <View style={styles.errorCopy}>
+                  <Text style={styles.errorTitle}>No pudimos ingresar</Text>
+                  <Text style={styles.errorText}>{loginError}</Text>
+                </View>
+              </View>
+            )}
           </View>
 
           <View style={styles.footerSection}>
@@ -208,6 +225,10 @@ const styles = StyleSheet.create({
   loginButton: {
     marginTop: 4,
   },
+  errorBanner: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, padding: 13, borderRadius: 14, borderWidth: 1, borderColor: '#FDA29B', backgroundColor: '#FEF3F2', marginBottom: 12 },
+  errorCopy: { flex: 1 },
+  errorTitle: { color: '#912018', fontSize: 13, fontWeight: '800', marginBottom: 2 },
+  errorText: { color: '#B42318', fontSize: 12, lineHeight: 17 },
   dividerRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginVertical: 24 },
   divider: { flex: 1, height: 1, backgroundColor: MOLI_COLORS.lightGray },
   dividerText: { color: MOLI_COLORS.mediumGray, fontSize: 12, fontWeight: '600' },
