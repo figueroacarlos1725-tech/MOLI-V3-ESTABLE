@@ -69,9 +69,11 @@ $offered = $false
 for ($i = 0; $i -lt 12; $i++) {
   Start-Sleep -Seconds 1
   $active = Call GET '/rides/request/active' $clientToken
-  if ($active.request.current_offer_driver -eq $provider.user.user_id) { $offered = $true; break }
+  if ($active.request.candidate_driver_ids -contains $provider.user.user_id) { $offered = $true; break }
 }
 if (-not $offered) { throw 'El viaje no llegó al conductor cercano' }
+$review = Call POST "/rides/request/$requestId/review" $providerToken
+if ($review.status -ne 'reviewing' -or $review.countdown -ne 35) { throw 'No se obtuvo el bloqueo exclusivo de revisión' }
 $accepted = Call POST "/rides/$requestId/driver-response?action=accept" $providerToken
 if ($accepted.status -ne 'accepted') { throw 'El viaje no fue aceptado' }
 Call PUT "/rides/$($accepted.ride_id)/status?status=arrived" $providerToken | Out-Null

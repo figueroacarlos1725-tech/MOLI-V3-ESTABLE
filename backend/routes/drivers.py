@@ -8,6 +8,7 @@ from database import db
 from websocket_manager import manager
 from utils import generate_id, get_current_user, get_nearby_drivers, calculate_distance, get_settings, REQUIRED_DOCUMENTS
 from notifications import notify_document_status
+from dispatch import assignment_tasks, assign_ride_to_drivers
 
 router = APIRouter()
 

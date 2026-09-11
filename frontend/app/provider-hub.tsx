@@ -65,6 +65,8 @@ export default function ProviderHub() {
   const [deliveries, setDeliveries] = useState<any[]>([]);
   const [rideOffer, setRideOffer] = useState<any>(null);
   const [countdown, setCountdown] = useState(25);
+  const [reviewingRide, setReviewingRide] = useState(false);
+  const [rideNotice, setRideNotice] = useState<any>(null);
   const [jobOffer, setJobOffer] = useState<any>(null);
   const [jobCountdown, setJobCountdown] = useState(35);
   const [reviewingJob, setReviewingJob] = useState(false);
@@ -116,8 +118,18 @@ export default function ProviderHub() {
       if (!prefs.rides || !online) return;
       setRideOffer(offer);
       setCountdown(offer.countdown || 25);
+      setReviewingRide(false);
     });
     const unsubscribeExpired = socketService.on('ride_offer_expired', () => setRideOffer(null));
+    const unsubscribeReview = socketService.on('ride_under_review', (notice: any) => {
+      setRideOffer(null);
+      setRideNotice({ kind: 'review', ...notice });
+    });
+    const unsubscribeTaken = socketService.on('ride_opportunity_taken', (notice: any) => {
+      setRideOffer(null);
+      setRideNotice({ kind: 'taken', ...notice });
+      setTimeout(() => setRideNotice(null), 3200);
+    });
     const unsubscribeJob = socketService.on('new_job_available', (job: any) => {
       const isPaperwork = job?.category === 'tramites';
       if (online && (isPaperwork ? prefs.paperwork : prefs.jobs)) {
@@ -127,7 +139,7 @@ export default function ProviderHub() {
       }
       loadDashboard();
     });
-    return () => { unsubscribeOffer(); unsubscribeExpired(); unsubscribeJob(); };
+    return () => { unsubscribeOffer(); unsubscribeExpired(); unsubscribeReview(); unsubscribeTaken(); unsubscribeJob(); };
   }, [user?.user_id, prefs.rides, online, loadDashboard]);
 
   useEffect(() => {
@@ -231,6 +243,18 @@ export default function ProviderHub() {
       setRideOffer(null);
       if (action === 'accept' && response.status === 'accepted') router.push('/(driver)/home');
     } catch (error: any) { Alert.alert('Oferta no disponible', error?.message || 'La oferta venció.'); }
+  };
+
+  const reviewRide = async () => {
+    if (!rideOffer) return;
+    try {
+      await apiService.post(`/rides/request/${rideOffer.request_id}/review`, {});
+      setReviewingRide(true);
+      setCountdown(35);
+    } catch (error: any) {
+      setRideOffer(null);
+      setRideNotice({ kind: 'review', message: error?.message || 'Otro conductor está revisando esta oportunidad' });
+    }
   };
 
   const openOpportunity = async (item: Opportunity) => {
@@ -353,7 +377,8 @@ export default function ProviderHub() {
 
       <SideMenu visible={menuOpen} onClose={() => setMenuOpen(false)} role="driver" />
       <Preferences visible={settingsOpen} onClose={() => setSettingsOpen(false)} onDone={async () => { try { await saveProfilePrefs(prefs); } finally { setSettingsOpen(false); } }} prefs={prefs} allowed={allowed} toggle={toggleService} radius={radius} setRadius={setRadius} />
-      <RideOffer offer={rideOffer} countdown={countdown} onAccept={() => respondRide('accept')} onReject={() => respondRide('reject')} />
+      <RideOffer offer={rideOffer} countdown={countdown} reviewing={reviewingRide} onReview={reviewRide} onAccept={() => respondRide('accept')} onReject={() => reviewingRide ? respondRide('reject') : setRideOffer(null)} />
+      <RideNotice notice={rideNotice} onClose={() => setRideNotice(null)} />
       <JobOffer offer={jobOffer} countdown={jobCountdown} reviewing={reviewingJob} counterPrice={counterPrice} setCounterPrice={setCounterPrice} onCounter={counterJob} onReview={reviewIncomingJob} onAccept={acceptJob} onReject={rejectJob} />
       <ActiveJob job={activeJob} location={location} onClose={() => setActiveJob(null)} onRefresh={loadDashboard} />
     </SafeAreaView>
@@ -377,13 +402,25 @@ function Preferences({ visible, onClose, onDone, prefs, allowed, toggle, radius,
   </View></View></Modal>;
 }
 
-function RideOffer({ offer, countdown, onAccept, onReject }: any) {
+function RideOffer({ offer, countdown, reviewing, onReview, onAccept, onReject }: any) {
   return <Modal visible={Boolean(offer)} transparent animationType="fade"><View style={styles.offerOverlay}><View style={styles.offerCard}>
     <View style={styles.offerTimer}><Text style={styles.offerSeconds}>{countdown}</Text><Text style={styles.offerSecLabel}>seg</Text></View>
-    <Text style={styles.offerEyebrow}>NUEVA SOLICITUD</Text><Text style={styles.offerTitle}>{offer?.service_type === 'delivery' ? 'Nuevo envío' : 'Nuevo viaje'}</Text>
+    <Text style={styles.offerEyebrow}>{reviewing ? 'LA ESTÁS REVISANDO' : 'NUEVA OPORTUNIDAD'}</Text><Text style={styles.offerTitle}>{offer?.service_type === 'delivery' ? 'Nuevo envío' : 'Nuevo viaje'}</Text>
     <Text style={styles.offerRoute}>{offer?.pickup_address || 'Punto de retiro'}</Text><Ionicons name="arrow-down" size={18} color={ORANGE} /><Text style={styles.offerRoute}>{offer?.destination_address || 'Destino'}</Text>
     <Text style={styles.offerPrice}>{money(offer?.fare || offer?.estimated_fare || 0)}</Text>
-    <View style={styles.offerActions}><TouchableOpacity style={styles.reject} onPress={onReject}><Text style={styles.rejectText}>Rechazar</Text></TouchableOpacity><TouchableOpacity style={styles.accept} onPress={onAccept}><Text style={styles.acceptText}>Aceptar</Text></TouchableOpacity></View>
+    <View style={styles.privacyPill}><Ionicons name="shield-checkmark" size={15} color={ORANGE} /><Text style={styles.privacyText}>{reviewing ? 'La dirección exacta se libera al aceptar' : 'Zona aproximada · tocá Revisar para bloquearla 35 seg'}</Text></View>
+    <View style={styles.offerActions}><TouchableOpacity style={styles.reject} onPress={onReject}><Text style={styles.rejectText}>{reviewing ? 'Rechazar' : 'Omitir'}</Text></TouchableOpacity><TouchableOpacity style={styles.accept} onPress={reviewing ? onAccept : onReview}><Text style={styles.acceptText}>{reviewing ? 'Aceptar' : 'Revisar'}</Text></TouchableOpacity></View>
+  </View></View></Modal>;
+}
+
+function RideNotice({ notice, onClose }: any) {
+  return <Modal visible={Boolean(notice)} transparent animationType="fade"><View style={styles.offerOverlay}><View style={styles.offerCard}>
+    <Image source={ART.rides} style={{ width: 110, height: 82, resizeMode: 'contain' }} />
+    <View style={[styles.offerTimer, { backgroundColor: notice?.kind === 'taken' ? '#25262B' : ORANGE }]}><Ionicons name={notice?.kind === 'taken' ? 'flag' : 'eye'} size={27} color="#FFF" /></View>
+    <Text style={styles.offerEyebrow}>{notice?.kind === 'taken' ? 'OPORTUNIDAD ASIGNADA' : 'EN REVISIÓN'}</Text>
+    <Text style={styles.offerTitle}>{notice?.kind === 'taken' ? 'Otro conductor tomó el viaje' : `${notice?.driver_name || 'Otro conductor'} la está revisando`}</Text>
+    <Text style={[styles.offerRoute, { textAlign: 'center' }]}>{notice?.kind === 'taken' ? 'Todo bien. Seguimos buscando nuevas oportunidades para vos.' : 'Si no la acepta en 35 segundos, vuelve a quedar disponible.'}</Text>
+    <TouchableOpacity style={[styles.accept, { width: '100%', marginTop: 18 }]} onPress={onClose}><Text style={styles.acceptText}>Volver al mapa</Text></TouchableOpacity>
   </View></View></Modal>;
 }
 

@@ -2,6 +2,7 @@
 from fastapi import APIRouter, HTTPException, Depends, Query, Body
 from typing import Optional, List
 from datetime import datetime, timezone, timedelta
+from pymongo import ReturnDocument
 import asyncio
 import uuid
 import math
@@ -264,11 +265,19 @@ async def driver_respond_to_offer(
     if request_doc.get("status") not in ["pending", "bidding", "searching"]:
         raise HTTPException(status_code=400, detail="Esta solicitud ya no está disponible")
     
-    # Verify this driver is the one being offered
-    if request_doc.get("current_offer_driver") != user["user_id"]:
-        raise HTTPException(status_code=400, detail="Esta oferta no está asignada a ti")
+    if request_doc.get("reviewing_by") != user["user_id"] and request_doc.get("current_offer_driver") != user["user_id"]:
+        raise HTTPException(status_code=409, detail="Otro conductor está revisando esta oportunidad")
     
     if action == "accept":
+        claimed = await db.ride_requests.find_one_and_update(
+            {"request_id": request_id, "status": {"$in": ["pending", "bidding", "searching"]},
+             "$or": [{"reviewing_by": user["user_id"]}, {"current_offer_driver": user["user_id"]}]},
+            {"$set": {"status": "accepted", "accepted_by": user["user_id"]}},
+            return_document=ReturnDocument.AFTER,
+        )
+        if not claimed:
+            raise HTTPException(status_code=409, detail="Otro conductor tomó esta oportunidad")
+        request_doc = claimed
         # Check if a ride already exists for this request (manual trips create one)
         existing_ride = await db.rides.find_one({"request_id": request_id}, {"_id": 0})
         
@@ -341,11 +350,10 @@ async def driver_respond_to_offer(
             }
             await db.rides.insert_one(ride_doc)
         
-        # Update request status
-        await db.ride_requests.update_one(
-            {"request_id": request_id},
-            {"$set": {"status": "accepted", "accepted_by": user["user_id"]}}
-        )
+        for candidate_id in request_doc.get("candidate_driver_ids", []):
+            if candidate_id != user["user_id"]:
+                await manager.send_personal_message({"type": "ride_opportunity_taken", "request_id": request_id,
+                    "message": "Otro conductor tomó esta oportunidad"}, candidate_id)
         
         # Mark driver unavailable
         await db.drivers.update_one(
@@ -404,6 +412,11 @@ async def driver_respond_to_offer(
         }
     
     elif action == "reject":
+        await db.ride_requests.update_one(
+            {"request_id": request_id, "reviewing_by": user["user_id"]},
+            {"$unset": {"reviewing_by": "", "reviewing_name": "", "reviewing_until": "", "current_offer_driver": ""},
+             "$addToSet": {"declined_driver_ids": user["user_id"]}},
+        )
         # Signal event so background task moves to the next driver
         if request_id in assignment_events:
             assignment_events[request_id].set()
@@ -412,6 +425,38 @@ async def driver_respond_to_offer(
     
     else:
         raise HTTPException(status_code=400, detail="Acción inválida. Usa 'accept' o 'reject'")
+
+
+@router.post("/api/rides/request/{request_id}/review")
+async def review_ride_opportunity(request_id: str, user: dict = Depends(get_current_user)):
+    """Atomically acquire the exclusive 35-second review window."""
+    if user["user_type"] != "driver":
+        raise HTTPException(status_code=403, detail="Solo conductores pueden revisar oportunidades")
+    now = datetime.now(timezone.utc)
+    until = now + timedelta(seconds=35)
+    claimed = await db.ride_requests.find_one_and_update(
+        {"request_id": request_id, "status": {"$in": ["pending", "bidding", "searching"]},
+         "candidate_driver_ids": user["user_id"],
+         "$or": [{"reviewing_by": user["user_id"]}, {"reviewing_by": {"$exists": False}},
+                 {"reviewing_by": None}, {"reviewing_until": {"$lte": now}}]},
+        {"$set": {"reviewing_by": user["user_id"], "reviewing_name": user.get("name", "Conductor"),
+                  "reviewing_until": until, "current_offer_driver": user["user_id"], "offer_sent_at": now}},
+        return_document=ReturnDocument.AFTER,
+    )
+    if not claimed:
+        current = await db.ride_requests.find_one({"request_id": request_id}, {"_id": 0, "status": 1, "reviewing_name": 1})
+        if not current or current.get("status") not in ["pending", "bidding", "searching"]:
+            raise HTTPException(status_code=409, detail="Otro conductor tomó esta oportunidad")
+        raise HTTPException(status_code=409, detail=f"{current.get('reviewing_name') or 'Otro conductor'} está revisando esta oportunidad")
+    first_name = (user.get("name") or "Un conductor").split(" ")[0]
+    for candidate_id in claimed.get("candidate_driver_ids", []):
+        if candidate_id != user["user_id"]:
+            await manager.send_personal_message({"type": "ride_under_review", "request_id": request_id,
+                "driver_name": first_name, "countdown": 35}, candidate_id)
+    await manager.send_personal_message({"type": "driver_reviewing", "request_id": request_id,
+        "driver_name": first_name, "driver_photo": user.get("profile_picture"), "countdown": 35,
+        "message": f"{first_name} está revisando tu solicitud"}, claimed["rider_id"])
+    return {"status": "reviewing", "countdown": 35, "reviewing_until": until.isoformat()}
 
 
 @router.post("/api/rides/accept-bid/{bid_id}")

@@ -260,3 +260,9 @@ El registro móvil exige teléfono y email. El canal `auto` intenta WhatsApp y u
 7. Alinear `applicationId`, versionCode y firma con Play Console.
 8. Generar AAB y publicar primero en pista de prueba con autorización final.
 9. Implementar comunicación segura: llamadas de voz, imágenes privadas en chat, revisión interactiva y redacción de domicilios antes de la aceptación.
+# Actualización operativa 2026-09-11
+
+- El despacho automático de viajes usa una cohorte amplia de conductores cercanos compatibles (hasta 50 por ronda). La selección sigue ordenada por proximidad/tipo de vehículo, pero la oportunidad se comunica simultáneamente.
+- Revisar una oportunidad crea un bloqueo exclusivo y atómico de 35 segundos. Solo ese conductor puede aceptar o rechazar; la aceptación también se reclama atómicamente para impedir dobles asignaciones.
+- Los demás conductores reciben estados explícitos de “otro conductor está revisando” y “otro conductor tomó esta oportunidad”, y vuelven al mapa sin perder su disponibilidad global.
+- Antes de aceptar solo se comparten coordenadas aproximadas; el recorrido exacto se libera al ganador.
