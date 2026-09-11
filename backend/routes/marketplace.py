@@ -1,5 +1,5 @@
 """Isolated MVP router for merchants, catalog, cart, orders and settlement."""
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Literal, Optional
 import uuid
 
@@ -98,8 +98,10 @@ async def apply_merchant(data: MerchantInput, user=Depends(get_current_user)):
     existing = await db.marketplace_merchants.find_one({"owner_id": user["user_id"]})
     if existing:
         raise HTTPException(409, "Merchant application already exists")
+    provisional_until = now() + timedelta(hours=24)
     doc = {"merchant_id": uid("mer_"), "owner_id": user["user_id"], **data.model_dump(),
-           "approval_status": "pending", "capabilities": {"pickup": True, "delivery": False},
+           "approval_status": "provisional", "provisional_until": provisional_until,
+           "capabilities": {"pickup": True, "delivery": False},
            "created_at": now(), "updated_at": now()}
     await db.marketplace_merchants.insert_one(doc)
     return public(doc)
@@ -122,7 +124,10 @@ async def approve_merchant(merchant_id: str, approved: bool = Body(embed=True),
 
 
 async def owned_merchant(user):
-    merchant = await db.marketplace_merchants.find_one({"owner_id": user["user_id"], "approval_status": "approved"}, {"_id": 0})
+    merchant = await db.marketplace_merchants.find_one({"owner_id": user["user_id"], "$or": [
+        {"approval_status": "approved"},
+        {"approval_status": "provisional", "provisional_until": {"$gt": now()}},
+    ]}, {"_id": 0})
     if not merchant:
         raise HTTPException(403, "Approved merchant required")
     return merchant
@@ -138,7 +143,7 @@ async def list_merchants(limit: int = Query(100, ge=1, le=200),
         "approval_status": 1, "capabilities": 1, "delivery_fee_cents": 1,
     }
     merchants = await db.marketplace_merchants.find(
-        public_merchant_query(), projection
+        public_merchant_query(now()), projection
     ).sort("name", 1).skip(skip).limit(limit).to_list(limit)
     return {"merchants": merchants, "limit": limit, "skip": skip}
 

@@ -50,6 +50,7 @@ export default function ProviderHub() {
   const { user } = useAuthStore();
   const driver = user?.user_type === 'driver';
   const professional = Boolean(user?.is_professional);
+  const provisionalCapabilities = Object.entries((user as any)?.capability_approvals || {}).filter(([, value]: any) => value?.status === 'provisional');
   const [menuOpen, setMenuOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [online, setOnline] = useState(false);
@@ -334,6 +335,7 @@ export default function ProviderHub() {
             <Text style={styles.statsText}>Estadísticas</Text>
           </TouchableOpacity>
         </View>
+        {provisionalCapabilities.length ? <View style={styles.provisionalBanner}><View style={styles.provisionalIcon}><Ionicons name="shield-half" size={23} color={ORANGE}/></View><View style={{flex:1}}><Text style={styles.provisionalTitle}>Capacidades pendientes de aprobación</Text><Text style={styles.provisionalCopy}>Podés trabajar provisoriamente hasta 24 horas mientras Administración revisa tu documentación.</Text></View><Ionicons name="chevron-forward" size={20} color={ORANGE}/></View> : null}
 
         <View style={styles.statusRow}>
           <View>
@@ -472,6 +474,7 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: WARM }, content: { width: '100%', maxWidth: 760, alignSelf: 'center', padding: 16, paddingBottom: 42 },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }, roundButton: { width: 46, height: 46, borderRadius: 23, backgroundColor: '#FFF', alignItems: 'center', justifyContent: 'center', elevation: 3, shadowColor: '#4F2A16', shadowOpacity: .1, shadowRadius: 9 }, logo: { fontSize: 32, fontWeight: '900', fontStyle: 'italic', color: ORANGE },
   earningsCard: { marginTop: 16, padding: 19, borderRadius: 25, backgroundColor: INK, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }, eyebrow: { color: '#FFB18D', fontSize: 10, fontWeight: '900', letterSpacing: 1.4 }, earnings: { color: '#FFF', fontSize: 32, fontWeight: '900', marginTop: 4 }, earningsCopy: { color: '#AEB0B5', fontSize: 11, marginTop: 2 }, statsButton: { backgroundColor: '#FFF', borderRadius: 16, paddingHorizontal: 13, paddingVertical: 11, flexDirection: 'row', alignItems: 'center', gap: 7 }, statsText: { fontSize: 11, fontWeight: '900', color: INK },
+  provisionalBanner: { marginTop: 12, flexDirection: 'row', alignItems: 'center', gap: 11, padding: 14, borderRadius: 19, backgroundColor: '#FFF2E9', borderWidth: 1, borderColor: '#FFD4BE' }, provisionalIcon: { width: 42, height: 42, borderRadius: 14, backgroundColor: '#FFF', alignItems: 'center', justifyContent: 'center' }, provisionalTitle: { fontSize: 13, fontWeight: '900', color: INK }, provisionalCopy: { fontSize: 11, lineHeight: 16, color: '#75513F', marginTop: 2 },
   statusRow: { marginTop: 11, backgroundColor: '#FFF', padding: 15, borderRadius: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderWidth: 1, borderColor: '#F0E4DA' }, statusLabel: { fontSize: 9, fontWeight: '900', letterSpacing: 1.2, color: '#8B8B8B' }, onlineRow: { flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 4 }, statusDot: { width: 9, height: 9, borderRadius: 5, backgroundColor: '#2FC557' }, offDot: { backgroundColor: '#AAA' }, onlineText: { color: INK, fontSize: 17, fontWeight: '900' },
   sectionHeader: { marginTop: 21, marginBottom: 10, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }, sectionTitle: { color: INK, fontSize: 18, fontWeight: '900' }, sectionCopy: { color: '#858585', fontSize: 10, marginTop: 2 }, optionsButton: { width: 39, height: 39, borderRadius: 14, backgroundColor: '#FFF0E8', alignItems: 'center', justifyContent: 'center' },
   services: { flexDirection: 'row', gap: 7 }, serviceCard: { flex: 1, alignItems: 'center', paddingVertical: 9, borderRadius: 18, backgroundColor: '#FFF', opacity: .58, borderWidth: 1.5, borderColor: '#EEE7E0' }, serviceActive: { opacity: 1, borderColor: '#FFD0BB', backgroundColor: '#FFFCFA' }, serviceArt: { width: 48, height: 43, resizeMode: 'contain' }, serviceName: { color: INK, fontSize: 10, fontWeight: '900', marginVertical: 5 }, miniSwitch: { width: 31, height: 18, padding: 2, borderRadius: 10, backgroundColor: '#D4D4D4' }, miniSwitchOn: { backgroundColor: '#39BC58' }, miniThumb: { width: 14, height: 14, borderRadius: 7, backgroundColor: '#FFF' }, miniThumbOn: { alignSelf: 'flex-end' },

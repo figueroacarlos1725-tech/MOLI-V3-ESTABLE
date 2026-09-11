@@ -4,7 +4,7 @@ from typing import Optional, List
 from datetime import datetime, timezone, timedelta
 from pymongo import ReturnDocument
 from database import db
-from utils import generate_id, get_current_user, get_settings
+from utils import generate_id, get_current_user, get_settings, has_active_capability
 from websocket_manager import manager
 
 router = APIRouter()
@@ -47,6 +47,8 @@ def _job_for_user(job: dict, user: dict) -> dict:
     return dict(job) if _can_view_exact_job(job, user) else _redact_job(job)
 
 async def _require_professional(user: dict, *, available: bool = False) -> dict:
+    if not has_active_capability(user, "professional", "tramites"):
+        raise HTTPException(status_code=403, detail="Tu habilitación provisoria venció. Esta capacidad sigue pendiente de aprobación")
     profile = await db.professional_profiles.find_one({"user_id": user["user_id"]})
     if not profile:
         raise HTTPException(status_code=403, detail="Se requiere un perfil profesional")

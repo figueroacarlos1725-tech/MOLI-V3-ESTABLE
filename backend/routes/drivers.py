@@ -6,7 +6,7 @@ import base64
 
 from database import db
 from websocket_manager import manager
-from utils import generate_id, get_current_user, get_nearby_drivers, calculate_distance, get_settings, REQUIRED_DOCUMENTS
+from utils import generate_id, get_current_user, get_nearby_drivers, calculate_distance, get_settings, REQUIRED_DOCUMENTS, has_active_capability
 from notifications import notify_document_status
 from dispatch import assignment_tasks, assign_ride_to_drivers
 
@@ -22,6 +22,8 @@ async def update_availability(
 ):
     if user["user_type"] != "driver":
         raise HTTPException(status_code=403, detail="Only drivers can update availability")
+    if is_online and not has_active_capability(user, "ride_driver", "moto_driver", "taxi_driver", "parcel", "delivery", "professional", "tramites"):
+        raise HTTPException(status_code=403, detail="La habilitación provisoria venció. Tu capacidad está pendiente de aprobación administrativa")
     
     # BLOCK CHECK: Prevent blocked drivers from going online
     if is_online:
@@ -167,8 +169,12 @@ async def get_nearby_drivers(
                     # Get driver user info
                     driver_user = await db.users.find_one(
                         {"user_id": driver["driver_id"]},
-                        {"_id": 0, "name": 1, "rating": 1, "profile_picture": 1}
+                        {"_id": 0, "name": 1, "rating": 1, "profile_picture": 1, "capability_approvals": 1}
                     )
+                    if not driver_user or not has_active_capability(
+                        driver_user, "ride_driver", "moto_driver", "taxi_driver", "parcel", "delivery"
+                    ):
+                        continue
                     
                     nearby.append({
                         "driver_id": driver["driver_id"],
@@ -422,7 +428,10 @@ async def get_driver_verification_status(user: dict = Depends(get_current_user))
     
     # First check if admin has directly verified this driver
     driver_rec = await db.drivers.find_one({"driver_id": user["user_id"]}, {"_id": 0})
-    user_rec = await db.users.find_one({"user_id": user["user_id"]}, {"_id": 0, "is_verified": 1})
+    user_rec = await db.users.find_one(
+        {"user_id": user["user_id"]},
+        {"_id": 0, "is_verified": 1, "capability_approvals": 1},
+    )
     
     admin_verified = (
         (driver_rec and driver_rec.get("documents_verified")) or
@@ -435,6 +444,29 @@ async def get_driver_verification_status(user: dict = Depends(get_current_user))
             "is_verified": True,
             "status": "approved",
             "uploaded_count": len(REQUIRED_DOCUMENTS),
+            "required_count": len(REQUIRED_DOCUMENTS),
+        }
+
+    approvals = (user_rec or {}).get("capability_approvals") or {}
+    ride_states = [
+        approvals.get(capability, {})
+        for capability in ("ride_driver", "moto_driver", "taxi_driver", "parcel", "delivery")
+        if capability in approvals
+    ]
+    active_provisional = next(
+        (
+            state for state in ride_states
+            if state.get("status") == "provisional"
+            and has_active_capability({"capability_approvals": {"current": state}}, "current")
+        ),
+        None,
+    )
+    if active_provisional:
+        return {
+            "is_verified": False,
+            "status": "provisional",
+            "provisional_until": active_provisional.get("provisional_until"),
+            "uploaded_count": await db.driver_documents.count_documents({"driver_id": user["user_id"]}),
             "required_count": len(REQUIRED_DOCUMENTS),
         }
     

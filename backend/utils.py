@@ -24,6 +24,28 @@ def generate_id(prefix: str = "") -> str:
     return f"{prefix}{uuid.uuid4().hex[:12]}"
 
 
+def has_active_capability(user: dict, *capabilities: str) -> bool:
+    """Allow approved or still-valid provisional capabilities; preserve legacy accounts."""
+    approvals = user.get("capability_approvals")
+    if not approvals:
+        return True
+    now = datetime.now(timezone.utc)
+    for capability in capabilities:
+        state = approvals.get(capability) or {}
+        if state.get("status") == "approved":
+            return True
+        if state.get("status") == "provisional":
+            until = state.get("provisional_until")
+            if isinstance(until, str):
+                until = datetime.fromisoformat(until.replace("Z", "+00:00"))
+            if isinstance(until, datetime):
+                if until.tzinfo is None:
+                    until = until.replace(tzinfo=timezone.utc)
+                if until > now:
+                    return True
+    return False
+
+
 def hash_password(password: str) -> str:
     return pwd_context.hash(password)
 
@@ -144,6 +166,14 @@ async def get_nearby_drivers(lat: float, lng: float, radius_km: float = 50, vehi
     drivers = await db.drivers.find(query, {"_id": 0}).to_list(100)
     nearby = []
     for d in drivers:
+        driver_user = await db.users.find_one(
+            {"user_id": d["driver_id"]},
+            {"_id": 0, "user_id": 1, "capability_approvals": 1},
+        )
+        if not driver_user or not has_active_capability(
+            driver_user, "ride_driver", "moto_driver", "taxi_driver", "parcel", "delivery"
+        ):
+            continue
         loc = d.get("current_location", {})
         dlat = loc.get("latitude", 0)
         dlng = loc.get("longitude", 0)

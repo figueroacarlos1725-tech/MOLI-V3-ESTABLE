@@ -101,9 +101,14 @@ def dispatch_vehicle_order(round_number: int) -> list[str]:
     return ["motorcycle"] if round_number <= 1 else ["motorcycle", "car", "taxi", "other"]
 
 
-def public_merchant_query() -> dict:
+def public_merchant_query(current_time=None) -> dict:
     """Canonical visibility filter; pending/rejected shops must never leak."""
-    return {"approval_status": "approved"}
+    if current_time is None:
+        return {"approval_status": "approved"}
+    return {"$or": [
+        {"approval_status": "approved"},
+        {"approval_status": "provisional", "provisional_until": {"$gt": current_time}},
+    ]}
 
 
 def merchant_orders_query(merchant_id: str, status: str | None = None) -> dict:

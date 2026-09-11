@@ -214,6 +214,10 @@ export default function DriverHomeScreen() {
             setDocsIncomplete(false);
             setDocsRejected(false);
             setPendingVerification(false);
+          } else if (docsRes.status === 'provisional') {
+            setDocsIncomplete(false);
+            setDocsRejected(false);
+            setPendingVerification(true);
           } else if (docsRes.status === 'rejected') {
             setDocsRejected(true);
             setDocsIncomplete(true);

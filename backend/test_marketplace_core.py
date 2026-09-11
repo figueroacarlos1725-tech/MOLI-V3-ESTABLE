@@ -72,6 +72,8 @@ def test_dispatch_prioritizes_motorcycle_before_fallback():
 
 def test_public_discovery_only_exposes_approved_merchants():
     assert public_merchant_query() == {"approval_status": "approved"}
+    marker = object()
+    assert public_merchant_query(marker)["$or"][1]["provisional_until"] == {"$gt": marker}
 
 
 def test_merchant_inbox_is_always_scoped_to_owner_shop():
@@ -86,7 +88,8 @@ def test_merchant_inbox_requires_an_approved_owned_shop(monkeypatch):
 
     class Merchants:
         async def find_one(self, query, projection):
-            assert query == {"owner_id": "usr_1", "approval_status": "approved"}
+            assert query["owner_id"] == "usr_1"
+            assert query["$or"][0] == {"approval_status": "approved"}
             return None
 
     monkeypatch.setattr(

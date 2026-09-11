@@ -240,6 +240,10 @@ async def submit_registration(data: RegistrationSubmit):
     is_provider = bool(capabilities)
     user_id = generate_id("user_")
     now = datetime.now(timezone.utc)
+    provisional_until = now + timedelta(hours=24)
+    capability_approvals = {capability: {
+        "status": "provisional", "submitted_at": now, "provisional_until": provisional_until,
+    } for capability in capabilities}
     user_doc = {
         "user_id": user_id,
         "phone": phone,
@@ -248,9 +252,11 @@ async def submit_registration(data: RegistrationSubmit):
         "password_hash": hash_password(data.password),
         "user_type": "driver" if is_provider else "rider",
         "capabilities": capabilities,
+        "capability_approvals": capability_approvals,
         "is_professional": any(c in capabilities for c in ("professional", "tramites")),
         "is_verified": not is_provider,
-        "approval_status": "pending" if is_provider else "approved",
+        "approval_status": "provisional" if is_provider else "approved",
+        "provisional_until": provisional_until if is_provider else None,
         "is_active": True,
         "wallet_balance": 0.0,
         "rating": 5.0,
@@ -280,7 +286,7 @@ async def submit_registration(data: RegistrationSubmit):
         "status": user_doc["approval_status"],
         "user_id": user_id,
         "access_token": create_access_token({"sub": user_id}),
-        "message": "Registro recibido. Te avisaremos por WhatsApp cuando sea aprobado." if is_provider else "Registro completado.",
+        "message": "Registro recibido. Tenés acceso provisorio por 24 horas mientras revisamos cada capacidad." if is_provider else "Registro completado.",
     }
 
 
@@ -292,15 +298,16 @@ def _require_admin(user: dict) -> None:
 @router.get("/api/admin/registrations")
 async def list_registrations(status: str = "pending", user: dict = Depends(get_current_user)):
     _require_admin(user)
+    status_query = {"$in": ["pending", "provisional"]} if status == "pending" else status
     records = await db.users.find(
-        {"approval_status": status},
+        {"approval_status": status_query},
         {"_id": 0, "password": 0, "password_hash": 0},
     ).sort("created_at", 1).to_list(200)
     return {"registrations": records}
 
 
 @router.post("/api/admin/registrations/{user_id}/decision")
-async def decide_registration(user_id: str, decision: str, reason: str = "", user: dict = Depends(get_current_user)):
+async def decide_registration(user_id: str, decision: str, capability: Optional[str] = None, reason: str = "", user: dict = Depends(get_current_user)):
     _require_admin(user)
     if decision not in {"approve", "reject"}:
         raise HTTPException(status_code=400, detail="Decisión inválida")
@@ -309,11 +316,20 @@ async def decide_registration(user_id: str, decision: str, reason: str = "", use
         raise HTTPException(status_code=404, detail="Registro no encontrado")
     status = "approved" if decision == "approve" else "rejected"
     now = datetime.now(timezone.utc)
+    selected = [capability] if capability else list(target.get("capabilities", []))
+    if not selected or any(item not in target.get("capabilities", []) for item in selected):
+        raise HTTPException(status_code=400, detail="Capacidad inválida para este registro")
+    approvals = target.get("capability_approvals") or {item: {"status": "pending"} for item in target.get("capabilities", [])}
+    for item in selected:
+        approvals[item] = {**approvals.get(item, {}), "status": status, "reason": reason.strip(), "reviewed_at": now, "reviewed_by": user["user_id"]}
+    states = [item.get("status") for item in approvals.values()]
+    overall = "approved" if states and all(item == "approved" for item in states) else "rejected" if states and all(item == "rejected" for item in states) else "pending"
     result = await db.users.update_one(
-        {"user_id": user_id, "approval_status": "pending"},
+        {"user_id": user_id},
         {"$set": {
-            "approval_status": status,
-            "is_verified": decision == "approve",
+            "approval_status": overall,
+            "capability_approvals": approvals,
+            "is_verified": overall == "approved",
             "approval_reason": reason.strip(),
             "reviewed_at": now,
             "reviewed_by": user["user_id"],
@@ -323,11 +339,11 @@ async def decide_registration(user_id: str, decision: str, reason: str = "", use
         raise HTTPException(status_code=409, detail="El registro ya fue revisado")
     await db.drivers.update_one(
         {"driver_id": user_id},
-        {"$set": {"documents_verified": decision == "approve", "is_verified": decision == "approve"}},
+        {"$set": {"documents_verified": overall == "approved", "is_verified": overall == "approved"}},
     )
     await db.audit_log.insert_one({
         "audit_id": generate_id("audit_"), "action": "registration_decision",
         "target_user_id": user_id, "decision": decision, "reason": reason.strip(),
         "admin_id": user["user_id"], "created_at": now,
     })
-    return {"status": status}
+    return {"status": status, "capability": capability, "approval_status": overall, "capability_approvals": approvals}

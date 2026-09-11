@@ -41,7 +41,8 @@ interface PendingDriver {
   vehicle_color?: string;
   plate_number?: string;
 }
-interface PendingRegistration { user_id: string; name: string; email: string; phone?: string; capabilities?: string[]; }
+interface PendingRegistration { user_id: string; name: string; email: string; phone?: string; capabilities?: string[]; capability_approvals?: Record<string,{status:string;provisional_until?:string}>; provisional_until?: string; }
+const CAP_LABELS: Record<string,string> = { ride_driver:'Conductor',moto_driver:'Conductor de moto',taxi_driver:'Taxi',professional:'Profesional',tramites:'Gestor de trámites',parcel:'Paquetería',delivery:'Delivery',merchant:'Comercio' };
 
 const DOC_LABELS: Record<string, string> = {
   license: 'Licencia de conducir',
@@ -138,12 +139,12 @@ export default function AdminVerificationScreen() {
     </TouchableOpacity>
   );
 
-  const decideRegistration = async (item: PendingRegistration, decision: 'approve' | 'reject') => {
+  const decideRegistration = async (item: PendingRegistration, capability: string, decision: 'approve' | 'reject') => {
     const run = async (reason = '') => {
       setProcessing(true);
       try {
-        await apiService.post(`/admin/registrations/${item.user_id}/decision?decision=${decision}&reason=${encodeURIComponent(reason)}`);
-        Alert.alert(decision === 'approve' ? 'Registro aprobado' : 'Registro rechazado');
+        await apiService.post(`/admin/registrations/${item.user_id}/decision?decision=${decision}&capability=${encodeURIComponent(capability)}&reason=${encodeURIComponent(reason)}`);
+        Alert.alert(decision === 'approve' ? 'Capacidad aprobada' : 'Capacidad rechazada', CAP_LABELS[capability] || capability);
         fetchDrivers();
       } catch (e: any) { Alert.alert('Error', e.message || 'No se pudo revisar'); }
       finally { setProcessing(false); }
@@ -158,8 +159,8 @@ export default function AdminVerificationScreen() {
   return (
     <SafeAreaView style={st.container}>
       <View style={st.header}>
-        <Text style={st.title}>Verificación de Documentos</Text>
-        <Text style={st.subtitle}>{drivers.length} conductor{drivers.length !== 1 ? 'es' : ''} pendiente{drivers.length !== 1 ? 's' : ''}</Text>
+        <View><Text style={st.eyebrow}>MOLI ADMIN</Text><Text style={st.title}>Centro de aprobaciones</Text><Text style={st.subtitle}>Revisá documentación y habilitá cada capacidad por separado</Text></View>
+        <View style={st.kpis}><View style={[st.kpi,{backgroundColor:'#FFF1E9'}]}><Ionicons name="time" size={21} color="#FF5A1F"/><Text style={st.kpiNumber}>{registrations.length + drivers.length}</Text><Text style={st.kpiLabel}>Pendientes</Text></View><View style={[st.kpi,{backgroundColor:'#FFF8E8'}]}><Ionicons name="flash" size={21} color="#E69A18"/><Text style={st.kpiNumber}>{registrations.length}</Text><Text style={st.kpiLabel}>Provisorios 24h</Text></View><View style={[st.kpi,{backgroundColor:'#ECF9F0'}]}><Ionicons name="shield-checkmark" size={21} color="#22A559"/><Text style={st.kpiNumber}>{drivers.filter(d=>d.pending_count===0).length}</Text><Text style={st.kpiLabel}>Listos</Text></View></View>
       </View>
 
       <FlatList
@@ -168,7 +169,7 @@ export default function AdminVerificationScreen() {
         renderItem={renderDriver}
         contentContainerStyle={{ padding: 16 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchDrivers(); }} />}
-        ListHeaderComponent={registrations.length ? <View style={{ marginBottom: 18 }}><Text style={{ fontSize: 18, fontWeight: '800', marginBottom: 10 }}>Registros de proveedores</Text>{registrations.map(item => <View key={item.user_id} style={st.docCard}><Text style={st.driverName}>{item.name}</Text><Text style={st.driverEmail}>{item.phone} · {item.email}</Text><View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginVertical: 10 }}>{(item.capabilities || []).map(cap => <View key={cap} style={st.pendingBadge}><Text style={st.pendingText}>{cap}</Text></View>)}</View><View style={st.docActions}><TouchableOpacity style={st.rejectBtn} disabled={processing} onPress={() => decideRegistration(item, 'reject')}><Text style={st.rejectBtnText}>Rechazar</Text></TouchableOpacity><TouchableOpacity style={st.approveBtn} disabled={processing} onPress={() => decideRegistration(item, 'approve')}><Text style={st.approveBtnText}>Aprobar capacidades</Text></TouchableOpacity></View></View>)}</View> : null}
+        ListHeaderComponent={registrations.length ? <View style={{ marginBottom: 18 }}><View style={st.sectionHead}><Text style={st.sectionTitle}>Registros de proveedores</Text><View style={st.livePill}><View style={st.liveDot}/><Text style={st.liveText}>Acceso provisorio</Text></View></View>{registrations.map(item => <View key={item.user_id} style={st.registrationCard}><View style={st.personRow}><View style={st.avatar}><Text style={st.avatarText}>{item.name?.slice(0,1).toUpperCase()}</Text></View><View style={{flex:1}}><Text style={st.driverName}>{item.name}</Text><Text style={st.driverEmail}>{item.phone} · {item.email}</Text></View><View style={st.hoursBadge}><Ionicons name="timer-outline" size={14} color="#B85A1B"/><Text style={st.hoursText}>hasta 24 h</Text></View></View><Text style={st.capTitle}>CAPACIDADES SOLICITADAS</Text>{(item.capabilities || []).map(cap => { const state=item.capability_approvals?.[cap]?.status || 'provisional'; return <View key={cap} style={st.capRow}><View style={st.capIcon}><Ionicons name={cap==='merchant'?'storefront':cap==='professional'?'construct':cap==='tramites'?'document-text':'car'} size={21} color="#FF5A1F"/></View><View style={{flex:1}}><Text style={st.capName}>{CAP_LABELS[cap] || cap}</Text><Text style={st.capStatus}>{state==='provisional'?'Trabajando provisoriamente · revisión pendiente':state==='approved'?'Aprobada':state==='rejected'?'Rechazada':'Pendiente'}</Text></View>{state!=='approved'&&state!=='rejected'?<View style={st.inlineActions}><TouchableOpacity style={st.smallReject} disabled={processing} onPress={() => decideRegistration(item, cap, 'reject')}><Ionicons name="close" size={18} color="#D43C32"/></TouchableOpacity><TouchableOpacity style={st.smallApprove} disabled={processing} onPress={() => decideRegistration(item, cap, 'approve')}><Ionicons name="checkmark" size={19} color="#FFF"/></TouchableOpacity></View>:null}</View>})}</View>)}</View> : null}
         ListEmptyComponent={
           <View style={st.empty}>
             <Ionicons name="checkmark-circle" size={56} color="#FF7733" />
@@ -434,10 +435,14 @@ export default function AdminVerificationScreen() {
 }
 
 const st = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F2F2F7' },
-  header: { backgroundColor: '#fff', paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#E5E5EA' },
-  title: { fontSize: 24, fontWeight: '800', color: '#1C1C1E' },
+  container: { flex: 1, backgroundColor: '#FFF9F3' },
+  header: { backgroundColor: '#202124', paddingHorizontal: 22, paddingTop: 20, paddingBottom: 22, borderBottomLeftRadius: 28, borderBottomRightRadius: 28 },
+  eyebrow:{fontSize:10,fontWeight:'900',letterSpacing:2,color:'#FF8A55',marginBottom:4},
+  title: { fontSize: 27, fontWeight: '900', color: '#FFF' },
   subtitle: { fontSize: 14, color: '#8E8E93', marginTop: 4 },
+  kpis:{flexDirection:'row',gap:9,marginTop:18},kpi:{flex:1,minHeight:80,borderRadius:17,padding:11,justifyContent:'center'},kpiNumber:{fontSize:20,fontWeight:'900',color:'#202124',marginTop:3},kpiLabel:{fontSize:10,fontWeight:'700',color:'#726A66'},
+  sectionHead:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginBottom:11},sectionTitle:{fontSize:19,fontWeight:'900',color:'#202124'},livePill:{flexDirection:'row',alignItems:'center',gap:6,backgroundColor:'#ECF9F0',borderRadius:14,paddingHorizontal:10,paddingVertical:6},liveDot:{width:8,height:8,borderRadius:4,backgroundColor:'#22A559'},liveText:{fontSize:10,fontWeight:'800',color:'#20834A'},
+  registrationCard:{backgroundColor:'#FFF',borderRadius:22,padding:16,marginBottom:13,borderWidth:1,borderColor:'#F1E2D8',shadowColor:'#713211',shadowOpacity:.09,shadowRadius:12,elevation:3},personRow:{flexDirection:'row',alignItems:'center',gap:11,marginBottom:15},avatar:{width:48,height:48,borderRadius:17,backgroundColor:'#202124',alignItems:'center',justifyContent:'center'},avatarText:{fontSize:20,fontWeight:'900',color:'#FFF'},hoursBadge:{flexDirection:'row',alignItems:'center',gap:4,backgroundColor:'#FFF1E9',borderRadius:12,paddingHorizontal:9,paddingVertical:6},hoursText:{fontSize:10,fontWeight:'800',color:'#B85A1B'},capTitle:{fontSize:9,fontWeight:'900',letterSpacing:1.3,color:'#9B8E86',marginBottom:7},capRow:{flexDirection:'row',alignItems:'center',gap:10,minHeight:62,borderTopWidth:1,borderTopColor:'#F4ECE7'},capIcon:{width:38,height:38,borderRadius:13,backgroundColor:'#FFF0E7',alignItems:'center',justifyContent:'center'},capName:{fontSize:14,fontWeight:'800',color:'#25211F'},capStatus:{fontSize:11,color:'#A3613F',marginTop:2},inlineActions:{flexDirection:'row',gap:7},smallReject:{width:36,height:36,borderRadius:12,backgroundColor:'#FFF0EF',alignItems:'center',justifyContent:'center'},smallApprove:{width:36,height:36,borderRadius:12,backgroundColor:'#FF5A1F',alignItems:'center',justifyContent:'center'},
   driverCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 14, padding: 14, marginBottom: 8, gap: 12 },
   driverIcon: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#007AFF', justifyContent: 'center', alignItems: 'center' },
   driverInfo: { flex: 1 },
