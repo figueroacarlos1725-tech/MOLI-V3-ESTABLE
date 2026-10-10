@@ -153,3 +153,17 @@
 - 2026-09-11 — Se separó la aprobación por capacidad para conductores, profesionales, gestores, repartidores y comercios. Los nuevos proveedores reciben una habilitación provisoria auditable de 24 horas; al vencer, solo continúan operativas las capacidades aprobadas. El Centro de aprobaciones Admin adoptó el diseño premium Moli y decisiones individuales por capacidad.
 - 2026-09-11 — Despacho Admin se reconstruyó como centro operativo premium unificado: mapa en vivo, métricas, cola combinada de viajes/trabajos/trámites/envíos, filtros, alertas de aprobación, asignación manual y actualización automática cada 10 segundos sobre las APIs reales de QA.
 - 2026-09-11 — El acceso web ahora normaliza el correo y presenta los errores de autenticación dentro del formulario; se eliminó la dependencia de alertas nativas que podían no mostrarse en navegador y dejar el botón sin respuesta visible.
+
+
+## 2026-10-10 — QA cloud gratuita
+
+- API: https://moli-qa-api.onrender.com; web Expo: https://moli-qa-web.onrender.com. Ambos despliegan el commit 200ef26 de qa/role-flow-hardening en planes Free de Render.
+- Base Atlas M0 temporal, aislada como moli_cloud_qa. La conexión está guardada fuera de Git y en variables privadas de Render. Sin claim humano, se pausa a los dos días y se elimina a los siete; el registro de Atlas con Google respondió error de servidor.
+- El repositorio fue hecho público por su dueño para permitir el clone de Render. Un repositorio público es necesario para reconstruir mientras no se vincule GitHub a Render.
+- VPS 67.217.61.182 sin cambios: las credenciales SSH ensayadas anteriormente fueron rechazadas.
+- Verificado: API health, conexión Mongo, 37 pruebas existentes, TypeScript, exportación web local y cloud, login web real con cuenta ficticia.
+- scripts/qa_core_flows.ps1 pasó trabajos electricista, trámites, viaje completo con calificación y cancelación gratuita con reasignación/exclusión del conductor anterior en la API cloud.
+- Marketplace: aprobación admin, catálogo, carrito, pedido para retirar, estados hasta completed, pago efectivo simulado y liquidación idempotente pasaron. Permisos admin, alta pública admin, pedido ajeno, stock insuficiente, teléfono inválido y clave incorrecta también comprobados.
+- Fallos reproducidos: checkout no descuenta stock (pedido de dos unidades conserva diez); cliente puede aceptar su propio pedido mediante PUT /orders/{id}/status. No fueron corregidos en este checkpoint.
+- Registro OTP usa SMTP, bloqueado en Render Free; necesita transporte HTTP o cambiar alojamiento. Google de la app, WhatsApp, mapas pagos, Mercado Pago real/sandbox y soporte IA no se validaron. npm del build informó 46 vulnerabilidades (20 moderadas, 26 altas); pendiente revisar dependencias antes de producción.
+- No es release Play ni validación integral en teléfono. El siguiente trabajo es corregir los fallos, completar delivery/publicidad/admin y construir APK QA; verificar firma y versionCode antes de Play.
