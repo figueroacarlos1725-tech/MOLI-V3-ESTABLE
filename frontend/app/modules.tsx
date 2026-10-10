@@ -12,8 +12,11 @@ type CardProps={title:string;description:string;icon:React.ComponentProps<typeof
 function ModuleCard({title,description,icon,color,eyebrow,onPress,featured}:CardProps){return <TouchableOpacity style={[s.card,featured&&s.featuredCard]} onPress={onPress} activeOpacity={.82}><View style={[s.iconBox,{backgroundColor:`${color}16`}]}><Ionicons name={icon} size={29} color={color}/></View><View style={s.cardBody}><Text style={[s.eyebrow,{color}]}>{eyebrow}</Text><Text style={s.cardTitle}>{title}</Text><Text style={s.cardDescription}>{description}</Text></View><View style={[s.arrow,{backgroundColor:color}]}><Ionicons name="arrow-forward" size={18} color={C.white}/></View></TouchableOpacity>}
 
 export default function ModulesScreen(){
-  const router=useRouter(); const {user,logout}=useAuthStore(); const isDriver=user?.user_type==='driver'; const firstName=user?.name?.split(' ')[0]||'Usuario';
+  const router=useRouter(); const {user,logout,isAuthenticated,isLoading}=useAuthStore(); const isDriver=user?.user_type==='driver'; const firstName=user?.name?.split(' ')[0]||'Usuario';
   const changeAccount=()=>{logout();router.replace('/(auth)/welcome')};
+  if(isLoading)return null;
+  if(!isAuthenticated)return <Redirect href="/(auth)/welcome"/>;
+  if(user?.user_type==='admin'||user?.user_type==='dispatcher')return <Redirect href="/(dispatch)/home"/>;
   if(!isDriver)return <SafeAreaView style={s.page}><RiderLanding firstName={firstName} onProfile={()=>router.push('/(rider)/profile')} onLogout={changeAccount}/></SafeAreaView>;
   if(isDriver)return <Redirect href="/provider-hub"/>;
   return <SafeAreaView style={s.page}><ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>

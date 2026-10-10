@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, SafeAreaView, TouchableOpacity,
-  ScrollView, TextInput, Alert, ActivityIndicator, Image,
+  ScrollView, TextInput, ActivityIndicator, Image,
   ImageSourcePropType, KeyboardAvoidingView, Platform, useWindowDimensions,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -53,6 +53,8 @@ export default function RequestJobScreen() {
     params.lat ? { latitude: parseFloat(params.lat), longitude: parseFloat(params.lng || '-65.7852') } : null
   );
   const [loading, setLoading] = useState(false);
+  const [notice, setNotice] = useState('');
+  const notify = (title: string, message: string) => setNotice(`${title}: ${message}`);
   const [jobId, setJobId] = useState<string | null>(null);
   const [professional, setProfessional] = useState<any>(null);
   const [searchAttempts, setSearchAttempts] = useState(0);
@@ -105,6 +107,10 @@ export default function RequestJobScreen() {
       }
     });
 
+    const unsubCounter = socketService.on('job_counter_offer', (msg: any) => {
+      if (msg.job_id === jobId) router.replace({ pathname: '/(jobs)/job-status', params: { jobId } } as any);
+    });
+
     const unsubDeclined = socketService.on('job_declined', (msg: any) => {
       if (msg.job_id === jobId) {
         setSearchStatus('declined');
@@ -118,7 +124,10 @@ export default function RequestJobScreen() {
       try {
         const r = await apiService.get(`/jobs/detail/${jobId}`);
         setSearchAttempts(prev => prev + 1);
-        if (r.job?.status === 'assigned') {
+        if (r.job?.status === 'negotiating') {
+          router.replace({ pathname: '/(jobs)/job-status', params: { jobId } } as any);
+          clearInterval(interval);
+        } else if (r.job?.status === 'assigned') {
           setProfessional({
             name: r.job.assigned_name,
             id: r.job.assigned_to,
@@ -137,24 +146,33 @@ export default function RequestJobScreen() {
       unsubReviewing();
       unsubAccepted();
       unsubDeclined();
+      unsubCounter();
     };
   }, [phase, jobId, user?.user_id]);
 
   const pickImage = async () => {
+    setNotice('');
+    try {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
       quality: 0.6,
       base64: true,
     });
     if (!result.canceled && result.assets[0]) {
-      setPhoto(result.assets[0].uri);
+      const asset = result.assets[0];
+      if ((asset.fileSize || 0) > 2 * 1024 * 1024) { notify('Foto demasiado grande', 'Elegí una foto de hasta 2 MB.'); return; }
+      if (!asset.base64 || asset.base64.length > 2800000) { notify('No pudimos adjuntar la foto', 'Elegí otra imagen de hasta 2 MB.'); return; }
+      setPhoto(`data:${asset.mimeType || 'image/jpeg'};base64,${asset.base64}`);
     }
+    } catch { notify('No pudimos adjuntar', 'Intentá con otra imagen.'); }
   };
 
   const handleSubmit = async () => {
+    setNotice('');
+    if (!location || !Number.isFinite(location.latitude) || !Number.isFinite(location.longitude)) { notify('Falta ubicación', 'Elegí el lugar del servicio antes de publicar.'); return; }
     const minimumBudget = category === 'tramites' ? MINIMUM_PAPERWORK_BUDGET : MINIMUM_JOB_BUDGET;
-    if (!title.trim()) { Alert.alert('Error', 'Escribí un título'); return; }
-    if (!budget || parseFloat(budget) < minimumBudget) { Alert.alert('Presupuesto mínimo', `Esta categoría parte desde $${minimumBudget.toLocaleString('es-AR')}.`); return; }
+    if (!title.trim()) { notify('Error', 'Escribí un título'); return; }
+    if (!budget || parseFloat(budget) < minimumBudget) { notify('Presupuesto mínimo', `Esta categoría parte desde $${minimumBudget.toLocaleString('es-AR')}.`); return; }
     setLoading(true);
     try {
       const res = await apiService.post('/jobs/post', {
@@ -169,13 +187,13 @@ export default function RequestJobScreen() {
       setJobId(res.job?.job_id);
       setPhase('searching');
     } catch (e: any) {
-      Alert.alert('Error', e.message || 'No se pudo publicar');
+      notify('Error', e.message || 'No se pudo publicar');
     } finally { setLoading(false); }
   };
 
   const handleCancel = async () => {
     if (jobId) {
-      try { await apiService.put(`/jobs/${jobId}/status`, { status: 'cancelled' }); } catch {}
+      try { await apiService.put(`/jobs/${jobId}/status`, { status: 'cancelled' }); } catch (e: any) { notify('No se pudo cancelar', e.message || 'Intentá nuevamente.'); return; }
     }
     router.back();
   };
@@ -264,12 +282,13 @@ export default function RequestJobScreen() {
 
               <View style={s.formCard}>
                 <View style={s.fieldHeading}><View style={s.fieldIcon}><Ionicons name="location" size={17} color="#FF5A1F"/></View><Text style={s.label}>Ubicación del servicio</Text></View>
-                <View style={s.locationRow}>
+                <TouchableOpacity style={s.locationRow} accessibilityRole="button" onPress={() => router.push('/(jobs)/client-home')}>
                   <Ionicons name="location" size={20} color="#FF7733" />
-                  <Text style={{ flex: 1, fontSize: 14, color: '#1C1C1E' }}>{address}</Text>
-                </View>
+                  <Text style={{ flex: 1, fontSize: 14, color: '#1C1C1E' }}>{address} · Cambiar</Text>
+                </TouchableOpacity>
               </View>
 
+              {!!notice && <Text accessibilityRole="alert" style={{color:'#B42318',backgroundColor:'#FEF3F2',padding:12,borderRadius:12,marginBottom:12}}>{notice}</Text>}
               <TouchableOpacity style={s.submitBtn} onPress={handleSubmit} disabled={loading}>
                 {loading ? <ActivityIndicator color="#fff" /> : (
                   <><Ionicons name="search" size={20} color="#fff"/><Text style={s.submitBtnText}>Buscar profesional</Text><Ionicons name="arrow-forward" size={20} color="#fff"/></>
@@ -349,6 +368,7 @@ export default function RequestJobScreen() {
               Está tardando más de lo normal. Podés seguir esperando.
             </Text>
           )}
+          {!!notice && <Text accessibilityRole="alert" style={{color:'#B42318',padding:12}}>{notice}</Text>}
           <View style={s.searchActions}><TouchableOpacity style={s.keepBrowsingBtn} onPress={() => router.replace('/modules')}><Ionicons name="contract" size={18} color="#fff"/><Text style={s.keepBrowsingText}>Minimizar y seguir usando Moli</Text></TouchableOpacity><TouchableOpacity style={s.cancelBtn} onPress={handleCancel}><Text style={s.cancelText}>Cancelar solicitud</Text></TouchableOpacity></View>
         </View>
       </SafeAreaView>

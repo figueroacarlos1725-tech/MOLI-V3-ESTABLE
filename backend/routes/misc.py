@@ -83,6 +83,14 @@ async def get_premium_status(user: dict = Depends(get_current_user)):
 
 @router.websocket("/api/ws/{user_id}")
 async def websocket_endpoint(websocket: WebSocket, user_id: str):
+    token = websocket.query_params.get("token")
+    try:
+        user = await get_current_user(f"Bearer {token}" if token else None)
+        if user["user_id"] != user_id:
+            raise HTTPException(403, "Not authorized")
+    except HTTPException:
+        await websocket.close(code=1008)
+        return
     await manager.connect(websocket, user_id)
     try:
         while True:
@@ -92,9 +100,14 @@ async def websocket_endpoint(websocket: WebSocket, user_id: str):
             msg_type = data.get("type")
             
             if msg_type == "location_update":
+                if user.get("user_type") != "driver":
+                    continue
+                lat, lng = data.get("latitude"), data.get("longitude")
+                if not isinstance(lat, (int, float)) or not isinstance(lng, (int, float)) or not (-90 <= lat <= 90 and -180 <= lng <= 180):
+                    continue
                 # Driver location update
                 await db.drivers.update_one(
-                    {"driver_id": user_id},
+                    {"user_id": user_id},
                     {"$set": {
                         "current_location": {
                             "latitude": data.get("latitude"),
@@ -128,27 +141,20 @@ async def websocket_endpoint(websocket: WebSocket, user_id: str):
                     pass
             
             elif msg_type == "chat_message":
-                # Real-time chat
-                await manager.send_personal_message(
-                    {
-                        "type": "new_message",
-                        "message": data.get("message"),
-                        "sender_id": user_id
-                    },
-                    data.get("receiver_id")
-                )
+                # REST chat endpoints enforce service membership, redact and persist.
+                await websocket.send_json({"type": "error", "detail": "Use the authenticated chat API"})
     
     except WebSocketDisconnect:
-        manager.disconnect(user_id)
+        manager.disconnect(user_id, websocket)
         # DO NOT mark driver offline on WebSocket disconnect
         # K8s proxy drops connections frequently - driver manages online state explicitly
         # Only update last_seen timestamp
         await db.drivers.update_one(
-            {"driver_id": user_id},
+            {"user_id": user_id},
             {"$set": {"last_seen": datetime.now(timezone.utc)}}
         )
     except Exception:
-        manager.disconnect(user_id)
+        manager.disconnect(user_id, websocket)
 
 
 @router.get("/api/health")

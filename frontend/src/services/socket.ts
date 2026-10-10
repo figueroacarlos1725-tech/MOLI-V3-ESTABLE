@@ -1,4 +1,5 @@
 import Constants from 'expo-constants';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const BASE_URL = process.env.EXPO_PUBLIC_BACKEND_URL || '';
 
@@ -12,7 +13,8 @@ class SocketService {
   private isConnecting = false;
   private keepAliveTimer: ReturnType<typeof setInterval> | null = null;
 
-  connect(userId: string) {
+  async connect(userId: string) {
+    if (this.userId && this.userId !== userId) this.disconnect();
     // Always reset reconnect counter on explicit connect call
     this.reconnectAttempts = 0;
 
@@ -31,10 +33,15 @@ class SocketService {
     this.isConnecting = true;
 
     try {
+      const token = await AsyncStorage.getItem('token');
+      if (this.userId !== userId) return;
+      if (!token) { this.isConnecting = false; return; }
       const wsUrl = BASE_URL.replace('https://', 'wss://').replace('http://', 'ws://');
-      this.socket = new WebSocket(`${wsUrl}/api/ws/${userId}`);
+      this.socket = new WebSocket(`${wsUrl}/api/ws/${encodeURIComponent(userId)}?token=${encodeURIComponent(token)}`);
+      const connectedSocket = this.socket;
 
       this.socket.onopen = () => {
+        if (this.socket !== connectedSocket) return;
         console.log('WebSocket conectado');
         this.reconnectAttempts = 0;
         this.isConnecting = false;
@@ -42,6 +49,7 @@ class SocketService {
       };
 
       this.socket.onmessage = (event) => {
+        if (this.socket !== connectedSocket) return;
         try {
           const data = JSON.parse(event.data);
           const type = data.type;
@@ -63,16 +71,20 @@ class SocketService {
       };
 
       this.socket.onclose = () => {
+        if (this.socket !== connectedSocket) return;
+        this.stopKeepAlive();
         this.isConnecting = false;
         this.socket = null;
         this.scheduleReconnect();
       };
 
       this.socket.onerror = () => {
+        if (this.socket !== connectedSocket) return;
         // Silently handle - onclose will fire after this
         this.isConnecting = false;
       };
     } catch (error) {
+      if (this.userId !== userId) return;
       this.isConnecting = false;
       this.scheduleReconnect();
     }

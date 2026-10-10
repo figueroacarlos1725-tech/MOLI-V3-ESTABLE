@@ -6,9 +6,9 @@ import uuid
 from fastapi import APIRouter, Body, Depends, Header, HTTPException, Query
 from pydantic import BaseModel, Field
 from pymongo import ReturnDocument
-from pymongo.errors import DuplicateKeyError
+from pymongo.errors import DuplicateKeyError, OperationFailure
 
-from database import db
+from database import db, client
 from utils import get_current_user
 from marketplace_core import (
     dispatch_vehicle_order, driver_delivery_view, merchant_orders_query, price_snapshot,
@@ -17,6 +17,17 @@ from marketplace_core import (
 )
 
 router = APIRouter(prefix="/api/marketplace", tags=["marketplace"])
+
+
+async def atomic_inventory_operation(callback):
+    """Never silently downgrade inventory guarantees on standalone MongoDB."""
+    try:
+        async with await client.start_session() as session:
+            return await session.with_transaction(callback)
+    except OperationFailure as exc:
+        if exc.code in (20, 303):
+            raise HTTPException(503, "Marketplace requires MongoDB transactions on a replica set") from exc
+        raise
 
 
 def uid(prefix: str) -> str:
@@ -231,6 +242,10 @@ async def checkout(data: CheckoutInput, idempotency_key: str = Header(..., alias
         return prior
     cart = await db.marketplace_carts.find_one({"user_id": user["user_id"]}, {"_id": 0})
     if not cart or not cart.get("items"):
+        # A concurrent request with this key may have just committed and cleared it.
+        prior = await db.marketplace_orders.find_one({"customer_id": user["user_id"], "idempotency_key": idempotency_key}, {"_id": 0})
+        if prior:
+            return prior
         raise HTTPException(409, "Cart is empty")
     merchant = await db.marketplace_merchants.find_one({"merchant_id": cart["merchant_id"], "approval_status": "approved"}, {"_id": 0})
     if not merchant or not merchant.get("capabilities", {}).get(data.fulfilment):
@@ -244,6 +259,9 @@ async def checkout(data: CheckoutInput, idempotency_key: str = Header(..., alias
     for item in cart["items"]:
         p = by_id.get(item["product_id"])
         if not p or p["stock"] < item["quantity"]:
+            prior = await db.marketplace_orders.find_one({"customer_id": user["user_id"], "idempotency_key": idempotency_key}, {"_id": 0})
+            if prior:
+                return prior
             raise HTTPException(409, "Cart changed; review availability")
         lines.append({"product_id": p["product_id"], "name": p["name"], "quantity": item["quantity"], "unit_price_cents": p["price_cents"]})
     delivery_fee = int(merchant.get("delivery_fee_cents", 0)) if data.fulfilment == "delivery" else 0
@@ -253,12 +271,27 @@ async def checkout(data: CheckoutInput, idempotency_key: str = Header(..., alias
              "idempotency_key": idempotency_key, **data.model_dump(), "pricing": pricing,
              "status": "pending_merchant", "payment_status": payment_status, "settlement_status": "pending",
              "created_at": now(), "updated_at": now()}
+    async def reserve_and_create(session):
+        existing = await db.marketplace_orders.find_one({"customer_id": user["user_id"], "idempotency_key": idempotency_key}, {"_id": 0}, session=session)
+        if existing:
+            return existing
+        current_cart = await db.marketplace_carts.find_one({"user_id": user["user_id"]}, session=session)
+        if not current_cart or current_cart.get("items") != cart["items"] or current_cart.get("merchant_id") != cart["merchant_id"]:
+            raise HTTPException(409, "Cart changed; review availability")
+        for line in lines:
+            reserved = await db.marketplace_products.update_one(
+                {"product_id": line["product_id"], "merchant_id": cart["merchant_id"], "active": True, "price_cents": line["unit_price_cents"], "stock": {"$gte": line["quantity"]}},
+                {"$inc": {"stock": -line["quantity"]}}, session=session)
+            if reserved.modified_count != 1:
+                raise HTTPException(409, "Cart changed; review availability")
+        order["stock_reserved"] = True
+        await db.marketplace_orders.insert_one(order, session=session)
+        await db.marketplace_carts.delete_one({"user_id": user["user_id"]}, session=session)
+        return public(order)
     try:
-        await db.marketplace_orders.insert_one(order)
+        return await atomic_inventory_operation(reserve_and_create)
     except DuplicateKeyError:
         return await db.marketplace_orders.find_one({"customer_id": user["user_id"], "idempotency_key": idempotency_key}, {"_id": 0})
-    await db.marketplace_carts.delete_one({"user_id": user["user_id"]})
-    return public(order)
 
 
 @router.get("/orders")
@@ -286,19 +319,31 @@ async def transition_order(order_id: str, data: TransitionInput, user=Depends(ge
     if not order:
         raise HTTPException(404, "Order not found")
     merchant = await db.marketplace_merchants.find_one({"merchant_id": order["merchant_id"]}, {"_id": 0})
-    allowed = user["user_id"] in (order["customer_id"], (merchant or {}).get("owner_id"), order.get("driver_id")) or user.get("user_type") in ("admin", "dispatcher")
+    is_admin = user.get("user_type") in ("admin", "dispatcher")
+    is_merchant = user["user_id"] == (merchant or {}).get("owner_id")
+    is_customer = user["user_id"] == order["customer_id"]
+    # Delivery progression belongs exclusively to the assigned delivery endpoint.
+    allowed = is_admin or is_merchant and data.status in ("accepted", "rejected", "preparing", "ready", "cancelled") or is_customer and (
+        data.status == "completed" and order["fulfilment"] == "pickup" or data.status == "cancelled" and order["status"] == "pending_merchant")
     if not allowed:
         raise HTTPException(403, "Not authorized")
     try:
         require_transition(order["status"], data.status, order["fulfilment"])
     except ValueError as exc:
         raise HTTPException(409, str(exc))
-    updated = await db.marketplace_orders.find_one_and_update(
-        {"order_id": order_id, "status": order["status"]}, {"$set": {"status": data.status, "updated_at": now(), f"{data.status}_at": now()}},
-        return_document=ReturnDocument.AFTER, projection={"_id": 0})
-    if not updated:
-        raise HTTPException(409, "Order changed concurrently")
-    return updated
+    async def transition_and_release(session):
+        updated = await db.marketplace_orders.find_one_and_update(
+            {"order_id": order_id, "status": order["status"]}, {"$set": {"status": data.status, "updated_at": now(), f"{data.status}_at": now()}},
+            return_document=ReturnDocument.AFTER, projection={"_id": 0}, session=session)
+        if not updated:
+            raise HTTPException(409, "Order changed concurrently")
+        if data.status in ("rejected", "cancelled") and order.get("stock_reserved") and order["status"] not in ("picked_up", "delivering"):
+            for line in order["pricing"]["items"]:
+                await db.marketplace_products.update_one({"product_id": line["product_id"]}, {"$inc": {"stock": line["quantity"]}}, session=session)
+            await db.marketplace_orders.update_one({"order_id": order_id}, {"$set": {"stock_reserved": False}}, session=session)
+            updated["stock_reserved"] = False
+        return updated
+    return await atomic_inventory_operation(transition_and_release)
 
 
 @router.put("/orders/{order_id}/payment-status")

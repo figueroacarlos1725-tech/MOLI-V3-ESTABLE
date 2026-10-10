@@ -59,12 +59,12 @@ export default function LoginScreen() {
 
   const handleGoogleLogin = async () => {
     if (!AUTH_FEATURES.google || !AUTH_FEATURES.googleAuthUrl) {
-      Alert.alert('Google estará disponible pronto', 'La pantalla ya está preparada. Falta vincular las credenciales OAuth de Moli antes de habilitarla.');
+      setLoginError('Google todavía no está habilitado. Ingresá con tu correo y contraseña.');
       return;
     }
     const canOpen = await Linking.canOpenURL(AUTH_FEATURES.googleAuthUrl);
     if (!canOpen) {
-      Alert.alert('No pudimos abrir Google', 'Intentá nuevamente en unos minutos.');
+      setLoginError('No pudimos abrir Google. Intentá nuevamente en unos minutos.');
       return;
     }
     await Linking.openURL(AUTH_FEATURES.googleAuthUrl);
@@ -120,7 +120,7 @@ export default function LoginScreen() {
               error={errors.password}
             />
 
-            <TouchableOpacity style={styles.forgotPassword}>
+            <TouchableOpacity style={styles.forgotPassword} accessibilityRole="button" onPress={() => setLoginError('La recuperación de contraseña todavía no está habilitada. Contactá a soporte de Moli para recuperar el acceso.') }>
               <Text style={styles.forgotPasswordText}>¿Olvidaste tu contraseña?</Text>
             </TouchableOpacity>
 

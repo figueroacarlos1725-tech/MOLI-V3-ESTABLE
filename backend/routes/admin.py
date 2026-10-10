@@ -1,5 +1,6 @@
 """Admin routes"""
 from fastapi import APIRouter, HTTPException, Depends, Query, Body, File, UploadFile
+from pymongo import ReturnDocument
 from typing import Optional, List
 from datetime import datetime, timezone, timedelta
 import os
@@ -12,7 +13,7 @@ from websocket_manager import manager
 from utils import (
     generate_id, hash_password, get_current_user, get_settings, calculate_distance,
     DEFAULT_FARES, REQUIRED_DOCUMENTS, adjust_wallet_balance, set_wallet_balance,
-    DEFAULT_VEHICLE_ICONS, DISPLAY_NAMES,
+    DEFAULT_VEHICLE_ICONS, DISPLAY_NAMES, has_active_capability,
 )
 from models import (
     SettingsUpdate, VehicleIconUpdate, AdminUserUpdate, AdminCreateUser,
@@ -795,18 +796,41 @@ async def dispatch_assign_driver(
     if not driver:
         raise HTTPException(status_code=404, detail="Conductor no encontrado")
     
-    now = datetime.now(timezone.utc)
-    
-    # Update request status
-    await db.ride_requests.update_one(
-        {"request_id": request_id},
-        {"$set": {"status": "accepted", "assigned_driver": driver_id}}
-    )
-    
-    # Get or create ride
+    open_states = ["pending", "bidding", "searching"]
+    if request_doc.get("status") not in open_states:
+        raise HTTPException(409, "La solicitud ya no está abierta")
+    if driver.get("is_blocked") or not has_active_capability(driver, "ride_driver", "moto_driver", "taxi_driver", "parcel", "delivery"):
+        raise HTTPException(403, "El conductor no tiene una capacidad habilitada")
+    if driver_id in request_doc.get("excluded_drivers", []):
+        raise HTTPException(409, "Conductor excluido de esta solicitud")
+    vehicle = await db.vehicles.find_one(
+        {"driver_id": driver_id, "is_active": True, "vehicle_type": request_doc.get("vehicle_type", "economy")}, {"_id": 0})
+    if not vehicle:
+        raise HTTPException(409, "El vehículo no es compatible con la solicitud")
     existing_ride = await db.rides.find_one({"request_id": request_id})
-    vehicle = await db.vehicles.find_one({"driver_id": driver_id, "is_active": True}, {"_id": 0})
-    
+    if existing_ride and existing_ride.get("status") != "requested":
+        raise HTTPException(409, "El viaje ya fue asignado o finalizado")
+    now = datetime.now(timezone.utc)
+    available = await db.drivers.find_one_and_update(
+        {"driver_id": driver_id, "is_online": True, "is_available": True, "is_blocked": {"$ne": True}},
+        {"$set": {"is_available": False, "dispatch_claim_request_id": request_id}},
+        return_document=ReturnDocument.AFTER)
+    if not available:
+        raise HTTPException(409, "El conductor no está disponible")
+    claimed = await db.ride_requests.find_one_and_update(
+        {"request_id": request_id, "status": {"$in": open_states}},
+        {"$set": {"status": "accepted", "assigned_driver": driver_id, "accepted_by": driver_id}},
+        return_document=ReturnDocument.AFTER)
+    if not claimed:
+        await db.drivers.update_one(
+            {"driver_id": driver_id, "dispatch_claim_request_id": request_id},
+            {"$set": {"is_available": True}, "$unset": {"dispatch_claim_request_id": ""}})
+        raise HTTPException(409, "Otro conductor tomó esta solicitud")
+    request_doc = claimed
+    from dispatch import assignment_events
+    if request_id in assignment_events:
+        assignment_events[request_id].set()
+
     if existing_ride:
         await db.rides.update_one(
             {"request_id": request_id},

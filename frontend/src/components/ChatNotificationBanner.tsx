@@ -17,7 +17,8 @@ import { MOLI_COLORS, MOLI_RADIUS, MOLI_SHADOWS } from '@/src/theme/colors';
 
 interface IncomingMessage {
   message_id: string;
-  ride_id: string;
+  ride_id?: string;
+  job_id?: string;
   sender_id: string;
   sender_name: string;
   message: string;
@@ -32,7 +33,8 @@ export default function ChatNotificationBanner() {
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user) { socketService.disconnect(); return; }
+    socketService.connect(user.user_id);
 
     const unsub = socketService.on('new_message', (data: any) => {
       // Only show if the message is NOT from me
@@ -77,11 +79,11 @@ export default function ChatNotificationBanner() {
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
     dismiss();
     
-    if (notification?.ride_id && currentRide) {
+    if (notification?.ride_id || notification?.job_id) {
       router.push({
         pathname: '/chat',
         params: {
-          rideId: notification.ride_id,
+          ...(notification.job_id ? { jobId: notification.job_id } : { rideId: notification.ride_id }),
           otherName: notification.sender_name || 'Chat',
         },
       });
@@ -159,8 +161,8 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   closeBtn: {
-    width: 32,
-    height: 32,
+    width: 44,
+    height: 44,
     borderRadius: 16,
     backgroundColor: '#F2F2F7',
     justifyContent: 'center',

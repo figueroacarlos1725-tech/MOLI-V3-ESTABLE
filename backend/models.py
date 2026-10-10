@@ -122,7 +122,11 @@ class ChatMessageCreate(BaseModel):
 class ChatMessageResponse(BaseModel):
     message_id: str
     sender_id: str
+    sender_name: Optional[str] = None
     receiver_id: str
+    ride_id: Optional[str] = None
+    job_id: Optional[str] = None
+    is_filtered: bool = False
     message: str
     message_type: str
     is_read: bool = False

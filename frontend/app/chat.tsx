@@ -21,7 +21,8 @@ import { socketService } from '@/src/services/socket';
 
 interface ChatMessage {
   message_id: string;
-  ride_id: string;
+  ride_id?: string;
+  job_id?: string;
   sender_id: string;
   sender_name: string;
   receiver_id: string;
@@ -31,7 +32,11 @@ interface ChatMessage {
 }
 
 export default function RideChatScreen() {
-  const { rideId, otherName } = useLocalSearchParams<{ rideId: string; otherName: string }>();
+  const { rideId, jobId, otherName } = useLocalSearchParams<{ rideId: string; jobId: string; otherName: string }>();
+  const historyPath = jobId ? `/chat/job/${encodeURIComponent(jobId)}` : `/chat/ride/${encodeURIComponent(rideId || '')}`;
+  const sendToService = (message: string) => jobId
+    ? apiService.post('/chat/job/send', { job_id: jobId, message })
+    : apiService.post(`/chat/send?ride_id=${encodeURIComponent(rideId || '')}&message=${encodeURIComponent(message)}`);
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { user } = useAuthStore();
@@ -40,15 +45,19 @@ export default function RideChatScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
   const [showQuick, setShowQuick] = useState(true);
+  const [notice, setNotice] = useState('');
   const flatListRef = useRef<FlatList>(null);
 
   const handleQuickSend = async (msg: string) => {
     setShowQuick(false);
+    if ((!jobId && !rideId) || isSending) return;
+    setNotice('');
     setIsSending(true);
     
     const tempMsg: ChatMessage = {
       message_id: `temp_${Date.now()}`,
-      ride_id: rideId || '',
+      ride_id: rideId,
+      job_id: jobId,
       sender_id: user?.user_id || '',
       sender_name: user?.name || 'Yo',
       receiver_id: '',
@@ -60,16 +69,14 @@ export default function RideChatScreen() {
     setTimeout(() => flatListRef.current?.scrollToEnd(), 100);
     
     try {
-      const response = await apiService.post(
-        `/chat/send?ride_id=${rideId}&message=${encodeURIComponent(msg)}`
-      );
+      const response = await sendToService(msg);
       if (response.message) {
         setMessages(prev => prev.map(m => 
           m.message_id === tempMsg.message_id ? { ...response.message } : m
         ));
       }
     } catch (error) {
-      console.error('Error enviando mensaje rápido:', error);
+      setNotice(error instanceof Error ? error.message : 'No se pudo enviar. Intentá nuevamente.');
       setMessages(prev => prev.filter(m => m.message_id !== tempMsg.message_id));
     } finally {
       setIsSending(false);
@@ -92,7 +99,7 @@ export default function RideChatScreen() {
     
     // Listen for new messages via WebSocket
     const unsubscribe = socketService.on('new_message', (data: any) => {
-      if (data.ride_id === rideId) {
+      if (jobId ? data.job_id === jobId : Boolean(rideId) && data.ride_id === rideId) {
         // Avoid duplicates
         setMessages(prev => {
           if (prev.some(m => m.message_id === data.message_id)) return prev;
@@ -105,7 +112,7 @@ export default function RideChatScreen() {
     // Poll for new messages every 4s (WebSocket fallback)
     const pollInterval = setInterval(async () => {
       try {
-        const response = await apiService.get(`/chat/ride/${rideId}`);
+        const response = await apiService.get(historyPath);
         if (response.messages) {
           setMessages(prev => {
             const newMsgs = response.messages.filter(
@@ -125,14 +132,14 @@ export default function RideChatScreen() {
     }, 4000);
 
     return () => { unsubscribe(); clearInterval(pollInterval); };
-  }, [rideId]);
+  }, [rideId, jobId]);
 
   const loadMessages = async () => {
     try {
-      const response = await apiService.get(`/chat/ride/${rideId}`);
+      const response = await apiService.get(historyPath);
       setMessages(response.messages || []);
     } catch (error) {
-      console.error('Error cargando mensajes:', error);
+      setNotice(error instanceof Error ? error.message : 'No se pudo cargar el chat.');
     } finally {
       setIsLoading(false);
     }
@@ -142,13 +149,16 @@ export default function RideChatScreen() {
     if (!newMessage.trim() || isSending) return;
 
     const msgText = newMessage.trim();
+    if ((!jobId && !rideId) || isSending) return;
+    setNotice('');
     setIsSending(true);
     setNewMessage('');
     
     // Optimistic: add message locally immediately
     const tempMsg: ChatMessage = {
       message_id: `temp_${Date.now()}`,
-      ride_id: rideId || '',
+      ride_id: rideId,
+      job_id: jobId,
       sender_id: user?.user_id || '',
       sender_name: user?.name || 'Yo',
       receiver_id: '',
@@ -160,9 +170,7 @@ export default function RideChatScreen() {
     setTimeout(() => flatListRef.current?.scrollToEnd(), 100);
     
     try {
-      const response = await apiService.post(
-        `/chat/send?ride_id=${rideId}&message=${encodeURIComponent(msgText)}`
-      );
+      const response = await sendToService(msgText);
       // Replace temp message with real one
       if (response.message) {
         setMessages(prev => prev.map(m => 
@@ -170,7 +178,7 @@ export default function RideChatScreen() {
         ));
       }
     } catch (error) {
-      console.error('Error enviando mensaje:', error);
+      setNotice(error instanceof Error ? error.message : 'No se pudo enviar. Intentá nuevamente.');
       // Remove temp message on error
       setMessages(prev => prev.filter(m => m.message_id !== tempMsg.message_id));
       setNewMessage(msgText); // Restore message text
@@ -253,6 +261,7 @@ export default function RideChatScreen() {
           </ScrollView>
         )}
 
+        {!!notice && <Text accessibilityRole="alert" style={{ color: '#B42318', padding: 12 }}>{notice}</Text>}
         <View style={[styles.inputContainer, { paddingBottom: Math.max(insets.bottom, 12) }]}>
           <TextInput
             style={styles.input}
@@ -266,6 +275,8 @@ export default function RideChatScreen() {
           />
           <TouchableOpacity
             style={[styles.sendButton, newMessage.trim() ? styles.sendButtonActive : {}]}
+            accessibilityRole="button"
+            accessibilityLabel="Enviar mensaje"
             onPress={handleSend}
             disabled={!newMessage.trim() || isSending}
           >
@@ -292,7 +303,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#E5E5EA',
   },
-  backButton: { padding: 4, marginRight: 8 },
+  backButton: { minWidth: 44, minHeight: 44, justifyContent: 'center', padding: 4, marginRight: 8 },
   headerInfo: { flex: 1, flexDirection: 'row', alignItems: 'center' },
   headerAvatar: {
     width: 40, height: 40, borderRadius: 20,

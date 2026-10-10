@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView,
-  TextInput, ActivityIndicator, Alert, KeyboardAvoidingView, Platform, Vibration, Modal,
+  TextInput, ActivityIndicator, Alert, KeyboardAvoidingView, Platform, Vibration, Modal, Image,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -34,6 +34,11 @@ export default function JobStatusScreen() {
   const [ratingComment, setRatingComment] = useState('');
   const [submittingRating, setSubmittingRating] = useState(false);
   const [counterPrice, setCounterPrice] = useState('');
+  const [notice, setNotice] = useState('');
+  const notify = (title: string, message?: string) => {
+    setNotice([title, message].filter(Boolean).join(': '));
+    if (Platform.OS !== 'web') Alert.alert(title, message);
+  };
   const [negotiationSeconds, setNegotiationSeconds] = useState(35);
 
   const loadJob = useCallback(async () => {
@@ -48,11 +53,16 @@ export default function JobStatusScreen() {
     try {
       const res = await apiService.get(`/chat/job/${params.jobId}`);
       setMessages(res.messages || []);
-    } catch {}
+    } catch (e: any) { setNotice(e.message || 'No se pudo cargar el chat'); }
   }, [params.jobId]);
 
   useEffect(() => { loadJob(); }, [loadJob]);
-  useEffect(() => { if (showChat) loadMessages(); }, [showChat, loadMessages]);
+  useEffect(() => {
+    if (!showChat) return;
+    loadMessages();
+    const interval = setInterval(loadMessages, 4000);
+    return () => clearInterval(interval);
+  }, [showChat, loadMessages]);
   useEffect(() => {
     if (job?.status !== 'negotiating' || !job.negotiation_deadline) return;
     const tick=()=>setNegotiationSeconds(Math.max(0,Math.ceil((new Date(job.negotiation_deadline).getTime()-Date.now())/1000)));
@@ -66,7 +76,7 @@ export default function JobStatusScreen() {
 
     const unsub = socketService.on('new_message', (msg: any) => {
       if (msg.job_id === params.jobId) {
-        setMessages(prev => [...prev, msg]);
+        setMessages(prev => prev.some(m => m.message_id === msg.message_id) ? prev : [...prev, msg]);
         setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
       }
     });
@@ -88,12 +98,12 @@ export default function JobStatusScreen() {
         loadJob();
         // Alert the user that the other party marked the job as done
         Vibration.vibrate([0, 500, 200, 500]);
-        Alert.alert(
+        notify(
           '¡Trabajo finalizado!',
           msg.requested_by === user?.user_id 
             ? 'Esperando confirmación de la otra parte...'
             : 'La otra parte marcó el trabajo como terminado. ¿Confirmás que se completó?',
-          [{ text: 'Ver detalles', style: 'default' }]
+
         );
       }
     });
@@ -102,7 +112,7 @@ export default function JobStatusScreen() {
       if (msg.job_id === params.jobId) { 
         loadJob(); 
         Vibration.vibrate([0, 300, 150, 300, 150, 300]);
-        Alert.alert('✅ Trabajo completado', '¡Ambas partes confirmaron! Calificá tu experiencia.');
+        notify('✅ Trabajo completado', '¡Ambas partes confirmaron! Calificá tu experiencia.');
         setShowRating(true); 
       }
     });
@@ -113,7 +123,8 @@ export default function JobStatusScreen() {
   }, [user?.user_id, params.jobId, loadJob]);
 
   const sendMessage = async () => {
-    if (!msgText.trim()) return;
+    if (!msgText.trim() || sending) return;
+    setNotice('');
     setSending(true);
     try {
       const res = await apiService.post('/chat/job/send', {
@@ -121,12 +132,12 @@ export default function JobStatusScreen() {
         message: msgText.trim(),
       });
       if (res.was_filtered) {
-        Alert.alert('Mensaje filtrado', 'No se permite compartir números de teléfono o emails por seguridad. Tu mensaje fue enviado con los datos ocultos.');
+        notify('Mensaje filtrado', 'No se permite compartir números de teléfono o emails por seguridad. Tu mensaje fue enviado con los datos ocultos.');
       }
       setMsgText('');
       loadMessages();
     } catch (e: any) {
-      Alert.alert('Error', e.message || 'No se pudo enviar');
+      notify('Error', e.message || 'No se pudo enviar');
     }
     setSending(false);
   };
@@ -135,14 +146,14 @@ export default function JobStatusScreen() {
 
   const confirmCancelJob = async () => {
     const jid = job?.job_id || params.jobId;
-    if (!jid) { Alert.alert('Error', 'No se encontró el ID del trabajo'); return; }
+    if (!jid) { notify('Error', 'No se encontró el ID del trabajo'); return; }
     setCancelling(true);
     try {
       await apiService.put(`/jobs/${jid}/status`, { status: 'cancelled' });
       setShowCancelConfirm(false);
       router.replace('/modules');
     } catch (e: any) {
-      Alert.alert('Error', e.message || 'No se pudo cancelar');
+      notify('Error', e.message || 'No se pudo cancelar');
     } finally { setCancelling(false); }
   };
 
@@ -200,7 +211,7 @@ export default function JobStatusScreen() {
     try {
       await apiService.put(`/jobs/${params.jobId}/status`, { status: 'mark_completed' });
       loadJob();
-    } catch (e: any) { Alert.alert('Error', e.message); }
+    } catch (e: any) { notify('Error', e.message); }
   };
 
   const confirmCompleted = async () => {
@@ -208,18 +219,18 @@ export default function JobStatusScreen() {
       await apiService.put(`/jobs/${params.jobId}/status`, { status: 'confirm_completed' });
       loadJob();
       setShowRating(true);
-    } catch (e: any) { Alert.alert('Error', e.message); }
+    } catch (e: any) { notify('Error', e.message); }
   };
 
   const submitRating = async () => {
     setSubmittingRating(true);
     try {
       await apiService.post(`/jobs/${params.jobId}/rate`, { rating, comment: ratingComment });
-      Alert.alert('¡Gracias!', 'Tu calificación fue enviada.');
+      notify('¡Gracias!', 'Tu calificación fue enviada.');
       setShowRating(false);
       setHasRated(true);
       loadJob();
-    } catch (e: any) { Alert.alert('Error', e.message); }
+    } catch (e: any) { notify('Error', e.message); }
     setSubmittingRating(false);
   };
 
@@ -227,7 +238,7 @@ export default function JobStatusScreen() {
 
   const respondNegotiation=async(action:'accept'|'counter'|'decline')=>{
     try{await apiService.post(`/jobs/${params.jobId}/negotiation/respond`,{action,price:action==='counter'?Number(counterPrice):undefined});setCounterPrice('');loadJob();}
-    catch(e:any){Alert.alert('No se pudo responder',e.message);loadJob();}
+    catch(e:any){notify('No se pudo responder',e.message);loadJob();}
   };
 
   return (
@@ -245,6 +256,7 @@ export default function JobStatusScreen() {
         )}
       </View>
 
+      {!!notice && <Text accessibilityRole="alert" style={{ color: '#B42318', padding: 12 }}>{notice}</Text>}
       {showChat && isAssigned ? (
         /* ═══ Chat view ═══ */
         <View style={{ flex: 1 }}>
@@ -333,6 +345,18 @@ export default function JobStatusScreen() {
             ) : null}
           </View>
 
+          {Array.isArray(job.attachments) && job.attachments.length > 0 && (
+            <View style={s.infoCard}>
+              <Text style={s.infoTitle}>Adjuntos de la solicitud</Text>
+              {job.attachments.map((attachment: any, index: number) => {
+                const uri = typeof attachment === 'string' ? attachment : attachment?.uri;
+                return typeof uri === 'string' && /^data:image\/(png|jpeg|webp);base64,/.test(uri) && uri.length <= 3 * 1024 * 1024
+                  ? <Image key={index} source={{ uri }} accessibilityLabel={`Adjunto ${index + 1}`} resizeMode="contain" style={{ width: '100%', height: 200, marginVertical: 8 }} />
+                  : <Text key={index} style={s.infoText}>{attachment?.name || `Documento ${index + 1}`} · vista previa no disponible</Text>;
+              })}
+            </View>
+          )}
+
           {/* Professional info (when assigned) */}
           {isAssigned && (
             <View style={s.proCard}>
@@ -344,7 +368,7 @@ export default function JobStatusScreen() {
                   <Text style={s.proName}>{job.assigned_name || 'Profesional'}</Text>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 }}>
                     <Ionicons name="star" size={14} color="#FFD700" />
-                    <Text style={s.proRating}>5.0</Text>
+                    <Text style={s.proRating}>{typeof job.assigned_rating === 'number' ? job.assigned_rating.toFixed(1) : 'Sin calificaciones'}</Text>
                     <Text style={s.proBadge}>Asignado</Text>
                   </View>
                 </View>

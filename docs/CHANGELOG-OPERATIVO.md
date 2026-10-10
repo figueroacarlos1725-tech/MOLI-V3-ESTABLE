@@ -153,3 +153,9 @@
 - 2026-09-11 — Se separó la aprobación por capacidad para conductores, profesionales, gestores, repartidores y comercios. Los nuevos proveedores reciben una habilitación provisoria auditable de 24 horas; al vencer, solo continúan operativas las capacidades aprobadas. El Centro de aprobaciones Admin adoptó el diseño premium Moli y decisiones individuales por capacidad.
 - 2026-09-11 — Despacho Admin se reconstruyó como centro operativo premium unificado: mapa en vivo, métricas, cola combinada de viajes/trabajos/trámites/envíos, filtros, alertas de aprobación, asignación manual y actualización automática cada 10 segundos sobre las APIs reales de QA.
 - 2026-09-11 — El acceso web ahora normaliza el correo y presenta los errores de autenticación dentro del formulario; se eliminó la dependencia de alertas nativas que podían no mostrarse en navegador y dejar el botón sin respuesta visible.
+
+## 2026-10-10 — Correcciones de cliente, chat y pedidos
+
+Se corrigen errores invisibles en web, negociación, navegación por roles, carga del panel prestador y datos de confianza inventados. El chat atiende viajes y servicios profesionales; JWT protege eventos privados y los permisos de envío exigen un servicio activo. Pedidos reservan stock transaccionalmente y respetan permisos, reintentos y restituciones.
+
+Validación: TypeScript, compilación Python, tests existentes y recorridos API aislados de viajes/trabajos/trámites; stock concurrente y chat de dos participantes con casos negativos. Evidencia detallada de navegador/build y límites se registra en el reporte QA. No se modificó el VPS ni se publicó en Google Play.

@@ -272,3 +272,13 @@ El registro móvil exige teléfono y email. El canal `auto` intenta WhatsApp y u
 - Los comercios también reciben 24 horas provisorias: durante ese plazo pueden preparar catálogo y operar; luego solo son visibles y operativos si Admin aprobó el comercio. Los clientes comunes continúan con activación automática.
 - El inicio administrativo abre directamente el Despacho premium unificado. La pantalla combina viajes y solicitudes profesionales en una cola tipada, muestra conductores conectados sobre el mapa, actualiza datos cada 10 segundos y conserva acciones reales de asignación manual, cancelación y creación de viaje. Las aprobaciones pendientes se exponen como alertas con acceso directo al Centro de aprobaciones.
 - El login web debe mostrar errores en línea, además de cualquier alerta nativa móvil, y normalizar el correo con recorte de espacios y minúsculas. Un rechazo de autenticación nunca puede quedar sin respuesta visual.
+
+## QA y correcciones integrales — 2026-10-10
+
+- QA cloud publicado en Render Free con base Atlas M0 temporal exclusiva. La conservación de la base requiere claim humano; no usarla como producción. El VPS existente permanece sin modificaciones.
+- Rama `qa/client-flow-fixes`: se corrigen errores de formulario invisibles en web, salida de negociación hacia seguimiento, selección explícita de ubicación, adjuntos transportables y límites; controles táctiles y teclado Android.
+- Inicio cliente sin estadísticas ni perfiles inventados; “Ver todos” operativo. Entradas cliente/prestador protegidas por sesión/rol. La obtención de ubicación no bloquea cargar las oportunidades.
+- Chat compartido reconoce rideId y jobId; historial con consulta de respaldo, errores visibles y notificaciones abren el servicio correspondiente. WebSocket requiere JWT coincidente con usuario; se elimina envío arbitrario a terceros y ubicación de clientes.
+- Checkout reserva stock y crea pedido en una transacción Mongo. Reintentos idempotentes no vuelven a descontar; cancelación/rechazo restituyen una vez. Transiciones se autorizan por participante; el cliente no puede aceptar su propio pedido.
+- Pruebas locales aisladas en `moli_fix_qa`: viajes completos/calificación/cancelación y redispatch, trabajos y trámites con confirmación doble, stock concurrente, chat realtime/historial y accesos ajenos. Se mantienen como pendientes la validación Android real, mapas/GPS, cámara, push/segundo plano, OTP/OAuth y pagos externos.
+- MongoDB de despliegue debe ofrecer transacciones (Atlas replica set). SMTP bloqueado en Render Free: configurar email por HTTP antes de validar registro con OTP. Nunca declarar pago real con pruebas de efectivo ficticio.

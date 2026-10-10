@@ -47,7 +47,7 @@ function money(value = 0) {
 
 export default function ProviderHub() {
   const router = useRouter();
-  const { user } = useAuthStore();
+  const { user, isAuthenticated, isLoading } = useAuthStore();
   const driver = user?.user_type === 'driver';
   const professional = Boolean(user?.is_professional);
   const provisionalCapabilities = Object.entries((user as any)?.capability_approvals || {}).filter(([, value]: any) => value?.status === 'provisional');
@@ -79,9 +79,16 @@ export default function ProviderHub() {
     key === 'rides' || key === 'deliveries' ? driver : professional,
   [driver, professional]);
 
+  useEffect(() => {
+    let active = true;
+    const saved = (user as any)?.location;
+    if (Number.isFinite(saved?.latitude) && Number.isFinite(saved?.longitude)) setLocation(saved);
+    const timer = setTimeout(() => { active = false; }, 5000);
+    getCurrentLocation().then(current => { if (active && current) setLocation(current); }).catch(() => {}).finally(() => clearTimeout(timer));
+    return () => { active = false; clearTimeout(timer); };
+  }, [user?.user_id]);
+
   const loadDashboard = useCallback(async () => {
-    const current = await getCurrentLocation();
-    if (current) setLocation(current);
     const results = await Promise.allSettled([
       driver ? apiService.get('/drivers/earnings?period=today') : Promise.resolve(null),
       professional ? apiService.get('/jobs/professional/profile') : Promise.resolve(null),
@@ -106,11 +113,16 @@ export default function ProviderHub() {
     }
     if (jobsResult.status === 'fulfilled') setJobs(jobsResult.value?.jobs || []);
     if (deliveriesResult.status === 'fulfilled') setDeliveries(deliveriesResult.value?.deliveries || []);
-    if (activeResult.status === 'fulfilled' && activeResult.value?.jobs?.length) setActiveJob(activeResult.value.jobs[0]);
+    if (activeResult.status === 'fulfilled') setActiveJob(activeResult.value?.jobs?.[0] || null);
     setLoading(false);
   }, [driver, professional]);
 
   useFocusEffect(useCallback(() => { loadDashboard(); }, [loadDashboard]));
+  useEffect(() => {
+    if (!activeJob?.job_id) return;
+    const timer = setInterval(loadDashboard, 8000);
+    return () => clearInterval(timer);
+  }, [activeJob?.job_id, loadDashboard]);
 
   useEffect(() => {
     if (!user?.user_id) return;
@@ -141,7 +153,7 @@ export default function ProviderHub() {
       loadDashboard();
     });
     return () => { unsubscribeOffer(); unsubscribeExpired(); unsubscribeReview(); unsubscribeTaken(); unsubscribeJob(); };
-  }, [user?.user_id, prefs.rides, online, loadDashboard]);
+  }, [user?.user_id, prefs.rides, prefs.jobs, prefs.paperwork, online, loadDashboard]);
 
   useEffect(() => {
     if (countdownRef.current) clearInterval(countdownRef.current);
@@ -309,6 +321,8 @@ export default function ProviderHub() {
     } catch (error: any) { Alert.alert('No se pudo enviar', error?.message || 'Intentá nuevamente.'); }
   };
 
+  if (isLoading) return null;
+  if (!isAuthenticated) return <Redirect href="/(auth)/welcome" />;
   if (!driver && !professional) return <Redirect href="/modules" />;
 
   return (
@@ -441,6 +455,8 @@ function JobOffer({ offer, countdown, reviewing, counterPrice, setCounterPrice, 
 
 function ActiveJob({ job, location, onClose, onRefresh }: any) {
   const router = useRouter();
+  const { user } = useAuthStore();
+  const attachments = job?.assigned_to === user?.user_id && ['assigned', 'in_progress', 'pending_completion', 'completed'].includes(job?.status) ? (job.attachments || []) : [];
   const [busy, setBusy] = useState(false);
   const destination = job?.location || location;
   const next = job?.status === 'assigned' ? { status: 'in_progress', label: 'Llegué al lugar' } : job?.status === 'in_progress' ? { status: 'mark_completed', label: 'Marcar como finalizado' } : null;
@@ -461,8 +477,9 @@ function ActiveJob({ job, location, onClose, onRefresh }: any) {
     <View style={styles.activeTop}><TouchableOpacity style={styles.roundButton} onPress={onClose}><Ionicons name="arrow-back" size={23} color={INK} /></TouchableOpacity><Text style={styles.activeTopTitle}>Servicio en curso</Text><View style={{ width: 46 }} /></View>
     <View style={styles.activeMap}><MapView initialRegion={{ ...destination, latitudeDelta: .025, longitudeDelta: .025 }} markers={[{ ...location, type: 'user', title: 'Tu ubicación' }, { ...destination, type: 'dropoff', title: 'Destino' }]} showRoute style={{ flex: 1 }} /></View>
     <ScrollView style={styles.activeSheet} contentContainerStyle={{ padding: 18 }}>
-      <View style={styles.clientRow}><View style={styles.clientAvatar}><Ionicons name="person" size={27} color="#FFF" /></View><View style={{ flex: 1 }}><Text style={styles.clientName}>{job.client_name || 'Cliente'}</Text><Text style={styles.clientRating}>★ 4.9 · Identidad verificada</Text></View><TouchableOpacity style={styles.contactButton}><Ionicons name="call" size={20} color={INK} /></TouchableOpacity><TouchableOpacity style={styles.contactButton} onPress={() => router.push(`/chat?jobId=${job.job_id}` as any)}><Ionicons name="chatbubble" size={20} color={INK} /></TouchableOpacity></View>
+      <View style={styles.clientRow}><View style={styles.clientAvatar}><Ionicons name="person" size={27} color="#FFF" /></View><View style={{ flex: 1 }}><Text style={styles.clientName}>{job.client_name || 'Cliente'}</Text><Text style={styles.clientRating}>Cliente del servicio</Text></View><TouchableOpacity style={styles.contactButton} onPress={() => { onClose(); router.push({ pathname: '/chat', params: { jobId: job.job_id, otherName: job.client_name || 'Cliente' } }); }}><Ionicons name="chatbubble" size={20} color={INK} /></TouchableOpacity></View>
       <View style={styles.activeTitleRow}><View style={{ flex: 1 }}><Text style={styles.activeTitle}>{job.status === 'assigned' ? 'Yendo al domicilio' : job.status === 'in_progress' ? 'Trabajo en curso' : 'Esperando confirmación'}</Text><Text style={styles.activeSubtitle}>{job.title} · {job.address || 'Dirección confirmada'}</Text></View><View style={styles.gainPill}><Text style={styles.gainLabel}>Tu ganancia</Text><Text style={styles.gainValue}>{money((job.agreed_price || job.budget || 0) * .9)}</Text></View></View>
+      {attachments.length > 0 && <View style={{gap: 12, marginVertical: 16}}><Text style={styles.activeTitle}>Archivos del servicio</Text>{attachments.map((attachment: any, index: number) => <View key={index}><Text style={styles.activeSubtitle}>{attachment.name || 'Adjunto'}</Text>{attachment.kind === 'image' && /^data:image\/(png|jpeg|jpg|webp);base64,/i.test(attachment.uri || '') && attachment.uri.length <= 3000000 ? <Image source={{uri: attachment.uri}} style={{width: '100%', height: 200, marginTop: 8, borderRadius: 12}} resizeMode="contain" accessibilityLabel={attachment.name || 'Imagen adjunta'} /> : <Text style={styles.activeSubtitle}>Vista previa no disponible. Consultá al cliente por chat.</Text>}</View>)}</View>}
       <View style={styles.steps}>{['Aceptado', 'En camino', 'Llegué', 'Finalizado'].map((label, index) => <View key={label} style={styles.step}><View style={[styles.stepDot, index <= step && styles.stepDone]}>{index <= step ? <Ionicons name="checkmark" size={13} color="#FFF" /> : null}</View><Text style={[styles.stepText, index <= step && styles.stepTextDone]}>{label}</Text></View>)}</View>
       {next ? <TouchableOpacity style={styles.activePrimary} disabled={busy} onPress={advance}>{busy ? <ActivityIndicator color="#FFF" /> : <Text style={styles.activePrimaryText}>{next.label}</Text>}</TouchableOpacity> : null}
       <TouchableOpacity onPress={cancel}><Text style={styles.cancelLink}>Cancelar servicio</Text></TouchableOpacity>
