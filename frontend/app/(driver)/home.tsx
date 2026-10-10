@@ -885,7 +885,9 @@ export default function DriverHomeScreen() {
   }
 
   // ==================== ACTIVE RIDE VIEW ====================
-  if (currentRide && ['accepted', 'arrived', 'started'].includes(currentRide.status)) {
+  const rideForScreen = currentRide || (showDriverRating ? lastCompletedRide : null);
+  if (rideForScreen && (['accepted', 'arrived', 'started'].includes(rideForScreen.status) || showDriverRating)) {
+    const currentRide = rideForScreen;
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.mapContainer}>
@@ -900,7 +902,7 @@ export default function DriverHomeScreen() {
           <View style={styles.rideStatusBadge}>
             <Text style={styles.rideStatusText}>
               {currentRide.status === 'accepted' ? 'Ir a recoger' :
-               currentRide.status === 'arrived' ? 'Esperando al pasajero' : 'En viaje'}
+               currentRide.status === 'arrived' ? 'Esperando al pasajero' : currentRide.status === 'completed' ? 'Viaje completado' : 'En viaje'}
             </Text>
           </View>
           

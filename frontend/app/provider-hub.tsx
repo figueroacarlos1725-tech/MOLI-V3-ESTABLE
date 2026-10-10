@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Redirect, useFocusEffect, useRouter } from 'expo-router';
+import { useIsFocused } from '@react-navigation/native';
 import { useAuthStore } from '@/src/stores/authStore';
 import { apiService } from '@/src/services/api';
 import { socketService } from '@/src/services/socket';
@@ -47,6 +48,7 @@ function money(value = 0) {
 
 export default function ProviderHub() {
   const router = useRouter();
+  const isFocused = useIsFocused();
   const { user, isAuthenticated, isLoading } = useAuthStore();
   const driver = user?.user_type === 'driver';
   const professional = Boolean(user?.is_professional);
@@ -131,7 +133,7 @@ export default function ProviderHub() {
   }, [activeJob?.job_id, activeRide?.ride_id, loadDashboard]);
 
   useEffect(() => {
-    if (!user?.user_id) return;
+    if (!user?.user_id || !isFocused) return;
     socketService.connect(user.user_id);
     const unsubscribeOffer = socketService.on('ride_offer', (offer: any) => {
       if (!prefs.rides || !online) return;
@@ -159,7 +161,7 @@ export default function ProviderHub() {
       loadDashboard();
     });
     return () => { unsubscribeOffer(); unsubscribeExpired(); unsubscribeReview(); unsubscribeTaken(); unsubscribeJob(); };
-  }, [user?.user_id, prefs.rides, prefs.jobs, prefs.paperwork, online, loadDashboard]);
+  }, [user?.user_id, isFocused, prefs.rides, prefs.jobs, prefs.paperwork, online, loadDashboard]);
 
   useEffect(() => {
     if (countdownRef.current) clearInterval(countdownRef.current);
@@ -400,12 +402,12 @@ export default function ProviderHub() {
         ) : opportunities.map(item => <OpportunityCard key={`${item.type}-${item.id}`} item={item} onPress={() => openOpportunity(item)} />)}
       </ScrollView>
 
-      <SideMenu visible={menuOpen} onClose={() => setMenuOpen(false)} role="driver" />
+      {isFocused && <><SideMenu visible={menuOpen} onClose={() => setMenuOpen(false)} role="driver" />
       <Preferences visible={settingsOpen} onClose={() => setSettingsOpen(false)} onDone={async () => { try { await saveProfilePrefs(prefs); } finally { setSettingsOpen(false); } }} prefs={prefs} allowed={allowed} toggle={toggleService} radius={radius} setRadius={setRadius} />
       <RideOffer offer={rideOffer} countdown={countdown} reviewing={reviewingRide} onReview={reviewRide} onAccept={() => respondRide('accept')} onReject={() => reviewingRide ? respondRide('reject') : setRideOffer(null)} />
       <RideNotice notice={rideNotice} onClose={() => setRideNotice(null)} />
       <JobOffer offer={jobOffer} countdown={jobCountdown} reviewing={reviewingJob} counterPrice={counterPrice} setCounterPrice={setCounterPrice} onCounter={counterJob} onReview={reviewIncomingJob} onAccept={acceptJob} onReject={rejectJob} />
-      <ActiveJob job={activeJob} location={location} onClose={() => setActiveJob(null)} onRefresh={loadDashboard} />
+      <ActiveJob job={activeJob} location={location} onClose={() => setActiveJob(null)} onRefresh={loadDashboard} /></>}
     </SafeAreaView>
   );
 }

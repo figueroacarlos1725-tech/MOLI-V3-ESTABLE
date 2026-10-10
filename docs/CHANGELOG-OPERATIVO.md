@@ -163,3 +163,7 @@ Validación: TypeScript, compilación Python, tests existentes y recorridos API 
 Segunda regresión: se corrigen pin web de ubicación y espera GPS, chat durante confirmación pendiente, precio acordado y comisión profesional después del reclamo de estado. Se unifican contratos JSON/query de calificación de viaje con permisos y exclusión de duplicados; errores de envío visibles. La finalización de viajes exige etapas válidas y un solo procesador, dejando fallas parciales de liquidación para conciliación. Nuevas pruebas cubren las dos pantallas, terceros, rangos inválidos, concurrencia y fallos inyectados. API/web QA migran a esta rama con transporte WebSocket instalado; chat/stock fueron comprobados contra Render.
 
 El Centro de oportunidades recupera viajes activos al volver a ingresar y ofrece continuar su seguimiento, independientemente de las preferencias de ofertas nuevas.
+
+Prueba visual del cierre de viaje: la calificación del conductor ya no se desmonta cuando el servidor devuelve completed; queda disponible para enviar u omitir.
+
+Las suscripciones y ventanas del Centro de oportunidades se limitan a la pantalla activa para evitar ofertas duplicadas sobre viaje o chat.
