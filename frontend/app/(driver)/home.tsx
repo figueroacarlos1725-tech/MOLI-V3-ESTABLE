@@ -652,6 +652,8 @@ export default function DriverHomeScreen() {
   const [paymentConfirmed, setPaymentConfirmed] = useState(false);
   const [showDriverRating, setShowDriverRating] = useState(false);
   const [driverRating, setDriverRating] = useState(0);
+  const [ratingError, setRatingError] = useState('');
+  const [sendingRating, setSendingRating] = useState(false);
   const [lastCompletedRide, setLastCompletedRide] = useState<any>(null);
 
   const handleUpdateRideStatus = async (status: string) => {
@@ -1157,13 +1159,20 @@ export default function DriverHomeScreen() {
                   </TouchableOpacity>
                 ))}
               </View>
-              <TouchableOpacity
+              {!!ratingError && <Text accessibilityRole="alert" style={{color:'#B42318', marginBottom:12}}>{ratingError}</Text>}
+              <TouchableOpacity disabled={sendingRating}
                 style={{ width: '100%', backgroundColor: '#00C853', borderRadius: 14, paddingVertical: 16, alignItems: 'center' }}
                 onPress={async () => {
                   if (driverRating > 0 && lastCompletedRide?.ride_id) {
+                    if (sendingRating) return;
+                    setRatingError('');
+                    setSendingRating(true);
                     try {
                       await apiService.post(`/rides/${lastCompletedRide.ride_id}/rate`, { rating: driverRating, rated_user_type: 'rider' });
-                    } catch {}
+                    } catch (e: any) {
+                      setRatingError(e.message || 'No se pudo guardar la calificación. Intentá nuevamente.');
+                      return;
+                    } finally { setSendingRating(false); }
                   }
                   setShowDriverRating(false);
                   setDriverRating(0);

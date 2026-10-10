@@ -25,6 +25,7 @@ export default function ClientHomeScreen() {
   const { width } = useWindowDimensions();
   const compact = width < 430;
   const webViewRef = useRef<any>(null);
+  const mapFrameRef = useRef<any>(null);
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
   const [latitude, setLatitude] = useState(-28.4696);
@@ -53,10 +54,15 @@ export default function ClientHomeScreen() {
   useEffect(() => {
     (async () => {
       try {
-        const loc = await import('expo-location');
-        const { status } = await loc.requestForegroundPermissionsAsync();
-        if (status === 'granted') {
-          const pos = await loc.getCurrentPositionAsync({});
+        const pos = await Promise.race([
+          (async () => {
+            const loc = await import('expo-location');
+            const { status } = await loc.requestForegroundPermissionsAsync();
+            return status === 'granted' ? loc.getCurrentPositionAsync({}) : null;
+          })(),
+          new Promise<null>(resolve => setTimeout(() => resolve(null), 5000)),
+        ]);
+        if (pos) {
           setLatitude(pos.coords.latitude);
           setLongitude(pos.coords.longitude);
           try {
@@ -108,7 +114,8 @@ export default function ClientHomeScreen() {
   const handleMapMessage = (event: any) => {
     try {
       const data = JSON.parse(event.nativeEvent.data);
-      if (data.type === 'pin_moved') {
+      if (data.type === 'pin_moved' && Number.isFinite(data.lat) && Number.isFinite(data.lng)
+          && Math.abs(data.lat) <= 90 && Math.abs(data.lng) <= 180) {
         setLatitude(data.lat);
         setLongitude(data.lng);
         // Reverse geocode
@@ -118,6 +125,16 @@ export default function ClientHomeScreen() {
       }
     } catch {}
   };
+
+  useEffect(() => {
+    if (Platform.OS !== 'web') return;
+    const receive = (event: MessageEvent) => {
+      if (event.source !== mapFrameRef.current?.contentWindow || typeof event.data !== 'string') return;
+      handleMapMessage({ nativeEvent: { data: event.data } });
+    };
+    window.addEventListener('message', receive);
+    return () => window.removeEventListener('message', receive);
+  }, []);
 
   const handleConfirmLocation = () => {
     router.push({
@@ -150,7 +167,9 @@ export default function ClientHomeScreen() {
 var map=L.map('map',{zoomControl:true}).setView([${latitude},${longitude}],15);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map);
 var pin=L.marker([${latitude},${longitude}],{draggable:true,icon:L.divIcon({html:'<div class="moli-pin-wrap"><div class="moli-pin-pulse"></div><div class="moli-pin"></div><div class="moli-pin-core"><div class="moli-pin-dot"></div></div><div class="moli-pin-shadow"></div></div>',className:'',iconSize:[68,78],iconAnchor:[34,69]})}).addTo(map);
-pin.on('dragend',function(e){var ll=e.target.getLatLng();window.ReactNativeWebView.postMessage(JSON.stringify({type:'pin_moved',lat:ll.lat,lng:ll.lng}));});
+function sendPin(ll){var payload=JSON.stringify({type:'pin_moved',lat:ll.lat,lng:ll.lng});if(window.ReactNativeWebView){window.ReactNativeWebView.postMessage(payload);}else{window.parent.postMessage(payload,'*');}}
+pin.on('dragend',function(e){sendPin(e.target.getLatLng());});
+map.on('click',function(e){pin.setLatLng(e.latlng);sendPin(e.latlng);});
 function updatePin(lat,lng){pin.setLatLng([lat,lng]);map.setView([lat,lng],15);}
 </script>
 </body></html>`;
@@ -171,7 +190,7 @@ function updatePin(lat,lng){pin.setLatLng([lat,lng]);map.setView([lat,lng],15);}
       {/* Map */}
       <View style={{ flex: 1 }}>
         {Platform.OS === 'web' ? (
-          <iframe srcDoc={mapHtml} style={{ width: '100%', height: '100%', border: 'none' } as any} />
+          <iframe ref={mapFrameRef} title="Elegí el lugar del servicio" srcDoc={mapHtml} style={{ width: '100%', height: '100%', border: 'none' } as any} />
         ) : (
           <WebView
             ref={webViewRef}

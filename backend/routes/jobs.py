@@ -374,7 +374,10 @@ async def get_job_detail(job_id: str, user: dict = Depends(get_current_user)):
     if job.get("client_id") == user["user_id"] or _is_admin(user):
         offers = await db.job_offers.find({"job_id": job_id}, {"_id": 0}).to_list(20)
     
-    return {"job": _job_for_user(job, user), "offers": offers}
+    has_rated = False
+    if job.get("status") == "completed" and _is_participant(job, user):
+        has_rated = await db.job_ratings.find_one({"job_id": job_id, "rater_id": user["user_id"]}) is not None
+    return {"job": _job_for_user(job, user), "offers": offers, "has_rated": has_rated}
 
 
 # ─── JOB REVIEW / NEGOTIATION (35-second turns) ────────────────
@@ -851,9 +854,44 @@ async def update_job_status(
         update["status"] = "completed"
         update["completed_at"] = now
         update["confirmed_by"] = user["user_id"]
-        # Commission: 15% of budget to platform
-        commission = round(job.get("budget", 0) * 0.15, 2)
+        # Commission: 15% of the accepted service price.
+        commission = round(float(job.get("agreed_price") if job.get("agreed_price") is not None else job.get("budget", 0)) * 0.15, 2)
         update["commission"] = commission
+    elif new_status == "cancelled":
+        update["status"] = "cancelled"
+        update["cancelled_by"] = user["user_id"]
+        update["cancelled_at"] = now
+        penalty_applies = False
+        canceller_type = "admin"
+        if not _is_admin(user):
+            canceller_type = "client" if user["user_id"] == job.get("client_id") else "professional"
+            if current_status in {"assigned", "in_progress"}:
+                if canceller_type == "client":
+                    penalty_applies = True
+                else:
+                    assigned_at = job.get("assigned_at")
+                    penalty_applies = True
+                    if isinstance(assigned_at, str):
+                        try:
+                            assigned_at = datetime.fromisoformat(assigned_at.replace("Z", "+00:00"))
+                        except ValueError:
+                            assigned_at = None
+                    if isinstance(assigned_at, datetime):
+                        if assigned_at.tzinfo is None:
+                            assigned_at = assigned_at.replace(tzinfo=timezone.utc)
+                        penalty_applies = (now - assigned_at).total_seconds() > PROFESSIONAL_FREE_CANCEL_SECONDS
+        penalty = round(float(job.get("agreed_price") if job.get("agreed_price") is not None else job.get("budget", 0)) * JOB_CANCELLATION_PENALTY_RATE, 2) if penalty_applies else 0
+        update["cancellation_penalty"] = penalty
+        update["cancellation_penalty_rate"] = JOB_CANCELLATION_PENALTY_RATE if penalty_applies else 0
+        update["canceller_type"] = canceller_type
+    updated = await db.job_posts.update_one(
+        {"job_id": job_id, "status": current_status}, {"$set": update}
+    )
+    if updated.modified_count != 1:
+        raise HTTPException(status_code=409, detail="El trabajo cambió de estado; actualizá e intentá de nuevo")
+
+    # Only the successful state claim may apply completion side effects.
+    if new_status == "confirm_completed":
         if commission > 0 and job.get("assigned_to"):
             try:
                 from utils import adjust_wallet_balance
@@ -878,38 +916,6 @@ async def update_job_status(
                     }, uid)
                 except:
                     pass
-    elif new_status == "cancelled":
-        update["status"] = "cancelled"
-        update["cancelled_by"] = user["user_id"]
-        update["cancelled_at"] = now
-        penalty_applies = False
-        canceller_type = "admin"
-        if not _is_admin(user):
-            canceller_type = "client" if user["user_id"] == job.get("client_id") else "professional"
-            if current_status in {"assigned", "in_progress"}:
-                if canceller_type == "client":
-                    penalty_applies = True
-                else:
-                    assigned_at = job.get("assigned_at")
-                    penalty_applies = True
-                    if isinstance(assigned_at, str):
-                        try:
-                            assigned_at = datetime.fromisoformat(assigned_at.replace("Z", "+00:00"))
-                        except ValueError:
-                            assigned_at = None
-                    if isinstance(assigned_at, datetime):
-                        if assigned_at.tzinfo is None:
-                            assigned_at = assigned_at.replace(tzinfo=timezone.utc)
-                        penalty_applies = (now - assigned_at).total_seconds() > PROFESSIONAL_FREE_CANCEL_SECONDS
-        penalty = round(float(job.get("budget") or 0) * JOB_CANCELLATION_PENALTY_RATE, 2) if penalty_applies else 0
-        update["cancellation_penalty"] = penalty
-        update["cancellation_penalty_rate"] = JOB_CANCELLATION_PENALTY_RATE if penalty_applies else 0
-        update["canceller_type"] = canceller_type
-    updated = await db.job_posts.update_one(
-        {"job_id": job_id, "status": current_status}, {"$set": update}
-    )
-    if updated.modified_count != 1:
-        raise HTTPException(status_code=409, detail="El trabajo cambió de estado; actualizá e intentá de nuevo")
 
     penalty_info = {"penalty_applied": False, "penalty_amount": 0, "blocked": False}
     if new_status == "cancelled":

@@ -566,6 +566,49 @@ async def accept_bid(bid_id: str, user: dict = Depends(get_current_user)):
 
 @router.put("/api/rides/{ride_id}/status")
 async def update_ride_status(
+    ride_id: str, status: str,
+    taximeter_fare: float = Query(None), taximeter_distance: float = Query(None),
+    taximeter_wait: float = Query(None), cancel_reason: Optional[str] = Query(None),
+    redispatch: bool = Query(False), user: dict = Depends(get_current_user)
+):
+    ride = await db.rides.find_one({"ride_id": ride_id}, {"_id": 0})
+    if not ride:
+        raise HTTPException(status_code=404, detail="Viaje no encontrado")
+    uid = user["user_id"]
+    if uid not in {ride.get("rider_id"), ride.get("driver_id")}:
+        raise HTTPException(status_code=403, detail="No autorizado")
+    current = ride.get("status")
+    transitions = {"arrived": {"accepted"}, "started": {"arrived"},
+                   "completed": {"started"}, "cancelled": {"accepted", "arrived", "started"}}
+    if status not in transitions or current not in transitions[status]:
+        raise HTTPException(status_code=409, detail="Transición de viaje inválida")
+    if status != "cancelled" and uid != ride.get("driver_id"):
+        raise HTTPException(status_code=403, detail="Solo el conductor puede avanzar el viaje")
+    for value in (taximeter_fare, taximeter_distance, taximeter_wait):
+        if value is not None and (not isinstance(value, (int, float)) or value < 0 or value != value or value == float('inf')):
+            raise HTTPException(status_code=400, detail="Datos de taxímetro inválidos")
+    claim = generate_id("state_")
+    locked = await db.rides.update_one(
+        {"ride_id": ride_id, "status": current, "status_update_claim": {"$exists": False}},
+        {"$set": {"status_update_claim": claim}},
+    )
+    if locked.modified_count != 1:
+        raise HTTPException(status_code=409, detail="El viaje ya está siendo actualizado")
+    try:
+        result = await _apply_ride_status(ride_id, status, taximeter_fare, taximeter_distance,
+                                        taximeter_wait, cancel_reason, redispatch, user)
+    except Exception:
+        # Do not replay financial effects after a partially failed settlement.
+        # Keep the claim for operator reconciliation instead of charging twice.
+        await db.rides.update_one({"ride_id": ride_id, "status_update_claim": claim},
+                                 {"$set": {"status_update_error": True}})
+        raise
+    await db.rides.update_one({"ride_id": ride_id, "status_update_claim": claim},
+                             {"$unset": {"status_update_claim": "", "status_update_error": ""}})
+    return result
+
+
+async def _apply_ride_status(
     ride_id: str,
     status: str,  # arrived, started, completed, cancelled
     taximeter_fare: float = Query(None),
@@ -587,7 +630,9 @@ async def update_ride_status(
     update_data = {"status": status, "updated_at": now}
     penalty_info = None
     
-    if status == "started":
+    if status == "arrived":
+        update_data["arrived_at"] = now
+    elif status == "started":
         update_data["started_at"] = now
     elif status == "completed":
         update_data["completed_at"] = now
@@ -1240,58 +1285,6 @@ async def get_ride(ride_id: str, user: dict = Depends(get_current_user)):
     return ride
 
 
-@router.post("/api/rides/{ride_id}/rate")
-async def rate_ride(
-    ride_id: str,
-    rating: float,
-    comment: Optional[str] = None,
-    user: dict = Depends(get_current_user)
-):
-    ride = await db.rides.find_one({"ride_id": ride_id}, {"_id": 0})
-    if not ride:
-        raise HTTPException(status_code=404, detail="Ride not found")
-    
-    if ride["status"] != "completed":
-        raise HTTPException(status_code=400, detail="Can only rate completed rides")
-    
-    # Determine who is being rated
-    if user["user_id"] == ride["rider_id"]:
-        rated_user_id = ride["driver_id"]
-        rating_field = "driver_rating"
-    else:
-        rated_user_id = ride["rider_id"]
-        rating_field = "rider_rating"
-    
-    # Save rating
-    rating_doc = {
-        "rating_id": generate_id("rat_"),
-        "ride_id": ride_id,
-        "rater_id": user["user_id"],
-        "rated_id": rated_user_id,
-        "rating": rating,
-        "comment": comment,
-        "created_at": datetime.now(timezone.utc)
-    }
-    await db.ratings.insert_one(rating_doc)
-    
-    # Update ride
-    await db.rides.update_one(
-        {"ride_id": ride_id},
-        {"$set": {rating_field: rating}}
-    )
-    
-    # Update user's average rating
-    all_ratings = await db.ratings.find({"rated_id": rated_user_id}, {"rating": 1}).to_list(1000)
-    avg_rating = sum(r["rating"] for r in all_ratings) / len(all_ratings) if all_ratings else 5.0
-    
-    await db.users.update_one(
-        {"user_id": rated_user_id},
-        {"$set": {"rating": round(avg_rating, 2)}}
-    )
-    
-    return {"status": "success", "message": "Rating submitted"}
-
-
 @router.get("/api/rides/requests/pending")
 async def get_pending_requests(
     latitude: float,
@@ -1364,44 +1357,46 @@ async def estimate_fares(data: EstimateRequest):
 
 
 
-# ─── Rate a ride ────────────────────────────
+# One contract supports current JSON clients and the legacy query client.
 @router.post("/api/rides/{ride_id}/rate")
 async def rate_ride(
     ride_id: str,
-    rating_data: dict = Body(...),
+    rating_data: Optional[dict] = Body(None),
+    rating: Optional[float] = Query(None),
+    comment: Optional[str] = Query(None),
     user: dict = Depends(get_current_user)
 ):
-    ride = await db.rides.find_one({"ride_id": ride_id})
+    ride = await db.rides.find_one({"ride_id": ride_id}, {"_id": 0})
     if not ride:
         raise HTTPException(status_code=404, detail="Viaje no encontrado")
-    
-    rating = rating_data.get("rating", 5)
-    rated_user_type = rating_data.get("rated_user_type", "driver")
-    
-    if rating < 1 or rating > 5:
-        raise HTTPException(status_code=400, detail="La calificación debe ser entre 1 y 5")
-    
-    # Save individual rating
+    uid = user["user_id"]
+    if uid not in {ride.get("rider_id"), ride.get("driver_id")}:
+        raise HTTPException(status_code=403, detail="Solo los participantes pueden calificar")
+    if ride.get("status") != "completed":
+        raise HTTPException(status_code=409, detail="Solo se puede calificar un viaje completado")
+    value = rating_data.get("rating") if rating_data is not None else rating
+    text = rating_data.get("comment", "") if rating_data is not None else (comment or "")
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or not 1 <= value <= 5:
+        raise HTTPException(status_code=400, detail="La calificación debe estar entre 1 y 5")
+    if not isinstance(text, str) or len(text) > 500:
+        raise HTTPException(status_code=400, detail="El comentario admite hasta 500 caracteres")
+    is_rider = uid == ride.get("rider_id")
+    field = "driver_rating" if is_rider else "rider_rating"
+    rated_id = ride.get("driver_id") if is_rider else ride.get("rider_id")
+    claimed = await db.rides.update_one(
+        {"ride_id": ride_id, "status": "completed", field: None},
+        {"$set": {field: value}},
+    )
+    if claimed.modified_count != 1:
+        raise HTTPException(status_code=409, detail="Ya calificaste este viaje")
     await db.ratings.insert_one({
-        "ride_id": ride_id,
-        "rater_id": user["user_id"],
-        "rated_user_id": ride["driver_id"] if rated_user_type == "driver" else ride.get("rider_id"),
-        "rated_user_type": rated_user_type,
-        "rating": rating,
-        "created_at": datetime.now(timezone.utc),
+        "rating_id": generate_id("rat_"), "ride_id": ride_id, "rater_id": uid,
+        "rated_id": rated_id, "rated_user_id": rated_id,
+        "rated_user_type": "driver" if is_rider else "rider",
+        "rating": value, "comment": text, "created_at": datetime.now(timezone.utc),
     })
-    
-    # Update average rating for rated user
-    rated_user_id = ride["driver_id"] if rated_user_type == "driver" else ride.get("rider_id")
-    if rated_user_id:
-        all_ratings = await db.ratings.find(
-            {"rated_user_id": rated_user_id}
-        ).to_list(500)
-        if all_ratings:
-            avg = sum(r["rating"] for r in all_ratings) / len(all_ratings)
-            await db.users.update_one(
-                {"user_id": rated_user_id},
-                {"$set": {"rating": round(avg, 2), "total_ratings": len(all_ratings)}}
-            )
-    
-    return {"status": "rated", "rating": rating}
+    ratings = await db.ratings.find({"$or": [{"rated_id": rated_id}, {"rated_user_id": rated_id}]}).to_list(1000)
+    if ratings:
+        average = sum(r["rating"] for r in ratings) / len(ratings)
+        await db.users.update_one({"user_id": rated_id}, {"$set": {"rating": round(average, 2), "total_ratings": len(ratings)}})
+    return {"status": "rated", "rating": value}

@@ -81,6 +81,8 @@ export default function RiderHomeScreen() {
   const [driverFound, setDriverFound] = useState(false);
   const [showContinuePrompt, setShowContinuePrompt] = useState(false);
   const [rideRating, setRideRating] = useState(0);
+  const [ratingError, setRatingError] = useState('');
+  const [sendingRating, setSendingRating] = useState(false);
   const [firstRideDiscount, setFirstRideDiscount] = useState(0);
   const [addressHistory, setAddressHistory] = useState<any[]>([]);
   const [serviceType, setServiceType] = useState<'ride' | 'delivery'>(params.service === 'delivery' ? 'delivery' : 'ride');
@@ -671,15 +673,22 @@ export default function RiderHomeScreen() {
             ))}
           </View>
 
-          <TouchableOpacity style={s.completedBtn} onPress={async () => {
+          {!!ratingError && <Text accessibilityRole="alert" style={{color:'#B42318', marginBottom:12}}>{ratingError}</Text>}
+          <TouchableOpacity disabled={sendingRating} style={s.completedBtn} onPress={async () => {
             // Submit rating
             if (rideRating > 0 && currentRide.ride_id) {
+                    if (sendingRating) return;
+                    setRatingError('');
+                    setSendingRating(true);
               try {
                 await apiService.post(`/rides/${currentRide.ride_id}/rate`, {
                   rating: rideRating,
                   rated_user_type: 'driver',
                 });
-              } catch (e) { /* silent */ }
+              } catch (e: any) {
+                      setRatingError(e.message || 'No se pudo guardar la calificación. Intentá nuevamente.');
+                      return;
+                    } finally { setSendingRating(false); }
             }
             setRideRating(0);
             handleFinishRide();

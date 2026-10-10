@@ -45,6 +45,7 @@ export default function JobStatusScreen() {
     try {
       const res = await apiService.get(`/jobs/detail/${params.jobId}`);
       setJob(res.job);
+      setHasRated(Boolean(res.has_rated));
     } catch {}
     setLoading(false);
   }, [params.jobId]);
@@ -191,6 +192,7 @@ export default function JobStatusScreen() {
   const isNegotiating = job.status === 'negotiating';
   const myNegotiationTurn = isNegotiating && ((job.negotiation_turn === 'client' && user?.user_id === job.client_id) || (job.negotiation_turn === 'professional' && user?.user_id === job.reviewing_by));
   const isPendingCompletion = job.status === 'pending_completion';
+  const canChat = isAssigned || isPendingCompletion;
   const isCompleted = job.status === 'completed';
   const iWasRequester = job.completed_by === user?.user_id;
   const canConfirm = isPendingCompletion && !iWasRequester;
@@ -249,7 +251,7 @@ export default function JobStatusScreen() {
           <Ionicons name="arrow-back" size={22} color="#1C1C1E" />
         </TouchableOpacity>
         <Text style={s.headerTitle} numberOfLines={1}>{job.title}</Text>
-        {isAssigned && (
+        {canChat && (
           <TouchableOpacity onPress={() => setShowChat(!showChat)} style={[s.backBtn, { backgroundColor: showChat ? GREEN : '#F2F2F7' }]}>
             <Ionicons name="chatbubble" size={18} color={showChat ? '#fff' : '#1C1C1E'} />
           </TouchableOpacity>
@@ -257,7 +259,7 @@ export default function JobStatusScreen() {
       </View>
 
       {!!notice && <Text accessibilityRole="alert" style={{ color: '#B42318', padding: 12 }}>{notice}</Text>}
-      {showChat && isAssigned ? (
+      {showChat && canChat ? (
         /* ═══ Chat view ═══ */
         <View style={{ flex: 1 }}>
           <ScrollView ref={scrollRef} style={{ flex: 1, padding: 16 }} contentContainerStyle={{ paddingBottom: 8 }}>
@@ -322,8 +324,8 @@ export default function JobStatusScreen() {
 
           {/* Budget */}
           <View style={s.budgetCard}>
-            <Text style={s.budgetLabel}>Presupuesto</Text>
-            <Text style={s.budgetValue}>${job.budget?.toLocaleString()}</Text>
+            <Text style={s.budgetLabel}>{job.agreed_price != null ? "Precio acordado" : "Presupuesto"}</Text>
+            <Text style={s.budgetValue}>${(job.agreed_price ?? job.budget)?.toLocaleString()}</Text>
           </View>
 
           {/* Job info */}
