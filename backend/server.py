@@ -94,6 +94,8 @@ async def startup_db():
             name="one_pending_withdrawal_per_user")
         await db.wallet_withdrawals.create_index([("status", 1), ("created_at", -1)])
         await ensure_ad_indexes()
+        await db.support_rate_limits.create_index('created_at', expireAfterSeconds=86400)
+        await db.support_messages.create_index([('user_id', 1), ('session_id', 1), ('created_at', -1)])
         print("Database indexes created")
     except Exception as e:
         print(f"Index creation note: {e}")

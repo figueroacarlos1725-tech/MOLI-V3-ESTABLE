@@ -133,7 +133,7 @@ export default function SupportBubble() {
         }]);
         setTimeout(() => flatListRef.current?.scrollToEnd(), 100);
       }
-    } catch (e) { /* silent */ }
+    } catch (e) { setMessages(prev=>[...prev,{message_id:`error_${Date.now()}`,sender:'ai',message:'No pudimos enviar tu consulta. Intentá nuevamente.'}]); }
     setSending(false);
   };
 

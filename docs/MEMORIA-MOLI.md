@@ -297,3 +297,10 @@ El registro móvil exige teléfono y email. El canal `auto` intenta WhatsApp y u
 - Se corrigió la ubicación de CampaignInterstitial en la rama de viaje activo: antes quedaba en la rama inicial, reservaba entrega y se desmontaba sin mostrar anuncio al pasajero.
 - TypeScript aprobado. No se certificó reproducción de video ni visual móvil. Buscar profesional aún no dispara publicidad.
 - Burbuja de soporte solo dentro de la app; no hay overlay Android, servicio de ubicación en segundo plano ni alerta nativa de pantalla completa. Push se registra únicamente en home conductor, sin projectId EAS configurado ni prueba en teléfono; no prometer recepción fuera de la app.
+
+## 2026-10-10 — Base de asistente de soporte
+
+- Pantalla y burbuja comparten historial y sesión por cuenta autenticada; eliminado soporte duplicado y dependencia Emergent. Contexto mínimo de roles/capacidades, saldo, bloqueo/documentos conductor y últimos diez viajes, servicios, pedidos y casos propios. Proyecciones excluyen secretos, contactos de terceros, GPS y archivos.
+- Formulario explícito de objeto perdido/reclamo guarda caso pendiente para atención humana; exige referencia de servicio propio y no cambia pagos o estados. Sin OpenAI se identifica como consulta directa al sistema.
+- Adaptador Responses opt-in, clave/modelo del servidor, store=false, timeout y límite de veinte solicitudes por minuto. Sin herramientas de escritura. Conocimiento versionado en support_knowledge.md; operación en ASISTENTE-SOPORTE.md.
+- 100 pruebas de regresión aprobadas, incluidas 15 de soporte y proveedor simulado; API local cliente/prestador con sesiones ajenas rechazadas. Navegador: consulta de cuenta y caso ficticio de objeto perdido registrado. No se probó ni activó OpenAI real.

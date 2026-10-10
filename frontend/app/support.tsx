@@ -10,6 +10,8 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
+  Modal,
+  ScrollView,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -37,6 +39,13 @@ export default function SupportChatScreen() {
   const [isSending, setIsSending] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [isAiTyping, setIsAiTyping] = useState(false);
+  const [claimOpen, setClaimOpen] = useState(false);
+  const [claimCategory, setClaimCategory] = useState('lost_item');
+  const [claimDescription, setClaimDescription] = useState('');
+  const [claimTarget, setClaimTarget] = useState<{type:string;id:string}|null>(null);
+  const [context, setContext] = useState<any>(null);
+  const [claimBusy, setClaimBusy] = useState(false);
+  const [claimNotice, setClaimNotice] = useState('');
   const flatListRef = useRef<FlatList>(null);
 
   useEffect(() => {
@@ -50,9 +59,13 @@ export default function SupportChatScreen() {
       setMessages(prev => [...prev, data]);
       setTimeout(() => flatListRef.current?.scrollToEnd(), 100);
     });
+    const unsubReply = socketService.on('support_reply', (data:any) => {
+      if(data.session_id !== `support_${user?.user_id}`) return;
+      setMessages(prev=>[...prev,{message_id:data.message_id||`support_${Date.now()}`,session_id:data.session_id,sender_id:'moli_support',sender_name:data.sender_name||'Soporte Moli',message:data.message,is_ai:false,is_dispatcher:true,created_at:new Date().toISOString()}]);
+    });
 
-    return () => { unsub1(); unsub2(); };
-  }, []);
+    return () => { unsub1(); unsub2(); unsubReply(); };
+  }, [user?.user_id]);
 
   const loadHistory = async () => {
     try {
@@ -108,7 +121,7 @@ export default function SupportChatScreen() {
           sender_id: 'ai_assistant',
           sender_name: 'Moli Asistente',
           message: typeof response.response === 'string' ? response.response : response.response.message || '',
-          is_ai: true,
+          is_ai: response.is_ai === true,
           is_dispatcher: false,
           created_at: new Date().toISOString(),
         };
@@ -174,6 +187,24 @@ export default function SupportChatScreen() {
     );
   }, [user]);
 
+  const openClaim = async () => {
+    setClaimOpen(true); setClaimNotice(''); setClaimTarget(null);
+    try { setContext(await apiService.get('/support/context')); }
+    catch { setClaimNotice('No pudimos cargar tus servicios. Intentá nuevamente.'); }
+  };
+  const submitClaim = async () => {
+    if (claimBusy) return;
+    if (claimCategory === 'lost_item' && claimTarget?.type !== 'ride') { setClaimNotice('Elegí el viaje donde perdiste el objeto.'); return; }
+    if (claimDescription.trim().length < 5) { setClaimNotice('Describí lo que pasó.'); return; }
+    setClaimBusy(true); setClaimNotice('');
+    try {
+      const result=await apiService.post('/support/claims',{category:claimCategory,description:claimDescription.trim(),...(claimTarget?{entity_type:claimTarget.type,entity_id:claimTarget.id}:{})});
+      setClaimNotice(`Caso ${result.ticket_id} registrado para revisión humana.`);
+      setClaimDescription(''); await loadHistory();
+    } catch (e:any) { setClaimNotice(e.message || 'No se pudo registrar el caso.'); }
+    finally { setClaimBusy(false); }
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
@@ -186,10 +217,28 @@ export default function SupportChatScreen() {
           </View>
           <View>
             <Text style={styles.headerName}>Soporte Moli</Text>
-            <Text style={styles.headerStatus}>IA + Soporte humano</Text>
+            <Text style={styles.headerStatus}>Tu cuenta y tus reclamos</Text>
           </View>
         </View>
       </View>
+      <TouchableOpacity onPress={openClaim} style={{padding:14,backgroundColor:'#FFF0EC',minHeight:48}}><Text style={{color:'#A84314',fontWeight:'700'}}>Objeto perdido o reclamo · Registrar caso</Text></TouchableOpacity>
+      <Modal visible={claimOpen} animationType="slide" onRequestClose={()=>{if(!claimBusy)setClaimOpen(false);}}>
+        <SafeAreaView style={{flex:1,backgroundColor:'#FFF'}}><ScrollView contentContainerStyle={{padding:20,gap:12}} keyboardShouldPersistTaps="handled">
+          <Text style={styles.welcomeTitle}>Registrar un caso</Text>
+          <Text>Se enviará a soporte humano. Registrar el caso no significa que esté resuelto.</Text>
+          {([['lost_item','Objeto perdido'],['payment','Pago'],['service','Servicio'],['account','Cuenta']] as const).map(([value,label])=><TouchableOpacity key={value} disabled={claimBusy} onPress={()=>{setClaimCategory(value);setClaimTarget(null);setClaimNotice('');}} style={{padding:14,minHeight:48,borderWidth:1,borderColor:claimCategory===value?'#FF7733':'#DDD',borderRadius:12}}><Text>{claimCategory===value?'✓ ':''}{label}</Text></TouchableOpacity>)}
+          <Text>Elegí tu servicio reciente (hasta 10 por categoría):</Text>
+          {(['rides','jobs','orders'] as const).flatMap(group=>(context?.[group]||[]).map((entry:any)=>{
+            const type=group==='rides'?'ride':group==='jobs'?'job':'order';const id=entry[`${type}_id`];
+            if(claimCategory==='lost_item'&&type!=='ride')return null;
+            return <TouchableOpacity key={id} disabled={claimBusy} onPress={()=>setClaimTarget({type,id})} style={{padding:14,minHeight:48,backgroundColor:claimTarget?.id===id?'#FFF0EC':'#F5F5F5',borderRadius:12}}><Text>{claimTarget?.id===id?'✓ ':''}{type==='ride'?'Viaje':type==='job'?'Servicio':'Pedido'} {id} · {entry.status}</Text></TouchableOpacity>;
+          }))}
+          <TextInput value={claimDescription} onChangeText={setClaimDescription} editable={!claimBusy} placeholder="Contanos qué ocurrió, sin contraseñas ni datos de tarjetas" multiline maxLength={2000} style={{borderWidth:1,borderColor:'#DDD',borderRadius:12,padding:14,minHeight:110}}/>
+          {!!claimNotice&&<Text accessibilityLiveRegion="polite">{claimNotice}</Text>}
+          <TouchableOpacity disabled={claimBusy||!claimDescription.trim()} onPress={submitClaim} style={{padding:16,minHeight:48,backgroundColor:'#FF7733',borderRadius:12}}><Text style={{color:'#FFF',fontWeight:'700'}}>{claimBusy?'Registrando…':'Enviar caso a soporte'}</Text></TouchableOpacity>
+          <TouchableOpacity disabled={claimBusy} onPress={()=>setClaimOpen(false)} style={{padding:16,minHeight:48}}><Text>Volver al chat</Text></TouchableOpacity>
+        </ScrollView></SafeAreaView>
+      </Modal>
 
       <KeyboardAvoidingView
         style={styles.chatContainer}
@@ -236,7 +285,7 @@ export default function SupportChatScreen() {
               <View style={[styles.dot, styles.dot2]} />
               <View style={[styles.dot, styles.dot3]} />
             </View>
-            <Text style={styles.typingText}>Moli Asistente esta escribiendo...</Text>
+            <Text style={styles.typingText}>Consultando Moli...</Text>
           </View>
         )}
 
