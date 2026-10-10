@@ -167,3 +167,9 @@
 - Fallos reproducidos: checkout no descuenta stock (pedido de dos unidades conserva diez); cliente puede aceptar su propio pedido mediante PUT /orders/{id}/status. No fueron corregidos en este checkpoint.
 - Registro OTP usa SMTP, bloqueado en Render Free; necesita transporte HTTP o cambiar alojamiento. Google de la app, WhatsApp, mapas pagos, Mercado Pago real/sandbox y soporte IA no se validaron. npm del build informó 46 vulnerabilidades (20 moderadas, 26 altas); pendiente revisar dependencias antes de producción.
 - No es release Play ni validación integral en teléfono. El siguiente trabajo es corregir los fallos, completar delivery/publicidad/admin y construir APK QA; verificar firma y versionCode antes de Play.
+
+
+### 2026-10-10 — Restaurar inicio de servicios en QA
+
+- La base nueva arrancó con trabajos_mode ausente (disabled), por lo que /api/admin/settings/public devolvía trabajos_enabled=false y el cliente iba directamente a /(rider)/home.
+- Se configuró trabajos_mode=real únicamente en moli_cloud_qa; el endpoint público confirma trabajos_enabled=true. El inicio del cliente vuelve a /modules, que usa RiderLanding. No hubo cambio de código ni del VPS.
