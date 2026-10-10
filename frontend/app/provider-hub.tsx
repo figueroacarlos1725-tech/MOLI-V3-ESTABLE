@@ -73,6 +73,7 @@ export default function ProviderHub() {
   const [reviewingJob, setReviewingJob] = useState(false);
   const [counterPrice, setCounterPrice] = useState('');
   const [activeJob, setActiveJob] = useState<any>(null);
+  const [activeRide, setActiveRide] = useState<any>(null);
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const allowed = useCallback((key: ServiceKey) =>
@@ -95,8 +96,9 @@ export default function ProviderHub() {
       professional ? apiService.get('/jobs/posts?status=open') : Promise.resolve({ jobs: [] }),
       driver ? apiService.get('/marketplace/deliveries/driver/inbox') : Promise.resolve({ deliveries: [] }),
       professional ? apiService.get('/jobs/my-active') : Promise.resolve({ jobs: [] }),
+      driver ? apiService.get('/rides/active') : Promise.resolve({ ride: null }),
     ]);
-    const [earningResult, profileResult, jobsResult, deliveriesResult, activeResult] = results;
+    const [earningResult, profileResult, jobsResult, deliveriesResult, activeResult, rideResult] = results;
     if (earningResult.status === 'fulfilled' && earningResult.value) setEarnings(earningResult.value);
     if (profileResult.status === 'fulfilled' && profileResult.value?.profile) {
       const profile = profileResult.value.profile;
@@ -114,15 +116,19 @@ export default function ProviderHub() {
     if (jobsResult.status === 'fulfilled') setJobs(jobsResult.value?.jobs || []);
     if (deliveriesResult.status === 'fulfilled') setDeliveries(deliveriesResult.value?.deliveries || []);
     if (activeResult.status === 'fulfilled') setActiveJob(activeResult.value?.jobs?.[0] || null);
+    if (rideResult.status === 'fulfilled') {
+      const ride = rideResult.value?.ride;
+      setActiveRide(ride && ['accepted', 'arrived', 'started'].includes(ride.status) ? ride : null);
+    }
     setLoading(false);
   }, [driver, professional]);
 
   useFocusEffect(useCallback(() => { loadDashboard(); }, [loadDashboard]));
   useEffect(() => {
-    if (!activeJob?.job_id) return;
+    if (!activeJob?.job_id && !activeRide?.ride_id) return;
     const timer = setInterval(loadDashboard, 8000);
     return () => clearInterval(timer);
-  }, [activeJob?.job_id, loadDashboard]);
+  }, [activeJob?.job_id, activeRide?.ride_id, loadDashboard]);
 
   useEffect(() => {
     if (!user?.user_id) return;
@@ -338,6 +344,9 @@ export default function ProviderHub() {
           </TouchableOpacity>
         </View>
 
+        {activeRide && <TouchableOpacity accessibilityRole="button" accessibilityLabel="Continuar viaje activo" onPress={() => router.push('/(driver)/home')} style={[styles.earningsCard, {backgroundColor:'#FFF1E8', borderWidth:1, borderColor:ORANGE}]}>
+          <View style={{flex:1}}><Text style={styles.sectionTitle}>Tenés un viaje en curso</Text><Text style={styles.sectionCopy}>Retomá el seguimiento y completá el viaje.</Text></View><Ionicons name="chevron-forward" size={24} color={ORANGE}/>
+        </TouchableOpacity>}
         <View style={styles.earningsCard}>
           <View>
             <Text style={styles.eyebrow}>GANANCIAS DE HOY</Text>
