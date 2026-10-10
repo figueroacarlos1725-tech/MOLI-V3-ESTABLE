@@ -167,3 +167,10 @@ El Centro de oportunidades recupera viajes activos al volver a ingresar y ofrece
 Prueba visual del cierre de viaje: la calificación del conductor ya no se desmonta cuando el servidor devuelve completed; queda disponible para enviar u omitir.
 
 Las suscripciones y ventanas del Centro de oportunidades se limitan a la pantalla activa para evitar ofertas duplicadas sobre viaje o chat.
+
+## 2026-10-10 — Publicidad visual y alcance de segundo plano
+
+- QA visual con campañas ficticias: imagen, cuenta regresiva de cinco segundos y cierre verificados en viaje iniciado, oficio en progreso y pedido pendiente de comercio. Campañas QA pausadas al finalizar.
+- Se corrigió la ubicación de CampaignInterstitial en la rama de viaje activo: antes quedaba en la rama inicial, reservaba entrega y se desmontaba sin mostrar anuncio al pasajero.
+- TypeScript aprobado. No se certificó reproducción de video ni visual móvil. Buscar profesional aún no dispara publicidad.
+- Burbuja de soporte solo dentro de la app; no hay overlay Android, servicio de ubicación en segundo plano ni alerta nativa de pantalla completa. Push se registra únicamente en home conductor, sin projectId EAS configurado ni prueba en teléfono; no prometer recepción fuera de la app.

@@ -845,6 +845,13 @@ export default function RiderHomeScreen() {
           rideAcceptedAt={currentRide.accepted_at || currentRide.created_at}
           cancelConfig={cancelConfig}
         />
+        <CampaignInterstitial
+          enabled={currentRide.status === 'started'}
+          trigger="ride_started"
+          surface="rides"
+          entityType="ride"
+          entityId={currentRide.ride_id}
+        />
       </SafeAreaView>
     );
   }
@@ -1341,13 +1348,6 @@ export default function RiderHomeScreen() {
         </SafeAreaView>
       </Modal>
       <SideMenu visible={sideMenuOpen} onClose={() => setSideMenuOpen(false)} role="rider" />
-      <CampaignInterstitial
-        enabled={!!currentRide && currentRide.status === 'started'}
-        trigger="ride_started"
-        surface="rides"
-        entityType="ride"
-        entityId={currentRide?.ride_id}
-      />
     </SafeAreaView>
   );
 }
