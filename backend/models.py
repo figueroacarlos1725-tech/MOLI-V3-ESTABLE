@@ -1,8 +1,8 @@
 """
 Pydantic models for the Moli API
 """
-from pydantic import BaseModel, Field, EmailStr
-from typing import Optional, List, Dict, Any
+from pydantic import BaseModel, Field, EmailStr, FiniteFloat
+from typing import Optional, List, Dict, Any, Literal
 from datetime import datetime
 
 
@@ -207,8 +207,8 @@ class AdminCreateUser(BaseModel):
     is_professional: bool = False
 
 class BalanceUpdate(BaseModel):
-    amount: float
-    operation: str = "set"
+    amount: FiniteFloat
+    operation: Literal["set", "add", "subtract"] = "set"
     reason: str = ""
 
 class EstimateRequest(BaseModel):

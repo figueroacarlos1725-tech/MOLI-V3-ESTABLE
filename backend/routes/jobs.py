@@ -6,7 +6,7 @@ from typing import Optional, List
 from datetime import datetime, timezone, timedelta
 from pymongo import ReturnDocument
 from database import db
-from utils import generate_id, get_current_user, get_settings, has_active_capability
+from utils import generate_id, get_current_user, get_settings, has_active_capability, effective_capability_user
 from websocket_manager import manager
 
 router = APIRouter()
@@ -51,6 +51,8 @@ def _job_for_user(job: dict, user: dict) -> dict:
 async def _require_professional(user: dict, *, available: bool = False) -> dict:
     if not has_active_capability(user, "professional", "tramites"):
         raise HTTPException(status_code=403, detail="Tu habilitación provisoria venció. Esta capacidad sigue pendiente de aprobación")
+    if user.get("capability_approvals") and await db.driver_documents.find_one({"driver_id":user["user_id"],"doc_type":{"$in":["id_front","id_back"]},"status":"rejected"}):
+        raise HTTPException(403,"Corregí la documentación de identidad rechazada")
     profile = await db.professional_profiles.find_one({"user_id": user["user_id"]})
     if not profile:
         raise HTTPException(status_code=403, detail="Se requiere un perfil profesional")
@@ -59,6 +61,11 @@ async def _require_professional(user: dict, *, available: bool = False) -> dict:
     if available and not profile.get("is_available", False):
         raise HTTPException(status_code=403, detail="El profesional no está disponible")
     return profile
+
+async def _require_job_capability(user: dict, job: dict) -> None:
+    user=await effective_capability_user(user)
+    capability="tramites" if job.get("category")=="tramites" or job.get("service_type")=="tramite" else "professional"
+    if not has_active_capability(user,capability):raise HTTPException(403,"Esta capacidad de servicio no está habilitada")
 
 # ─── Default categories ────────────────
 DEFAULT_CATEGORIES = [
@@ -405,6 +412,7 @@ async def start_job_review(
     job = await db.job_posts.find_one({"job_id": job_id})
     if not job:
         raise HTTPException(status_code=404, detail="Trabajo no encontrado")
+    await _require_job_capability(user,job)
     
     if job.get("client_id") == user["user_id"]:
         raise HTTPException(status_code=403, detail="No podés revisar tu propio trabajo")
@@ -472,6 +480,7 @@ async def accept_job_after_review(
     job = await db.job_posts.find_one({"job_id": job_id})
     if not job:
         raise HTTPException(status_code=404, detail="Trabajo no encontrado")
+    await _require_job_capability(user,job)
     
     if job.get("client_id") == user["user_id"]:
         raise HTTPException(status_code=403, detail="No podés aceptar tu propio trabajo")
@@ -580,6 +589,7 @@ async def start_job_negotiation(job_id: str, data: dict = Body(...), user: dict 
     job = await db.job_posts.find_one({"job_id": job_id})
     if not job:
         raise HTTPException(status_code=404, detail="Trabajo no encontrado")
+    await _require_job_capability(user,job)
     if job.get("status") == "negotiating" and job.get("negotiation_deadline", "") <= datetime.now(timezone.utc).isoformat():
         await db.job_posts.update_one({"job_id": job_id, "status": "negotiating"}, {"$set": {
             "status": "open", "reviewing_by": None, "reviewing_name": None, "reviewing_until": None,
@@ -629,7 +639,8 @@ async def respond_job_negotiation(job_id: str, data: dict = Body(...), user: dic
     action = data.get("action")
     if action == "accept":
         professional_id = job.get("reviewing_by")
-        professional = await db.users.find_one({"user_id": professional_id}, {"_id": 0, "name": 1}) or {}
+        professional = await db.users.find_one({"user_id": professional_id}, {"_id": 0, "user_id":1, "name": 1, "capability_approvals":1,"created_at":1}) or {}
+        await _require_job_capability(professional,job)
         assigned = await db.job_posts.find_one_and_update(
             {"job_id": job_id, "status": "negotiating", "negotiation_turn": expected},
             {"$set": {"status": "assigned", "assigned_to": professional_id,
@@ -690,6 +701,7 @@ async def send_job_offer(
     job = await db.job_posts.find_one({"job_id": job_id})
     if not job:
         raise HTTPException(status_code=404, detail="Trabajo no encontrado")
+    await _require_job_capability(user,job)
     if job.get("client_id") == user["user_id"]:
         raise HTTPException(status_code=403, detail="No podés aceptar tu propio trabajo")
     if job["status"] != "open":
@@ -781,6 +793,8 @@ async def accept_job_offer(
     if job.get("status") != "open":
         raise HTTPException(status_code=409, detail="El trabajo ya no acepta ofertas")
     
+    professional=await db.users.find_one({"user_id":offer["professional_id"]}) or {}
+    await _require_job_capability(professional,job)
     now = datetime.now(timezone.utc)
     
     assigned = await db.job_posts.find_one_and_update(

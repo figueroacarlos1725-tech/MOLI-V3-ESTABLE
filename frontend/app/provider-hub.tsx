@@ -1,3 +1,5 @@
+import { operatorAlert } from '@/src/components/OperatorAlert';
+import { WorkingVehiclePicker } from '@/src/components/WorkingVehiclePicker';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator, Alert, AppState, Image, Modal, SafeAreaView, ScrollView, StyleSheet,
@@ -236,7 +238,7 @@ export default function ProviderHub() {
     const next = { ...prefs, [key]: !prefs[key] };
     setPrefs(next);
     try { await saveProfilePrefs(next); }
-    catch { setPrefs(prefs); Alert.alert('No se pudo guardar', 'Intentá nuevamente.'); }
+    catch { setPrefs(prefs); operatorAlert('No se pudo guardar', 'Intentá nuevamente.'); }
   };
 
   const toggleOnline = async (value: boolean) => {
@@ -250,7 +252,7 @@ export default function ProviderHub() {
       await saveProfilePrefs(prefs, value);
       setOnline(value);
     } catch (error: any) {
-      Alert.alert('No pudimos cambiar tu estado', error?.message || 'Revisá tu perfil y documentación.');
+      operatorAlert('No pudimos cambiar tu estado', error?.message || 'Revisá tu perfil y documentación.');
     } finally { setBusyOnline(false); }
   };
 
@@ -298,7 +300,7 @@ export default function ProviderHub() {
       const response = await apiService.post(`/rides/${rideOffer.request_id}/driver-response?action=${action}`);
       setRideOffer(null);
       if (action === 'accept' && response.status === 'accepted') router.push('/(driver)/home');
-    } catch (error: any) { Alert.alert('Oferta no disponible', error?.message || 'La oferta venció.'); }
+    } catch (error: any) { operatorAlert('Oferta no disponible', error?.message || 'La oferta venció.'); }
   };
 
   const reviewRide = async () => {
@@ -324,7 +326,7 @@ export default function ProviderHub() {
       setJobOffer(detail.job || item.raw);
       setReviewingJob(true);
       setJobCountdown(35);
-    } catch (error: any) { Alert.alert('Oportunidad no disponible', error?.message || 'Otra persona comenzó a revisarla.'); }
+    } catch (error: any) { operatorAlert('Oportunidad no disponible', error?.message || 'Otra persona comenzó a revisarla.'); }
   };
 
   const reviewIncomingJob = async () => {
@@ -335,7 +337,7 @@ export default function ProviderHub() {
       setJobOffer(detail.job || jobOffer);
       setReviewingJob(true);
       setJobCountdown(35);
-    } catch (error: any) { setJobOffer(null); Alert.alert('Oportunidad no disponible', error?.message || 'Ya fue tomada.'); }
+    } catch (error: any) { setJobOffer(null); operatorAlert('Oportunidad no disponible', error?.message || 'Ya fue tomada.'); }
   };
 
   const acceptJob = async () => {
@@ -345,7 +347,7 @@ export default function ProviderHub() {
       const detail = await apiService.get(`/jobs/detail/${jobOffer.job_id}`);
       setActiveJob(detail.job || jobOffer);
       setJobOffer(null);
-    } catch (error: any) { Alert.alert('No se pudo aceptar', error?.message || 'La oportunidad venció.'); }
+    } catch (error: any) { operatorAlert('No se pudo aceptar', error?.message || 'La oportunidad venció.'); }
   };
 
   const rejectJob = async () => {
@@ -355,13 +357,13 @@ export default function ProviderHub() {
 
   const counterJob = async () => {
     const price = Number(counterPrice);
-    if (!jobOffer?.job_id || price <= 0) return Alert.alert('Ingresá un importe válido');
+    if (!jobOffer?.job_id || price <= 0) return operatorAlert('Ingresá un importe válido');
     try {
       await apiService.post(`/jobs/${jobOffer.job_id}/counter-offer`, { price });
       setJobOffer(null);
       setCounterPrice('');
-      Alert.alert('Propuesta enviada', 'El cliente tiene 35 segundos para responder.');
-    } catch (error: any) { Alert.alert('No se pudo enviar', error?.message || 'Intentá nuevamente.'); }
+      operatorAlert('Propuesta enviada', 'El cliente tiene 35 segundos para responder.');
+    } catch (error: any) { operatorAlert('No se pudo enviar', error?.message || 'Intentá nuevamente.'); }
   };
 
   if (isLoading) return null;
@@ -398,6 +400,7 @@ export default function ProviderHub() {
         </View>
         {provisionalCapabilities.length ? <View style={styles.provisionalBanner}><View style={styles.provisionalIcon}><Ionicons name="shield-half" size={23} color={ORANGE}/></View><View style={{flex:1}}><Text style={styles.provisionalTitle}>Capacidades pendientes de aprobación</Text><Text style={styles.provisionalCopy}>Podés trabajar provisoriamente hasta 24 horas mientras Administración revisa tu documentación.</Text></View><Ionicons name="chevron-forward" size={20} color={ORANGE}/></View> : null}
 
+        {driver && <WorkingVehiclePicker online={online}/> }
         <View style={styles.statusRow}>
           <View>
             <Text style={styles.statusLabel}>TU ESTADO</Text>
@@ -511,10 +514,10 @@ function ActiveJob({ job, location, onClose, onRefresh }: any) {
     if (!next) return;
     setBusy(true);
     try { await apiService.put(`/jobs/${job.job_id}/status`, { status: next.status }); await onRefresh(); }
-    catch (error: any) { Alert.alert('No se pudo actualizar', error?.message || 'Intentá nuevamente.'); }
+    catch (error: any) { operatorAlert('No se pudo actualizar', error?.message || 'Intentá nuevamente.'); }
     finally { setBusy(false); }
   };
-  const cancel = () => Alert.alert('Cancelar servicio', 'Al cancelar un servicio aceptado puede aplicarse una multa del 10%.', [
+  const cancel = () => operatorAlert('Cancelar servicio', 'Al cancelar un servicio aceptado puede aplicarse una multa del 10%.', [
     { text: 'Volver', style: 'cancel' },
     { text: 'Cancelar servicio', style: 'destructive', onPress: async () => { await apiService.put(`/jobs/${job.job_id}/status`, { status: 'cancelled' }); onClose(); await onRefresh(); } },
   ]);

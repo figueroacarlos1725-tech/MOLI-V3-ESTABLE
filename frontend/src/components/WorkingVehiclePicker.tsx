@@ -1,0 +1,13 @@
+import React,{useState,useEffect} from 'react';
+import {View,Text,TouchableOpacity,ActivityIndicator} from 'react-native';
+import {useIsFocused} from '@react-navigation/native';
+import {useRouter} from 'expo-router';
+import {apiService} from '@/src/services/api';
+export function WorkingVehiclePicker({online=false,onChange}:{online?:boolean;onChange?:()=>void}){
+ const [vehicles,setVehicles]=useState<any[]>([]),[expanded,setExpanded]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState('');const focused=useIsFocused(),router=useRouter();
+ const load=async()=>{try{const r=await apiService.get('/vehicles');setVehicles(r.vehicles||[]);setError('');}catch(e:any){setError(e.message||'No se pudieron consultar los vehículos');}};
+ useEffect(()=>{if(focused)load();},[focused]);
+ const selected=vehicles.find(v=>v.is_active);
+ const choose=async(id:string)=>{setBusy(true);try{await apiService.put(`/vehicles/${id}/select`,{});await load();setExpanded(false);onChange?.();}catch(e:any){setError(e.message||'No se pudo cambiar de vehículo');}finally{setBusy(false);}};
+ return <View style={{padding:14,borderRadius:16,backgroundColor:'#fff',borderWidth:1,borderColor:'#E5E7EB',marginVertical:8,gap:8}}><TouchableOpacity accessibilityRole="button" onPress={()=>{setExpanded(!expanded);if(!expanded)load();}}><Text style={{fontWeight:'800'}}>Vehículo de trabajo</Text><Text>{selected?`${selected.vehicle_type==='moto'?'Moto':'Auto'} · ${selected.make} ${selected.model} · ${selected.plate_number}`:'Elegí o registrá tu vehículo'} {expanded?'▴':'▾'}</Text></TouchableOpacity>{expanded&&<><Text style={{color:'#666'}}>Cambialo estando desconectado y sin servicios activos.</Text>{vehicles.map(v=><TouchableOpacity accessibilityRole="radio" accessibilityState={{checked:!!v.is_active,disabled:online||busy}} disabled={online||busy||v.approval_status==='rejected'} onPress={()=>choose(v.vehicle_id)} key={v.vehicle_id} style={{padding:13,borderRadius:12,borderWidth:1,borderColor:v.is_active?'#FF5A1F':'#ddd',backgroundColor:v.is_active?'#FFF3EB':'#fff'}}><Text>{v.is_active?'● ':'○ '}{v.vehicle_type==='moto'?'Moto':'Auto'} · {v.make} {v.model}</Text><Text>{v.plate_number} · {v.approval_status==='rejected'?'Rechazado':v.approval_status==='approved'?'Aprobado':v.approval_status==='pending'?'Revisión pendiente':'Registrado'}</Text></TouchableOpacity>)}<TouchableOpacity onPress={()=>router.push('/(driver)/profile')}><Text style={{color:'#FF5A1F'}}>Administrar / agregar vehículos</Text></TouchableOpacity></>}{busy&&<ActivityIndicator/>}{!!error&&<Text accessibilityRole="alert" style={{color:'#B42318'}}>{error}</Text>}</View>;
+}

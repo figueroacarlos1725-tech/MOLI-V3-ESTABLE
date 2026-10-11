@@ -1,3 +1,4 @@
+import { operatorAlert } from '@/src/components/OperatorAlert';
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, SafeAreaView, TouchableOpacity, ScrollView,
@@ -12,19 +13,22 @@ const GREEN = '#00C853';
 
 export default function DocumentsScreen() {
   const router = useRouter();
+  const [vehicles,setVehicles]=useState<any[]>([]);
+  const [vehicleId,setVehicleId]=useState('');
   const [documents, setDocuments] = useState<any[]>([]);
   const [verificationStatus, setVerificationStatus] = useState('incomplete');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [uploading, setUploading] = useState<string | null>(null);
 
-  useEffect(() => { fetchDocs(); }, []);
+  useEffect(()=>{apiService.get('/vehicles').then(r=>{setVehicles(r.vehicles||[]);const v=(r.vehicles||[]).find((v:any)=>v.is_active)||(r.vehicles||[])[0];if(v)setVehicleId(v.vehicle_id);}).catch((e:any)=>operatorAlert('Vehículos',e.message));},[]);
+  useEffect(() => { fetchDocs(); }, [vehicleId]);
 
   const fetchDocs = async () => {
     try {
-      const res = await apiService.get('/driver/documents/required');
+      const res = await apiService.get(`/driver/documents/required${vehicleId?`?vehicle_id=${encodeURIComponent(vehicleId)}`:''}`);
       setDocuments(res.documents || []);
-      setVerificationStatus(res.overall_status || 'incomplete');
+      setVerificationStatus(res.verification_status || 'incomplete');
     } catch (e) { console.log('Docs fetch error:', e); }
     setLoading(false);
     setRefreshing(false);
@@ -34,7 +38,7 @@ export default function DocumentsScreen() {
     try {
       if (useCamera) {
         const { status } = await ImagePicker.requestCameraPermissionsAsync();
-        if (status !== 'granted') { Alert.alert('Permiso', 'Necesitamos acceso a la cámara.'); return; }
+        if (status !== 'granted') { operatorAlert('Permiso', 'Necesitamos acceso a la cámara.'); return; }
       }
 
       const result = useCamera
@@ -48,16 +52,17 @@ export default function DocumentsScreen() {
 
       const response = await apiService.post('/driver/documents/upload-base64', {
         doc_type: docKey,
+        vehicle_id:vehicleId||undefined,
         file_base64: base64Data,
       });
 
       if (response.status === 'uploaded') {
         fetchDocs();
       } else {
-        Alert.alert('Error', response.detail || 'No se pudo subir');
+        operatorAlert('Error', response.detail || 'No se pudo subir');
       }
     } catch (e: any) {
-      Alert.alert('Error', e.message || 'Error al subir');
+      operatorAlert('Error', e.message || 'Error al subir');
     }
     setUploading(null);
   };
@@ -79,6 +84,7 @@ export default function DocumentsScreen() {
 
   return (
     <SafeAreaView style={s.container}>
+      <View style={{padding:14,gap:8}}><Text style={{fontWeight:"800"}}>Documentos del vehículo</Text><View style={{flexDirection:"row",gap:8,flexWrap:"wrap"}}>{vehicles.map(v=><TouchableOpacity key={v.vehicle_id} onPress={()=>setVehicleId(v.vehicle_id)} style={{padding:12,borderRadius:10,backgroundColor:vehicleId===v.vehicle_id?"#FFF3EB":"#fff"}}><Text>{vehicleId===v.vehicle_id?"● ":"○ "}{v.plate_number} · {v.vehicle_type}</Text></TouchableOpacity>)}</View></View>
       <View style={s.header}>
         <TouchableOpacity onPress={() => router.back()} style={s.backBtn}>
           <Ionicons name="arrow-back" size={22} color="#1C1C1E" />

@@ -1,6 +1,6 @@
 import React,{useCallback,useRef,useState} from 'react';
 import {ActivityIndicator,Image,SafeAreaView,ScrollView,StyleSheet,Switch,Text,TextInput,TouchableOpacity,View} from 'react-native';
-import {useFocusEffect} from 'expo-router';
+import {useFocusEffect,useRouter} from 'expo-router';
 import {apiService} from '@/src/services/api';
 import {socketService} from '@/src/services/socket';
 import {useAuthStore} from '@/src/stores/authStore';
@@ -21,6 +21,7 @@ function parseLocal(value:string){
 
 export default function GodsEye(){
  const{user}=useAuthStore();
+ const router=useRouter();
  const[providers,setProviders]=useState<Provider[]>([]),[selected,setSelected]=useState<string|null>(null),[filter,setFilter]=useState('all');
  const[loading,setLoading]=useState(true),[connected,setConnected]=useState(false),[error,setError]=useState('');
  const[from,setFrom]=useState(`${today()} 00:00`),[to,setTo]=useState(`${today()} 23:59`),[day,setDay]=useState(today());
@@ -68,7 +69,7 @@ export default function GodsEye(){
   {loading?<ActivityIndicator/>:<FleetMap markers={markers} trajectory={historyMode?points:[]} selectedId={historyMode?undefined:selected||undefined} onSelect={choose} style={{height:400}}/>}
   <Text>El punto es el último GPS recibido. Revisá su hora; un punto antiguo no confirma la ubicación actual.</Text>
   {!!current&&<View style={s.card}>
-   <View style={s.row}><Image source={FLEET_ICONS[fleetIconKey(current)]} style={{width:48,height:48}} resizeMode="contain"/><Text style={s.subtitle}>{current.name}{current.plate_number?` · ${current.plate_number}`:''}</Text></View><Text>{current.activity||current.vehicle_type||current.provider_type} · {current.is_online?'Conectado':'Desconectado'} · GPS {when(current.updated_at)}</Text>
+   <View style={s.row}><Image source={FLEET_ICONS[fleetIconKey(current)]} style={{width:48,height:48}} resizeMode="contain"/><Text style={s.subtitle}>{current.name}{current.plate_number?` · ${current.plate_number}`:''}</Text></View><TouchableOpacity accessibilityRole="button" onPress={()=>router.push({pathname:"/(admin)/users",params:{userId:current.provider_id}})} style={s.secondary}><Text>Abrir ficha administrativa</Text></TouchableOpacity><Text>{current.activity||current.vehicle_type||current.provider_type} · {current.is_online?'Conectado':'Desconectado'} · GPS {when(current.updated_at)}</Text>
    <Text style={s.subtitle}>Trayectoria para revisar un reclamo</Text><Text>Horarios de Argentina (UTC−3). Seleccioná día o intervalo de hasta 7 días.</Text>
    {!!current.vehicle_id&&<View style={s.row}><Text>Solo este vehículo ({current.plate_number||current.vehicle_id})</Text><Switch accessibilityLabel="Solo este vehículo" value={onlyVehicle} onValueChange={setOnlyVehicle}/></View>}
    <Text>Día (AAAA-MM-DD)</Text><TextInput accessibilityLabel="Día de trayectoria" value={day} onChangeText={setDay} style={s.input}/>

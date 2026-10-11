@@ -1,3 +1,5 @@
+import { WorkingVehiclePicker } from '@/src/components/WorkingVehiclePicker';
+import { operatorAlert } from '@/src/components/OperatorAlert';
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -70,17 +72,18 @@ export default function DriverProfileScreen() {
 
   const handleSaveVehicle = async () => {
     if (!vehicleForm.vehicle_make || !vehicleForm.vehicle_model || !vehicleForm.plate_number || !vehicleForm.vehicle_color) {
-      Alert.alert('Error', 'Marca, modelo, color y patente son obligatorios');
+      operatorAlert('Error', 'Marca, modelo, color y patente son obligatorios');
       return;
     }
     setIsSubmitting(true);
     try {
       const res = await apiService.put('/driver/vehicle', vehicleForm);
-      Alert.alert('✅', res.message);
+      operatorAlert('✅', res.message);
       setEditingVehicle(false);
       fetchVehicleInfo();
+      fetchVehicles();
     } catch (e: any) {
-      Alert.alert('Error', e.message || 'No se pudo guardar');
+      operatorAlert('Error', e.message || 'No se pudo guardar');
     } finally {
       setIsSubmitting(false);
     }
@@ -97,7 +100,7 @@ export default function DriverProfileScreen() {
 
   const handleAddVehicle = async () => {
     if (!newVehicle.make || !newVehicle.model || !newVehicle.year || !newVehicle.plate_number) {
-      Alert.alert('Error', 'Por favor completa todos los campos requeridos');
+      operatorAlert('Error', 'Por favor completa todos los campos requeridos');
       return;
     }
 
@@ -109,12 +112,12 @@ export default function DriverProfileScreen() {
         capacity: 4,
       });
       
-      Alert.alert('Exito', 'Vehiculo agregado correctamente');
+      operatorAlert('Exito', 'Vehiculo agregado correctamente');
       setShowAddVehicleModal(false);
       setNewVehicle({ make: '', model: '', year: '', color: '', plate_number: '', vehicle_type: 'economy' });
       fetchVehicles();
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'No se pudo agregar el vehiculo');
+      operatorAlert('Error', error.message || 'No se pudo agregar el vehiculo');
     } finally {
       setIsSubmitting(false);
     }
@@ -184,6 +187,7 @@ export default function DriverProfileScreen() {
           </View>
         </View>
 
+        <WorkingVehiclePicker/>
         {/* Vehicle Info Section */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
@@ -348,7 +352,7 @@ export default function DriverProfileScreen() {
           <TouchableOpacity 
             style={{backgroundColor:'#EF4444', paddingVertical:14, borderRadius:12, alignItems:'center', flexDirection:'row', justifyContent:'center', gap:8}}
             onPress={() => {
-              Alert.alert('Cerrar sesión', '¿Seguro que querés cerrar sesión?', [
+              operatorAlert('Cerrar sesión', '¿Seguro que querés cerrar sesión?', [
                 { text: 'Cancelar', style: 'cancel' },
                 { text: 'Sí, salir', style: 'destructive', onPress: doLogout },
               ]);
@@ -404,11 +408,11 @@ export default function DriverProfileScreen() {
                   setDeleting(true);
                   try {
                     await apiService.delete('/auth/delete-account?confirmation=ELIMINAR');
-                    Alert.alert('Cuenta eliminada', 'Tu cuenta ha sido eliminada exitosamente.');
+                    operatorAlert('Cuenta eliminada', 'Tu cuenta ha sido eliminada exitosamente.');
                     await logout();
                     router.replace('/');
                   } catch (e: any) {
-                    Alert.alert('Error', e.message || 'No se pudo eliminar la cuenta');
+                    operatorAlert('Error', e.message || 'No se pudo eliminar la cuenta');
                   } finally {
                     setDeleting(false);
                     setShowDeleteConfirm(false);

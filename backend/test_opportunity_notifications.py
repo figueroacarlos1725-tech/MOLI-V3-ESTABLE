@@ -47,6 +47,9 @@ def test_delivery_claim_winner_alone_sends_withdrawal(monkeypatch,wins):
         find_one_and_update=AsyncMock(return_value=delivery if wins else None)),
         marketplace_orders=SimpleNamespace(find_one_and_update=AsyncMock(return_value={'order_id':'order_qa'})))
     monkeypatch.setattr(marketplace,'db',db)
+    import provider_management
+    monkeypatch.setattr(provider_management,'working_vehicle',AsyncMock(return_value={'vehicle_type':'moto'}))
+    delivery['offers'][0]['vehicle_type']='moto'
     notification=AsyncMock();monkeypatch.setattr(marketplace,'notify_delivery_taken',notification)
     if wins:
         asyncio.run(marketplace.accept_delivery('del_qa',{'user_type':'driver','user_id':'winner'}))

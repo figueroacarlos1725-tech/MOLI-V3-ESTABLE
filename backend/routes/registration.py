@@ -311,42 +311,6 @@ async def list_registrations(status: str = "pending", user: dict = Depends(get_c
 
 @router.post("/api/admin/registrations/{user_id}/decision")
 async def decide_registration(user_id: str, decision: str, capability: Optional[str] = None, reason: str = "", user: dict = Depends(get_current_user)):
-    _require_admin(user)
-    if decision not in {"approve", "reject"}:
-        raise HTTPException(status_code=400, detail="Decisión inválida")
-    target = await db.users.find_one({"user_id": user_id})
-    if not target:
-        raise HTTPException(status_code=404, detail="Registro no encontrado")
-    status = "approved" if decision == "approve" else "rejected"
-    now = datetime.now(timezone.utc)
-    selected = [capability] if capability else list(target.get("capabilities", []))
-    if not selected or any(item not in target.get("capabilities", []) for item in selected):
-        raise HTTPException(status_code=400, detail="Capacidad inválida para este registro")
-    approvals = target.get("capability_approvals") or {item: {"status": "pending"} for item in target.get("capabilities", [])}
-    for item in selected:
-        approvals[item] = {**approvals.get(item, {}), "status": status, "reason": reason.strip(), "reviewed_at": now, "reviewed_by": user["user_id"]}
-    states = [item.get("status") for item in approvals.values()]
-    overall = "approved" if states and all(item == "approved" for item in states) else "rejected" if states and all(item == "rejected" for item in states) else "pending"
-    result = await db.users.update_one(
-        {"user_id": user_id},
-        {"$set": {
-            "approval_status": overall,
-            "capability_approvals": approvals,
-            "is_verified": overall == "approved",
-            "approval_reason": reason.strip(),
-            "reviewed_at": now,
-            "reviewed_by": user["user_id"],
-        }},
-    )
-    if result.modified_count != 1:
-        raise HTTPException(status_code=409, detail="El registro ya fue revisado")
-    await db.drivers.update_one(
-        {"driver_id": user_id},
-        {"$set": {"documents_verified": overall == "approved", "is_verified": overall == "approved"}},
-    )
-    await db.audit_log.insert_one({
-        "audit_id": generate_id("audit_"), "action": "registration_decision",
-        "target_user_id": user_id, "decision": decision, "reason": reason.strip(),
-        "admin_id": user["user_id"], "created_at": now,
-    })
-    return {"status": status, "capability": capability, "approval_status": overall, "capability_approvals": approvals}
+    if decision not in ("approve","reject"):raise HTTPException(400,"Decisión inválida")
+    from routes.provider_admin import review_provider, Review
+    return await review_provider(user_id, Review(target="capability" if capability else "all", target_id=capability, decision=decision, reason=reason), user)

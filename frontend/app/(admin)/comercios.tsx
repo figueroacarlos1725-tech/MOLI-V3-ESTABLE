@@ -1,10 +1,11 @@
+import { ProviderManagementCard } from '@/src/components/ProviderManagementCard';
 import React,{useCallback,useState} from 'react';
 import {ActivityIndicator,Modal,SafeAreaView,ScrollView,Switch,Text,TextInput,TouchableOpacity,View} from 'react-native';
 import {useFocusEffect} from 'expo-router';
 import {apiService} from '@/src/services/api';
 import {operatorAlert} from '@/src/components/OperatorAlert';
 
-type Merchant={merchant_id:string;name:string;address:string;approval_status:string;capabilities?:{pickup:boolean;delivery:boolean};delivery_fee_cents?:number};
+type Merchant={merchant_id:string;owner_id?:string;name:string;address:string;approval_status:string;capabilities?:{pickup:boolean;delivery:boolean};delivery_fee_cents?:number};
 export default function AdminMerchants(){
  const[shops,setShops]=useState<Merchant[]>([]),[loading,setLoading]=useState(true),[error,setError]=useState(''),[selected,setSelected]=useState<Merchant|null>(null);
  const[pickup,setPickup]=useState(true),[delivery,setDelivery]=useState(false),[fee,setFee]=useState('0'),[busy,setBusy]=useState(false);
@@ -32,6 +33,7 @@ export default function AdminMerchants(){
   <Text>Costo de entrega en pesos</Text><TextInput accessibilityLabel="Costo de entrega en pesos" value={fee} onChangeText={setFee} keyboardType="decimal-pad" editable={!busy} style={{minHeight:48,borderWidth:1,borderColor:'#DDD',borderRadius:12,padding:12}}/>
   <TouchableOpacity accessibilityRole="button" disabled={busy} onPress={()=>operatorAlert('Aprobar comercio','¿Confirmás la aprobación y las modalidades seleccionadas?',[{text:'Volver',style:'cancel'},{text:'Confirmar aprobación',onPress:()=>{void decide(true);}}])} style={{padding:16,minHeight:48,backgroundColor:'#FF7733',borderRadius:12}}><Text style={{color:'#FFF',fontWeight:'700'}}>{busy?'Guardando…':'Aprobar y guardar'}</Text></TouchableOpacity>
   <TouchableOpacity accessibilityRole="button" disabled={busy} onPress={()=>operatorAlert('Rechazar comercio','El comercio dejará de estar aprobado.',[{text:'Volver',style:'cancel'},{text:'Confirmar rechazo',style:'destructive',onPress:()=>{void decide(false);}}])} style={{padding:16,minHeight:48}}><Text style={{color:'#B42318'}}>Rechazar comercio</Text></TouchableOpacity>
+  {selected?.owner_id&&<ProviderManagementCard userId={selected.owner_id} showAccount onChanged={load}/>}
   <TouchableOpacity accessibilityRole="button" disabled={busy} onPress={()=>setSelected(null)} style={{padding:16,minHeight:48}}><Text>Cerrar revisión</Text></TouchableOpacity>
  </ScrollView></View></Modal></SafeAreaView>;
 }

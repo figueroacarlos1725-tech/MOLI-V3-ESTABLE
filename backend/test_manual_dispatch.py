@@ -11,9 +11,9 @@ def fixtures(monkeypatch, status='searching', vehicle=True, available=True, clai
     db=SimpleNamespace(
         ride_requests=SimpleNamespace(find_one=AsyncMock(return_value=request),find_one_and_update=AsyncMock(return_value=request if claim else None)),
         users=SimpleNamespace(find_one=AsyncMock(return_value=driver)),
-        vehicles=SimpleNamespace(find_one=AsyncMock(return_value={'vehicle_type':'economy'} if vehicle else None)),
+        vehicles=SimpleNamespace(find_one=AsyncMock(return_value={'vehicle_type':'economy'} if vehicle else None),find=lambda *args: SimpleNamespace(to_list=AsyncMock(return_value=[{'vehicle_type':'economy'}] if vehicle else []))),
         rides=SimpleNamespace(find_one=AsyncMock(return_value=None),insert_one=AsyncMock()),
-        drivers=SimpleNamespace(find_one_and_update=AsyncMock(return_value={'driver_id':'driver'} if available else None),update_one=AsyncMock()),
+        drivers=SimpleNamespace(find_one=AsyncMock(return_value={'driver_id':'driver'}),find_one_and_update=AsyncMock(return_value={'driver_id':'driver'} if available else None),update_one=AsyncMock()),
     )
     monkeypatch.setattr(admin,'db',db)
     monkeypatch.setattr(admin.manager,'send_personal_message',AsyncMock())

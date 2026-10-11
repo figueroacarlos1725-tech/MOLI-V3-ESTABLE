@@ -437,7 +437,7 @@ async def admin_list_users(
         wallet_bal = u.get("wallet_balance", 0.0)
         bal_amount = balance.get("amount", 0.0) if balance else 0.0
         # Sync: prefer users.wallet_balance as source of truth
-        actual_balance = wallet_bal if wallet_bal != 0 else bal_amount
+        actual_balance = wallet_bal if "wallet_balance" in u else bal_amount
         u["balance"] = actual_balance
         u["wallet_balance"] = actual_balance
         u["debt"] = balance.get("debt", 0.0) if balance else 0.0
@@ -814,14 +814,17 @@ async def dispatch_assign_driver(
     open_states = ["pending", "bidding", "searching"]
     if request_doc.get("status") not in open_states:
         raise HTTPException(409, "La solicitud ya no está abierta")
+    from utils import effective_capability_user
+    driver=await effective_capability_user(driver)
     if driver.get("is_blocked") or not has_active_capability(driver, "ride_driver", "moto_driver", "taxi_driver", "parcel", "delivery"):
         raise HTTPException(403, "El conductor no tiene una capacidad habilitada")
     if driver_id in request_doc.get("excluded_drivers", []):
         raise HTTPException(409, "Conductor excluido de esta solicitud")
-    vehicle = await db.vehicles.find_one(
-        {"driver_id": driver_id, "is_active": True, "vehicle_type": request_doc.get("vehicle_type", "economy")}, {"_id": 0})
+    from provider_management import working_vehicle, ensure_vehicle_capacity
+    vehicle = await working_vehicle(driver_id,request_doc.get("vehicle_type","economy"),db)
     if not vehicle:
         raise HTTPException(409, "El vehículo no es compatible con la solicitud")
+    await ensure_vehicle_capacity(driver, vehicle)
     existing_ride = await db.rides.find_one({"request_id": request_id})
     if existing_ride and existing_ride.get("status") not in ("requested", "searching"):
         raise HTTPException(409, "El viaje ya fue asignado o finalizado")
@@ -915,42 +918,18 @@ async def admin_update_balance(
     if user["user_type"] != "admin":
         raise HTTPException(status_code=403, detail="Admin access required")
     
-    # Read current balance from users.wallet_balance (primary source of truth)
-    target_user = await db.users.find_one({"user_id": user_id}, {"_id": 0, "wallet_balance": 1})
-    old_amount = target_user.get("wallet_balance", 0.0) if target_user else 0.0
-    
-    if update.operation == "add":
-        new_amount = old_amount + update.amount
-    elif update.operation == "subtract":
-        new_amount = old_amount - update.amount
-    else:
-        new_amount = update.amount
-    
-    # Use unified setter that syncs BOTH collections
-    await set_wallet_balance(user_id, new_amount)
-    
-    # Record transaction
-    await db.wallet_transactions.insert_one({
-        "user_id": user_id,
-        "type": "admin_" + update.operation,
-        "amount": update.amount if update.operation == "add" else -update.amount,
-        "balance_after": new_amount,
-        "description": update.reason or f"Ajuste por admin ({update.operation})",
-        "created_at": datetime.now(timezone.utc),
-    })
-    
-    await db.audit_log.insert_one({
-        "action": "balance_update",
-        "target_user_id": user_id,
-        "admin_id": user["user_id"],
-        "changes": {"amount": new_amount, "operation": update.operation},
-        "previous_values": {"amount": old_amount},
-        "reason": update.reason,
-        "created_at": datetime.now(timezone.utc),
-        "source": "admin"
-    })
-    
-    return {"status": "success", "balance": new_amount, "previous": old_amount}
+    if update.operation != "set" and update.amount < 0:raise HTTPException(400,"Usá un monto positivo para sumar o restar")
+    async def adjust(session):
+        target=await db.users.find_one({"user_id":user_id},session=session)
+        if not target:raise HTTPException(404,"Cuenta inexistente")
+        old_amount=target.get("wallet_balance",0)
+        new_amount=round(old_amount+update.amount if update.operation=="add" else old_amount-update.amount if update.operation=="subtract" else update.amount,2)
+        await db.users.update_one({"user_id":user_id},{"$set":{"wallet_balance":new_amount}},session=session)
+        await db.user_balances.update_one({"user_id":user_id},{"$set":{"amount":new_amount}},upsert=True,session=session)
+        await db.wallet_transactions.insert_one({"transaction_id":generate_id("txn_"),"user_id":user_id,"transaction_type":"admin_"+update.operation,"amount":round(new_amount-old_amount,2),"balance_after":new_amount,"description":update.reason,"created_at":datetime.now(timezone.utc)},session=session)
+        await db.audit_log.insert_one({"action":"balance_update","target_user_id":user_id,"admin_id":user["user_id"],"changes":{"amount":new_amount,"operation":update.operation},"previous_values":{"amount":old_amount},"reason":update.reason,"created_at":datetime.now(timezone.utc),"source":"admin"},session=session)
+        return {"status":"success","balance":new_amount,"previous":old_amount}
+    async with await db.client.start_session() as session:return await session.with_transaction(adjust)
 
 
 @router.put("/api/admin/users/{user_id}/debt")
@@ -1892,81 +1871,12 @@ async def review_driver_document(
     reason: str = Query(""),
     user: dict = Depends(get_current_user)
 ):
-    """Admin: Approve or reject a driver document"""
-    if user["user_type"] != "admin":
-        raise HTTPException(status_code=403, detail="Solo administradores")
-    
-    doc = await db.driver_documents.find_one({"document_id": document_id})
-    if not doc:
-        raise HTTPException(status_code=404, detail="Documento no encontrado")
-    
-    now = datetime.now(timezone.utc)
-    update = {
-        "status": "approved" if action == "approve" else "rejected",
-        "reviewed_at": now,
-        "reviewed_by": user["user_id"],
-    }
-    if action == "reject":
-        update["reject_reason"] = reason
-    
-    await db.driver_documents.update_one(
-        {"document_id": document_id},
-        {"$set": update}
-    )
-    
-    # Check if ALL documents are now approved
-    driver_id = doc["driver_id"]
-    all_docs = await db.driver_documents.find(
-        {"driver_id": driver_id}, {"_id": 0, "file_data": 0}
-    ).to_list(20)
-    
-    required_types = {d["key"] for d in REQUIRED_DOCUMENTS}
-    uploaded_types = {d["doc_type"] for d in all_docs}
-    all_approved = required_types.issubset(uploaded_types) and all(
-        d.get("status") == "approved" for d in all_docs if d["doc_type"] in required_types
-    )
-    
-    # Update driver verification status
-    await db.drivers.update_one(
-        {"driver_id": driver_id},
-        {"$set": {"is_verified": all_approved, "verified_at": now if all_approved else None}}
-    )
-    
-    # Notify driver
-    status_text = "aprobado" if action == "approve" else "rechazado"
-    doc_label = next((d["label"] for d in REQUIRED_DOCUMENTS if d["key"] == doc["doc_type"]), doc["doc_type"])
-    notify_msg = f"Tu documento '{doc_label}' fue {status_text}."
-    if action == "reject" and reason:
-        notify_msg += f" Motivo: {reason}"
-    if all_approved:
-        notify_msg = "¡Todos tus documentos fueron aprobados! Ya puedes aceptar viajes."
-    
-    await manager.send_personal_message({
-        "type": "document_review",
-        "document_id": document_id,
-        "doc_type": doc["doc_type"],
-        "status": update["status"],
-        "message": notify_msg,
-        "all_verified": all_approved,
-    }, driver_id)
-    
-    # Send push notification for verification approval
-    if all_approved:
-        await send_push_notification(
-            driver_id,
-            "¡Cuenta aprobada! 🎉",
-            "Todos tus documentos fueron verificados. Ya podés empezar a conducir y generar ingresos con Moli.",
-            data={"type": "verification_approved"}
-        )
-    elif action == "reject":
-        await send_push_notification(
-            driver_id,
-            "Documento rechazado",
-            notify_msg,
-            data={"type": "document_rejected", "doc_type": doc["doc_type"]}
-        )
-    
-    return {"status": update["status"], "all_verified": all_approved}
+    if action not in ("approve","reject"):raise HTTPException(400,"Decisión inválida")
+    if user.get("user_type") != "admin": raise HTTPException(403,"Solo administración")
+    doc = await db.driver_documents.find_one({"document_id":document_id})
+    if not doc: raise HTTPException(404,"Documento inexistente")
+    from routes.provider_admin import review_provider, Review
+    return await review_provider(doc["driver_id"],Review(target="document",target_id=document_id,decision=action,reason=reason),user)
 
 
 @router.post("/api/admin/banners")

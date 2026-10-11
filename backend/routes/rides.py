@@ -280,6 +280,12 @@ async def driver_respond_to_offer(
         raise HTTPException(status_code=409, detail="Otro conductor está revisando esta oportunidad")
 
     if action == "accept":
+        from provider_management import working_vehicle, ensure_vehicle_capacity
+        profile=await db.drivers.find_one({"driver_id":user["user_id"]}) or {}
+        if not profile.get("is_online") or not profile.get("is_available") or profile.get("is_blocked"):raise HTTPException(409,"No estás disponible para aceptar este viaje")
+        chosen_vehicle=await working_vehicle(user["user_id"],request_doc.get("vehicle_type"))
+        if not chosen_vehicle:raise HTTPException(409,"Tu vehículo de trabajo no corresponde a esta oferta")
+        await ensure_vehicle_capacity(user,chosen_vehicle)
         claimed = await db.ride_requests.find_one_and_update(
             {"request_id": request_id, "status": {"$in": ["pending", "bidding", "searching"]},
              "$or": [{"reviewing_by": user["user_id"]}, {"current_offer_driver": user["user_id"]}]},
@@ -299,11 +305,7 @@ async def driver_respond_to_offer(
         commission = fare * commission_rate
         driver_earnings = fare - commission
 
-        # Get driver vehicle
-        vehicle = await db.vehicles.find_one(
-            {"driver_id": user["user_id"], "is_active": True},
-            {"_id": 0}
-        )
+        vehicle = chosen_vehicle
 
         vehicle_info = {
             "make": vehicle.get("make", "") if vehicle else "",
@@ -443,6 +445,14 @@ async def review_ride_opportunity(request_id: str, user: dict = Depends(get_curr
     """Atomically acquire the exclusive 35-second review window."""
     if user["user_type"] != "driver":
         raise HTTPException(status_code=403, detail="Solo conductores pueden revisar oportunidades")
+    profile=await db.drivers.find_one({"driver_id":user["user_id"]}) or {}
+    if not profile.get("is_online") or not profile.get("is_available") or profile.get("is_blocked"):raise HTTPException(409,"No estás disponible para revisar viajes")
+    from provider_management import working_vehicle, ensure_vehicle_capacity
+    opportunity = await db.ride_requests.find_one({"request_id":request_id})
+    if not opportunity:raise HTTPException(404,"Solicitud inexistente")
+    vehicle = await working_vehicle(user["user_id"],opportunity.get("vehicle_type"))
+    if not vehicle:raise HTTPException(409,"La oferta no corresponde al vehículo elegido")
+    await ensure_vehicle_capacity(user,vehicle)
     now = datetime.now(timezone.utc)
     until = now + timedelta(seconds=35)
     claimed = await db.ride_requests.find_one_and_update(
@@ -483,6 +493,11 @@ async def accept_bid(bid_id: str, user: dict = Depends(get_current_user)):
     if request["rider_id"] != user["user_id"]:
         raise HTTPException(status_code=403, detail="Not authorized")
 
+    from provider_management import working_vehicle, ensure_vehicle_capacity
+    vehicle = await working_vehicle(bid["driver_id"],request.get("vehicle_type"))
+    if not vehicle:raise HTTPException(409,"El conductor cambió de vehículo o ya no está disponible para este tipo")
+    bid_driver = await db.users.find_one({"user_id":bid["driver_id"]}) or {}
+    await ensure_vehicle_capacity(bid_driver,vehicle)
     # Create ride
     ride_id = generate_id("ride_")
     now = datetime.now(timezone.utc)

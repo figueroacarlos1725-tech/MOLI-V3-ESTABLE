@@ -1,3 +1,4 @@
+import { WorkingVehiclePicker } from '@/src/components/WorkingVehiclePicker';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
@@ -233,8 +234,6 @@ export default function DriverHomeScreen() {
             setDocsRejected(false);
             setPendingVerification(false);
           }
-        } else if (meRes && meRes.is_verified === false) {
-          setPendingVerification(true);
         }
       } catch (e) { /* silent */ }
     };
@@ -850,6 +849,7 @@ export default function DriverHomeScreen() {
             </View>
           </View>
 
+          <WorkingVehiclePicker onChange={()=>router.replace("/provider-hub")}/>
           {/* Document list preview */}
           <View style={{ backgroundColor: '#F8F8FA', borderRadius: 16, padding: 16, marginBottom: 24 }}>
             <Text style={{ fontSize: 14, fontWeight: '700', color: '#1C1C1E', marginBottom: 12 }}>Documentos necesarios:</Text>

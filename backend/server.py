@@ -47,6 +47,8 @@ app.add_middleware(
 # Include all routers
 from fleet_live import router as fleet_live_router
 from promotions import router as promotions_router
+from routes.provider_admin import router as provider_admin_router
+app.include_router(provider_admin_router)
 app.include_router(promotions_router)
 app.include_router(fleet_live_router)
 app.include_router(auth_router)

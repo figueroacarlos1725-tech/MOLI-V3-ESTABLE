@@ -58,6 +58,13 @@ async def update_availability(
                     }
                 )
     
+    if is_online:
+        from provider_management import working_vehicle, ensure_vehicle_capacity
+        vehicles = await db.vehicles.find({"driver_id": user["user_id"]}, {"_id":0}).to_list(100)
+        if vehicles:
+            selected = await working_vehicle(user["user_id"])
+            if not selected: raise HTTPException(409, "Elegí un único vehículo para trabajar")
+            await ensure_vehicle_capacity(user, selected)
     update_data = {
         "is_online": is_online,
         "is_available": is_online,
@@ -165,11 +172,8 @@ async def get_nearby_drivers(
                 driver_radius = driver.get("radius_km", 50)
                 if not ignore_driver_radius and distance > driver_radius:
                     continue
-                # Get driver's vehicle
-                vehicle = await db.vehicles.find_one(
-                    {"driver_id": driver["driver_id"], "is_active": True},
-                    {"_id": 0}
-                )
+                from provider_management import working_vehicle, ensure_vehicle_capacity
+                vehicle = await working_vehicle(driver["driver_id"],vehicle_type)
                 if vehicle:
                     if vehicle_type and vehicle["vehicle_type"] != vehicle_type:
                         continue
@@ -177,13 +181,17 @@ async def get_nearby_drivers(
                     # Get driver user info
                     driver_user = await db.users.find_one(
                         {"user_id": driver["driver_id"]},
-                        {"_id": 0, "name": 1, "rating": 1, "profile_picture": 1, "capability_approvals": 1}
+                        {"_id": 0, "user_id":1, "name": 1, "rating": 1, "profile_picture": 1, "capability_approvals": 1}
                     )
+                    from utils import effective_capability_user
+                    if driver_user:driver_user=await effective_capability_user(driver_user)
                     if not driver_user or not has_active_capability(
                         driver_user, "ride_driver", "moto_driver", "taxi_driver", "parcel", "delivery"
                     ):
                         continue
                     
+                    try: await ensure_vehicle_capacity(driver_user, vehicle)
+                    except HTTPException: continue
                     nearby.append({
                         "driver_id": driver["driver_id"],
                         "name": driver_user.get("name", "Driver"),
@@ -318,7 +326,7 @@ async def get_driver_services(driver_id: str):
 
 
 @router.get("/api/driver/documents/required")
-async def get_required_documents(user: dict = Depends(get_current_user)):
+async def get_required_documents(user: dict = Depends(get_current_user), vehicle_id: Optional[str] = None):
     """Get list of required documents and their upload status"""
     if user["user_type"] != "driver":
         raise HTTPException(status_code=403, detail="Solo conductores")
@@ -326,10 +334,15 @@ async def get_required_documents(user: dict = Depends(get_current_user)):
     uploaded = await db.driver_documents.find(
         {"driver_id": user["user_id"]}, {"_id": 0}
     ).to_list(20)
-    uploaded_map = {d["doc_type"]: d for d in uploaded}
+    from provider_management import document_check
+    vehicles = await db.vehicles.find({"driver_id":user["user_id"]},{"_id":0}).to_list(100)
+    if vehicle_id and not any(v["vehicle_id"]==vehicle_id for v in vehicles):raise HTTPException(404,"Vehículo ajeno")
+    only_professional = bool(user.get("capabilities")) and not any(c in user["capabilities"] for c in ("ride_driver","moto_driver","taxi_driver","parcel","delivery"))
+    required,uploaded_map,_ = document_check(uploaded,vehicle_id or (vehicles[0]["vehicle_id"] if len(vehicles)==1 else None),len(vehicles)==1,only_professional)
     
     result = []
     for doc in REQUIRED_DOCUMENTS:
+        if doc["key"] not in required: continue
         entry = {
             "key": doc["key"],
             "label": doc["label"],
@@ -360,7 +373,8 @@ async def get_required_documents(user: dict = Depends(get_current_user)):
 async def upload_driver_document(
     doc_type: str = Query(...),
     file: UploadFile = File(None),
-    user: dict = Depends(get_current_user)
+    user: dict = Depends(get_current_user),
+    vehicle_id: Optional[str] = Query(None)
 ):
     """Upload via FormData"""
     if user["user_type"] != "driver":
@@ -375,7 +389,7 @@ async def upload_driver_document(
     b64 = base64.b64encode(content).decode("utf-8")
     mime = file.content_type or "image/jpeg"
     data_uri = f"data:{mime};base64,{b64}"
-    return await _save_document(user, doc_type, data_uri)
+    return await _save_document(user, doc_type, data_uri, vehicle_id)
 
 
 @router.post("/api/driver/documents/upload-base64")
@@ -393,10 +407,10 @@ async def upload_driver_document_base64(
         raise HTTPException(status_code=400, detail="Tipo inválido")
     if not file_base64:
         raise HTTPException(status_code=400, detail="No se recibió imagen")
-    return await _save_document(user, doc_type, file_base64)
+    return await _save_document(user, doc_type, file_base64, data.get("vehicle_id"))
 
 
-async def _save_document(user: dict, doc_type: str, data_uri: str):
+async def _save_document(user: dict, doc_type: str, data_uri: str, vehicle_id: Optional[str] = None):
     """Shared save logic for document uploads"""
     now = datetime.now(timezone.utc)
     doc_id = generate_id("doc_")
@@ -408,10 +422,19 @@ async def _save_document(user: dict, doc_type: str, data_uri: str):
         )
         return {"status": "uploaded", "document_id": doc_id, "type": "selfie"}
     
+    from provider_management import VEHICLE_DOCS
+    if doc_type in VEHICLE_DOCS:
+        if not vehicle_id:
+            vehicles = await db.vehicles.find({"driver_id": user["user_id"]}, {"_id":0}).to_list(2)
+            if len(vehicles)!=1: raise HTTPException(400,"Elegí el vehículo al subir seguro o circulación")
+            vehicle_id=vehicles[0]["vehicle_id"]
+        if not await db.vehicles.find_one({"driver_id":user["user_id"],"vehicle_id":vehicle_id}):raise HTTPException(404,"Vehículo ajeno o inexistente")
+    else:
+        vehicle_id=None
     await db.driver_documents.update_one(
-        {"driver_id": user["user_id"], "doc_type": doc_type},
+        {"driver_id": user["user_id"], "doc_type": doc_type, "vehicle_id":vehicle_id},
         {"$set": {
-            "document_id": doc_id, "driver_id": user["user_id"], "doc_type": doc_type,
+            "document_id": doc_id, "driver_id": user["user_id"], "doc_type": doc_type, "vehicle_id":vehicle_id,
             "file_data": data_uri, "file_name": f"{doc_type}.jpg",
             "status": "pending", "uploaded_at": now, "reject_reason": "",
         }},
@@ -434,6 +457,15 @@ async def get_driver_verification_status(user: dict = Depends(get_current_user))
     if user["user_type"] != "driver":
         raise HTTPException(status_code=403, detail="Solo conductores")
     
+    from provider_management import working_vehicle, ensure_vehicle_capacity
+    vehicles = await db.vehicles.find({"driver_id":user["user_id"]},{"_id":0}).to_list(100)
+    if vehicles:
+        chosen = await working_vehicle(user["user_id"])
+        if not chosen:return {"is_verified":False,"status":"vehicle_required","message":"Elegí tu vehículo de trabajo","uploaded_count":0,"required_count":len(REQUIRED_DOCUMENTS)}
+        try: await ensure_vehicle_capacity(user, chosen)
+        except HTTPException as error:return {"is_verified":False,"status":"rejected" if chosen.get("approval_status")=="rejected" else "pending","message":error.detail,"uploaded_count":0,"required_count":len(REQUIRED_DOCUMENTS)}
+        if chosen.get("approval_status")=="pending":
+            return {"is_verified":False,"status":"provisional","message":"Vehículo en revisión","uploaded_count":await db.driver_documents.count_documents({"driver_id":user["user_id"]}),"required_count":len(REQUIRED_DOCUMENTS)}
     # First check if admin has directly verified this driver
     driver_rec = await db.drivers.find_one({"driver_id": user["user_id"]}, {"_id": 0})
     user_rec = await db.users.find_one(
@@ -444,9 +476,12 @@ async def get_driver_verification_status(user: dict = Depends(get_current_user))
     admin_verified = (
         (driver_rec and driver_rec.get("documents_verified")) or
         (driver_rec and driver_rec.get("is_verified")) or
-        (user_rec and user_rec.get("is_verified"))
+        any((user_rec or {}).get("capability_approvals",{}).get(cap,{}).get("status")=="approved" for cap in ("ride_driver","moto_driver","taxi_driver","parcel","delivery"))
     )
     
+    if vehicles and user.get("capability_approvals"):
+        from provider_management import vehicle_capability
+        admin_verified = user["capability_approvals"].get(vehicle_capability(chosen),{}).get("status")=="approved" and (chosen.get("approval_status") in (None,"approved"))
     if admin_verified:
         return {
             "is_verified": True,
@@ -455,7 +490,7 @@ async def get_driver_verification_status(user: dict = Depends(get_current_user))
             "required_count": len(REQUIRED_DOCUMENTS),
         }
 
-    approvals = (user_rec or {}).get("capability_approvals") or {}
+    approvals = user.get("capability_approvals") or {}
     ride_states = [
         approvals.get(capability, {})
         for capability in ("ride_driver", "moto_driver", "taxi_driver", "parcel", "delivery")
@@ -554,6 +589,16 @@ async def update_driver_vehicle(data: dict = Body(...), user: dict = Depends(get
     if not vehicle_data["vehicle_make"] or not vehicle_data["vehicle_model"] or not vehicle_data["plate_number"] or not vehicle_data["vehicle_color"]:
         raise HTTPException(status_code=400, detail="Marca, modelo, color y patente son obligatorios")
     
+    existing_vehicles=await db.vehicles.find({"driver_id":user["user_id"]},{"_id":0}).to_list(2)
+    if not existing_vehicles:
+        try: year=int(vehicle_data["vehicle_year"])
+        except (TypeError,ValueError):raise HTTPException(400,"Completá un año válido del vehículo")
+        if not 1900<=year<=2100:raise HTTPException(400,"Año de vehículo inválido")
+        from routes.vehicles import register_vehicle
+        from models import VehicleCreate
+        canonical=await register_vehicle(VehicleCreate(make=vehicle_data["vehicle_make"],model=vehicle_data["vehicle_model"],year=year,color=vehicle_data["vehicle_color"],plate_number=vehicle_data["plate_number"],vehicle_type=(driver.get("service_types") or ["economy"])[0]),user)
+        await db.drivers.update_one({"driver_id":user["user_id"]},{"$set":{**vehicle_data,"active_vehicle_id":canonical.vehicle_id}})
+        return {"status":"saved","message":"Vehículo registrado y pendiente de revisión"}
     has_existing = bool(driver.get("plate_number"))
     
     if not has_existing:
@@ -569,6 +614,7 @@ async def update_driver_vehicle(data: dict = Body(...), user: dict = Depends(get
         change_doc = {
             "change_id": generate_id("vc_"),
             "driver_id": user["user_id"],
+            "vehicle_id":driver.get("active_vehicle_id"),
             "driver_name": user.get("name", ""),
             "current": {
                 "vehicle_make": driver.get("vehicle_make", ""),
@@ -603,25 +649,18 @@ async def approve_vehicle_change(change_id: str, data: dict = Body(...), user: d
     if user["user_type"] != "admin":
         raise HTTPException(status_code=403, detail="Solo administradores")
     
-    action = data.get("action", "approve")  # approve or reject
-    change = await db.vehicle_changes.find_one({"change_id": change_id, "status": "pending"})
-    if not change:
-        raise HTTPException(status_code=404, detail="Solicitud no encontrada")
-    
-    if action == "approve":
-        # Apply the changes
-        await db.drivers.update_one(
-            {"driver_id": change["driver_id"]},
-            {"$set": change["requested"]}
-        )
-        await db.vehicle_changes.update_one(
-            {"change_id": change_id},
-            {"$set": {"status": "approved", "reviewed_at": datetime.now(timezone.utc).isoformat()}}
-        )
-        return {"status": "approved", "message": "Cambios de vehículo aprobados"}
-    else:
-        await db.vehicle_changes.update_one(
-            {"change_id": change_id},
-            {"$set": {"status": "rejected", "reviewed_at": datetime.now(timezone.utc).isoformat()}}
-        )
-        return {"status": "rejected", "message": "Cambios de vehículo rechazados"}
+    action = data.get("action")
+    if action not in ("approve","reject"):raise HTTPException(400,"Decisión inválida")
+    change = await db.vehicle_changes.find_one({"change_id":change_id,"status":"pending"})
+    if not change:raise HTTPException(404,"Solicitud inexistente")
+    if action=="approve":
+        from provider_management import working_vehicle
+        from routes.provider_admin import edit_vehicle, VehicleEdit
+        vehicle=await db.vehicles.find_one({"vehicle_id":change['vehicle_id'],"driver_id":change['driver_id']}) if change.get('vehicle_id') else await working_vehicle(change['driver_id'])
+        if not vehicle:raise HTTPException(409,"Seleccioná el vehículo exacto para este cambio")
+        requested=change['requested']
+        try: requested_year=int(requested.get('vehicle_year') or vehicle.get('year'))
+        except (TypeError,ValueError):raise HTTPException(409,"Falta completar el año del vehículo antes de aprobar el cambio")
+        await edit_vehicle(change['driver_id'],vehicle['vehicle_id'],VehicleEdit(make=requested['vehicle_make'],model=requested['vehicle_model'],year=requested_year,color=requested['vehicle_color'],plate_number=requested['plate_number']),user)
+    await db.vehicle_changes.update_one({"change_id":change_id,"status":"pending"},{"$set":{"status":"approved" if action=="approve" else "rejected","reviewed_at":datetime.now(timezone.utc),"reviewed_by":user['user_id']}})
+    return {"status":"approved" if action=="approve" else "rejected"}

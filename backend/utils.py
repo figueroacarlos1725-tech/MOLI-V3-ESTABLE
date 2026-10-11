@@ -46,6 +46,25 @@ def has_active_capability(user: dict, *capabilities: str) -> bool:
     return False
 
 
+async def effective_capability_user(user: dict, config=None) -> dict:
+    """Beta has no provisional expiry; launch starts each independent 24h review clock."""
+    if not user.get("capability_approvals"): return user
+    if config is None: config=await db.promotion_campaigns.find_one({"_id":"launch"}) or {}
+    now=datetime.now(timezone.utc)
+    def utc(value):
+        if isinstance(value,str):value=datetime.fromisoformat(value.replace("Z","+00:00"))
+        return value.replace(tzinfo=timezone.utc) if isinstance(value,datetime) and value.tzinfo is None else value
+    result={**user,"capability_approvals":{cap:{**state} for cap,state in user["capability_approvals"].items()}}
+    for state in result["capability_approvals"].values():
+        if state.get("status") not in ("pending","provisional"):continue
+        if config.get("phase","beta")=="beta":until=now+timedelta(hours=24)
+        else:
+            launched=utc(config.get("launched_at"));submitted=utc(state.get("submitted_at") or user.get("created_at"))
+            until=max(launched,submitted or launched)+timedelta(hours=24) if launched else now
+        state.update(status="provisional",provisional_until=until)
+    return result
+
+
 def hash_password(password: str) -> str:
     return pwd_context.hash(password)
 
@@ -75,7 +94,7 @@ async def get_current_user(authorization: Optional[str] = Header(None)) -> dict:
             raise HTTPException(status_code=401, detail="User not found")
         if user.get("is_blocked"):
             raise HTTPException(status_code=403, detail="Cuenta bloqueada. Contactá a soporte para solicitar una revisión")
-        return user
+        return await effective_capability_user(user)
     except JWTError:
         raise HTTPException(status_code=401, detail="Invalid token")
 
@@ -170,6 +189,7 @@ async def get_nearby_drivers(lat: float, lng: float, radius_km: float = 50, vehi
             {"user_id": d["driver_id"]},
             {"_id": 0, "user_id": 1, "capability_approvals": 1},
         )
+        if driver_user: driver_user=await effective_capability_user(driver_user)
         if not driver_user or not has_active_capability(
             driver_user, "ride_driver", "moto_driver", "taxi_driver", "parcel", "delivery"
         ):
@@ -179,14 +199,11 @@ async def get_nearby_drivers(lat: float, lng: float, radius_km: float = 50, vehi
         dlng = loc.get("longitude", 0)
         dist = calculate_distance(lat, lng, dlat, dlng)
         if dist <= radius_km:
-            # Check if driver has vehicle of required type
-            if vehicle_type:
-                vehicle = await db.vehicles.find_one(
-                    {"driver_id": d["driver_id"], "vehicle_type": vehicle_type, "is_active": True},
-                    {"_id": 0}
-                )
-                if not vehicle:
-                    continue
+            from provider_management import working_vehicle, ensure_vehicle_capacity
+            vehicle = await working_vehicle(d["driver_id"], vehicle_type)
+            if not vehicle: continue
+            try: await ensure_vehicle_capacity(driver_user,vehicle)
+            except HTTPException: continue
             d["distance_km"] = round(dist, 2)
             nearby.append(d)
     

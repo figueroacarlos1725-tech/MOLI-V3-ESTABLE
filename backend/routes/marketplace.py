@@ -124,7 +124,7 @@ async def approve_merchant(merchant_id: str, approved: bool = Body(embed=True),
                            pickup: bool = Body(True), delivery: bool = Body(False),
                            delivery_fee_cents: int = Body(0, ge=0),
                            user=Depends(get_current_user)):
-    admin(user)
+    if user.get("user_type") != "admin":raise HTTPException(403,"Solo administración")
     doc = await db.marketplace_merchants.find_one_and_update(
         {"merchant_id": merchant_id}, {"$set": {"approval_status": "approved" if approved else "rejected",
         "capabilities": {"pickup": pickup, "delivery": delivery},
@@ -197,7 +197,7 @@ async def create_product(data: ProductInput, user=Depends(get_current_user)):
 @router.get('/admin/merchants')
 async def admin_merchants(user=Depends(get_current_user)):
     if user.get('user_type')!='admin': raise HTTPException(403,'Admin access required')
-    shops=await db.marketplace_merchants.find({}, {'_id':0,'merchant_id':1,'name':1,'address':1,'approval_status':1,'capabilities':1,'delivery_fee_cents':1,'created_at':1}).sort('created_at',-1).to_list(200)
+    shops=await db.marketplace_merchants.find({}, {'_id':0,'merchant_id':1,'name':1,'owner_id':1,'address':1,'approval_status':1,'capabilities':1,'delivery_fee_cents':1,'created_at':1}).sort('created_at',-1).to_list(200)
     return {'merchants':[public(shop) for shop in shops],'limit':200}
 
 
@@ -402,7 +402,13 @@ async def dispatch(order_id: str, round_number: int = Query(1, ge=1), user=Depen
     drivers = await db.drivers.find({"is_online": True, "is_available": True, "is_blocked": {"$ne": True}}, {"_id": 0}).to_list(500)
     offers = []
     for driver in drivers:
-        vehicle = await db.vehicles.find_one({"driver_id": driver["driver_id"], "is_active": True}, {"_id": 0})
+        from provider_management import working_vehicle, ensure_vehicle_capacity
+        vehicle = await working_vehicle(driver["driver_id"])
+        account = await db.users.find_one({"user_id":driver["driver_id"]}) or {}
+        try:
+            if not vehicle:continue
+            await ensure_vehicle_capacity(account,vehicle)
+        except HTTPException:continue
         vehicle_type = (vehicle or {}).get("vehicle_type")
         if vehicle_type in types:
             offers.append({"driver_id": driver["driver_id"], "vehicle_type": vehicle_type})
@@ -421,6 +427,11 @@ async def accept_delivery(delivery_id: str, user=Depends(get_current_user)):
         {"delivery_id": delivery_id, "status": "offering", "offers.driver_id": user["user_id"]}, {"_id": 0})
     if not delivery:
         raise HTTPException(409, "Delivery offer unavailable")
+    from provider_management import working_vehicle, ensure_vehicle_capacity
+    vehicle=await working_vehicle(user["user_id"])
+    original_offer=next((o for o in delivery.get("offers",[]) if o.get("driver_id")==user["user_id"]),{})
+    if not vehicle or vehicle.get("vehicle_type") != original_offer.get("vehicle_type"):raise HTTPException(409,"La oferta corresponde a otro vehículo")
+    await ensure_vehicle_capacity(user,vehicle)
     claimed = await db.marketplace_deliveries.find_one_and_update(
         {"delivery_id": delivery_id, "status": "offering", "assigned_driver_id": {"$exists": False}},
         {"$set": {"status": "assigned", "assigned_driver_id": user["user_id"], "assigned_at": now()}},

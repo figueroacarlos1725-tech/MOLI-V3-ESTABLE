@@ -25,12 +25,20 @@ async def register_vehicle(vehicle: VehicleCreate, user: dict = Depends(get_curr
         "plate_number": vehicle.plate_number,
         "vehicle_type": vehicle.vehicle_type,
         "capacity": vehicle.capacity,
-        "is_active": True,
+        "is_active": not bool(await db.vehicles.find_one({"driver_id": user["user_id"]})),
+        "approval_status": "pending",
         "documents_verified": False,
         "created_at": datetime.now(timezone.utc)
     }
     
     await db.vehicles.insert_one(vehicle_doc)
+    from provider_management import vehicle_capability
+    from datetime import timedelta
+    cap=vehicle_capability(vehicle_doc)
+    if user.get("capability_approvals") and any(c in user["capability_approvals"] for c in ("ride_driver","moto_driver","taxi_driver")) and cap not in user["capability_approvals"]:
+        now=datetime.now(timezone.utc)
+        await db.users.update_one({"user_id":user["user_id"],f"capability_approvals.{cap}":{"$exists":False}},
+            {"$addToSet":{"capabilities":cap},"$set":{f"capability_approvals.{cap}":{"status":"provisional","submitted_at":now,"provisional_until":now+timedelta(hours=24)}}})
     return VehicleResponse(**{k: v for k, v in vehicle_doc.items() if k != "_id"})
 
 
@@ -43,6 +51,13 @@ async def get_my_vehicles(user: dict = Depends(get_current_user)):
         {"driver_id": user["user_id"]}, {"_id": 0}
     ).to_list(10)
     return {"vehicles": vehicles}
+
+
+@router.put("/api/vehicles/{vehicle_id}/select")
+async def select_vehicle(vehicle_id: str, user: dict = Depends(get_current_user)):
+    if user["user_type"] != "driver": raise HTTPException(403, "Solo conductores")
+    from provider_management import select_working_vehicle
+    return await select_working_vehicle(user["user_id"], vehicle_id, user["user_id"])
 
 
 @router.get("/api/vehicle-icons")

@@ -1,3 +1,4 @@
+import { ProviderManagementCard } from '@/src/components/ProviderManagementCard';
 import { operatorAlert } from '@/src/components/OperatorAlert';
 import React, { useEffect, useState } from 'react';
 import {
@@ -6,6 +7,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { apiService } from '@/src/services/api';
+import { useLocalSearchParams } from 'expo-router';
 import { confirmAlert } from '@/src/utils/alert';
 
 interface User {
@@ -22,7 +24,7 @@ const isMobilityProvider = (u: User) => {
   if (u.user_type !== 'driver') return false;
   if (!u.capabilities?.length) return true;
   const caps = capabilitySet(u);
-  return ['rides','ride','driver','moto','taxi','delivery'].some(x => caps.has(x));
+  return ['rides','ride','driver','moto','taxi','delivery','ride_driver','moto_driver','taxi_driver','parcel'].some(x => caps.has(x));
 };
 const rolePresentation = (u: User) => {
   const caps = capabilitySet(u);
@@ -38,6 +40,8 @@ const rolePresentation = (u: User) => {
 };
 
 export default function AdminUsersScreen() {
+  const {userId}=useLocalSearchParams<{userId?:string}>();
+  useEffect(()=>{if(typeof userId==='string')fetchUserDetail(userId);},[userId]);
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<string>('');
@@ -357,6 +361,7 @@ export default function AdminUsersScreen() {
                   </View>
                 </>}
 
+                <ProviderManagementCard userId={selectedUser.user_id} onChanged={fetchUsers}/>
                 <TouchableOpacity style={s.auditBtn} onPress={() => fetchAuditLogs(selectedUser.user_id)}>
                   <Ionicons name="time" size={18} color="#E85E1A" />
                   <Text style={s.auditBtnText}>Ver historial de cambios</Text>
