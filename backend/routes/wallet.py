@@ -78,6 +78,8 @@ async def get_wallet_status(user: dict = Depends(get_current_user)):
         
         return {
             "balance": balance,
+            "promotional_credit_balance": user.get("promotional_credit_balance", 0),
+            "promotion": await __import__("promotions").get_wallet_promotion(user),
             "driver_block": driver_block,
             "cancel_count_30d": cancel_count,
             "max_cancels_before_block": settings.get("driver_block_after_cancels", 3),

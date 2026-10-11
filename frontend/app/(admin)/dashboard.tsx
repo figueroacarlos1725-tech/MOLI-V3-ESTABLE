@@ -97,7 +97,7 @@ export default function AdminDashboardScreen() {
             <Text style={styles.greeting}>Panel de Admin</Text>
             <Text style={styles.subGreeting}>Bienvenido, {user?.name}</Text>
           </View>
-          <TouchableOpacity style={styles.notificationButton}>
+          <TouchableOpacity accessibilityLabel="Abrir soporte" style={styles.notificationButton} onPress={()=>router.push('/(admin)/support' as any)}>
             <Ionicons name="notifications-outline" size={24} color="#1C1C1E" />
           </TouchableOpacity>
         </View>
@@ -178,7 +178,7 @@ export default function AdminDashboardScreen() {
           <Text style={styles.sectionTitle}>Acceso Web</Text>
           <TouchableOpacity 
             style={{ backgroundColor: '#1C1C1E', borderRadius: 16, padding: 20, flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 12 }}
-            onPress={() => Linking.openURL(`${process.env.EXPO_PUBLIC_BACKEND_URL || 'https://taxify-clone.emergent.host'}`)}
+            onPress={() => Linking.openURL(process.env.EXPO_PUBLIC_WEB_URL || 'https://moli-qa-web.onrender.com')}
           >
             <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: '#FF7733', justifyContent: 'center', alignItems: 'center' }}>
               <Ionicons name="globe" size={24} color="#fff" />
@@ -194,10 +194,10 @@ export default function AdminDashboardScreen() {
             <Text style={{ fontSize: 14, fontWeight: '700', color: '#1C1C1E' }}>Conectar dominio personalizado</Text>
             <Text style={{ fontSize: 12, color: '#8E8E93', lineHeight: 18 }}>
               Tu app esta disponible en:{'\n'}
-              taxify-clone.emergent.host{'\n\n'}
+              moli-qa-web.onrender.com{'\n\n'}
               Para usar tu propio dominio (ej: app.moli.com.ar):{'\n'}
-              1. Configurar un CNAME en tu DNS apuntando a taxify-clone.emergent.host{'\n'}
-              2. Contactar a soporte de Emergent para activar el SSL
+              1. Agregar el dominio personalizado en el servicio web de Render{'\n'}
+              2. Aplicar los registros DNS indicados por Render y verificar HTTPS
             </Text>
           </View>
         </View>

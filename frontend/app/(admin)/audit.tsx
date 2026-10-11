@@ -1,3 +1,4 @@
+import { operatorAlert } from '@/src/components/OperatorAlert';
 import React, { useEffect, useState } from 'react';
 import {
   View, Text, StyleSheet, SafeAreaView, ScrollView,
@@ -34,7 +35,7 @@ export default function AdminAuditScreen() {
       const r = await apiService.get(`/admin/audit-log?page=${page}&limit=25`);
       setLogs(r.logs || []);
       setTotalPages(r.pages || 1);
-    } catch (e) {} finally { setLoading(false); }
+    } catch (e:any) { operatorAlert('No se pudo completar', e.message || 'Revisá la conexión e intentá nuevamente.'); } finally { setLoading(false); }
   };
 
   const LogItem = ({log}: {log:any}) => {

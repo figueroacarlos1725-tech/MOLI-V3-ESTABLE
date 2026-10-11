@@ -1,3 +1,4 @@
+import { operatorAlert } from '@/src/components/OperatorAlert';
 import React, { useEffect, useState } from 'react';
 import {
   View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity,
@@ -71,7 +72,7 @@ export default function AdminUsersScreen() {
       if (search) url += `&search=${search}`;
       const r = await apiService.get(url);
       setUsers(r.users || []);
-    } catch (e) { console.error(e); } finally { setLoading(false); }
+    } catch (e:any) { operatorAlert('No se pudo completar', e.message || 'Revisá la conexión e intentá nuevamente.'); } finally { setLoading(false); }
   };
 
   const fetchUserDetail = async (uid: string) => {
@@ -85,11 +86,11 @@ export default function AdminUsersScreen() {
       setPriority(String(r.priority || 0));
       setServiceTypes(r.service_types || ['economy']);
       setShowModal(true);
-    } catch (e) { console.error(e); }
+    } catch (e:any) { operatorAlert('No se pudo completar', e.message || 'Revisá la conexión e intentá nuevamente.'); }
   };
 
   const handleCreateUser = async () => {
-    if (!newUser.name || !newUser.email || !newUser.password) return;
+    if (!newUser.name.trim() || !newUser.email.trim() || !newUser.password) { operatorAlert('Faltan datos','Completá nombre, email y contraseña.'); return; }
     setSaving(true);
     try {
       await apiService.post('/admin/users', newUser);
@@ -97,8 +98,7 @@ export default function AdminUsersScreen() {
       setNewUser({name:'',email:'',phone:'',password:'',user_type:'rider'});
       fetchUsers();
     } catch (e: any) {
-      const msg = Platform.OS === 'web' ? window.alert : Alert.alert;
-      msg('Error', e.message || 'Error creando usuario');
+      operatorAlert('Error', e.message || 'Error creando usuario');
     } finally { setSaving(false); }
   };
 
@@ -109,7 +109,7 @@ export default function AdminUsersScreen() {
       await apiService.put(`/admin/users/${selectedUser.user_id}`, {name: editName, phone: editPhone});
       fetchUsers();
       fetchUserDetail(selectedUser.user_id);
-    } catch (e) {} finally { setSaving(false); }
+    } catch (e:any) { operatorAlert('No se pudo completar', e.message || 'Revisá la conexión e intentá nuevamente.'); } finally { setSaving(false); }
   };
 
   const handleBalance = async () => {
@@ -123,7 +123,7 @@ export default function AdminUsersScreen() {
       setShowBalanceModal(false);
       setBalanceAmount('');
       fetchUserDetail(selectedUser.user_id);
-    } catch (e) {} finally { setSaving(false); }
+    } catch (e:any) { operatorAlert('No se pudo completar', e.message || 'Revisá la conexión e intentá nuevamente.'); } finally { setSaving(false); }
   };
 
   const handleCommission = async () => {
@@ -134,7 +134,7 @@ export default function AdminUsersScreen() {
         commission_type: commType, commission_value: parseFloat(commValue)
       });
       fetchUserDetail(selectedUser.user_id);
-    } catch (e) {} finally { setSaving(false); }
+    } catch (e:any) { operatorAlert('No se pudo completar', e.message || 'Revisá la conexión e intentá nuevamente.'); } finally { setSaving(false); }
   };
 
   const handleBlock = async () => {
@@ -145,7 +145,7 @@ export default function AdminUsersScreen() {
         block_type: blockType, block_duration: parseInt(blockDuration), reason: 'Admin'
       });
       fetchUserDetail(selectedUser.user_id);
-    } catch (e) {} finally { setSaving(false); }
+    } catch (e:any) { operatorAlert('No se pudo completar', e.message || 'Revisá la conexión e intentá nuevamente.'); } finally { setSaving(false); }
   };
 
   const handleUnblock = async () => {
@@ -153,7 +153,7 @@ export default function AdminUsersScreen() {
     try {
       await apiService.put(`/admin/drivers/${selectedUser.user_id}/unblock`, {});
       fetchUserDetail(selectedUser.user_id);
-    } catch (e) {}
+    } catch (e:any) { operatorAlert('No se pudo completar', e.message || 'Revisá la conexión e intentá nuevamente.'); }
   };
 
   const handlePriority = async () => {
@@ -161,7 +161,7 @@ export default function AdminUsersScreen() {
     try {
       await apiService.put(`/admin/drivers/${selectedUser.user_id}/priority`, {priority: parseInt(priority)});
       fetchUserDetail(selectedUser.user_id);
-    } catch (e) {}
+    } catch (e:any) { operatorAlert('No se pudo completar', e.message || 'Revisá la conexión e intentá nuevamente.'); }
   };
 
   const toggleServiceType = (type: string) => {
@@ -180,7 +180,7 @@ export default function AdminUsersScreen() {
     try {
       await apiService.put(`/admin/drivers/${selectedUser.user_id}/services`, {service_types: serviceTypes});
       fetchUserDetail(selectedUser.user_id);
-    } catch (e) {} finally { setSaving(false); }
+    } catch (e:any) { operatorAlert('No se pudo completar', e.message || 'Revisá la conexión e intentá nuevamente.'); } finally { setSaving(false); }
   };
 
   const fetchAuditLogs = async (uid: string) => {
@@ -188,7 +188,7 @@ export default function AdminUsersScreen() {
       const r = await apiService.get(`/admin/audit-log?target_user_id=${uid}&limit=20`);
       setAuditLogs(r.logs || []);
       setShowAudit(true);
-    } catch (e) {}
+    } catch (e:any) { operatorAlert('No se pudo completar', e.message || 'Revisá la conexión e intentá nuevamente.'); }
   };
 
   const UserCard = ({u}: {u: User}) => {

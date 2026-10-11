@@ -8,7 +8,7 @@ import asyncio
 import smtplib
 from datetime import datetime, timedelta, timezone
 from email.message import EmailMessage
-from typing import List, Optional
+from typing import List, Optional, Literal
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
@@ -54,6 +54,7 @@ class RegistrationSubmit(BaseModel):
     password: str = Field(min_length=8, max_length=128)
     capabilities: List[str] = Field(default_factory=list)
     vehicle: Optional[dict] = None
+    promotion_plan: Optional[Literal["barter_30", "standard_15"]] = None
 
 
 def _normalize_phone(phone: str) -> str:
@@ -264,6 +265,8 @@ async def submit_registration(data: RegistrationSubmit):
         "created_at": now,
         "updated_at": now,
     }
+    if data.promotion_plan and any(c in capabilities for c in ("ride_driver", "moto_driver", "taxi_driver")):
+        user_doc.update(promotion_plan=data.promotion_plan, promotion_plan_selected_at=now)
     await db.users.insert_one(user_doc)
     if is_provider:
         vehicle = data.vehicle or {}

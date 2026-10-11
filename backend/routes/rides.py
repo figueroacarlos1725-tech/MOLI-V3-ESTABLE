@@ -71,11 +71,11 @@ async def create_ride_request(request: RideRequestCreate, user: dict = Depends(g
                 "$unset": {"block_reason": "", "blocked_at": "", "blocked_until": ""}})
         else:
             raise HTTPException(status_code=403, detail="Tu cuenta está bloqueada temporalmente por cancelaciones reiteradas")
-    
+
     # Calculate total distance including intermediate stops
     total_distance_km = 0.0
     waypoints = []
-    
+
     if request.stops and len(request.stops) > 0:
         # Build full route: pickup -> stop1 -> stop2 -> ... -> dropoff
         all_points = [request.pickup_location] + request.stops + [request.dropoff_location]
@@ -91,21 +91,21 @@ async def create_ride_request(request: RideRequestCreate, user: dict = Depends(g
             request.pickup_location.latitude, request.pickup_location.longitude,
             request.dropoff_location.latitude, request.dropoff_location.longitude
         )
-    
+
     # Apply road correction factor (1.4x) to match frontend estimate
     # Haversine gives straight-line distance; actual roads are ~40% longer
     ROAD_CORRECTION = 1.4
     distance_km = round(total_distance_km * ROAD_CORRECTION, 1)
-    
+
     # Estimate duration: use city avg speed (30 km/h for short, 50 km/h for long distances)
     avg_speed = 50 if distance_km > 15 else 30
     duration_min = max(5, int(math.ceil((distance_km / avg_speed) * 60)))
-    
+
     estimated_fare = await calculate_fare(distance_km, duration_min, request.vehicle_type)
-    
+
     request_id = generate_id("req_")
     now = datetime.now(timezone.utc)
-    
+
     request_doc = {
         "request_id": request_id,
         "rider_id": user["user_id"],
@@ -126,9 +126,9 @@ async def create_ride_request(request: RideRequestCreate, user: dict = Depends(g
         "created_at": now,
         "expires_at": now + timedelta(minutes=5)
     }
-    
+
     await db.ride_requests.insert_one(request_doc)
-    
+
     # Get nearby drivers sorted by distance (closest first)
     nearby = await get_nearby_drivers(
         request.pickup_location.latitude,
@@ -136,15 +136,15 @@ async def create_ride_request(request: RideRequestCreate, user: dict = Depends(g
         radius_km=15.0,
         vehicle_type=request.vehicle_type
     )
-    
+
     sorted_drivers = nearby.get("drivers", [])
-    
+
     # Start automatic assignment in background (even with 0 drivers, loop will wait for new ones)
     task = asyncio.create_task(
         assign_ride_to_drivers(request_id, user["user_id"], sorted_drivers, request_doc)
     )
     assignment_tasks[request_id] = task
-    
+
     return RideRequestResponse(
         request_id=request_id,
         rider_id=user["user_id"],
@@ -167,15 +167,15 @@ async def create_ride_request(request: RideRequestCreate, user: dict = Depends(g
 async def submit_bid(bid: BidCreate, user: dict = Depends(get_current_user)):
     if user["user_type"] != "driver":
         raise HTTPException(status_code=403, detail="Only drivers can submit bids")
-    
+
     # Get request
     request = await db.ride_requests.find_one({"request_id": bid.request_id}, {"_id": 0})
     if not request:
         raise HTTPException(status_code=404, detail="Ride request not found")
-    
+
     if request["status"] not in ["pending", "bidding"]:
         raise HTTPException(status_code=400, detail="Request is no longer accepting bids")
-    
+
     # Get driver's vehicle
     vehicle = await db.vehicles.find_one(
         {"driver_id": user["user_id"], "is_active": True},
@@ -183,10 +183,10 @@ async def submit_bid(bid: BidCreate, user: dict = Depends(get_current_user)):
     )
     if not vehicle:
         raise HTTPException(status_code=400, detail="No active vehicle found")
-    
+
     bid_id = generate_id("bid_")
     now = datetime.now(timezone.utc)
-    
+
     bid_doc = {
         "bid_id": bid_id,
         "request_id": bid.request_id,
@@ -206,9 +206,9 @@ async def submit_bid(bid: BidCreate, user: dict = Depends(get_current_user)):
         "status": "pending",
         "created_at": now
     }
-    
+
     await db.bids.insert_one(bid_doc)
-    
+
     # Update request status to bidding
     await db.ride_requests.update_one(
         {"request_id": bid.request_id},
@@ -217,13 +217,13 @@ async def submit_bid(bid: BidCreate, user: dict = Depends(get_current_user)):
             "$push": {"bids": bid_doc}
         }
     )
-    
+
     # Notify rider
     await manager.send_personal_message(
         {"type": "new_bid", "bid": {k: v for k, v in bid_doc.items() if k != "_id"}},
         request["rider_id"]
     )
-    
+
     return BidResponse(
         bid_id=bid_id,
         request_id=bid.request_id,
@@ -243,19 +243,19 @@ async def cancel_ride_request(request_id: str, user: dict = Depends(get_current_
     request_doc = await db.ride_requests.find_one({"request_id": request_id}, {"_id": 0})
     if not request_doc:
         raise HTTPException(status_code=404, detail="Solicitud no encontrada")
-    
+
     if request_doc.get("rider_id") != user["user_id"]:
         raise HTTPException(status_code=403, detail="No autorizado")
-    
+
     await db.ride_requests.update_one(
         {"request_id": request_id},
         {"$set": {"status": "cancelled", "current_offer_driver": None}}
     )
-    
+
     # Signal the assignment event so background task stops
     if request_id in assignment_events:
         assignment_events[request_id].set()
-    
+
     return {"status": "cancelled", "message": "Búsqueda cancelada"}
 
 
@@ -268,17 +268,17 @@ async def driver_respond_to_offer(
     """Driver accepts or rejects an automatic dispatch offer"""
     if user["user_type"] != "driver":
         raise HTTPException(status_code=403, detail="Solo conductores pueden responder ofertas")
-    
+
     request_doc = await db.ride_requests.find_one({"request_id": request_id}, {"_id": 0})
     if not request_doc:
         raise HTTPException(status_code=404, detail="Solicitud no encontrada")
-    
+
     if request_doc.get("status") not in ["pending", "bidding", "searching"]:
         raise HTTPException(status_code=400, detail="Esta solicitud ya no está disponible")
-    
+
     if request_doc.get("reviewing_by") != user["user_id"] and request_doc.get("current_offer_driver") != user["user_id"]:
         raise HTTPException(status_code=409, detail="Otro conductor está revisando esta oportunidad")
-    
+
     if action == "accept":
         claimed = await db.ride_requests.find_one_and_update(
             {"request_id": request_id, "status": {"$in": ["pending", "bidding", "searching"]},
@@ -291,20 +291,20 @@ async def driver_respond_to_offer(
         request_doc = claimed
         # Check if a ride already exists for this request (manual trips create one)
         existing_ride = await db.rides.find_one({"request_id": request_id}, {"_id": 0})
-        
+
         now = datetime.now(timezone.utc)
         settings = await get_settings()
         fare = request_doc.get("estimated_fare") or (existing_ride.get("fare") if existing_ride else 0) or 0
         commission_rate = normalize_commission_rate(settings.get("commission_rate"))
         commission = fare * commission_rate
         driver_earnings = fare - commission
-        
+
         # Get driver vehicle
         vehicle = await db.vehicles.find_one(
             {"driver_id": user["user_id"], "is_active": True},
             {"_id": 0}
         )
-        
+
         vehicle_info = {
             "make": vehicle.get("make", "") if vehicle else "",
             "model": vehicle.get("model", "") if vehicle else "",
@@ -312,9 +312,9 @@ async def driver_respond_to_offer(
             "plate_number": vehicle.get("plate_number", "") if vehicle else "",
             "vehicle_type": vehicle.get("vehicle_type", "economy") if vehicle else "economy",
         } if vehicle else None
-        
+
         is_taximeter = request_doc.get("dropoff_location") is None or existing_ride.get("is_ticketera", False) if existing_ride else False
-        
+
         if existing_ride:
             # Update the existing ride (manual trips)
             ride_id = existing_ride["ride_id"]
@@ -360,22 +360,22 @@ async def driver_respond_to_offer(
                 "created_at": now
             }
             await db.rides.insert_one(ride_doc)
-        
+
         for candidate_id in request_doc.get("candidate_driver_ids", []):
             if candidate_id != user["user_id"]:
                 await manager.send_personal_message({"type": "ride_opportunity_taken", "request_id": request_id,
                     "message": "Otro conductor tomó esta oportunidad"}, candidate_id)
-        
+
         # Mark driver unavailable
         await db.drivers.update_one(
             {"driver_id": user["user_id"]},
             {"$set": {"is_available": False}}
         )
-        
+
         # Signal the assignment event so the background task knows
         if request_id in assignment_events:
             assignment_events[request_id].set()
-        
+
         # ALSO directly notify rider via WebSocket (don't rely only on background task)
         rider_id = request_doc["rider_id"]
         try:
@@ -392,7 +392,7 @@ async def driver_respond_to_offer(
             }, rider_id)
         except Exception as e:
             print(f"Could not notify rider {rider_id} via WS: {e}")
-        
+
         # Build response with driver/vehicle info
         driver_info = {
             "user_id": user["user_id"],
@@ -400,10 +400,10 @@ async def driver_respond_to_offer(
             "phone": user.get("phone"),
             "rating": user.get("rating", 5.0),
         }
-        
+
         ride_response = {k: (v.isoformat() if isinstance(v, datetime) else v) for k, v in ride_doc.items() if k != "_id"}
         ride_response["driver_info"] = driver_info
-        
+
         # Send taximeter notification if applicable
         if ride_doc.get("is_taximeter") or ride_doc.get("is_ticketera"):
             try:
@@ -415,13 +415,13 @@ async def driver_respond_to_offer(
                 )
             except Exception:
                 pass
-        
+
         return {
             "status": "accepted",
             "ride_id": ride_id,
             "ride": ride_response
         }
-    
+
     elif action == "reject":
         await db.ride_requests.update_one(
             {"request_id": request_id, "reviewing_by": user["user_id"]},
@@ -431,9 +431,9 @@ async def driver_respond_to_offer(
         # Signal event so background task moves to the next driver
         if request_id in assignment_events:
             assignment_events[request_id].set()
-        
+
         return {"status": "rejected", "message": "Oferta rechazada, se notificará al siguiente conductor"}
-    
+
     else:
         raise HTTPException(status_code=400, detail="Acción inválida. Usa 'accept' o 'reject'")
 
@@ -475,22 +475,22 @@ async def accept_bid(bid_id: str, user: dict = Depends(get_current_user)):
     bid = await db.bids.find_one({"bid_id": bid_id}, {"_id": 0})
     if not bid:
         raise HTTPException(status_code=404, detail="Bid not found")
-    
+
     request = await db.ride_requests.find_one({"request_id": bid["request_id"]}, {"_id": 0})
     if not request:
         raise HTTPException(status_code=404, detail="Ride request not found")
-    
+
     if request["rider_id"] != user["user_id"]:
         raise HTTPException(status_code=403, detail="Not authorized")
-    
+
     # Create ride
     ride_id = generate_id("ride_")
     now = datetime.now(timezone.utc)
-    
+
     settings = await get_settings()
     commission = bid["fare_amount"] * normalize_commission_rate(settings.get("commission_rate"))
     driver_earnings = bid["fare_amount"] - commission
-    
+
     ride_doc = {
         "ride_id": ride_id,
         "request_id": request["request_id"],
@@ -513,9 +513,9 @@ async def accept_bid(bid_id: str, user: dict = Depends(get_current_user)):
         "cancelled_at": None,
         "created_at": now
     }
-    
+
     await db.rides.insert_one(ride_doc)
-    
+
     # Update request and bid status
     await db.ride_requests.update_one(
         {"request_id": request["request_id"]},
@@ -525,25 +525,25 @@ async def accept_bid(bid_id: str, user: dict = Depends(get_current_user)):
         {"bid_id": bid_id},
         {"$set": {"status": "accepted"}}
     )
-    
+
     # Reject other bids
     await db.bids.update_many(
         {"request_id": request["request_id"], "bid_id": {"$ne": bid_id}},
         {"$set": {"status": "rejected"}}
     )
-    
+
     # Update driver availability
     await db.drivers.update_one(
         {"driver_id": bid["driver_id"]},
         {"$set": {"is_available": False}}
     )
-    
+
     # Notify driver
     await manager.send_personal_message(
         {"type": "bid_accepted", "ride": {k: v for k, v in ride_doc.items() if k != "_id"}},
         bid["driver_id"]
     )
-    
+
     return {"status": "success", "ride_id": ride_id, "ride": {
         "ride_id": ride_id,
         "request_id": request["request_id"],
@@ -605,6 +605,8 @@ async def update_ride_status(
         raise
     await db.rides.update_one({"ride_id": ride_id, "status_update_claim": claim},
                              {"$unset": {"status_update_claim": "", "status_update_error": ""}})
+    from fleet_live import emit_fleet_changed
+    await emit_fleet_changed(ride.get("driver_id"))
     return result
 
 
@@ -621,15 +623,15 @@ async def _apply_ride_status(
     ride = await db.rides.find_one({"ride_id": ride_id}, {"_id": 0})
     if not ride:
         raise HTTPException(status_code=404, detail="Ride not found")
-    
+
     # Check authorization
     if user["user_id"] not in [ride["rider_id"], ride["driver_id"]]:
         raise HTTPException(status_code=403, detail="Not authorized")
-    
+
     now = datetime.now(timezone.utc)
     update_data = {"status": status, "updated_at": now}
     penalty_info = None
-    
+
     if status == "arrived":
         update_data["arrived_at"] = now
     elif status == "started":
@@ -637,7 +639,7 @@ async def _apply_ride_status(
     elif status == "completed":
         update_data["completed_at"] = now
         update_data["payment_status"] = "completed"
-        
+
         # If taximeter fare provided, use it instead of the pre-calculated fare
         if taximeter_fare and taximeter_fare > 0:
             settings = await get_settings()
@@ -652,34 +654,52 @@ async def _apply_ride_status(
                 "distance_km": round(taximeter_distance or 0, 2),
                 "wait_minutes": round((taximeter_wait or 0) / 60, 1),
             }
-        
+
         # Check if rider has pending penalties -> add to fare
         settings = await get_settings()
         pending_penalties = await db.cancellation_records.find(
             {"user_id": ride["rider_id"], "status": "pending"}
         ).to_list(10)
-        
+
         total_penalty = sum(p.get("penalty_amount", 0) for p in pending_penalties)
         if total_penalty > 0:
             # Add penalty to fare
-            new_fare = ride.get("fare", 0) + total_penalty
+            new_fare = update_data.get("fare", ride.get("fare", 0)) + total_penalty
             new_commission = new_fare * normalize_commission_rate(settings.get("commission_rate"))
             new_driver_earnings = new_fare - new_commission
             update_data["fare"] = round(new_fare, 2)
             update_data["commission"] = round(new_commission, 2)
             update_data["driver_earnings"] = round(new_driver_earnings, 2)
             update_data["penalty_surcharge"] = round(total_penalty, 2)
-            
+
+        # Determine payment method
+        payment_method = ride.get("payment_method", "cash")
+        final_fare = update_data.get("fare", ride.get("fare", 0))
+        commission_rate = normalize_commission_rate(settings.get("commission_rate"))
+        final_commission = round(final_fare * commission_rate, 2)
+        final_driver_earnings = round(final_fare - final_commission, 2)
+        # Credits are separate from withdrawable earnings and never apply to penalties.
+        driver_plan = await db.users.find_one({"user_id": ride["driver_id"]}) or {}
+        if driver_plan.get("promotion_plan") or driver_plan.get("promotional_credit_balance") or ride.get("promotion"):
+            from promotions import settle_promotion
+            promotion_amounts = await settle_promotion(ride, final_fare, total_penalty)
+            update_data.update(promotion_amounts)
+            final_commission = promotion_amounts["commission"]
+            final_driver_earnings = promotion_amounts["driver_earnings"]
+        update_data["commission"] = final_commission
+        update_data["driver_earnings"] = final_driver_earnings
+
+        if total_penalty > 0:
             # Mark penalties as paid
             for p in pending_penalties:
                 await db.cancellation_records.update_one(
                     {"record_id": p["record_id"]},
                     {"$set": {"status": "collected", "collected_ride_id": ride_id, "collected_at": now}}
                 )
-            
+
             # Update rider wallet (clear the negative from penalties)
             await adjust_wallet_balance(ride["rider_id"], total_penalty)
-            
+
             # Record rider wallet transaction
             await db.wallet_transactions.insert_one({
                 "transaction_id": generate_id("txn_"),
@@ -691,16 +711,7 @@ async def _apply_ride_status(
                 "status": "completed",
                 "created_at": now,
             })
-        
-        # Determine payment method
-        payment_method = ride.get("payment_method", "cash")
-        final_fare = update_data.get("fare", ride.get("fare", 0))
-        commission_rate = normalize_commission_rate(settings.get("commission_rate"))
-        final_commission = round(final_fare * commission_rate, 2)
-        final_driver_earnings = round(final_fare - final_commission, 2)
-        update_data["commission"] = final_commission
-        update_data["driver_earnings"] = final_driver_earnings
-        
+
         if payment_method == "cash":
             # CASH: Driver collected full fare from rider physically
             # Driver OWES the system the commission → wallet goes NEGATIVE by commission
@@ -728,7 +739,7 @@ async def _apply_ride_status(
                 "status": "completed",
                 "created_at": now,
             })
-        
+
         # Update driver stats
         await db.drivers.update_one(
             {"driver_id": ride["driver_id"]},
@@ -740,7 +751,7 @@ async def _apply_ride_status(
                 }
             }
         )
-        
+
         # Check if driver wallet hit max negative after commission
         driver_user = await db.users.find_one({"user_id": ride["driver_id"]})
         max_neg = settings.get("driver_max_negative_balance", -15000)
@@ -756,7 +767,7 @@ async def _apply_ride_status(
                     "is_online": False,
                 }}
             )
-        
+
         # Update user stats
         await db.users.update_one(
             {"user_id": ride["rider_id"]},
@@ -766,23 +777,23 @@ async def _apply_ride_status(
             {"user_id": ride["driver_id"]},
             {"$inc": {"total_rides": 1}}
         )
-        
+
     elif status == "cancelled":
         update_data["cancelled_at"] = now
         update_data["cancelled_by"] = user["user_id"]
         update_data["cancel_reason"] = cancel_reason or "other"
-        
+
         # Make driver available again
         await db.drivers.update_one(
             {"driver_id": ride["driver_id"]},
             {"$set": {"is_available": True}}
         )
-        
+
         # Check if cancellation is within free window
         settings = await get_settings()
         free_minutes = settings.get("cancel_free_minutes", 1)
         accepted_at = ride.get("accepted_at")
-        
+
         is_free_cancel = False
         if accepted_at:
             if isinstance(accepted_at, str):
@@ -792,14 +803,14 @@ async def _apply_ride_status(
                 accepted_at = accepted_at.replace(tzinfo=timezone.utc)
             elapsed = (now - accepted_at).total_seconds() / 60.0
             is_free_cancel = elapsed <= free_minutes
-        
+
         canceller_type = "rider" if user["user_id"] == ride["rider_id"] else "driver"
-        
+
         if not is_free_cancel and accepted_at:
-            
+
             if canceller_type == "rider":
                 penalty_amount = settings.get("rider_cancel_penalty", 500)
-                
+
                 window_days = settings.get("cancellation_window_days", 30)
                 block_after = settings.get("rider_block_after_cancels", 3)
                 block_hours = settings.get("rider_block_hours", 24)
@@ -809,7 +820,7 @@ async def _apply_ride_status(
                     {"user_id": user["user_id"], "user_type": "rider", "created_at": {"$gte": window_start}}
                 )
                 cancel_number = recent_cancels + 1
-                
+
                 # Record penalty
                 record = {
                     "record_id": generate_id("cancel_"),
@@ -830,10 +841,10 @@ async def _apply_ride_status(
                         "is_blocked": True, "block_reason": "cancellations", "blocked_at": now,
                         "blocked_until": blocked_until,
                     }})
-                
+
                 # Deduct from rider wallet
                 await adjust_wallet_balance(user["user_id"], -penalty_amount)
-                
+
                 # Record rider wallet transaction
                 await db.wallet_transactions.insert_one({
                     "transaction_id": generate_id("txn_"),
@@ -845,7 +856,7 @@ async def _apply_ride_status(
                     "status": "completed",
                     "created_at": now,
                 })
-                
+
                 # CREDIT driver as compensation for wasted time
                 driver_compensation = penalty_amount
                 await adjust_wallet_balance(ride["driver_id"], driver_compensation)
@@ -859,7 +870,7 @@ async def _apply_ride_status(
                     "status": "completed",
                     "created_at": now,
                 })
-                
+
                 # Notify driver about the compensation
                 await manager.send_personal_message({
                     "type": "ride_cancelled_by_rider",
@@ -867,7 +878,7 @@ async def _apply_ride_status(
                     "message": f"El pasajero canceló. Recibiste ${driver_compensation} de compensación.",
                     "compensation": driver_compensation,
                 }, ride["driver_id"])
-                
+
                 penalty_info = {
                     "penalty_applied": True,
                     "penalty_amount": penalty_amount,
@@ -877,19 +888,19 @@ async def _apply_ride_status(
                     "blocked": blocked,
                     "blocked_until": blocked_until.isoformat() if blocked_until else None,
                 }
-                
+
             elif canceller_type == "driver":
                 penalty_amount = settings.get("driver_cancel_penalty", 500)
                 block_after = settings.get("driver_block_after_cancels", 3)
                 block_hours = settings.get("driver_block_hours", 24)
-                
+
                 # Count driver cancellations in last 30 days
                 thirty_days_ago = now - timedelta(days=settings.get("cancellation_window_days", 30))
                 recent_cancels = await db.cancellation_records.count_documents(
                     {"user_id": user["user_id"], "user_type": "driver", "created_at": {"$gte": thirty_days_ago}}
                 )
                 cancel_number = recent_cancels + 1  # this is the current one
-                
+
                 # Record penalty
                 record = {
                     "record_id": generate_id("cancel_"),
@@ -902,13 +913,13 @@ async def _apply_ride_status(
                     "status": "charged",
                     "created_at": now,
                 }
-                
+
                 if cancel_number >= block_after:
                     # Block the driver
                     block_until = None
                     if block_hours > 0:
                         block_until = now + timedelta(hours=block_hours)
-                    
+
                     await db.drivers.update_one(
                         {"driver_id": user["user_id"]},
                         {"$set": {
@@ -922,7 +933,7 @@ async def _apply_ride_status(
                     )
                     record["block_applied"] = True
                     record["blocked_until"] = block_until
-                    
+
                     penalty_info = {
                         "penalty_applied": True,
                         "penalty_amount": penalty_amount,
@@ -939,12 +950,12 @@ async def _apply_ride_status(
                         "cancels_before_block": block_after - cancel_number,
                         "message": f"Multa de ${penalty_amount}. Cancelación {cancel_number}/{block_after} antes de bloqueo.",
                     }
-                
+
                 await db.cancellation_records.insert_one(record)
-                
+
                 # Deduct from driver wallet
                 await adjust_wallet_balance(user["user_id"], -penalty_amount)
-                
+
                 # Record wallet transaction
                 await db.wallet_transactions.insert_one({
                     "transaction_id": generate_id("txn_"),
@@ -956,7 +967,7 @@ async def _apply_ride_status(
                     "status": "completed",
                     "created_at": now,
                 })
-                
+
                 # Check if driver wallet is below max negative
                 updated_user = await db.users.find_one({"user_id": user["user_id"]})
                 max_neg = settings.get("driver_max_negative_balance", -15000)
@@ -976,14 +987,14 @@ async def _apply_ride_status(
                         penalty_info["blocked"] = True
                         penalty_info["block_reason"] = "negative_balance"
                         penalty_info["message"] = f"Tu saldo llegó al límite de ${max_neg}. No puedes trabajar hasta recargar."
-                
+
                 # AUTO RE-DISPATCH: Notify rider and search for another driver
                 await manager.send_personal_message({
                     "type": "driver_cancelled_redispatching",
                     "ride_id": ride_id,
                     "message": "Tu conductor canceló. Buscando otro conductor...",
                 }, ride["rider_id"])
-                
+
                 # Re-create ride request for dispatch
                 try:
                     pickup = ride.get("pickup_location", {})
@@ -1009,7 +1020,7 @@ async def _apply_ride_status(
                         "redispatch_from": ride_id,
                     }
                     await db.ride_requests.insert_one(new_request_doc)
-                    
+
                     nearby = await get_nearby_drivers(
                         pickup.get("latitude", pickup.get("lat", 0)),
                         pickup.get("longitude", pickup.get("lng", 0)),
@@ -1017,7 +1028,7 @@ async def _apply_ride_status(
                         vehicle_type=ride.get("vehicle_type"),
                     )
                     sorted_drivers = [d for d in nearby.get("drivers", []) if d["driver_id"] != ride["driver_id"]]
-                    
+
                     if sorted_drivers:
                         import asyncio as _aio
                         task = _aio.create_task(
@@ -1039,7 +1050,7 @@ async def _apply_ride_status(
                     }, ride["rider_id"])
         else:
             penalty_info = {"penalty_applied": False, "message": "Cancelación sin cargo (dentro del tiempo libre)."}
-            
+
             # Even free cancels: notify the other party and re-dispatch if driver cancelled
             if canceller_type == "driver":
                 await manager.send_personal_message({
@@ -1047,7 +1058,7 @@ async def _apply_ride_status(
                     "ride_id": ride_id,
                     "message": "Tu conductor canceló. Buscando otro conductor...",
                 }, ride["rider_id"])
-                
+
                 # Re-dispatch
                 try:
                     pickup = ride.get("pickup_location", {})
@@ -1072,7 +1083,7 @@ async def _apply_ride_status(
                         "redispatch_from": ride_id,
                     }
                     await db.ride_requests.insert_one(new_request_doc)
-                    
+
                     nearby = await get_nearby_drivers(
                         pickup.get("latitude", pickup.get("lat", 0)),
                         pickup.get("longitude", pickup.get("lng", 0)),
@@ -1080,7 +1091,7 @@ async def _apply_ride_status(
                         vehicle_type=ride.get("vehicle_type"),
                     )
                     sorted_drivers = [d for d in nearby.get("drivers", []) if d["driver_id"] != ride["driver_id"]]
-                    
+
                     if sorted_drivers:
                         import asyncio as _aio
                         task = _aio.create_task(
@@ -1102,8 +1113,11 @@ async def _apply_ride_status(
                     "message": "El pasajero canceló el viaje (sin cargo).",
                     "compensation": 0,
                 }, ride["driver_id"])
-    
+
     await db.rides.update_one({"ride_id": ride_id}, {"$set": update_data})
+    if status == "cancelled" and ride.get("promotion"):
+        from promotions import release_promotion_reservation
+        await release_promotion_reservation(ride)
 
     redispatch_request_id = None
     if status == "cancelled" and canceller_type == "rider" and redispatch:
@@ -1133,19 +1147,19 @@ async def _apply_ride_status(
         redispatch_request_id = new_req_id
         await manager.send_personal_message({"type": "ride_redispatching", "request_id": new_req_id,
             "message": "Listo, buscamos otro conductor y excluimos al anterior."}, ride["rider_id"])
-    
+
     # Notify both parties
     other_user_id = ride["driver_id"] if user["user_id"] == ride["rider_id"] else ride["rider_id"]
     ws_data = {"type": "ride_status_update", "ride_id": ride_id, "status": status}
     if penalty_info:
         ws_data["penalty_info"] = {k: (v.isoformat() if isinstance(v, datetime) else v) for k, v in penalty_info.items()} if penalty_info else None
     await manager.send_personal_message(ws_data, other_user_id)
-    
+
     # Send push notifications for key status changes
     try:
         driver_user = await db.users.find_one({"user_id": ride["driver_id"]}, {"_id": 0, "name": 1})
         driver_name = driver_user.get("name", "Tu conductor") if driver_user else "Tu conductor"
-        
+
         if status == "arrived":
             await notify_driver_arrived(ride["rider_id"], driver_name, ride_id)
         elif status == "completed":
@@ -1161,7 +1175,7 @@ async def _apply_ride_status(
             await notify_ride_cancelled(other_user_id, cancelled_by, ride_id)
     except Exception as push_err:
         print(f"Push notification error: {push_err}")
-    
+
     response = {"status": "success", "ride_status": status}
     if penalty_info:
         response["penalty"] = penalty_info
@@ -1177,14 +1191,14 @@ async def _apply_ride_status(
 async def get_active_ride(user: dict = Depends(get_current_user)):
     """Get active ride OR recently completed ride (within 2 min)"""
     query = {"status": {"$in": ["accepted", "arrived", "started"]}}
-    
+
     if user["user_type"] == "rider":
         query["rider_id"] = user["user_id"]
     elif user["user_type"] == "driver":
         query["driver_id"] = user["user_id"]
-    
+
     ride = await db.rides.find_one(query, {"_id": 0})
-    
+
     # If no active ride, check recently completed (so rider can see completion screen)
     if not ride:
         from datetime import timedelta
@@ -1198,7 +1212,7 @@ async def get_active_ride(user: dict = Depends(get_current_user)):
         elif user["user_type"] == "driver":
             completed_query["driver_id"] = user["user_id"]
         ride = await db.rides.find_one(completed_query, {"_id": 0}, sort=[("completed_at", -1)])
-    
+
     if ride:
         # Get additional info
         driver = await db.users.find_one(
@@ -1217,12 +1231,12 @@ async def get_active_ride(user: dict = Depends(get_current_user)):
             {"driver_id": ride["driver_id"]},
             {"_id": 0, "current_location": 1}
         )
-        
+
         ride["driver_info"] = driver
         ride["rider_info"] = rider
         ride["vehicle_info"] = vehicle
         ride["driver_location"] = driver_location.get("current_location") if driver_location else None
-        
+
         # Ensure all datetime fields include timezone info (UTC) for correct client parsing
         for dt_field in ["accepted_at", "started_at", "completed_at", "cancelled_at", "created_at", "updated_at"]:
             if isinstance(ride.get(dt_field), datetime):
@@ -1230,7 +1244,7 @@ async def get_active_ride(user: dict = Depends(get_current_user)):
                 if dt_val.tzinfo is None:
                     dt_val = dt_val.replace(tzinfo=timezone.utc)
                 ride[dt_field] = dt_val.isoformat()
-    
+
     return {"ride": ride}
 
 
@@ -1242,15 +1256,15 @@ async def get_my_rides(
 ):
     """Alias for /api/rides - get user's rides"""
     query = {}
-    
+
     if user["user_type"] == "rider":
         query["rider_id"] = user["user_id"]
     elif user["user_type"] == "driver":
         query["driver_id"] = user["user_id"]
-    
+
     if status:
         query["status"] = status
-    
+
     rides = await db.rides.find(query, {"_id": 0}).sort("created_at", -1).to_list(limit)
     return {"rides": rides}
 
@@ -1260,10 +1274,10 @@ async def get_ride(ride_id: str, user: dict = Depends(get_current_user)):
     ride = await db.rides.find_one({"ride_id": ride_id}, {"_id": 0})
     if not ride:
         raise HTTPException(status_code=404, detail="Ride not found")
-    
+
     if user["user_id"] not in [ride["rider_id"], ride["driver_id"]] and user["user_type"] != "admin":
         raise HTTPException(status_code=403, detail="Not authorized")
-    
+
     # Get driver and rider info
     driver = await db.users.find_one(
         {"user_id": ride["driver_id"]},
@@ -1277,11 +1291,11 @@ async def get_ride(ride_id: str, user: dict = Depends(get_current_user)):
         {"driver_id": ride["driver_id"], "is_active": True},
         {"_id": 0}
     )
-    
+
     ride["driver_info"] = driver
     ride["rider_info"] = rider
     ride["vehicle_info"] = vehicle
-    
+
     return ride
 
 
@@ -1294,7 +1308,7 @@ async def get_pending_requests(
 ):
     if user["user_type"] != "driver":
         raise HTTPException(status_code=403, detail="Only drivers can view requests")
-    
+
     # Get driver's vehicle type
     vehicle = await db.vehicles.find_one(
         {"driver_id": user["user_id"], "is_active": True},
@@ -1302,13 +1316,13 @@ async def get_pending_requests(
     )
     if not vehicle:
         return {"requests": []}
-    
+
     now = datetime.now(timezone.utc)
     requests = await db.ride_requests.find({
         "status": {"$in": ["pending", "bidding"]},
         "expires_at": {"$gt": now}
     }, {"_id": 0}).to_list(50)
-    
+
     # Filter by distance and vehicle type
     nearby_requests = []
     for req in requests:
@@ -1317,18 +1331,18 @@ async def get_pending_requests(
             latitude, longitude,
             pickup.get("latitude", 0), pickup.get("longitude", 0)
         )
-        
+
         if distance <= radius_km:
             # Check if driver already bid
             already_bid = any(
                 b.get("driver_id") == user["user_id"]
                 for b in req.get("bids", [])
             )
-            
+
             if not already_bid:
                 req["distance_to_pickup"] = round(distance, 2)
                 nearby_requests.append(req)
-    
+
     nearby_requests.sort(key=lambda x: x["distance_to_pickup"])
     return {"requests": nearby_requests}
 
@@ -1339,7 +1353,7 @@ async def estimate_fares(data: EstimateRequest):
     fares = await db.fare_config.find({}, {"_id": 0}).to_list(20)
     if not fares:
         fares = [{"vehicle_type": k, **v} for k, v in DEFAULT_FARES.items()]
-    
+
     estimates = []
     for fare in fares:
         price = fare.get("base_fare", 500) + (data.distance_km * fare.get("per_km", 150)) + (data.duration_min * fare.get("per_min", 50))
@@ -1351,7 +1365,7 @@ async def estimate_fares(data: EstimateRequest):
             "estimated_fare": round(price, 2),
             "min_fare": min_fare,
         })
-    
+
     estimates.sort(key=lambda x: x["estimated_fare"])
     return {"estimates": estimates, "distance_km": round(data.distance_km, 2), "duration_min": data.duration_min}
 

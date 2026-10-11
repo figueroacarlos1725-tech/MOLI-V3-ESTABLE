@@ -1,3 +1,4 @@
+from fleet_live import emit_fleet_changed
 """Admin routes"""
 from fastapi import APIRouter, HTTPException, Depends, Query, Body, File, UploadFile
 from pymongo import ReturnDocument
@@ -228,7 +229,7 @@ async def get_admin_settings(user: dict = Depends(get_current_user)):
     
     # Mask sensitive keys
     masked_settings = settings.copy()
-    sensitive_keys = ["mercadopago_access_token", "astropay_secret_key", "google_maps_key", "mapbox_key"]
+    sensitive_keys = ["mercadopago_access_token", "astropay_api_key", "astropay_secret_key", "firebase_server_key", "expo_push_token", "google_maps_key", "mapbox_key"]
     for key in sensitive_keys:
         if key in masked_settings and masked_settings[key]:
             masked_settings[key] = "****" + masked_settings[key][-4:] if len(masked_settings.get(key, "")) > 4 else "****"
@@ -746,29 +747,43 @@ async def dispatch_cancel_ride(request_id: str, reason: str = Query("Cancelado p
         raise HTTPException(status_code=403, detail="Dispatch access required")
     
     now = datetime.now(timezone.utc)
-    
-    # Cancel the request
-    await db.ride_requests.update_one(
-        {"request_id": request_id},
-        {"$set": {"status": "cancelled", "cancelled_at": now, "cancel_reason": reason}}
-    )
-    
-    # Cancel associated ride if exists
+    request_doc = await db.ride_requests.find_one({"request_id": request_id})
+    if not request_doc:
+        raise HTTPException(404, "Solicitud no encontrada")
     ride = await db.rides.find_one({"request_id": request_id})
+    if ride and ride.get("status") in ("completed", "cancelled"):
+        raise HTTPException(409, "El viaje ya fue finalizado o cancelado")
+    active_states = ["pending", "bidding", "searching", "accepted"]
+    claimed = await db.ride_requests.find_one_and_update(
+        {"request_id": request_id, "status": {"$in": active_states}},
+        {"$set": {"status": "cancelled", "cancelled_at": now, "cancel_reason": reason,
+                  "current_offer_driver": None}}, return_document=ReturnDocument.AFTER)
+    if not claimed:
+        raise HTTPException(409, "La solicitud ya no se puede cancelar")
+    from dispatch import assignment_events
+    if request_id in assignment_events:
+        assignment_events[request_id].set()
     if ride:
+        result = await db.rides.update_one(
+            {"request_id": request_id, "status": {"$in": ["requested", "searching", "accepted", "arrived", "started"]},
+             "status_update_claim": {"$exists": False}},
+            {"$set": {"status": "cancelled", "cancelled_at": now, "cancel_reason": reason}})
+        if not result.modified_count:
+            # Do not race a settlement already being applied by the lifecycle handler.
+            await db.ride_requests.update_one({"request_id": request_id, "status": "cancelled"},
+                {"$set": {"status": request_doc["status"]}})
+            raise HTTPException(409, "El viaje está cambiando de estado; actualizá e intentá nuevamente")
         driver_id = ride.get("driver_id")
-        await db.rides.update_one(
-            {"request_id": request_id},
-            {"$set": {"status": "cancelled", "cancelled_at": now, "cancel_reason": reason}}
-        )
-        # Notify driver
         if driver_id:
-            await manager.send_personal_message({
-                "type": "ride_cancelled",
-                "ride_id": ride.get("ride_id"),
-                "reason": reason,
-            }, driver_id)
-    
+            await db.drivers.update_one({"driver_id": driver_id},
+                {"$set": {"is_available": True}, "$unset": {"dispatch_claim_request_id": ""}})
+            await manager.send_personal_message({"type": "ride_cancelled", "ride_id": ride.get("ride_id"),
+                "reason": reason}, driver_id)
+    if request_doc.get("rider_id"):
+        await manager.send_personal_message({"type": "ride_cancelled", "request_id": request_id,
+            "ride_id": ride.get("ride_id") if ride else None, "reason": reason}, request_doc["rider_id"])
+
+    await emit_fleet_changed(ride.get("driver_id") if ride else None)
     return {"status": "cancelled", "request_id": request_id}
 
 
@@ -808,7 +823,7 @@ async def dispatch_assign_driver(
     if not vehicle:
         raise HTTPException(409, "El vehículo no es compatible con la solicitud")
     existing_ride = await db.rides.find_one({"request_id": request_id})
-    if existing_ride and existing_ride.get("status") != "requested":
+    if existing_ride and existing_ride.get("status") not in ("requested", "searching"):
         raise HTTPException(409, "El viaje ya fue asignado o finalizado")
     now = datetime.now(timezone.utc)
     available = await db.drivers.find_one_and_update(
@@ -833,7 +848,7 @@ async def dispatch_assign_driver(
 
     if existing_ride:
         await db.rides.update_one(
-            {"request_id": request_id},
+            {"request_id": request_id, "status": {"$in": ["requested", "searching"]}},
             {"$set": {
                 "driver_id": driver_id,
                 "status": "accepted",
@@ -852,6 +867,9 @@ async def dispatch_assign_driver(
             "ride_id": ride_id,
             "request_id": request_id,
             "rider_id": request_doc.get("rider_id", "dispatch"),
+            "rider_name": request_doc.get("rider_name", "Cliente Moli"),
+            "rider_phone": request_doc.get("rider_phone", ""),
+            "service_type": request_doc.get("service_type", "ride"),
             "driver_id": driver_id,
             "pickup_location": request_doc.get("pickup_location"),
             "dropoff_location": request_doc.get("dropoff_location"),
@@ -883,6 +901,7 @@ async def dispatch_assign_driver(
     except:
         pass
     
+    await emit_fleet_changed(driver_id)
     return {"status": "assigned", "ride_id": ride_id, "driver": driver.get("name", "")}
 
 
@@ -1224,6 +1243,7 @@ async def admin_block_driver(
         "source": "admin"
     })
     
+    await emit_fleet_changed(driver_id)
     return {"status": "success", "message": "Driver blocked", "block_until": block_until}
 
 
@@ -1252,6 +1272,7 @@ async def admin_unblock_driver(driver_id: str, user: dict = Depends(get_current_
         "source": "admin"
     })
     
+    await emit_fleet_changed(driver_id)
     return {"status": "success", "message": "Driver unblocked"}
 
 
@@ -1321,6 +1342,30 @@ async def admin_update_services(
     return {"status": "success", "message": "Service types updated", "service_types": service_types}
 
 
+@router.get("/api/dispatch/drivers")
+async def get_dispatch_drivers(user: dict = Depends(get_current_user)):
+    """Operational fleet only: no account balances, identity documents or private contacts."""
+    if user.get("user_type") not in ("admin", "dispatcher"):
+        raise HTTPException(403, "Dispatch access required")
+    fleet = await db.drivers.find({"is_online": True}, {"_id": 0}).to_list(500)
+    result = []
+    for driver in fleet:
+        account = await db.users.find_one({"user_id": driver["driver_id"]},
+            {"_id": 0, "name": 1, "rating": 1, "is_blocked": 1})
+        if not account:
+            continue
+        active = await db.rides.find_one({"driver_id": driver["driver_id"],
+            "status": {"$in": ["accepted", "arrived", "started"]}}, {"_id": 0, "ride_id": 1, "status": 1})
+        location = driver.get("current_location") or {}
+        result.append({"driver_id": driver["driver_id"], "name": account.get("name", "Conductor"),
+            "rating": account.get("rating"), "is_online": True,
+            "is_available": driver.get("is_available", True) and not bool(active),
+            "is_blocked": bool(driver.get("is_blocked") or account.get("is_blocked")),
+            "service_types": driver.get("service_types", []), "latitude": location.get("latitude"),
+            "longitude": location.get("longitude"), "active_ride": active})
+    return {"drivers": result, "total": len(result)}
+
+
 @router.get("/api/admin/drivers/live")
 async def admin_get_live_drivers(user: dict = Depends(get_current_user)):
     """Get all drivers with their current locations for the God's Eye view"""
@@ -1367,6 +1412,21 @@ async def admin_create_manual_trip(
     if user["user_type"] not in ("admin", "dispatcher"):
         raise HTTPException(status_code=403, detail="Dispatch access required")
     
+    if not data.rider_name.strip() or not data.pickup_address.strip():
+        raise HTTPException(422, "Ingresá cliente y punto de recogida")
+    if data.assigned_driver_id:
+        raise HTTPException(422, "Creá la solicitud y asigná el conductor desde despacho con el PIN de supervisión")
+    if data.trip_type not in ("full", "destination_only"):
+        raise HTTPException(422, "Tipo de viaje inválido")
+    import math
+    def valid_coordinates(latitude, longitude):
+        return (latitude is not None and longitude is not None and math.isfinite(latitude)
+                and math.isfinite(longitude) and -90 <= latitude <= 90 and -180 <= longitude <= 180)
+    if not valid_coordinates(data.pickup_latitude, data.pickup_longitude):
+        raise HTTPException(422, "Ingresá coordenadas válidas de recogida")
+    if data.trip_type == "full" and (not data.dropoff_address.strip() or
+            not valid_coordinates(data.dropoff_latitude, data.dropoff_longitude)):
+        raise HTTPException(422, "Ingresá dirección y coordenadas válidas de destino")
     ride_id = f"ride_{uuid.uuid4().hex[:12]}"
     
     # Calculate fare for full trips
@@ -1378,7 +1438,7 @@ async def admin_create_manual_trip(
     min_fare = fare_config.get("min_fare", 800)
     fare = base_fare  # Minimum fare is always the base fare
     
-    if data.trip_type == "full" and data.pickup_latitude and data.dropoff_latitude:
+    if data.trip_type == "full":
         # Calculate distance and estimated fare
         import math
         R = 6371
@@ -1402,14 +1462,14 @@ async def admin_create_manual_trip(
         "source": "admin",  # created by admin (phone/whatsapp)
         "pickup_location": {
             "address": data.pickup_address,
-            "latitude": data.pickup_latitude or -28.4696,
-            "longitude": data.pickup_longitude or -65.7852,
+            "latitude": data.pickup_latitude,
+            "longitude": data.pickup_longitude,
         },
         "dropoff_location": {
             "address": data.dropoff_address,
             "latitude": data.dropoff_latitude,
             "longitude": data.dropoff_longitude,
-        } if data.dropoff_latitude else None,
+        } if data.trip_type == "full" else None,
         "vehicle_type": data.vehicle_type,
         "status": "accepted" if data.assigned_driver_id else "requested",
         "fare": round(fare, 0) if fare else None,
@@ -1448,15 +1508,15 @@ async def admin_create_manual_trip(
         # Update ride with request_id
         await db.rides.update_one(
             {"ride_id": ride_id},
-            {"$set": {"request_id": request_id, "status": "searching"}}
+            {"$set": {"request_id": request_id, "status": "requested"}}
         )
         ride["request_id"] = request_id
-        ride["status"] = "searching"
+        ride["status"] = "requested"
         
         # Get nearby drivers and trigger dispatch
         from utils import get_nearby_drivers
-        pickup_lat = data.pickup_latitude or -28.4696
-        pickup_lng = data.pickup_longitude or -65.7852
+        pickup_lat = data.pickup_latitude
+        pickup_lng = data.pickup_longitude
         
         result = await get_nearby_drivers(pickup_lat, pickup_lng, radius_km=50, vehicle_type=data.vehicle_type)
         sorted_drivers = result.get("drivers", [])

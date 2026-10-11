@@ -24,7 +24,7 @@ import { useAuthStore } from '@/src/stores/authStore';
 import { useRideStore } from '@/src/stores/rideStore';
 import { socketService } from '@/src/services/socket';
 import { apiService } from '@/src/services/api';
-import { getCurrentLocation, reverseGeocode } from '@/src/utils/location';
+import { getCurrentLocation, getRealCurrentLocation, reverseGeocode } from '@/src/utils/location';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
@@ -157,7 +157,7 @@ export default function DriverHomeScreen() {
           const savedOnline = await AsyncStorage.getItem('driver_online');
           if (savedOnline === 'true') {
             // Re-register as online on backend
-            const loc = await getCurrentLocation();
+            const loc = await getRealCurrentLocation();
             if (loc) setUserLocation(loc);
             try {
               await apiService.put(
@@ -354,6 +354,7 @@ export default function DriverHomeScreen() {
       });
 
       // Listen for ride status updates to properly reset state
+      const unsubPromotion = socketService.on('ride_promotion_changed', () => { fetchActiveRide(); });
       const unsubStatus = socketService.on('ride_status_update', (data: any) => {
         console.log('Ride status update:', data);
         if (data.status === 'completed' || data.status === 'cancelled') {
@@ -392,6 +393,7 @@ export default function DriverHomeScreen() {
         unsubExpired();
         unsubAccepted();
         unsubStatus();
+        unsubPromotion();
         unsubRiderCancel();
         clearInterval(healthCheck);
         if (locationInterval.current) clearInterval(locationInterval.current);
@@ -408,7 +410,8 @@ export default function DriverHomeScreen() {
     if (locationInterval.current) clearInterval(locationInterval.current);
     
     locationInterval.current = setInterval(async () => {
-      const location = await getCurrentLocation();
+      if (!isOnline) return;
+      const location = await getRealCurrentLocation();
       if (location && isOnline) {
         setUserLocation(location);
         socketService.sendLocation(location.latitude, location.longitude);
@@ -600,7 +603,8 @@ export default function DriverHomeScreen() {
       // Directly go online (Uber style - no confirmation needed)
       setIsToggling(true);
       try {
-        const loc = userLocation;
+        const loc = await getRealCurrentLocation();
+        if (loc) setUserLocation(loc);
         await apiService.put(
           `/drivers/availability?is_online=true${loc ? `&latitude=${loc.latitude}&longitude=${loc.longitude}` : ''}`
         );
@@ -634,7 +638,7 @@ export default function DriverHomeScreen() {
     setIsToggling(true);
     try {
       await apiService.put(
-        `/drivers/availability?is_online=false${userLocation ? `&latitude=${userLocation.latitude}&longitude=${userLocation.longitude}` : ''}`
+        '/drivers/availability?is_online=false'
       );
       setIsOnline(false);
       await AsyncStorage.setItem('driver_online', 'false');
@@ -947,6 +951,7 @@ export default function DriverHomeScreen() {
             </View>
           </View>
           
+          {currentRide.promotion?.authorized_by && <View style={{padding:14,borderRadius:14,backgroundColor:'#FFF3EB',marginBottom:12}}><Text style={{fontWeight:'800',color:'#E85E1A'}}>Viaje promocional · efectivo</Text><Text style={{lineHeight:21,color:'#555'}}>Cubrís hasta ${(currentRide.promotion.coverage_cap ?? 4000).toLocaleString('es-AR')}. Cobrá al pasajero únicamente el excedente. Al finalizar se acredita el 15% del importe cubierto para comisiones futuras.</Text></View>}
           <View style={styles.fareRow}>
             <Text style={styles.fareLabel}>Tarifa</Text>
             <Text style={styles.fareAmount}>
@@ -1072,7 +1077,7 @@ export default function DriverHomeScreen() {
             <View style={styles.paymentCard}>
               <View style={styles.paymentHeader}>
                 <Ionicons name="cash" size={48} color="#00C853" />
-                <Text style={styles.paymentTitle}>Cobrar al pasajero</Text>
+                <Text style={styles.paymentTitle}>{currentRide.promotion?.authorized_by ? 'Confirmar viaje promocional' : 'Cobrar al pasajero'}</Text>
               </View>
               
               <View style={styles.paymentAmountBox}>
@@ -1081,7 +1086,7 @@ export default function DriverHomeScreen() {
                   ${(() => {
                     const isTaxi = currentRide.is_taximeter || currentRide.is_ticketera || !currentRide.dropoff_location;
                     const fare = isTaxi && taximeterFare > 0 ? taximeterFare : (currentRide.fare || fareConfig?.base_fare || 500);
-                    return Math.round(fare);
+                    return Math.round(currentRide.promotion?.authorized_by ? (currentRide.customer_amount_due ?? Math.max(0,fare-(currentRide.promotion.coverage_cap ?? 4000))) : fare);
                   })()}
                 </Text>
                 <Text style={styles.paymentMethod}>
@@ -1095,11 +1100,12 @@ export default function DriverHomeScreen() {
                   <Text style={styles.paymentDetailVal}>{currentRide.distance?.toFixed(1) || '0'} km</Text>
                 </View>
                 <View style={styles.paymentRow}>
-                  <Text style={styles.paymentDetailLabel}>Tu ganancia</Text>
+                  <Text style={styles.paymentDetailLabel}>{currentRide.promotion?.authorized_by ? 'Efectivo del pasajero' : 'Tu ganancia'}</Text>
                   <Text style={[styles.paymentDetailVal, { color: '#00C853', fontWeight: '800' }]}>
                     ${(() => {
                       const isTaxi = currentRide.is_taximeter || currentRide.is_ticketera || !currentRide.dropoff_location;
                       const fare = isTaxi && taximeterFare > 0 ? taximeterFare : (currentRide.fare || fareConfig?.base_fare || 500);
+                      if (currentRide.promotion?.authorized_by) return Math.round(currentRide.customer_amount_due ?? Math.max(0,fare-(currentRide.promotion.coverage_cap ?? 4000)));
                       const commission = fare * 0.20;
                       return Math.round(fare - commission);
                     })()}
@@ -1128,7 +1134,7 @@ export default function DriverHomeScreen() {
                   {paymentConfirmed ? (
                     <ActivityIndicator color="#fff" />
                   ) : (
-                    <Text style={styles.paymentConfirmText}>Confirmar pago recibido</Text>
+                    <Text style={styles.paymentConfirmText}>{currentRide.promotion?.authorized_by ? 'Confirmar finalización y diferencia' : 'Confirmar pago recibido'}</Text>
                   )}
                 </TouchableOpacity>
               )}

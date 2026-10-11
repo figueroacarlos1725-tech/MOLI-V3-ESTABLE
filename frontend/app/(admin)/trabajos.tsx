@@ -1,3 +1,4 @@
+import { operatorAlert } from '@/src/components/OperatorAlert';
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, SafeAreaView, TouchableOpacity,
@@ -50,15 +51,15 @@ export default function AdminTrabajosScreen() {
   };
 
   const handleCancelJob = async (jobId: string) => {
-    Alert.alert('Cancelar trabajo', '¿Seguro que querés cancelar este trabajo?', [
+    operatorAlert('Cancelar trabajo', '¿Seguro que querés cancelar este trabajo?', [
       { text: 'No', style: 'cancel' },
       { text: 'Sí, cancelar', style: 'destructive', onPress: async () => {
         try {
           await apiService.put(`/jobs/${jobId}/status`, { status: 'cancelled' });
           setSelectedJob(null);
           loadAll();
-          Alert.alert('Trabajo cancelado');
-        } catch (e: any) { Alert.alert('Error', e.message); }
+          operatorAlert('Trabajo cancelado');
+        } catch (e: any) { operatorAlert('Error', e.message); }
       }},
     ]);
   };
@@ -87,11 +88,11 @@ export default function AdminTrabajosScreen() {
           reason: 'Ajuste admin Moli Trabajos',
         });
       }
-      Alert.alert('Profesional actualizado');
+      operatorAlert('Profesional actualizado');
       setEditingPro(null);
       setSelectedPro(null);
       loadAll();
-    } catch (e: any) { Alert.alert('Error', e.message); }
+    } catch (e: any) { operatorAlert('Error', e.message); }
     setSaving(false);
   };
 
@@ -447,13 +448,13 @@ ${jobMarkers}
                 <Text style={{ color: '#8E8E93', fontWeight: '600' }}>Cancelar</Text>
               </TouchableOpacity>
               <TouchableOpacity style={{ flex: 1, paddingVertical: 12, borderRadius: 10, backgroundColor: '#FF3B30', alignItems: 'center' }} onPress={async () => {
-                if (pinInput !== '0725') { Alert.alert('PIN incorrecto'); return; }
+                if (pinInput !== '0725') { operatorAlert('PIN incorrecto'); return; }
                 setShowPinModal(false); setPinInput('');
                 try {
                   const res = await apiService.delete('/admin/reset/jobs');
-                  Alert.alert('Reset completo', `${res.modified || 0} trabajos cancelados`);
+                  operatorAlert('Reset completo', `${res.modified || 0} trabajos cancelados`);
                   loadAll();
-                } catch (e: any) { Alert.alert('Error', e.message); }
+                } catch (e: any) { operatorAlert('Error', e.message); }
               }}>
                 <Text style={{ color: '#fff', fontWeight: '700' }}>Confirmar</Text>
               </TouchableOpacity>

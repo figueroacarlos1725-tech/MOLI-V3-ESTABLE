@@ -1,3 +1,4 @@
+import { operatorAlert } from '@/src/components/OperatorAlert';
 import React, { useEffect, useState } from 'react';
 import {
   View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity,
@@ -39,7 +40,7 @@ export default function AdminPaymentsScreen() {
       if (driver) { setDriverRate(String(driver.rate_percent || 0)); setDriverMinimum(String(Math.round((driver.min_cents || 0) / 100))); }
       if (merchant) { setMerchantRate(String(merchant.rate_percent || 0)); setMerchantMinimum(String(Math.round((merchant.min_cents || 0) / 100))); }
       setMarketPolicy(merchant?.active ? 'driver_and_merchant' : 'driver_only');
-    } catch (e) {} finally { setLoading(false); }
+    } catch (e:any) { operatorAlert('No se pudo completar', e.message || 'Revisá la conexión e intentá nuevamente.'); } finally { setLoading(false); }
   };
 
   const saveMarketplaceCommissions = async () => {
@@ -69,7 +70,7 @@ export default function AdminPaymentsScreen() {
       setApApiKey('');
       setApSecret('');
       fetchConfig();
-    } catch (e) {} finally { setSaving(false); }
+    } catch (e:any) { operatorAlert('No se pudo completar', e.message || 'Revisá la conexión e intentá nuevamente.'); } finally { setSaving(false); }
   };
 
   if (loading) return <SafeAreaView style={s.container}><ActivityIndicator size="large" color="#E85E1A" style={{marginTop:40}} /></SafeAreaView>;

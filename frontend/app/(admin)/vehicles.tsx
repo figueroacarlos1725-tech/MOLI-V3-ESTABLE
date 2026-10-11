@@ -1,3 +1,4 @@
+import { operatorAlert } from '@/src/components/OperatorAlert';
 import React, { useEffect, useState } from 'react';
 import {
   View,
@@ -54,7 +55,7 @@ export default function AdminVehicleIconsScreen() {
       setIcons(response.icons || []);
     } catch (error) {
       console.error('Error obteniendo iconos:', error);
-      Alert.alert('Error', 'No se pudieron cargar los iconos de vehículos');
+      operatorAlert('Error', 'No se pudieron cargar los iconos de vehículos');
     } finally {
       setIsLoading(false);
     }
@@ -70,9 +71,9 @@ export default function AdminVehicleIconsScreen() {
       await fetchIcons();
       setEditingType(null);
       setShowEmojiPicker(false);
-      Alert.alert('Listo', 'Icono actualizado correctamente');
+      operatorAlert('Listo', 'Icono actualizado correctamente');
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'No se pudo actualizar el icono');
+      operatorAlert('Error', error.message || 'No se pudo actualizar el icono');
     } finally {
       setSavingType(null);
     }
@@ -82,7 +83,7 @@ export default function AdminVehicleIconsScreen() {
     try {
       const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!permissionResult.granted) {
-        Alert.alert('Permiso requerido', 'Se necesita acceso a la galería para subir imágenes');
+        operatorAlert('Permiso requerido', 'Se necesita acceso a la galería para subir imágenes');
         return;
       }
 
@@ -100,7 +101,7 @@ export default function AdminVehicleIconsScreen() {
       
       // Check size (~500KB limit)
       if (base64Data.length > 700000) {
-        Alert.alert('Imagen muy grande', 'La imagen debe ser menor a 500KB. Intentá con una imagen más pequeña o de menor resolución.');
+        operatorAlert('Imagen muy grande', 'La imagen debe ser menor a 500KB. Intentá con una imagen más pequeña o de menor resolución.');
         return;
       }
 
@@ -113,9 +114,9 @@ export default function AdminVehicleIconsScreen() {
 
       await fetchIcons();
       setEditingType(null);
-      Alert.alert('Listo', 'Imagen del vehículo actualizada');
+      operatorAlert('Listo', 'Imagen del vehículo actualizada');
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'No se pudo subir la imagen');
+      operatorAlert('Error', error.message || 'No se pudo subir la imagen');
     } finally {
       setSavingType(null);
     }

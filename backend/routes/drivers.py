@@ -4,6 +4,7 @@ from typing import Optional
 from datetime import datetime, timezone
 import base64
 
+from fleet_live import emit_provider_location, emit_fleet_changed, valid_location
 from database import db
 from websocket_manager import manager
 from utils import generate_id, get_current_user, get_nearby_drivers, calculate_distance, get_settings, REQUIRED_DOCUMENTS, has_active_capability
@@ -63,7 +64,9 @@ async def update_availability(
         "updated_at": datetime.now(timezone.utc)
     }
     
-    if latitude and longitude:
+    if latitude is not None or longitude is not None:
+        if not valid_location({"latitude":latitude,"longitude":longitude}):
+            raise HTTPException(422,"Coordenadas inválidas")
         update_data["current_location"] = {
             "latitude": latitude,
             "longitude": longitude,
@@ -72,6 +75,8 @@ async def update_availability(
     
     await db.drivers.update_one({"driver_id": user["user_id"]}, {"$set": update_data})
     
+    await emit_fleet_changed(user["user_id"])
+    await emit_provider_location(user["user_id"], reported_location=update_data.get("current_location"), source="availability_rest")
     # When driver comes online, check for pending ride requests without active dispatch
     if is_online:
         try:
@@ -115,6 +120,8 @@ async def update_location(
     if user["user_type"] != "driver":
         raise HTTPException(status_code=403, detail="Only drivers can update location")
     
+    if not valid_location({"latitude":latitude,"longitude":longitude}):
+        raise HTTPException(422,"Coordenadas inválidas")
     await db.drivers.update_one(
         {"driver_id": user["user_id"]},
         {"$set": {
@@ -126,6 +133,7 @@ async def update_location(
             "radius_km": radius_km
         }}
     )
+    await emit_provider_location(user["user_id"], reported_location={"latitude":latitude,"longitude":longitude}, source="driver_rest")
     return {"status": "success"}
 
 

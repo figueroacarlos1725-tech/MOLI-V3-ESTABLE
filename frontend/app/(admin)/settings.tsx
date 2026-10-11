@@ -1,3 +1,5 @@
+import { PromotionLaunchControl } from '@/src/components/PromotionLaunchControl';
+import { operatorAlert } from '@/src/components/OperatorAlert';
 import React, { useEffect, useState } from 'react';
 import {
   View,
@@ -106,11 +108,11 @@ export default function AdminSettingsScreen() {
       }
 
       await apiService.put('/admin/settings', payload);
-      Alert.alert('Guardado', 'Configuracion actualizada correctamente');
+      operatorAlert('Guardado', 'Configuracion actualizada correctamente');
       setEditMode(false);
       fetchSettings();
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'No se pudo guardar');
+      operatorAlert('Error', error.message || 'No se pudo guardar');
     } finally {
       setIsSaving(false);
     }
@@ -125,7 +127,7 @@ export default function AdminSettingsScreen() {
           await logout();
           if (typeof window !== 'undefined') window.location.href = '/';
           else router.replace('/');
-        } catch (e) {}
+        } catch (e:any) { operatorAlert('No se pudo completar', e.message || 'Revisá la conexión e intentá nuevamente.'); }
       },
       'Cerrar sesion'
     );
@@ -161,7 +163,7 @@ export default function AdminSettingsScreen() {
             onChangeText={(v) => updateField(key, v)}
             placeholder={opts?.secure && wasMasked ? 'Dejar vacio para mantener actual' : (opts?.placeholder || '')}
             placeholderTextColor="#666"
-            secureTextEntry={false}
+            secureTextEntry={opts?.secure === true}
             keyboardType={opts?.numeric ? 'numeric' : 'default'}
           />
         ) : (
@@ -207,6 +209,7 @@ export default function AdminSettingsScreen() {
         </View>
 
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
+          <PromotionLaunchControl />
           {/* Maps */}
           <View style={s.section}>
             <View style={s.sectionHeader}>

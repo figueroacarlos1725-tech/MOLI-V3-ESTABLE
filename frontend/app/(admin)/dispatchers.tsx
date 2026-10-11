@@ -1,3 +1,4 @@
+import { operatorAlert } from '@/src/components/OperatorAlert';
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, SafeAreaView, TouchableOpacity, ScrollView,
@@ -45,15 +46,15 @@ export default function DispatchersScreen() {
 
   const handleCreate = async () => {
     if (!newDisp.name || !newDisp.email || !newDisp.password) {
-      Alert.alert('Error', 'Completá nombre, email y contraseña'); return;
+      operatorAlert('Error', 'Completá nombre, email y contraseña'); return;
     }
     setSaving(true);
     try {
       await apiService.post('/admin/users', { ...newDisp, user_type: 'dispatcher' });
-      Alert.alert('Despachador creado', `${newDisp.name} fue creado`);
+      operatorAlert('Despachador creado', `${newDisp.name} fue creado`);
       setShowCreate(false); setNewDisp({ name: '', email: '', phone: '', password: '' });
       fetchDispatchers();
-    } catch (e: any) { Alert.alert('Error', e.message); }
+    } catch (e: any) { operatorAlert('Error', e.message); }
     setSaving(false);
   };
 
@@ -62,9 +63,9 @@ export default function DispatchersScreen() {
     setSaving(true);
     try {
       await apiService.put(`/admin/dispatchers/${showPerms.user_id}/permissions`, editPerms);
-      Alert.alert('Permisos guardados');
+      operatorAlert('Permisos guardados');
       setShowPerms(null); fetchDispatchers();
-    } catch (e: any) { Alert.alert('Error', e.message); }
+    } catch (e: any) { operatorAlert('Error', e.message); }
     setSaving(false);
   };
 

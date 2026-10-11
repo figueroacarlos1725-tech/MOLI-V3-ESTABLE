@@ -308,6 +308,7 @@ export default function RiderHomeScreen() {
       fetchActiveRide();
       setPhase('completed');
     });
+    const unsubPromotion = socketService.on('ride_promotion_changed', () => { fetchActiveRide(); });
     const unsub9 = socketService.on('ride_status_update', (d: any) => {
       if (d.status === 'completed') {
         playSound('completed');
@@ -321,7 +322,7 @@ export default function RiderHomeScreen() {
       }
     });
 
-    return () => { unsub1(); unsub2(); unsubReviewing(); unsubReviewEnded(); unsub3(); unsub4(); unsub5(); unsub6(); unsub7(); unsub8(); unsub9(); };
+    return () => { unsub1(); unsub2(); unsubReviewing(); unsubReviewEnded(); unsub3(); unsub4(); unsub5(); unsub6(); unsub7(); unsub8(); unsub9(); unsubPromotion(); };
   }, [user]);
 
   // ─── Polling fallback when searching ──────
@@ -630,10 +631,11 @@ export default function RiderHomeScreen() {
           <Text style={s.completedTitle}>¡Viaje completado!</Text>
           <Text style={s.completedSubtitle}>Gracias por viajar con Moli</Text>
 
+          {currentRide.promotion?.authorized_by && <Text style={{padding:12,color:'#E85E1A',textAlign:'center'}}>Viaje promocional: cobertura de hasta ${(currentRide.promotion.coverage_cap ?? 4000).toLocaleString('es-AR')}. El importe indicado es tu diferencia.</Text>}
           <View style={s.completedCard}>
             <View style={s.completedRow}>
-              <Text style={s.completedLabel}>Tarifa total</Text>
-              <Text style={s.completedFare}>${currentRide.fare?.toFixed(0)}</Text>
+              <Text style={s.completedLabel}>{currentRide.promotion?.authorized_by ? 'Importe a pagar en efectivo' : 'Tarifa total'}</Text>
+              <Text style={s.completedFare}>${(currentRide.promotion?.authorized_by ? (currentRide.customer_amount_due ?? Math.max(0,currentRide.fare - (currentRide.promotion.coverage_cap ?? 4000))) : currentRide.fare)?.toFixed(0)}</Text>
             </View>
             {(currentRide.penalty_surcharge ?? 0) > 0 && (
               <>
@@ -773,6 +775,7 @@ export default function RiderHomeScreen() {
             </View>
           )}
 
+          {currentRide.promotion?.authorized_by && <View style={{padding:14,marginBottom:10,borderRadius:14,backgroundColor:'#FFF3EB'}}><Text style={{fontWeight:'800',color:'#E85E1A'}}>Viaje promocional</Text><Text style={{lineHeight:21,color:'#555'}}>Cobertura de hasta ${(currentRide.promotion.coverage_cap ?? 4000).toLocaleString('es-AR')}. Solo pagás la diferencia en efectivo. Importe previsto: ${Math.max(0,currentRide.fare-(currentRide.promotion.coverage_cap ?? 4000)).toFixed(0)}.</Text></View>}
           {/* Fare and ride info */}
           <View style={{ flexDirection: 'row', justifyContent: 'space-around', paddingVertical: 10, borderTopWidth: 1, borderTopColor: '#F0F0F0' }}>
             <View style={{ alignItems: 'center' }}>

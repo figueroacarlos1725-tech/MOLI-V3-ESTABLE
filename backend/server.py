@@ -45,6 +45,10 @@ app.add_middleware(
 )
 
 # Include all routers
+from fleet_live import router as fleet_live_router
+from promotions import router as promotions_router
+app.include_router(promotions_router)
+app.include_router(fleet_live_router)
 app.include_router(auth_router)
 app.include_router(drivers_router)
 app.include_router(vehicles_router)
@@ -70,6 +74,8 @@ app.include_router(ads_router)
 async def startup_db():
     """Initialize database indexes and seed settings from env"""
     import os
+    from fleet_live import ensure_fleet_indexes
+    await ensure_fleet_indexes()
     try:
         await db.users.create_index("user_id", unique=True)
         await db.users.create_index("email", unique=True)

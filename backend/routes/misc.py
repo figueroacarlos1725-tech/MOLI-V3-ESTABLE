@@ -1,3 +1,4 @@
+from fleet_live import emit_provider_location, valid_location
 """Misc routes: health, config, banners, premium, websocket"""
 from fastapi import APIRouter, HTTPException, Depends, Query, WebSocket, WebSocketDisconnect
 from typing import Optional
@@ -103,11 +104,11 @@ async def websocket_endpoint(websocket: WebSocket, user_id: str):
                 if user.get("user_type") != "driver":
                     continue
                 lat, lng = data.get("latitude"), data.get("longitude")
-                if not isinstance(lat, (int, float)) or not isinstance(lng, (int, float)) or not (-90 <= lat <= 90 and -180 <= lng <= 180):
+                if not valid_location({"latitude":lat,"longitude":lng}):
                     continue
                 # Driver location update
                 await db.drivers.update_one(
-                    {"user_id": user_id},
+                    {"driver_id": user_id},
                     {"$set": {
                         "current_location": {
                             "latitude": data.get("latitude"),
@@ -117,6 +118,7 @@ async def websocket_endpoint(websocket: WebSocket, user_id: str):
                     }}
                 )
                 
+                await emit_provider_location(user_id, reported_location={"latitude":lat,"longitude":lng}, source="driver_ws")
                 # If driver has active ride, notify rider
                 active_ride = await db.rides.find_one({
                     "driver_id": user_id,

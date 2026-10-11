@@ -45,6 +45,17 @@ export async function getCurrentLocation(): Promise<LocationCoords | null> {
   }
 }
 
+/** Actual permission-backed GPS only. Never report the display/map fallback to tracking. */
+export async function getRealCurrentLocation(): Promise<LocationCoords | null> {
+  try {
+    if (!(await requestLocationPermission())) return null;
+    const result = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+    const { latitude, longitude } = result.coords;
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude) || Math.abs(latitude)>90 || Math.abs(longitude)>180) return null;
+    return { latitude, longitude };
+  } catch { return null; }
+}
+
 export async function reverseGeocode(latitude: number, longitude: number): Promise<string> {
   // Use backend multi-provider reverse geocode
   try {

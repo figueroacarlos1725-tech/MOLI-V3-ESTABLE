@@ -1,3 +1,4 @@
+import { operatorAlert } from '@/src/components/OperatorAlert';
 import React, { useEffect, useState } from 'react';
 import {
   View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity,
@@ -10,7 +11,7 @@ import { confirmAlert } from '@/src/utils/alert';
 interface Trip {
   ride_id: string; rider_name?: string; driver_name?: string;
   status: string; trip_type?: string; is_manual?: boolean;
-  is_ticketera?: boolean; fare?: number;
+  is_ticketera?: boolean; fare?: number; promotion?: { authorized_by?: string };
   pickup_location?: any; dropoff_location?: any;
   vehicle_type?: string; notes?: string; created_at?: string;
 }
@@ -47,7 +48,7 @@ export default function AdminTripsScreen() {
       if (statusFilter) url += `&status=${statusFilter}`;
       const r = await apiService.get(url);
       setTrips(r.rides || []);
-    } catch (e) {} finally { setLoading(false); }
+    } catch (e:any) { operatorAlert('No se pudo completar', e.message || 'Revisá la conexión e intentá nuevamente.'); } finally { setLoading(false); }
   };
 
   const fetchDrivers = async () => {
@@ -59,7 +60,7 @@ export default function AdminTripsScreen() {
         return ['rides', 'ride', 'driver', 'moto', 'taxi', 'delivery'].some(capability => capabilities.includes(capability));
       });
       setDrivers(eligible);
-    } catch (e) {}
+    } catch (e:any) { operatorAlert('No se pudo completar', e.message || 'Revisá la conexión e intentá nuevamente.'); }
   };
 
   const handleCreate = async () => {
@@ -95,6 +96,7 @@ export default function AdminTripsScreen() {
     } finally { setSaving(false); }
   };
 
+  const markPromotional = (rideId:string) => operatorAlert('Marcar viaje promocional','El conductor debe tener el plan canje activo. Cubrirá hasta $4.000 y el pasajero pagará el excedente. El crédito se acredita únicamente al completar el viaje.', [{text:'Cancelar',style:'cancel'},{text:'Confirmar promocional',onPress:async()=>{try{await apiService.post(`/admin/promotions/rides/${rideId}`);await fetchTrips();}catch(e:any){operatorAlert('No se pudo marcar',e.message || 'Revisá el plan y el estado del viaje.');}}}]);
   const resetForm = () => {
     setForm({trip_type:'full',rider_name:'',rider_phone:'',pickup_address:'',pickup_lat:'',pickup_lng:'',dropoff_address:'',dropoff_lat:'',dropoff_lng:'',vehicle_type:'economy',assigned_driver_id:'',notes:''});
   };
@@ -139,6 +141,7 @@ export default function AdminTripsScreen() {
                 {t.dropoff_location?.address && <Text style={s.tripAddr}><Ionicons name="flag" size={12} color="#EF4444" /> {t.dropoff_location.address}</Text>}
                 {t.notes ? <Text style={s.tripNotes}>{t.notes}</Text> : null}
                 <Text style={s.tripDate}>{t.created_at?.substring(0,16).replace('T',' ')}</Text>
+                {!!t.promotion?.authorized_by ? <Text style={{fontWeight:'800',color:'#E85E1A',marginTop:10}}>VIAJE PROMOCIONAL · cobertura hasta $4.000</Text> : ['accepted','arrived','started'].includes(t.status) && <TouchableOpacity accessibilityRole="button" onPress={()=>markPromotional(t.ride_id)} style={{padding:12,marginTop:10,borderRadius:12,backgroundColor:'#FFF3EB'}}><Text style={{fontWeight:'700',color:'#E85E1A'}}>Marcar como promocional</Text></TouchableOpacity>}
               </View>
             </View>
           ))}

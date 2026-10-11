@@ -1,3 +1,4 @@
+from opportunity_notifications import notify_delivery_taken
 """Isolated MVP router for merchants, catalog, cart, orders and settlement."""
 from datetime import datetime, timezone, timedelta
 from typing import Literal, Optional
@@ -193,6 +194,13 @@ async def create_product(data: ProductInput, user=Depends(get_current_user)):
     return public(doc)
 
 
+@router.get('/admin/merchants')
+async def admin_merchants(user=Depends(get_current_user)):
+    if user.get('user_type')!='admin': raise HTTPException(403,'Admin access required')
+    shops=await db.marketplace_merchants.find({}, {'_id':0,'merchant_id':1,'name':1,'address':1,'approval_status':1,'capabilities':1,'delivery_fee_cents':1,'created_at':1}).sort('created_at',-1).to_list(200)
+    return {'merchants':[public(shop) for shop in shops],'limit':200}
+
+
 @router.put("/products/{product_id}")
 async def update_product(product_id: str, data: ProductInput, user=Depends(get_current_user)):
     merchant = await owned_merchant(user)
@@ -323,7 +331,8 @@ async def transition_order(order_id: str, data: TransitionInput, user=Depends(ge
     is_merchant = user["user_id"] == (merchant or {}).get("owner_id")
     is_customer = user["user_id"] == order["customer_id"]
     # Delivery progression belongs exclusively to the assigned delivery endpoint.
-    allowed = is_admin or is_merchant and data.status in ("accepted", "rejected", "preparing", "ready", "cancelled") or is_customer and (
+    allowed = is_admin or is_merchant and (data.status in ("accepted", "rejected", "preparing", "ready", "cancelled") or
+        data.status == "completed" and order["fulfilment"] == "pickup") or is_customer and (
         data.status == "completed" and order["fulfilment"] == "pickup" or data.status == "cancelled" and order["status"] == "pending_merchant")
     if not allowed:
         raise HTTPException(403, "Not authorized")
@@ -428,6 +437,7 @@ async def accept_delivery(delivery_id: str, user=Depends(get_current_user)):
             {"delivery_id": delivery_id, "assigned_driver_id": user["user_id"]},
             {"$set": {"status": "cancelled", "cancel_reason": "order_already_assigned"}})
         raise HTTPException(409, "Order already assigned")
+    await notify_delivery_taken(delivery, user["user_id"])
     return {"delivery": claimed, "order": order}
 
 
@@ -474,6 +484,8 @@ async def transition_delivery(delivery_id: str, data: DeliveryTransitionInput,
     await db.marketplace_orders.update_one(
         {"order_id": delivery["order_id"], "driver_id": user["user_id"]},
         {"$set": {"status": order_status, "updated_at": now(), f"{order_status}_at": now()}})
+    from fleet_live import emit_fleet_changed
+    await emit_fleet_changed(user["user_id"])
     return updated
 
 

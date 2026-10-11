@@ -42,6 +42,8 @@ export interface Ride {
   dropoff_location?: Location;
   status: string;
   fare: number;
+  customer_amount_due?: number;
+  promotion?: { authorized_by?: string; coverage_cap?: number };
   vehicle_type?: string;
   service_type?: string;
   payment_method?: string;

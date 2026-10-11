@@ -16,6 +16,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { apiService } from '@/src/services/api';
 
+import { PromotionPlanChoice, PromotionPlan } from '@/src/components/PromotionPlan';
+
 interface EarningsData {
   period: string;
   total_earnings: number;
@@ -24,6 +26,8 @@ interface EarningsData {
 }
 
 interface WalletStatus {
+  promotional_credit_balance?: number;
+  promotion?: { plan?: PromotionPlan; phase: string; duration_days: number; ends_at?: string; active: boolean; daily_rides: number; coverage_cap: number };
   balance: number;
   driver_block: any;
   cancel_count_30d: number;
@@ -42,6 +46,9 @@ interface WalletTxn {
 
 export default function DriverEarningsScreen() {
   const router = useRouter();
+  const [planChoice, setPlanChoice] = useState<PromotionPlan>('standard_15');
+  const [enrolling, setEnrolling] = useState(false);
+  const [planMessage, setPlanMessage] = useState('');
   const [selectedPeriod, setSelectedPeriod] = useState<'today' | 'week' | 'month' | 'all'>('today');
   const [earnings, setEarnings] = useState<EarningsData | null>(null);
   const [walletStatus, setWalletStatus] = useState<WalletStatus | null>(null);
@@ -95,6 +102,12 @@ export default function DriverEarningsScreen() {
     fetchAll();
   }, [fetchAll]);
 
+  const enroll = async () => {
+    setEnrolling(true); setPlanMessage('');
+    try { await apiService.post('/promotions/enroll', {plan:planChoice}); await fetchAll(); setPlanMessage('Tu elección quedó registrada.'); }
+    catch (e:any) { setPlanMessage(e.message || 'No pudimos registrar el plan.'); }
+    finally { setEnrolling(false); }
+  };
   const onRefresh = () => {
     setRefreshing(true);
     fetchAll();
@@ -113,6 +126,8 @@ export default function DriverEarningsScreen() {
   const getTxnIcon = (type: string) => {
     switch (type) {
       case 'commission_debit': return { name: 'remove-circle', color: '#FF3B30' };
+      case 'promotional_credit': return { name: 'gift', color: '#E85E1A' };
+      case 'promotional_credit_used': return { name: 'checkmark-circle', color: '#007AFF' };
       case 'ride_earnings': return { name: 'add-circle', color: '#00C853' };
       case 'cancel_penalty': return { name: 'warning', color: '#FF9500' };
       case 'cancel_compensation': return { name: 'gift', color: '#007AFF' };
@@ -188,6 +203,16 @@ export default function DriverEarningsScreen() {
           )}
         </View>
 
+        {walletStatus && <View style={{marginHorizontal:16,marginBottom:16,padding:18,borderRadius:18,backgroundColor:'#FFF3EB',gap:10}}>
+          <Text style={{fontWeight:'800',fontSize:17,color:'#17233B'}}>Crédito promocional</Text>
+          <Text style={{fontSize:28,fontWeight:'800',color:'#E85E1A'}}>${(walletStatus.promotional_credit_balance || 0).toLocaleString('es-AR',{minimumFractionDigits:2})}</Text>
+          <Text style={{color:'#555',lineHeight:21}}>Solo se genera por viajes promocionales completados y validados. Se aplica a comisiones futuras; no es dinero retirable ni sirve para pagar otros conceptos.</Text>
+          {walletStatus.promotion?.plan ? <>
+            <Text style={{fontWeight:'700'}}>{walletStatus.promotion.plan==='barter_30'?'Plan lanzamiento: 0% por 30 días':'Plan habitual: 15%'}</Text>
+            {walletStatus.promotion.plan==='barter_30' && <Text style={{lineHeight:21,color:'#555'}}>{walletStatus.promotion.phase==='beta'?'En beta: la campaña aún no comenzó.':walletStatus.promotion.active?'Campaña activa.':'Campaña finalizada.'} Hasta {walletStatus.promotion.daily_rides} viajes promocionales por día, con cobertura de hasta ${walletStatus.promotion.coverage_cap.toLocaleString('es-AR')} cada uno.{walletStatus.promotion.ends_at ? ` Finaliza: ${new Date(walletStatus.promotion.ends_at).toLocaleDateString('es-AR')}.` : ''}</Text>}
+          </> : <><PromotionPlanChoice value={planChoice} onChange={setPlanChoice} /><TouchableOpacity accessibilityRole="button" disabled={enrolling} onPress={enroll} style={{backgroundColor:'#E85E1A',padding:15,borderRadius:12,alignItems:'center'}}><Text style={{color:'#fff',fontWeight:'800'}}>{enrolling?'Guardando...':'Confirmar mi plan'}</Text></TouchableOpacity></>}
+          {!!planMessage && <Text accessibilityRole="alert" style={{color:'#17233B'}}>{planMessage}</Text>}
+        </View>}
         {/* Cancellation info */}
         {walletStatus && (
           <View style={st.cancelInfo}>

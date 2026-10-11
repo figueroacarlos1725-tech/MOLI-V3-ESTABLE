@@ -1,172 +1,87 @@
-import React, { useEffect, useState, useRef } from 'react';
-import {
-  View, Text, StyleSheet, SafeAreaView, TouchableOpacity,
-  ActivityIndicator, ScrollView,
-} from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { apiService } from '@/src/services/api';
-import { MapView } from '@/src/components/MapView';
+import React,{useCallback,useRef,useState} from 'react';
+import {ActivityIndicator,Image,SafeAreaView,ScrollView,StyleSheet,Switch,Text,TextInput,TouchableOpacity,View} from 'react-native';
+import {useFocusEffect} from 'expo-router';
+import {apiService} from '@/src/services/api';
+import {socketService} from '@/src/services/socket';
+import {useAuthStore} from '@/src/stores/authStore';
+import FleetMap,{FleetPoint} from '@/src/components/FleetMap';
+import {FLEET_ICONS,fleetIconKey,fleetIconUrl} from '@/src/utils/fleetIcons';
 
-interface LiveDriver {
-  driver_id: string; name: string; phone: string;
-  is_online: boolean; is_available: boolean; is_blocked: boolean;
-  service_types: string[]; priority: number;
-  latitude: number | null; longitude: number | null;
-  active_ride: any;
+type Provider={provider_id:string;name:string;provider_type:string;activity?:string;vehicle_type?:string;category?:string;is_professional?:boolean;vehicle_id?:string;plate_number?:string;latitude?:number;longitude?:number;updated_at?:string;is_online:boolean;is_available:boolean;is_blocked?:boolean;active_ride?:any;active_job?:any;active_delivery?:any};
+const zone='America/Argentina/Buenos_Aires';
+function today(){const parts=new Intl.DateTimeFormat('en-CA',{timeZone:zone,year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date());return ['year','month','day'].map(type=>parts.find(part=>part.type===type)?.value).join('-');}
+function when(value?:string){if(!value)return'Sin reporte GPS';const date=new Date(value);return Number.isNaN(date.getTime())?'Sin hora válida':new Intl.DateTimeFormat('es-AR',{timeZone:zone,day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit'}).format(date);}
+function parseLocal(value:string){
+ const match=/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})$/.exec(value.trim());
+ if(!match)throw new Error('Usá fecha y hora con formato AAAA-MM-DD HH:mm.');
+ const[y,m,d,h,min]=match.slice(1).map(Number),check=new Date(Date.UTC(y,m-1,d,h,min));
+ if(check.getUTCFullYear()!==y||check.getUTCMonth()!==m-1||check.getUTCDate()!==d||check.getUTCHours()!==h||check.getUTCMinutes()!==min)throw new Error('La fecha o la hora no es válida.');
+ return new Date(`${match[1]}-${match[2]}-${match[3]}T${match[4]}:${match[5]}:00-03:00`).toISOString();
 }
 
-export default function GodsEyeScreen() {
-  const [drivers, setDrivers] = useState<LiveDriver[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<'all'|'online'|'busy'|'offline'>('all');
-  const [selectedDriver, setSelectedDriver] = useState<LiveDriver|null>(null);
-  const refreshTimer = useRef<any>(null);
-
-  useEffect(() => {
-    fetchDrivers();
-    // Auto refresh every 15 seconds
-    refreshTimer.current = setInterval(fetchDrivers, 15000);
-    return () => { if (refreshTimer.current) clearInterval(refreshTimer.current); };
-  }, []);
-
-  const fetchDrivers = async () => {
-    try {
-      const r = await apiService.get('/admin/drivers/live');
-      setDrivers(r.drivers || []);
-    } catch (e) { console.error(e); } finally { setLoading(false); }
-  };
-
-  const filtered = drivers.filter(d => {
-    if (filter === 'online') return d.is_online && !d.active_ride;
-    if (filter === 'busy') return d.is_online && d.active_ride;
-    if (filter === 'offline') return !d.is_online;
-    return true;
+export default function GodsEye(){
+ const{user}=useAuthStore();
+ const[providers,setProviders]=useState<Provider[]>([]),[selected,setSelected]=useState<string|null>(null),[filter,setFilter]=useState('all');
+ const[loading,setLoading]=useState(true),[connected,setConnected]=useState(false),[error,setError]=useState('');
+ const[from,setFrom]=useState(`${today()} 00:00`),[to,setTo]=useState(`${today()} 23:59`),[day,setDay]=useState(today());
+ const[points,setPoints]=useState<FleetPoint[]>([]),[trajectoryBusy,setTrajectoryBusy]=useState(false),[trajectoryNotice,setTrajectoryNotice]=useState(''),[historyMode,setHistoryMode]=useState(false);
+ const[onlyVehicle,setOnlyVehicle]=useState(true);
+ const mounted=useRef(false),request=useRef(0),trajectoryRequest=useRef(0);
+ const load=useCallback(async()=>{const turn=++request.current;try{const result=await apiService.get('/admin/fleet/live');if(mounted.current&&turn===request.current){setProviders(result.providers||[]);setError('');}}catch(e:any){if(mounted.current)setError(e.message||'No pudimos cargar la flota.');}finally{if(mounted.current)setLoading(false);}},[]);
+ useFocusEffect(useCallback(()=>{
+  mounted.current=true;void load();if(user?.user_id)void socketService.connect(user.user_id);setConnected(socketService.isConnected);
+  const offLocation=socketService.on('fleet_location',(data:any)=>{
+   if(!data.provider_id||!Number.isFinite(data.latitude)||!Number.isFinite(data.longitude))return;
+   setConnected(true);setProviders(old=>{const index=old.findIndex(provider=>provider.provider_id===data.provider_id);if(index<0){void load();return old;}const copy=old.slice();copy[index]={...copy[index],...data};return copy;});
   });
-
-  const mapMarkers = filtered
-    .filter(d => d.latitude && d.longitude)
-    .map(d => ({
-      latitude: d.latitude!,
-      longitude: d.longitude!,
-      title: d.name,
-      type: 'driver' as const,
-      vehicleType: d.service_types?.[0] || 'economy',
-    }));
-
-  const onlineCount = drivers.filter(d => d.is_online).length;
-  const busyCount = drivers.filter(d => d.active_ride).length;
-  const offlineCount = drivers.filter(d => !d.is_online).length;
-
-  return (
-    <SafeAreaView style={s.container}>
-      <View style={s.header}>
-        <View style={s.headerRow}>
-          <Ionicons name="eye" size={26} color="#E85E1A" />
-          <Text style={s.title}>Ojo de Dios</Text>
-          <TouchableOpacity onPress={fetchDrivers} style={s.refreshBtn}>
-            <Ionicons name="refresh" size={20} color="#E85E1A" />
-          </TouchableOpacity>
-        </View>
-        <View style={s.statsRow}>
-          <View style={s.statChip}>
-            <View style={[s.dot, {backgroundColor:'#10B981'}]} />
-            <Text style={s.statText}>{onlineCount} en linea</Text>
-          </View>
-          <View style={s.statChip}>
-            <View style={[s.dot, {backgroundColor:'#F59E0B'}]} />
-            <Text style={s.statText}>{busyCount} en viaje</Text>
-          </View>
-          <View style={s.statChip}>
-            <View style={[s.dot, {backgroundColor:'#EF4444'}]} />
-            <Text style={s.statText}>{offlineCount} offline</Text>
-          </View>
-        </View>
-      </View>
-
-      {/* Map */}
-      <View style={s.mapContainer}>
-        <MapView
-          initialRegion={{ latitude: -28.4696, longitude: -65.7852 }}
-          markers={mapMarkers}
-          style={{ flex: 1 }}
-        />
-        <Text style={s.autoRefresh}>Auto-actualiza cada 15s</Text>
-      </View>
-
-      {/* Filters */}
-      <View style={s.filterRow}>
-        {(['all','online','busy','offline'] as const).map(f => (
-          <TouchableOpacity key={f} style={[s.filterBtn, filter===f && s.filterBtnActive]} onPress={() => setFilter(f)}>
-            <Text style={[s.filterBtnText, filter===f && s.filterBtnTextActive]}>
-              {f==='all'?'Todos':f==='online'?'Libres':f==='busy'?'En viaje':'Offline'}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-
-      {/* Driver List */}
-      {loading ? <ActivityIndicator size="large" color="#E85E1A" style={{marginTop:20}} /> :
-        <ScrollView contentContainerStyle={s.list}>
-          {filtered.map(d => (
-            <TouchableOpacity key={d.driver_id} style={s.driverCard} onPress={() => setSelectedDriver(selectedDriver?.driver_id === d.driver_id ? null : d)}>
-              <View style={s.driverRow}>
-                <View style={[s.statusDot, d.is_online ? (d.active_ride ? s.dotBusy : s.dotOnline) : s.dotOffline]} />
-                <View style={{flex:1}}>
-                  <Text style={s.driverName}>{d.name}</Text>
-                  <Text style={s.driverPhone}>{d.phone || 'Sin telefono'}</Text>
-                </View>
-                <View style={{alignItems:'flex-end'}}>
-                  {d.active_ride && <Text style={s.rideBadge}>En viaje</Text>}
-                  {d.is_blocked && <Text style={s.blockedBadge}>Bloqueado</Text>}
-                  {d.priority > 0 && <Text style={s.priorityBadge}>P{d.priority}</Text>}
-                </View>
-              </View>
-              {selectedDriver?.driver_id === d.driver_id && (
-                <View style={s.driverDetail}>
-                  <Text style={s.detailText}>Servicios: {d.service_types?.join(', ') || 'economy'}</Text>
-                  {d.latitude && <Text style={s.detailText}>Ubicacion: {d.latitude.toFixed(4)}, {d.longitude?.toFixed(4)}</Text>}
-                  {d.active_ride && <Text style={s.detailText}>Viaje: {d.active_ride.ride_id} ({d.active_ride.status})</Text>}
-                  {!d.latitude && <Text style={s.detailText}>Sin ubicacion GPS</Text>}
-                </View>
-              )}
-            </TouchableOpacity>
-          ))}
-          {filtered.length === 0 && <Text style={s.empty}>No hay conductores en esta categoria</Text>}
-          <View style={{height:30}} />
-        </ScrollView>
-      }
-    </SafeAreaView>
-  );
+  const offChanged=socketService.on('fleet_changed',()=>{void load();});
+  const offConnected=socketService.on('transport_connected',()=>{setConnected(true);void load();});
+  const offDisconnected=socketService.on('transport_disconnected',()=>setConnected(false));
+  return()=>{mounted.current=false;request.current++;trajectoryRequest.current++;offLocation();offChanged();offConnected();offDisconnected();};
+ },[load,user?.user_id]));
+ const current=providers.find(provider=>provider.provider_id===selected);
+ const visible=providers.filter(provider=>filter==='all'||filter==='online'&&provider.is_online||filter==='offline'&&!provider.is_online||filter==='busy'&&!!(provider.active_ride||provider.active_job||provider.active_delivery)||filter==='professional'&&(provider.provider_type==='professional'||provider.is_professional));
+ const mapProviders=historyMode?[]:visible;
+ const markers=mapProviders.filter(provider=>Number.isFinite(provider.latitude)&&Number.isFinite(provider.longitude)).map(provider=>({id:provider.provider_id,latitude:provider.latitude!,longitude:provider.longitude!,title:`${provider.name} · ${provider.activity||provider.vehicle_type||provider.provider_type} · GPS ${when(provider.updated_at)}`,vehicleType:provider.vehicle_type,provider_type:provider.provider_type,activity:provider.activity,is_online:provider.is_online,iconUrl:fleetIconUrl(provider)}));
+ const choose=(id:string)=>{setSelected(id);setHistoryMode(false);setPoints([]);setTrajectoryBusy(false);setTrajectoryNotice('');trajectoryRequest.current++;};
+ const trajectory=async(useDay=false)=>{
+  if(!selected){setTrajectoryNotice('Elegí un vehículo o prestador.');return;}
+  const turn=++trajectoryRequest.current;setTrajectoryNotice('');setTrajectoryBusy(true);setPoints([]);setHistoryMode(true);
+  try{
+   const fromTime=parseLocal(useDay?`${day} 00:00`:from),toTime=parseLocal(useDay?`${day} 23:59`:to);
+   if(new Date(toTime)<=new Date(fromTime))throw new Error('Hasta debe ser posterior a Desde.');
+   const params=new URLSearchParams({from_time:fromTime,to_time:useDay?new Date(new Date(toTime).getTime()+59999).toISOString():toTime});
+   if(onlyVehicle&&current?.vehicle_id)params.set('vehicle_id',current.vehicle_id);
+   const result=await apiService.get(`/admin/fleet/${encodeURIComponent(selected)}/trajectory?${params}`);
+   if(turn!==trajectoryRequest.current||!mounted.current)return;
+   setPoints(result.points||[]);setTrajectoryNotice(result.count?`${result.count} puntos registrados. Retención: ${result.retention_days} días.${result.truncated?' Resultado limitado: reducí el intervalo para ver todos los puntos.':''}`:'No hay ubicaciones registradas en ese intervalo. El historial comienza desde esta implementación y depende de los reportes del teléfono.');
+  }catch(e:any){if(turn===trajectoryRequest.current)setTrajectoryNotice(e.message||'No se pudo consultar la trayectoria.');}
+  finally{if(turn===trajectoryRequest.current)setTrajectoryBusy(false);}
+ };
+ return <SafeAreaView style={s.page}><ScrollView contentContainerStyle={s.body} keyboardShouldPersistTaps="handled">
+  <View style={s.row}><Text style={s.title}>Ojo de Dios</Text><Text style={{color:connected?'#098A5A':'#B42318'}}>{connected?'● Conectado en vivo':'● Conexión en vivo pendiente'}</Text></View>
+  <Text>Actualización por eventos de ubicación. La frecuencia depende del teléfono; GPS en segundo plano aún pendiente.</Text>
+  {!!error&&<Text style={s.error}>{error}</Text>}
+  <TouchableOpacity accessibilityRole="button" onPress={load} style={s.secondary}><Text>Recuperar estado de flota</Text></TouchableOpacity>
+  <View style={s.row}>{[['all','Todos'],['online','Conectados'],['busy','En servicio'],['professional','Profesionales'],['offline','Desconectados']].map(([value,label])=><TouchableOpacity accessibilityRole="button" key={value} onPress={()=>setFilter(value)} style={[s.chip,filter===value&&s.chipOn]}><Text>{label}</Text></TouchableOpacity>)}</View>
+  <View style={s.row}>{(['car','moto','professional','paperwork','delivery'] as const).map((key,index)=><View key={key} style={{alignItems:'center',padding:6}}><Image source={FLEET_ICONS[key]} style={{width:42,height:42}} resizeMode="contain"/><Text>{['Auto / Taxi','Moto','Profesionales','Trámites','Delivery / Envíos'][index]}</Text></View>)}</View>
+  {loading?<ActivityIndicator/>:<FleetMap markers={markers} trajectory={historyMode?points:[]} selectedId={historyMode?undefined:selected||undefined} onSelect={choose} style={{height:400}}/>}
+  <Text>El punto es el último GPS recibido. Revisá su hora; un punto antiguo no confirma la ubicación actual.</Text>
+  {!!current&&<View style={s.card}>
+   <View style={s.row}><Image source={FLEET_ICONS[fleetIconKey(current)]} style={{width:48,height:48}} resizeMode="contain"/><Text style={s.subtitle}>{current.name}{current.plate_number?` · ${current.plate_number}`:''}</Text></View><Text>{current.activity||current.vehicle_type||current.provider_type} · {current.is_online?'Conectado':'Desconectado'} · GPS {when(current.updated_at)}</Text>
+   <Text style={s.subtitle}>Trayectoria para revisar un reclamo</Text><Text>Horarios de Argentina (UTC−3). Seleccioná día o intervalo de hasta 7 días.</Text>
+   {!!current.vehicle_id&&<View style={s.row}><Text>Solo este vehículo ({current.plate_number||current.vehicle_id})</Text><Switch accessibilityLabel="Solo este vehículo" value={onlyVehicle} onValueChange={setOnlyVehicle}/></View>}
+   <Text>Día (AAAA-MM-DD)</Text><TextInput accessibilityLabel="Día de trayectoria" value={day} onChangeText={setDay} style={s.input}/>
+   <TouchableOpacity accessibilityRole="button" disabled={trajectoryBusy} onPress={()=>{void trajectory(true);}} style={s.primary}><Text style={s.primaryText}>Ver trayectoria del día</Text></TouchableOpacity>
+   <Text>Desde (AAAA-MM-DD HH:mm)</Text><TextInput accessibilityLabel="Desde de trayectoria" value={from} onChangeText={setFrom} style={s.input}/>
+   <Text>Hasta (AAAA-MM-DD HH:mm)</Text><TextInput accessibilityLabel="Hasta de trayectoria" value={to} onChangeText={setTo} style={s.input}/>
+   <TouchableOpacity accessibilityRole="button" disabled={trajectoryBusy} onPress={()=>{void trajectory();}} style={s.primary}><Text style={s.primaryText}>{trajectoryBusy?'Consultando…':'Ver intervalo'}</Text></TouchableOpacity>
+   <TouchableOpacity accessibilityRole="button" onPress={()=>{trajectoryRequest.current++;setTrajectoryBusy(false);setHistoryMode(false);setPoints([]);setTrajectoryNotice('');}} style={s.secondary}><Text>Volver a flota en vivo</Text></TouchableOpacity>
+   {!!trajectoryNotice&&<Text accessibilityLiveRegion="polite">{trajectoryNotice}</Text>}
+   {!!points.length&&<Text>Primer reporte: {when(points[0].occurred_at)} · Último: {when(points[points.length-1].occurred_at)}. La línea une muestras GPS; no certifica cada tramo de calle recorrido.</Text>}
+  </View>}
+  <Text style={s.subtitle}>Vehículos y prestadores ({visible.length})</Text>
+  {visible.map(provider=><TouchableOpacity accessibilityRole="button" key={provider.provider_id} onPress={()=>choose(provider.provider_id)} style={[s.card,selected===provider.provider_id&&{borderColor:'#FF7733',borderWidth:2}]}><View style={s.row}><Image source={FLEET_ICONS[fleetIconKey(provider)]} style={{width:48,height:48}} resizeMode="contain"/><Text style={s.subtitle}>{provider.name}{provider.plate_number?` · ${provider.plate_number}`:''}</Text></View><Text>{provider.activity||provider.vehicle_type||provider.provider_type} · {provider.is_online?'Conectado':'Desconectado'} · {provider.is_blocked?'Bloqueado':!provider.is_online?'Fuera de servicio':provider.is_available?'Disponible':'No disponible'}</Text><Text>GPS: {when(provider.updated_at)}</Text><Text>Ver ubicación y trayectoria</Text></TouchableOpacity>)}
+ </ScrollView></SafeAreaView>;
 }
-
-const s = StyleSheet.create({
-  container:{flex:1,backgroundColor:'#F2F2F7'},
-  header:{backgroundColor:'#fff',paddingHorizontal:16,paddingTop:12,paddingBottom:10,borderBottomWidth:1,borderBottomColor:'#E5E5EA'},
-  headerRow:{flexDirection:'row',alignItems:'center',gap:10},
-  title:{fontSize:22,fontWeight:'bold',color:'#1C1C1E',flex:1},
-  refreshBtn:{padding:8,backgroundColor:'#FFF0EC',borderRadius:8},
-  statsRow:{flexDirection:'row',gap:12,marginTop:8},
-  statChip:{flexDirection:'row',alignItems:'center',gap:6},
-  dot:{width:8,height:8,borderRadius:4},
-  statText:{fontSize:12,color:'#666',fontWeight:'600'},
-  mapContainer:{height:280,margin:12,borderRadius:14,overflow:'hidden',position:'relative'},
-  autoRefresh:{position:'absolute',bottom:8,right:8,backgroundColor:'rgba(0,0,0,0.5)',color:'#fff',fontSize:10,paddingHorizontal:8,paddingVertical:3,borderRadius:10,overflow:'hidden'},
-  filterRow:{flexDirection:'row',paddingHorizontal:12,gap:8,marginBottom:8},
-  filterBtn:{paddingHorizontal:14,paddingVertical:6,borderRadius:20,backgroundColor:'#E5E5EA'},
-  filterBtnActive:{backgroundColor:'#E85E1A'},
-  filterBtnText:{fontSize:13,fontWeight:'600',color:'#666'},
-  filterBtnTextActive:{color:'#fff'},
-  list:{paddingHorizontal:12,gap:8},
-  driverCard:{backgroundColor:'#fff',borderRadius:12,padding:12},
-  driverRow:{flexDirection:'row',alignItems:'center',gap:10},
-  statusDot:{width:12,height:12,borderRadius:6},
-  dotOnline:{backgroundColor:'#10B981'},dotBusy:{backgroundColor:'#F59E0B'},dotOffline:{backgroundColor:'#D1D5DB'},
-  driverName:{fontSize:15,fontWeight:'600',color:'#1C1C1E'},
-  driverPhone:{fontSize:12,color:'#8E8E93'},
-  rideBadge:{fontSize:10,fontWeight:'700',color:'#F59E0B',backgroundColor:'#FEF3C7',paddingHorizontal:8,paddingVertical:2,borderRadius:8,overflow:'hidden'},
-  blockedBadge:{fontSize:10,fontWeight:'700',color:'#EF4444',backgroundColor:'#FEE2E2',paddingHorizontal:8,paddingVertical:2,borderRadius:8,overflow:'hidden',marginTop:2},
-  priorityBadge:{fontSize:10,fontWeight:'700',color:'#8B5CF6',backgroundColor:'#FFF0EC',paddingHorizontal:8,paddingVertical:2,borderRadius:8,overflow:'hidden',marginTop:2},
-  driverDetail:{marginTop:10,paddingTop:10,borderTopWidth:1,borderTopColor:'#F2F2F7'},
-  detailText:{fontSize:12,color:'#666',marginBottom:2},
-  empty:{textAlign:'center',color:'#8E8E93',marginTop:30,fontSize:15},
-});
+const s=StyleSheet.create({page:{flex:1,backgroundColor:'#F7F5F2'},body:{padding:20,gap:12},row:{flexDirection:'row',alignItems:'center',gap:10,flexWrap:'wrap'},title:{fontSize:28,fontWeight:'800',flex:1},subtitle:{fontSize:18,fontWeight:'700'},card:{backgroundColor:'#FFF',borderRadius:16,padding:18,gap:10},chip:{padding:12,minHeight:44,backgroundColor:'#EEE',borderRadius:12},chipOn:{backgroundColor:'#FFD7BC'},input:{borderWidth:1,borderColor:'#DDD',padding:12,minHeight:48,borderRadius:12},primary:{padding:15,minHeight:48,backgroundColor:'#FF7733',borderRadius:12},primaryText:{color:'#FFF',fontWeight:'700'},secondary:{padding:14,minHeight:48,backgroundColor:'#EEE',borderRadius:12},error:{color:'#B42318'}});

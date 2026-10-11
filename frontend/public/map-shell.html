@@ -27,7 +27,44 @@
     let route=null;
     let clickEnabled=false;
 
-    const send=data=>window.parent.postMessage(JSON.stringify(data),'*');
+    const send=data=>{
+      if(window.ReactNativeWebView)window.ReactNativeWebView.postMessage(JSON.stringify(data));
+      if(window.parent!==window)window.parent.postMessage(JSON.stringify(data),window.location.origin);
+    };
+    const escapeHtml=value=>String(value??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
+    const fleetMarkers=new Map();
+    let fleetFit=false,trailLayer=null,trailEnds=[];
+    const fleetIcon=item=>{
+      const opacity=item.is_online===false?'.45':'1';
+      const fallback=['moto','motorcycle'].includes(item.vehicleType)?'/vehicles/map-moto-moli.png':'/vehicles/map-car-moli.png';
+      const source=typeof item.iconUrl==='string'&&/^\/fleet-icons\/[a-z-]+\.png$/.test(item.iconUrl)?item.iconUrl:fallback;
+      return L.divIcon({className:'leaflet-div-icon',html:`<div data-provider-id="${escapeHtml(item.id)}" style="opacity:${opacity};width:58px;height:58px;display:grid;place-items:center"><img src="${escapeHtml(source)}" alt="" style="width:var(--vehicle-size,40px);height:var(--vehicle-size,40px);object-fit:contain;filter:drop-shadow(0 3px 3px #332a)" /></div>`,iconSize:[58,58],iconAnchor:[29,29]});
+    };
+    window.updateFleet=data=>{
+      const keep=new Set(),bounds=L.latLngBounds([]);
+      (data.markers||[]).forEach(item=>{
+        if(!item.id||!Number.isFinite(item.latitude)||!Number.isFinite(item.longitude))return;
+        keep.add(item.id);let marker=fleetMarkers.get(item.id);
+        if(!marker){marker=L.marker([item.latitude,item.longitude],{icon:fleetIcon(item)}).addTo(map);marker.on('click',()=>send({type:'providerSelect',id:item.id}));fleetMarkers.set(item.id,marker);}
+        else{marker.setLatLng([item.latitude,item.longitude]);marker.setIcon(fleetIcon(item));}
+        marker.bindTooltip(escapeHtml(item.title),{direction:'top',offset:[0,-20]});bounds.extend(marker.getLatLng());
+      });
+      fleetMarkers.forEach((marker,id)=>{if(!keep.has(id)){map.removeLayer(marker);fleetMarkers.delete(id);}});
+      if(!fleetFit&&bounds.isValid()){map.fitBounds(bounds,{padding:[45,45],maxZoom:15});fleetFit=true;}
+      if(data.focusId&&data.focusId!==window._fleetFocus&&fleetMarkers.has(data.focusId)){map.setView(fleetMarkers.get(data.focusId).getLatLng(),16);}
+      window._fleetFocus=data.focusId||null;
+      const points=(data.trajectory||[]).filter(point=>Number.isFinite(point.latitude)&&Number.isFinite(point.longitude));
+      const signature=JSON.stringify(points);
+      if(signature!==window._fleetTrailSignature){
+        window._fleetTrailSignature=signature;
+        if(trailLayer)map.removeLayer(trailLayer);trailEnds.forEach(marker=>map.removeLayer(marker));trailEnds=[];trailLayer=null;
+        if(points.length){
+          trailLayer=L.polyline(points.map(point=>[point.latitude,point.longitude]),{color:'#1769D2',weight:5,opacity:.9}).addTo(map);
+          [points[0],points[points.length-1]].forEach((point,index)=>{const marker=L.circleMarker([point.latitude,point.longitude],{radius:8,color:index?'#B42318':'#098A5A',fillOpacity:1}).addTo(map);marker.bindTooltip(`${index?'Fin':'Inicio'}: ${escapeHtml(point.occurred_at||'')}`);trailEnds.push(marker);});
+          map.fitBounds(trailLayer.getBounds(),{padding:[45,45],maxZoom:17});
+        }
+      }
+    };
     const iconFor=m=>{
       if(m.type==='driver'){
         const src=m.vehicleType==='moto'?'/vehicles/map-moto-moli.png':'/vehicles/map-car-moli.png';
@@ -52,7 +89,7 @@
       const bounds=L.latLngBounds([]);
       (items||[]).forEach(item=>{
         const marker=L.marker([item.latitude,item.longitude],{icon:iconFor(item),draggable:!!item.draggable}).addTo(map);
-        if(item.title)marker.bindTooltip(item.title,{direction:'top',offset:[0,-20]});
+        if(item.title)marker.bindTooltip(escapeHtml(item.title),{direction:'top',offset:[0,-20]});
         if(item.draggable)marker.on('dragend',event=>{
           const point=event.target.getLatLng();
           send({type:'markerDrag',markerType:item.type||'',latitude:point.lat,longitude:point.lng});
@@ -74,7 +111,9 @@
     });
 
     window.addEventListener('message',event=>{
-      const data=typeof event.data==='string'?JSON.parse(event.data):event.data;
+      if(event.source!==window.parent||event.origin!==window.location.origin)return;
+      let data;try{data=typeof event.data==='string'?JSON.parse(event.data):event.data;}catch{return;}
+      if(data?.type==='fleet'){window.updateFleet(data);return;}
       if(data?.type==='init'){
         clickEnabled=!!data.enableClick;
         map.setView([data.latitude||-28.4696,data.longitude||-65.7852],14);

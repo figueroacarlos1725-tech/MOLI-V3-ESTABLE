@@ -46,6 +46,7 @@ class SocketService {
         this.reconnectAttempts = 0;
         this.isConnecting = false;
         this.startKeepAlive();
+        this.listeners.get('transport_connected')?.forEach(callback=>{try{callback({type:'transport_connected'});}catch{}});
       };
 
       this.socket.onmessage = (event) => {
@@ -75,6 +76,7 @@ class SocketService {
         this.stopKeepAlive();
         this.isConnecting = false;
         this.socket = null;
+        this.listeners.get('transport_disconnected')?.forEach(callback=>{try{callback({type:'transport_disconnected'});}catch{}});
         this.scheduleReconnect();
       };
 
@@ -160,6 +162,7 @@ class SocketService {
     }
     this.userId = null;
     this.isConnecting = false;
+    this.listeners.get('transport_disconnected')?.forEach(callback=>{try{callback({type:'transport_disconnected'});}catch{}});
   }
 
   on(event: string, callback: (data: any) => void) {

@@ -1,3 +1,4 @@
+import { operatorAlert } from '@/src/components/OperatorAlert';
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
@@ -74,12 +75,12 @@ export default function AdminVerificationScreen() {
       try {
         const vcRes = await apiService.get('/admin/vehicle-changes');
         setVehicleChanges(vcRes?.changes || []);
-      } catch (e) {}
+      } catch (e:any) { operatorAlert('No se pudo completar', e.message || 'Revisá la conexión e intentá nuevamente.'); }
       try {
         const registrationRes = await apiService.get('/admin/registrations?status=pending');
         setRegistrations(registrationRes?.registrations || []);
-      } catch (e) {}
-    } catch (e) { console.error(e); }
+      } catch (e:any) { operatorAlert('No se pudo completar', e.message || 'Revisá la conexión e intentá nuevamente.'); }
+    } catch (e:any) { operatorAlert('No se pudo completar', e.message || 'Revisá la conexión e intentá nuevamente.'); }
     finally { setLoading(false); setRefreshing(false); }
   }, []);
 
@@ -112,7 +113,7 @@ export default function AdminVerificationScreen() {
       setRejectReason('');
       fetchDrivers();
     } catch (e: any) {
-      Alert.alert('Error', e.message || 'No se pudo procesar');
+      operatorAlert('Error', e.message || 'No se pudo procesar');
     }
     setProcessing(false);
   };
@@ -144,9 +145,9 @@ export default function AdminVerificationScreen() {
       setProcessing(true);
       try {
         await apiService.post(`/admin/registrations/${item.user_id}/decision?decision=${decision}&capability=${encodeURIComponent(capability)}&reason=${encodeURIComponent(reason)}`);
-        Alert.alert(decision === 'approve' ? 'Capacidad aprobada' : 'Capacidad rechazada', CAP_LABELS[capability] || capability);
+        operatorAlert(decision === 'approve' ? 'Capacidad aprobada' : 'Capacidad rechazada', CAP_LABELS[capability] || capability);
         fetchDrivers();
-      } catch (e: any) { Alert.alert('Error', e.message || 'No se pudo revisar'); }
+      } catch (e: any) { operatorAlert('Error', e.message || 'No se pudo revisar'); }
       finally { setProcessing(false); }
     };
     if (decision === 'approve') return run();
@@ -223,12 +224,12 @@ export default function AdminVerificationScreen() {
                 </View>
                 <View style={{ flexDirection: 'row', gap: 10, marginTop: 12 }}>
                   <TouchableOpacity style={{ flex: 1, padding: 10, borderRadius: 10, backgroundColor: '#FF3B30', alignItems: 'center' }} onPress={async () => {
-                    try { await apiService.put(`/admin/vehicle-changes/${vc.change_id}`, { action: 'reject' }); Alert.alert('Rechazado'); fetchDrivers(); setSelectedDriver(null); } catch(e) {}
+                    try { await apiService.put(`/admin/vehicle-changes/${vc.change_id}`, { action: 'reject' }); operatorAlert('Rechazado'); fetchDrivers(); setSelectedDriver(null); } catch(e) {}
                   }}>
                     <Text style={{ color: '#fff', fontWeight: '600', fontSize: 13 }}>Rechazar</Text>
                   </TouchableOpacity>
                   <TouchableOpacity style={{ flex: 1, padding: 10, borderRadius: 10, backgroundColor: '#FF7733', alignItems: 'center' }} onPress={async () => {
-                    try { await apiService.put(`/admin/vehicle-changes/${vc.change_id}`, { action: 'approve' }); Alert.alert('Aprobado', 'Datos de vehículo actualizados'); fetchDrivers(); setSelectedDriver(null); } catch(e) {}
+                    try { await apiService.put(`/admin/vehicle-changes/${vc.change_id}`, { action: 'approve' }); operatorAlert('Aprobado', 'Datos de vehículo actualizados'); fetchDrivers(); setSelectedDriver(null); } catch(e) {}
                   }}>
                     <Text style={{ color: '#fff', fontWeight: '600', fontSize: 13 }}>Aprobar</Text>
                   </TouchableOpacity>
@@ -310,11 +311,11 @@ export default function AdminVerificationScreen() {
                       try {
                         setProcessing(true);
                         await apiService.put(`/admin/drivers/${selectedDriver!.driver_id}/verify?verified=true`);
-                        Alert.alert('Conductor verificado', `${selectedDriver!.name} fue verificado exitosamente`);
+                        operatorAlert('Conductor verificado', `${selectedDriver!.name} fue verificado exitosamente`);
                         setSelectedDriver(null);
                         setDriverDocs([]);
                         fetchDrivers();
-                      } catch (e: any) { Alert.alert('Error', e.message); }
+                      } catch (e: any) { operatorAlert('Error', e.message); }
                       finally { setProcessing(false); }
                     }}
                     disabled={processing}
@@ -352,7 +353,7 @@ export default function AdminVerificationScreen() {
                         <TouchableOpacity
                           style={{ flex: 1, paddingVertical: 12, borderRadius: 10, backgroundColor: '#FF3B30', alignItems: 'center' }}
                           onPress={async () => {
-                            if (!rejectReason.trim()) { Alert.alert('Error', 'Ingresá un motivo'); return; }
+                            if (!rejectReason.trim()) { operatorAlert('Error', 'Ingresá un motivo'); return; }
                             setProcessing(true);
                             try {
                               await apiService.put(`/admin/drivers/${selectedDriver!.driver_id}/verify?verified=false`);
@@ -362,13 +363,13 @@ export default function AdminVerificationScreen() {
                                 subject: 'Verificación rechazada',
                                 body: `Tu verificación fue rechazada. Motivo: ${rejectReason.trim()}. Por favor corregí los documentos y volvé a subirlos.`,
                               });
-                              Alert.alert('Conductor rechazado', 'Se envió el motivo a su bandeja de entrada');
+                              operatorAlert('Conductor rechazado', 'Se envió el motivo a su bandeja de entrada');
                               setSelectedDriver(null);
                               setDriverDocs([]);
                               setShowRejectInput(false);
                               setRejectReason('');
                               fetchDrivers();
-                            } catch (e: any) { Alert.alert('Error', e.message); }
+                            } catch (e: any) { operatorAlert('Error', e.message); }
                             finally { setProcessing(false); }
                           }}
                           disabled={processing}

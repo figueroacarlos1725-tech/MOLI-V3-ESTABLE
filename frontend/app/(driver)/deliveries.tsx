@@ -2,6 +2,9 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, RefreshControl, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useIsFocused } from '@react-navigation/native';
+import { useAuthStore } from '@/src/stores/authStore';
+import { socketService } from '@/src/services/socket';
 import { apiService } from '@/src/services/api';
 import { MOLI_COLORS as C, MOLI_RADIUS as R, MOLI_SHADOWS as SH } from '@/src/theme/colors';
 
@@ -27,6 +30,9 @@ const next: Record<string,{status:string;label:string;icon:React.ComponentProps<
 
 export default function DriverDeliveriesScreen(){
   const router=useRouter();
+  const isFocused=useIsFocused();
+  const user=useAuthStore(state=>state.user);
+  const [opportunityNotice,setOpportunityNotice]=useState('');
   const {activity}=useLocalSearchParams<{activity?:string}>();
   const [items,setItems]=useState<DeliveryCard[]>([]);
   const [loading,setLoading]=useState(true);
@@ -40,7 +46,16 @@ export default function DriverDeliveriesScreen(){
     catch(e:any){setMessage(e.message||'No pudimos cargar las entregas.');}
     finally{setLoading(false);setRefreshing(false);}
   },[]);
-  useEffect(()=>{load();const timer=setInterval(load,10000);return()=>clearInterval(timer);},[load]);
+  useEffect(()=>{if(!isFocused)return;load();const timer=setInterval(load,10000);return()=>clearInterval(timer);},[load,isFocused]);
+  useEffect(()=>{
+    if(!user?.user_id||!isFocused)return;
+    socketService.connect(user.user_id);
+    return socketService.on('delivery_opportunity_taken',(notice:any)=>{
+      setItems(current=>current.filter(item=>item.delivery_id!==notice.delivery_id));
+      setOpportunityNotice(notice.message||'Otro repartidor aceptó esta entrega.');
+      load();
+    });
+  },[user?.user_id,isFocused,load]);
 
   const accept=async(item:DeliveryCard)=>{setBusy(item.delivery_id);try{await apiService.post(`/marketplace/deliveries/${item.delivery_id}/accept`,{});await load();}catch(e:any){setMessage(e.message||'La oferta ya no está disponible.');}finally{setBusy(null);}};
   const advance=async(item:DeliveryCard)=>{const action=next[item.status];if(!action)return;setBusy(item.delivery_id);try{await apiService.put(`/marketplace/deliveries/${item.delivery_id}/status`,{status:action.status});await load();}catch(e:any){setMessage(e.message||'No pudimos actualizar la entrega.');}finally{setBusy(null);}};
@@ -49,6 +64,7 @@ export default function DriverDeliveriesScreen(){
   return <SafeAreaView style={s.page}>
     <View style={s.header}><TouchableOpacity accessibilityRole="button" accessibilityLabel="Volver" style={s.back} onPress={()=>router.back()}><Ionicons name="arrow-back" size={22} color={C.black}/></TouchableOpacity><View style={{flex:1}}><Text style={s.eyebrow}>BANDEJA ÚNICA</Text><Text style={s.title}>{parcel?'Paquetería y envíos':'Delivery Moli'}</Text></View><TouchableOpacity accessibilityRole="button" accessibilityLabel="Actualizar entregas" style={s.refresh} onPress={()=>{setRefreshing(true);load();}}><Ionicons name="refresh" size={21} color="#FF7733"/></TouchableOpacity></View>
     <View style={s.notice}><Ionicons name={parcel?'cube-outline':'bicycle-outline'} size={22} color="#FF7733"/><View style={{flex:1}}><Text style={s.noticeTitle}>{parcel?'Envíos punto a punto':'Pedidos de comercios'}</Text><Text style={s.noticeCopy}>{parcel?'Tus próximos envíos aparecerán en esta bandeja junto con el reparto de comercios.':'La dirección final se habilita solamente después de aceptar.'}</Text></View></View>
+    {!!opportunityNotice&&<TouchableOpacity accessibilityRole="button" accessibilityLabel="Cerrar aviso de entrega" onPress={()=>setOpportunityNotice('')} style={{backgroundColor:'#FFF1E8',padding:12,marginHorizontal:18,borderRadius:10}}><Text style={{color:C.black}}>{opportunityNotice} ×</Text></TouchableOpacity>}
     {message?<View style={s.error}><Text style={s.errorText}>{message}</Text></View>:null}
     {loading?<ActivityIndicator style={{marginTop:48}} color="#FF7733"/>:<ScrollView refreshControl={<RefreshControl refreshing={refreshing} onRefresh={()=>{setRefreshing(true);load();}}/>} contentContainerStyle={s.list}>
       {!items.length?<View style={s.empty}><View style={s.emptyIcon}><Ionicons name="notifications-outline" size={34} color="#FF7733"/></View><Text style={s.emptyTitle}>No hay entregas por ahora</Text><Text style={s.emptyCopy}>Cuando un comercio tenga un pedido listo, la oferta aparecerá acá. Las motos tienen prioridad en la primera ronda.</Text></View>:items.map(item=>{const action=next[item.status];return <View key={item.delivery_id} style={s.card}><View style={s.cardTop}><View style={s.kind}><Ionicons name="storefront-outline" size={19} color="#FF7733"/><Text style={s.kindText}>{item.merchant.name}</Text></View><Text style={s.status}>{statusLabel[item.status]||item.status}</Text></View><View style={s.route}><View style={s.routeDot}/><View style={{flex:1}}><Text style={s.routeLabel}>Retiro</Text><Text style={s.routeValue}>{item.merchant.address||'Dirección del comercio'}</Text></View></View><View style={s.route}><View style={[s.routeDot,{backgroundColor:'#202124'}]}/><View style={{flex:1}}><Text style={s.routeLabel}>Entrega</Text><Text style={s.routeValue}>{item.destination?.address||item.destination?.zone||'Se muestra después de aceptar'}</Text></View></View><View style={s.bottom}><View><Text style={s.feeLabel}>Ganancia estimada</Text><Text style={s.fee}>{money(item.pricing.delivery_fee_cents)}</Text></View>{item.status==='offering'?<TouchableOpacity accessibilityRole="button" style={s.primary} disabled={busy===item.delivery_id} onPress={()=>accept(item)}>{busy===item.delivery_id?<ActivityIndicator color="#FFF"/>:<Text style={s.primaryText}>Aceptar</Text>}</TouchableOpacity>:action?<TouchableOpacity accessibilityRole="button" style={s.primary} disabled={busy===item.delivery_id} onPress={()=>advance(item)}><Ionicons name={action.icon} size={18} color="#FFF"/><Text style={s.primaryText}>{action.label}</Text></TouchableOpacity>:null}</View></View>})}

@@ -1,3 +1,4 @@
+import { operatorAlert } from '@/src/components/OperatorAlert';
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, SafeAreaView, TouchableOpacity,
@@ -38,7 +39,7 @@ export default function AdminMessagesScreen() {
 
   const handleSend = async () => {
     if (!subject.trim() || !body.trim()) {
-      Alert.alert('Error', 'Completá asunto y mensaje');
+      operatorAlert('Error', 'Completá asunto y mensaje');
       return;
     }
     setSending(true);
@@ -56,14 +57,14 @@ export default function AdminMessagesScreen() {
             sent++;
           } catch(e) {}
         }
-        Alert.alert('Enviado', `Mensaje enviado a ${sent} conductores`);
+        operatorAlert('Enviado', `Mensaje enviado a ${sent} conductores`);
       } else if (selectedDriver) {
         await apiService.post('/inbox/send', {
           recipient_id: selectedDriver.user_id,
           subject: subject.trim(),
           body: body.trim(),
         });
-        Alert.alert('Enviado', `Mensaje enviado a ${selectedDriver.name}`);
+        operatorAlert('Enviado', `Mensaje enviado a ${selectedDriver.name}`);
       }
       setShowCompose(false);
       setSubject('');
@@ -71,7 +72,7 @@ export default function AdminMessagesScreen() {
       setSelectedDriver(null);
       setBroadcastMode(false);
     } catch (e: any) {
-      Alert.alert('Error', e.message || 'No se pudo enviar');
+      operatorAlert('Error', e.message || 'No se pudo enviar');
     } finally { setSending(false); }
   };
 

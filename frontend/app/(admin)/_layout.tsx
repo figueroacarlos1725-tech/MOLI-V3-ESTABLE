@@ -11,6 +11,7 @@ const isDesktop = Platform.OS === 'web' && width > 768;
 
 const SIDEBAR_ITEMS = [
   { name: 'dashboard', title: 'Resumen', icon: 'grid' },
+  { name: 'dispatch', title: 'Despacho', icon: 'location' },
   { name: 'godseye', title: 'Ojo de Dios', icon: 'eye' },
   { name: 'trips', title: 'Viajes', icon: 'car' },
   { name: 'users', title: 'Usuarios', icon: 'people' },
@@ -25,6 +26,9 @@ const SIDEBAR_ITEMS = [
   { name: 'verification', title: 'Verificación', icon: 'shield-checkmark' },
   { name: 'messages', title: 'Mensajes', icon: 'mail' },
   { name: 'trabajos', title: 'Moli Trabajos', icon: 'briefcase' },
+  { name: 'dispatchers', title: 'Despachadores', icon: 'headset' },
+  { name: 'places', title: 'Lugares y caché', icon: 'map' },
+  { name: 'comercios', title: 'Comercios', icon: 'storefront' },
 ];
 
 function AdminSidebar() {
@@ -56,7 +60,7 @@ function AdminSidebar() {
             <TouchableOpacity
               key={item.name}
               style={[styles.sidebarItem, isActive && styles.sidebarItemActive]}
-              onPress={() => router.push(`/(admin)/${item.name}` as any)}
+              onPress={() => router.push((item.name==='dispatch'?'/(dispatch)/home':`/(admin)/${item.name}`) as any)}
             >
               <Ionicons
                 name={item.icon as any}
@@ -132,6 +136,11 @@ export default function AdminLayout() {
             <Tabs.Screen name="settings" />
             <Tabs.Screen name="support" />
             <Tabs.Screen name="verification" />
+            <Tabs.Screen name="messages" />
+            <Tabs.Screen name="trabajos" />
+            <Tabs.Screen name="dispatchers" />
+            <Tabs.Screen name="places" />
+            <Tabs.Screen name="comercios" />
           </Tabs>
         </View>
       </View>
@@ -172,6 +181,7 @@ export default function AdminLayout() {
       <Tabs.Screen name="messages" options={{ href: null }} />
       <Tabs.Screen name="dispatchers" options={{ href: null }} />
       <Tabs.Screen name="trabajos" options={{ href: null }} />
+      <Tabs.Screen name="comercios" options={{ href: null }} />
     </Tabs>
   );
 }

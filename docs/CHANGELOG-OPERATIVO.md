@@ -181,3 +181,13 @@ Las suscripciones y ventanas del Centro de oportunidades se limitan a la pantall
 - Formulario explícito de objeto perdido/reclamo guarda caso pendiente para atención humana; exige referencia de servicio propio y no cambia pagos o estados. Sin OpenAI se identifica como consulta directa al sistema.
 - Adaptador Responses opt-in, clave/modelo del servidor, store=false, timeout y límite de veinte solicitudes por minuto. Sin herramientas de escritura. Conocimiento versionado en support_knowledge.md; operación en ASISTENTE-SOPORTE.md.
 - 100 pruebas de regresión aprobadas, incluidas 15 de soporte y proveedor simulado; API local cliente/prestador con sesiones ajenas rechazadas. Navegador: consulta de cuenta y caso ficticio de objeto perdido registrado. No se probó ni activó OpenAI real.
+
+## 2026-10-11 — Paneles, flota y promoción de lanzamiento
+
+- Paneles administrativos con errores/confirmaciones visibles en web; acceso a Despacho y Comercios. Mercado: retiro se completa por comercio, delivery requiere repartidor.
+- Ojo de Dios usa eventos autenticados de flota y paquete de iconos MOLI; trayectorias por prestador/vehículo y rango horario, muestras GPS reales recibidas con hora servidor y retención configurable30d. No reconstruye recorridos anteriores al registro GPS ni certifica segundo plano Android.
+- Oficios/trámites/delivery notifican retirada de oportunidad a otros candidatos al tomarla.
+- Plan opcional movilidad: 0% por30d desde max(lanzamiento oficial, fecha registro); alternativa15%. Beta no inicia reloj promocional. Lanzamiento solo admin, no reversible ni reiniciable. No se activó lanzamiento en QA compartido ni cloud. La revisión provisional de documentos todavía conserva reglas previas; no confundir ambos relojes.
+- Admin autoriza viajes promocionales en efectivo; cupo2 por día Argentina reservado transaccionalmente al autorizar, liberado una vez al cancelar. Cobertura hasta$4000 excluye multas; pasajero paga excedente. Solo cierre válido acredita15% de cobertura en promotional_credit_balance, separado del saldo retirable. Despuésdelperíodo, descuento automático de comisiones de viajes hasta agotar crédito. No aplica a trabajos, delivery ni retiros. Pagos externos promocionales pendientes de integración de descuento.
+- Ledger por ride_id, transacciones Mongo con reintento y claim de cierre evitan duplicar créditos/uso; errores posteriores a liquidación requieren conciliación, sin repetir efectos. UI registro, billetera, viaje cliente/conductor y Ajustes/Viajes admin integradas.
+- Pruebas:170 backend, TypeScript, API aislada de promociones con dinero ficticio, límites, permisos, relojes personales y retiro rechazado. Captura real del selector de registro. Cambios locales; cloud requiere despliegue del checkpoint.

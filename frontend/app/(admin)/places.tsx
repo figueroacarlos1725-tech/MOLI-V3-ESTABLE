@@ -1,3 +1,4 @@
+import { operatorAlert } from '@/src/components/OperatorAlert';
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
@@ -94,7 +95,7 @@ export default function AdminPlacesScreen() {
 
   const handleSave = async () => {
     if (!name.trim() || !address.trim()) {
-      Alert.alert('Error', 'Nombre y dirección son obligatorios');
+      operatorAlert('Error', 'Nombre y dirección son obligatorios');
       return;
     }
 
@@ -117,7 +118,7 @@ export default function AdminPlacesScreen() {
       resetForm();
       fetchPlaces();
     } catch (e: any) {
-      Alert.alert('Error', e.message || 'No se pudo guardar');
+      operatorAlert('Error', e.message || 'No se pudo guardar');
     }
   };
 
@@ -129,7 +130,7 @@ export default function AdminPlacesScreen() {
       await apiService.delete(`/admin/places/${placeId}`);
       fetchPlaces();
     } catch (e: any) {
-      Alert.alert('Error', e.message || 'No se pudo eliminar');
+      operatorAlert('Error', e.message || 'No se pudo eliminar');
     }
   };
 
@@ -152,7 +153,7 @@ export default function AdminPlacesScreen() {
       await apiService.delete('/admin/cache/clear');
       fetchCacheStats();
     } catch (e: any) {
-      Alert.alert('Error', e.message || 'No se pudo limpiar');
+      operatorAlert('Error', e.message || 'No se pudo limpiar');
     }
   };
 

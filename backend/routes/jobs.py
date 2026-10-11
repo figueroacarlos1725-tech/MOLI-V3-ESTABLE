@@ -1,3 +1,5 @@
+from fleet_live import emit_provider_location, emit_fleet_changed, valid_location
+from opportunity_notifications import notify_job_unavailable
 """Moli Trabajos - Jobs marketplace routes"""
 from fastapi import APIRouter, HTTPException, Depends, Query, Body
 from typing import Optional, List
@@ -113,6 +115,10 @@ async def update_professional_profile(
     data: dict = Body(...),
     user: dict = Depends(get_current_user)
 ):
+    if data.get("location") is not None and not valid_location(data["location"]):
+        raise HTTPException(422, "Coordenadas inválidas")
+    if data.get("location") is not None:
+        data["location"] = {**data["location"], "updated_at": datetime.now(timezone.utc).isoformat()}
     now = datetime.now(timezone.utc)
     
     existing = await db.professional_profiles.find_one({"user_id": user["user_id"]})
@@ -180,6 +186,8 @@ async def update_professional_profile(
         for k in ["updated_at", "created_at"]:
             if k in result and hasattr(result[k], 'isoformat'):
                 result[k] = result[k].isoformat()
+    await emit_fleet_changed(user["user_id"])
+    await emit_provider_location(user["user_id"], reported_location=data.get("location"), source="professional_rest")
     return {"status": "updated", "profile": result}
 
 
@@ -240,6 +248,8 @@ async def create_job_post(
             {"_id": 0, "user_id": 1}
         ).to_list(200)
         
+        await db.job_opportunity_audiences.update_one({"job_id": job["job_id"]},
+            {"$set": {"recipient_ids": [pro["user_id"] for pro in pros if pro["user_id"] != user["user_id"]]}}, upsert=True)
         notified = 0
         for pro in pros:
             if pro["user_id"] != user["user_id"]:
@@ -418,6 +428,7 @@ async def start_job_review(
     if not locked:
         raise HTTPException(status_code=409, detail="El trabajo no está disponible para revisión")
 
+    await notify_job_unavailable(locked, user["user_id"], reviewing=True, until=review_until)
     professional_name = user.get("name", "Un profesional")
     await _store_client_notification(job["client_id"], "job_reviewing", "Están revisando tu solicitud", f"{professional_name} está evaluando tu pedido.", job_id)
     
@@ -483,6 +494,7 @@ async def accept_job_after_review(
     if not assigned:
         raise HTTPException(status_code=409, detail="La revisión venció o el trabajo ya no está disponible")
 
+    await notify_job_unavailable(assigned, user["user_id"])
     await _store_client_notification(job["client_id"], "job_accepted", "Profesional encontrado", f"{user.get('name', 'Un profesional')} aceptó tu solicitud.", job_id)
     
     # Notify client
@@ -626,6 +638,9 @@ async def respond_job_negotiation(job_id: str, data: dict = Body(...), user: dic
                       "reviewing_by": None, "reviewing_name": None, "reviewing_until": None,
                       "negotiation_turn": None, "negotiation_deadline": None}},
             return_document=ReturnDocument.AFTER)
+        if not assigned:
+            raise HTTPException(409, "Otro participante ya respondió esta negociación")
+        await notify_job_unavailable(assigned, professional_id)
         other_id = professional_id if is_client else job["client_id"]
         await manager.send_personal_message({"type": "job_accepted", "job_id": job_id,
             "professional_id": professional_id, "professional_name": assigned.get("assigned_name"),
@@ -697,6 +712,7 @@ async def send_job_offer(
     if not updated:
         raise HTTPException(status_code=400, detail="Otro profesional ya aceptó este trabajo")
     
+    await notify_job_unavailable({**job, "assigned_to": user["user_id"]}, user["user_id"])
     # Notify client via WebSocket
     try:
         from websocket_manager import manager
@@ -767,6 +783,13 @@ async def accept_job_offer(
     
     now = datetime.now(timezone.utc)
     
+    assigned = await db.job_posts.find_one_and_update(
+        {"job_id": job_id, "status": "open"},
+        {"$set": {"status": "assigned", "assigned_to": offer["professional_id"],
+                  "assigned_at": now, "agreed_price": offer["price"]}}, return_document=ReturnDocument.AFTER)
+    if not assigned:
+        raise HTTPException(409, "Otro profesional ya aceptó este trabajo")
+    await notify_job_unavailable(assigned, offer["professional_id"])
     # Accept the offer
     await db.job_offers.update_one(
         {"offer_id": offer_id},
@@ -777,17 +800,6 @@ async def accept_job_offer(
         {"job_id": job_id, "offer_id": {"$ne": offer_id}},
         {"$set": {"status": "rejected"}}
     )
-    # Update job
-    await db.job_posts.update_one(
-        {"job_id": job_id},
-        {"$set": {
-            "status": "assigned",
-            "assigned_to": offer["professional_id"],
-            "assigned_at": now,
-            "agreed_price": offer["price"],
-        }}
-    )
-    
     return {"status": "accepted", "professional_id": offer["professional_id"]}
 
 
@@ -969,6 +981,7 @@ async def update_job_status(
             except Exception:
                 pass
 
+    await emit_fleet_changed(job.get("assigned_to"))
     return {"status": "updated", "job_status": update.get("status", new_status), **penalty_info}
 
 

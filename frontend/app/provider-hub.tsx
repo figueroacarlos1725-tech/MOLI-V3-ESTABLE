@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator, Alert, Image, Modal, SafeAreaView, ScrollView, StyleSheet,
+  ActivityIndicator, Alert, AppState, Image, Modal, SafeAreaView, ScrollView, StyleSheet,
   Switch, Text, TextInput, TouchableOpacity, View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -9,7 +9,7 @@ import { useIsFocused } from '@react-navigation/native';
 import { useAuthStore } from '@/src/stores/authStore';
 import { apiService } from '@/src/services/api';
 import { socketService } from '@/src/services/socket';
-import { getCurrentLocation } from '@/src/utils/location';
+import { getCurrentLocation, getRealCurrentLocation } from '@/src/utils/location';
 import { MapView } from '@/src/components/MapView';
 import SideMenu from '@/src/components/SideMenu';
 
@@ -70,6 +70,7 @@ export default function ProviderHub() {
   const [countdown, setCountdown] = useState(25);
   const [reviewingRide, setReviewingRide] = useState(false);
   const [rideNotice, setRideNotice] = useState<any>(null);
+  const [opportunityNotice, setOpportunityNotice] = useState('');
   const [jobOffer, setJobOffer] = useState<any>(null);
   const [jobCountdown, setJobCountdown] = useState(35);
   const [reviewingJob, setReviewingJob] = useState(false);
@@ -90,6 +91,25 @@ export default function ProviderHub() {
     getCurrentLocation().then(current => { if (active && current) setLocation(current); }).catch(() => {}).finally(() => clearTimeout(timer));
     return () => { active = false; clearTimeout(timer); };
   }, [user?.user_id]);
+
+  useEffect(() => {
+    if (!professional || !online || !isFocused || !user?.user_id) return;
+    let active = true, sending = false;
+    const report = async () => {
+      if (!active || sending || AppState.currentState !== 'active') return;
+      sending = true;
+      try {
+        const current = await getRealCurrentLocation();
+        if (!active || !current || AppState.currentState !== 'active') return;
+        setLocation(current);
+        await apiService.put('/jobs/professional/profile', { location: current });
+      } catch { /* Failed GPS/reporting is not replaced with a made-up coordinate. */ }
+      finally { sending = false; }
+    };
+    report();
+    const timer = setInterval(report, 10000);
+    return () => { active = false; clearInterval(timer); };
+  }, [professional, online, isFocused, user?.user_id]);
 
   const loadDashboard = useCallback(async () => {
     const results = await Promise.allSettled([
@@ -127,10 +147,10 @@ export default function ProviderHub() {
 
   useFocusEffect(useCallback(() => { loadDashboard(); }, [loadDashboard]));
   useEffect(() => {
-    if (!activeJob?.job_id && !activeRide?.ride_id) return;
+    if (!isFocused || (!online && !activeJob?.job_id && !activeRide?.ride_id)) return;
     const timer = setInterval(loadDashboard, 8000);
     return () => clearInterval(timer);
-  }, [activeJob?.job_id, activeRide?.ride_id, loadDashboard]);
+  }, [activeJob?.job_id, activeRide?.ride_id, online, isFocused, loadDashboard]);
 
   useEffect(() => {
     if (!user?.user_id || !isFocused) return;
@@ -160,7 +180,20 @@ export default function ProviderHub() {
       }
       loadDashboard();
     });
-    return () => { unsubscribeOffer(); unsubscribeExpired(); unsubscribeReview(); unsubscribeTaken(); unsubscribeJob(); };
+    const withdrawJob = (notice: any) => {
+      setJobOffer((offer: any) => offer?.job_id === notice.job_id ? null : offer);
+      setJobs(items => items.filter(item => item.job_id !== notice.job_id));
+      setOpportunityNotice(notice.message || 'Esta solicitud ya está siendo atendida por otro profesional.');
+      loadDashboard();
+    };
+    const unsubscribeJobReview = socketService.on('job_under_review', withdrawJob);
+    const unsubscribeJobTaken = socketService.on('job_opportunity_taken', withdrawJob);
+    const unsubscribeDeliveryTaken = socketService.on('delivery_opportunity_taken', (notice: any) => {
+      setDeliveries(items => items.filter(item => item.delivery_id !== notice.delivery_id));
+      setOpportunityNotice(notice.message || 'Otro repartidor aceptó esta entrega.');
+      loadDashboard();
+    });
+    return () => { unsubscribeOffer(); unsubscribeExpired(); unsubscribeReview(); unsubscribeTaken(); unsubscribeJob(); unsubscribeJobReview(); unsubscribeJobTaken(); unsubscribeDeliveryTaken(); };
   }, [user?.user_id, isFocused, prefs.rides, prefs.jobs, prefs.paperwork, online, loadDashboard]);
 
   useEffect(() => {
@@ -210,7 +243,9 @@ export default function ProviderHub() {
     setBusyOnline(true);
     try {
       if (driver) {
-        await apiService.put(`/drivers/availability?is_online=${value}&latitude=${location.latitude}&longitude=${location.longitude}`);
+        const realLocation=value?await getRealCurrentLocation():null;
+        if(realLocation)setLocation(realLocation);
+        await apiService.put(`/drivers/availability?is_online=${value}${realLocation?`&latitude=${realLocation.latitude}&longitude=${realLocation.longitude}`:''}`);
       }
       await saveProfilePrefs(prefs, value);
       setOnline(value);
@@ -221,7 +256,7 @@ export default function ProviderHub() {
 
   const opportunities = useMemo<Opportunity[]>(() => {
     const workItems = jobs
-      .filter(job => (job.category === 'tramites' ? prefs.paperwork : prefs.jobs))
+      .filter(job => (job.status === 'open' || job.status === 'reviewing' && job.reviewing_by === user?.user_id) && (job.category === 'tramites' ? prefs.paperwork : prefs.jobs))
       .map(job => ({
         id: job.job_id,
         type: job.category === 'tramites' ? 'paperwork' as const : 'jobs' as const,
@@ -239,7 +274,7 @@ export default function ProviderHub() {
       raw: item,
     }));
     return [...deliveryItems, ...workItems];
-  }, [jobs, deliveries, prefs]);
+  }, [user?.user_id, jobs, deliveries, prefs]);
 
   const mapMarkers = useMemo(() => {
     const points: any[] = [{ ...location, type: 'user', title: 'Tu ubicación' }];
@@ -346,6 +381,7 @@ export default function ProviderHub() {
           </TouchableOpacity>
         </View>
 
+        {!!opportunityNotice && <TouchableOpacity accessibilityRole="button" accessibilityLabel="Cerrar aviso de oportunidad" onPress={() => setOpportunityNotice('')} style={{backgroundColor:'#FFF1E8',padding:12,borderRadius:12,flexDirection:'row',gap:8}}><Ionicons name="information-circle-outline" size={20} color={ORANGE}/><Text style={{flex:1,color:INK}}>{opportunityNotice}</Text><Ionicons name="close" size={18} color={INK}/></TouchableOpacity>}
         {activeRide && <TouchableOpacity accessibilityRole="button" accessibilityLabel="Continuar viaje activo" onPress={() => router.push('/(driver)/home')} style={[styles.earningsCard, {backgroundColor:'#FFF1E8', borderWidth:1, borderColor:ORANGE}]}>
           <View style={{flex:1}}><Text style={styles.sectionTitle}>Tenés un viaje en curso</Text><Text style={styles.sectionCopy}>Retomá el seguimiento y completá el viaje.</Text></View><Ionicons name="chevron-forward" size={24} color={ORANGE}/>
         </TouchableOpacity>}
