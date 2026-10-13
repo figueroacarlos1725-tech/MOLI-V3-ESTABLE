@@ -6,6 +6,10 @@
   "build": {
     "qa": {
       "distribution": "internal",
+      "env": {
+        "MOLI_BUILD_VARIANT": "qa",
+        "EXPO_PUBLIC_BACKEND_URL": "https://moli-qa-api.onrender.com"
+      },
       "android": {
         "buildType": "apk"
       },

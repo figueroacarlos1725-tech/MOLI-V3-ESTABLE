@@ -212,3 +212,10 @@ Las suscripciones y ventanas del Centro de oportunidades se limitan a la pantall
 - Remitente compartido onboarding@resend.dev exige RESEND_TEST_RECIPIENT coincidente; otros destinatarios se rechazan con mensaje de modo de prueba. Para usuarios reales se necesita dominio verificado.
 - Cuatro pruebas con proveedor simulado: entrega, rechazo de otros destinatarios sin conexión, falta de clave y fallo del proveedor. Sin clave ni sesión Resend no se verificó entrega real ni se activó en Render.
 - Recuperación de contraseña sigue sin implementación; el enlace de login informa que no está habilitada.
+
+
+## 2026-10-13 — Preparación de APK QA
+
+- Perfil EAS qa genera APK interno con API pública Render y MOLI_BUILD_VARIANT=qa. Config dinámica usa com.digigo.app.qa y Moli QA para preservar paquete/com.digigo.app, versionCode25 y firma de Play.
+- Plugin expo-notifications agregado. ProjectId y google-services se suministran por EAS_PROJECT_ID y GOOGLE_SERVICES_JSON; no se inventaron identificadores ni se generaron claves de producción.
+- Validación Node confirma variante QA y producción. EAS CLI instalado y whoami responde Not logged in. Compilación aún no iniciada; faltan sesión Expo, vínculo del proyecto y credenciales de firma QA. Push remoto también necesita Firebase/FCM; no certificado en Android.
