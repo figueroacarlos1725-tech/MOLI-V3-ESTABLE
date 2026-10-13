@@ -342,3 +342,11 @@ El registro móvil exige teléfono y email. El canal `auto` intenta WhatsApp y u
 - Perfil EAS qa genera APK interno con API pública Render y MOLI_BUILD_VARIANT=qa. Config dinámica usa com.digigo.app.qa y Moli QA para preservar paquete/com.digigo.app, versionCode25 y firma de Play.
 - Plugin expo-notifications agregado. ProjectId y google-services se suministran por EAS_PROJECT_ID y GOOGLE_SERVICES_JSON; no se inventaron identificadores ni se generaron claves de producción.
 - Validación Node confirma variante QA y producción. EAS CLI instalado y whoami responde Not logged in. Compilación aún no iniciada; faltan sesión Expo, vínculo del proyecto y credenciales de firma QA. Push remoto también necesita Firebase/FCM; no certificado en Android.
+
+
+## 2026-10-13 — APK enviado a EAS
+
+- Proyecto QA real @carlosfigueroa0725s-team/molitech, ID afd91687-757f-4a51-b7b8-13a81755fb1c, aplicado exclusivamente a variante QA.
+- EAS autenticado con credencial privada fuera de Git. Keystore remoto generado para com.digigo.app.qa; producción no modificada.
+- Lockfile pnpm generado y agregado. EAS aceptó archivo fuente 10MB y fingerprint; build 2e0a141f-6b38-45e2-899f-08e261f19213 en cola gratuita, estimación inicial21min. No hay APK generado aún, no se certificó compilación ni instalación.
+- Firebase/FCM pendiente: este build no certifica notificaciones remotas en segundo plano.
