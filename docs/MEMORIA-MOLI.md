@@ -327,3 +327,11 @@ El registro móvil exige teléfono y email. El canal `auto` intenta WhatsApp y u
 - La verificación visual final quedó pendiente porque el navegador rechazó expresamente acceder a la API local127.0.0.1:8091. No se cambiaron direcciones ni se creó un proxy para eludir ese rechazo; se solicitó permiso al usuario. QA local y código; este checkpoint no se ha desplegado a Render ni al VPS.
 
 - Cierre del checkpoint: se consolida el primer formulario de vehículo en vehicles, se reconocen capacidades de fichas antiguas solo al revisar explícitamente y se revalida oficio/trámite específico antes de asignar. API ASGI aislada confirma año faltante, alta inicial, dos vehículos y aprobación antigua con faltantes rechazada. Los errores del Centro de oportunidades son visibles también en web.
+
+
+## 2026-10-13 — Resend preparado
+
+- EMAIL_PROVIDER=resend usa HTTPS para códigos de registro/acceso; SMTP permanece como alternativa explícita. RESEND_API_KEY solo servidor, RESEND_FROM configurable.
+- Remitente compartido onboarding@resend.dev exige RESEND_TEST_RECIPIENT coincidente; otros destinatarios se rechazan con mensaje de modo de prueba. Para usuarios reales se necesita dominio verificado.
+- Cuatro pruebas con proveedor simulado: entrega, rechazo de otros destinatarios sin conexión, falta de clave y fallo del proveedor. Sin clave ni sesión Resend no se verificó entrega real ni se activó en Render.
+- Recuperación de contraseña sigue sin implementación; el enlace de login informa que no está habilitada.

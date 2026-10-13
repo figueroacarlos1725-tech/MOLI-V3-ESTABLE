@@ -116,6 +116,29 @@ def _send_email_sync(email: str, code: str) -> None:
 
 
 async def _send_email_otp(email: str, code: str) -> None:
+    if os.getenv("EMAIL_PROVIDER", "smtp").lower() == "resend":
+        key = os.getenv("RESEND_API_KEY")
+        sender = os.getenv("RESEND_FROM", "Moli <onboarding@resend.dev>")
+        test_recipient = os.getenv("RESEND_TEST_RECIPIENT", "").strip().lower()
+        if not key:
+            raise HTTPException(status_code=503, detail="El envío por email todavía no está configurado")
+        # The shared sender cannot deliver registration codes to arbitrary users.
+        if "@resend.dev" in sender.lower() and (not test_recipient or email.strip().lower() != test_recipient):
+            raise HTTPException(status_code=503, detail="Email en modo de prueba: falta verificar el dominio de Moli")
+        try:
+            async with httpx.AsyncClient(timeout=12) as client:
+                response = await client.post(
+                    "https://api.resend.com/emails",
+                    headers={"Authorization": f"Bearer {key}"},
+                    json={"from": sender, "to": [email], "subject": "Tu código de acceso a Moli",
+                          "text": f"Tu código de Moli es {code}. Vence en {OTP_TTL_MINUTES} minutos. Si no lo solicitaste, ignorá este mensaje."},
+                )
+                response.raise_for_status()
+                if not response.json().get("id"):
+                    raise ValueError("Missing delivery ID")
+        except (httpx.HTTPError, ValueError) as exc:
+            raise HTTPException(status_code=502, detail="No pudimos enviar el código por email") from exc
+        return
     try:
         await asyncio.to_thread(_send_email_sync, email, code)
     except Exception as exc:
